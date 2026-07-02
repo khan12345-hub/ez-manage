@@ -16,6 +16,7 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+  app.setGlobalPrefix('api');
   const PgSession = connectPgSimple(session);
   app.use(
     session({

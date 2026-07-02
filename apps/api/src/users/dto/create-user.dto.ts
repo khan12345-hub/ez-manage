@@ -1,5 +1,5 @@
 import { IsEmail, IsEnum, IsString, MinLength } from 'class-validator';
-import { UserStatus } from '@shared/src';
+import { UserStatus } from '@shared/*';
 
 
 export class CreateUserDto {
