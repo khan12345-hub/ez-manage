@@ -1,4 +1,8 @@
 {
+  "dependencies": {
+    "@nestjs/mapped-types": "*",
+    "zod": "^4.4.3"
+  },
   "name": "ez-manage",
   "private": true,
   "scripts": {
