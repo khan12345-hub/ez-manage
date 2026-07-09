@@ -1,32 +1,62 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
-import { POSTGRES_POOL } from '../../src/database/postgres.provider';
+import { Injectable } from '@nestjs/common';
+
 import { CreateUserDto } from './dto/create-user.dto';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class UsersRepository {
-  constructor(
-    @Inject(POSTGRES_POOL)
-    private readonly db: Pool,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findById(id: number) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        status: true,
+      },
+    });
+  }
+
   async findByEmail(email: string) {
-    const result = this.db.query(
-      `SELECT email FROM users WHERE email=$1 LIMIT 1`,
-      [email],
-    );
-    return result.row[0] ?? null;
+    return this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+  }
+
+  async findWorkspaceMembership(
+    userId: number,
+    workspaceId: number,
+  ) {
+    return this.prisma.workspaceMember.findFirst({
+      where: {
+        userId,
+        workspaceId,
+      },
+      select: {
+        id: true,
+        role: true,
+        workspaceId: true,
+        userId: true,
+      },
+    });
   }
 
   async create(user: CreateUserDto) {
-    const result = await this.db.query(
-      `INSERT INTO users(first_name,last_name,email,password,status) VALUES($1,$2,$3,$4,$5) RETURNING *`, [
-        user.firstName,
-        user.lastName,
-        user.password,
-        user.status,
-      ],
-    );
-
-    return result.row[0]
+    return this.prisma.user.create({
+      data: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        password: user.password,
+        status: user.status,
+      },
+    });
   }
 }

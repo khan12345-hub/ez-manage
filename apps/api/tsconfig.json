@@ -4,11 +4,13 @@
     "src/**/*"
   ],
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "resolvePackageJsonExports": true,
+    // "module": "nodenext",
+    // "moduleResolution": "nodenext",
+    // "resolvePackageJsonExports": true,
+    "module": "commonjs",
+"moduleResolution": "node",
     "esModuleInterop": true,
-    "isolatedModules": true,
+    "isolatedModules": false,
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -26,7 +28,7 @@
     "baseUrl": "./",
     "outDir": "./dist",
     "paths": {
-    "@shared/*": ["../../packages/shared/src/index.js"]
+    "@repo/shared": ["../../packages/shared/src/index.js"]
   },
   },
 }

@@ -1,63 +1,48 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
-import { POSTGRES_POOL } from '../../src/database/postgres.provider';
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from 'prisma/prisma.service';
+// Adjust path to your PrismaService
 
 @Injectable()
 export class AuthRepository {
-  constructor(
-    @Inject(POSTGRES_POOL)
-    private readonly db: Pool,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async findUserByEmail(email: string) {
-    const { rows } = await this.db.query(
-      `
-      SELECT
-        id,
-        first_name AS "firstName",
-        last_name AS "lastName",
-        email,
-        password_hash AS "passwordHash",
-        role,
-        status
-      FROM users
-      WHERE email = $1
-      LIMIT 1
-      `,
-      [email],
-    );
-
-    return rows[0] ?? null;
+    return this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        firstName: true, // Prisma handles camelCase if mapped in schema.prisma
+        lastName: true,
+        email: true,
+        password: true,
+        
+        status: true,
+      },
+    });
   }
 
   async findUserById(id: number) {
-    const { rows } = await this.db.query(
-      `
-      SELECT
-        id,
-        first_name AS "firstName",
-        last_name AS "lastName",
-        email,
-        role,
-        status
-      FROM users
-      WHERE id = $1
-      LIMIT 1
-      `,
-      [id],
-    );
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        
+        status: true,
+        password: true,
 
-    return rows[0] ?? null;
+      },
+    });
   }
 
   async updateLastLogin(id: number) {
-    await this.db.query(
-      `
-      UPDATE users
-      SET last_login_at = NOW()
-      WHERE id = $1
-      `,
-      [id],
-    );
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        lastLoginAt: new Date(), // Equivalent to NOW()
+      },
+    });
   }
 }

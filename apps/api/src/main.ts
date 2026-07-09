@@ -5,6 +5,7 @@ import * as dotenv from 'dotenv';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import { postgresProvider } from './database/postgres.provider';
+import cookieParser from "cookie-parser";
 dotenv.config();
 
 async function bootstrap() {
@@ -16,6 +17,16 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  app.use(cookieParser());
+
+  app.enableCors({
+    origin: "http://localhost:3000", // Next.js frontend
+    credentials: true, // Required for cookies
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  });
+
   app.setGlobalPrefix('api');
   const PgSession = connectPgSimple(session);
   app.use(

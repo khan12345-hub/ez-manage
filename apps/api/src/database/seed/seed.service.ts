@@ -1,78 +1,115 @@
-// src/database/seed.service.ts
-
 import { Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
-import { POSTGRES_POOL } from '../postgres.provider';
-import { UserStatus } from '@shared/src';
+import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  UserRole,
+  UserStatus,
+  WorkspaceRole,
+} from '../../../generated/prisma/client';
 
 @Injectable()
 export class SeedService {
   constructor(
-    @Inject(POSTGRES_POOL)
-    private readonly pool: Pool,
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService,
   ) {}
 
-  async seed() {
-    const client = await this.pool.connect();
-    console.log("process.env.DEFAULT_OWNER_PASSWORD", process.env.DEFAULT_OWNER_PASSWORD)
-    try {
-      await client.query('BEGIN');
+async seed() {
+  console.log("🌱 Seeding database...");
 
-      // Check if owner already exists
-      const existingOwner = await client.query(
-        `SELECT id FROM users WHERE email = $1`,
-        [process.env.DEFAULT_OWNER_EMAIL],
-      );
+  const passwordHash = await bcrypt.hash(
+    process.env.DEFAULT_OWNER_PASSWORD!,
+    12,
+  );
 
-      if (existingOwner.rowCount) {
-        console.log('Owner already exists.');
-        await client.query('ROLLBACK');
-        return;
-      }
+  const users: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  }[] = JSON.parse(process.env.DEFAULT_USERS!);
 
-      // Hash password
-      const passwordHash = await bcrypt.hash(
-        process.env.DEFAULT_OWNER_PASSWORD!,
-        12,
-      );
+  const defaultBoards = [
+    "General",
+    "Development",
+    "Design",
+    "Human Resources",
+  ];
 
-      console.log("password", passwordHash)
+  for (const user of users) {
+    // Create or update user
+    const owner = await this.prisma.user.upsert({
+      where: {
+        email: user.email,
+      },
+      update: {},
+      create: {
+        ...user,
+        password: passwordHash,
+        status: UserStatus.ACTIVE,
+      },
+    });
 
-      // Create owner
-      await client.query(
-        `
-        INSERT INTO users
-        (
-          
-          first_name,
-          last_name,
-          email,
-          password_hash,
-          role,
-          status
-        )
-        VALUES ($1,$2,$3,$4,$5, $6)
-        `,
-        [
-          
-          process.env.DEFAULT_OWNER_FIRST_NAME,
-          process.env.DEFAULT_OWNER_LAST_NAME,
-          process.env.DEFAULT_OWNER_EMAIL,
-          passwordHash,
-          'OWNER',
-          UserStatus.ACTIVE,
-        ],
-      );
+    console.log(`✅ User ready: ${owner.email}`);
 
-      await client.query('COMMIT');
+    // Create default workspace if one does not already exist for this user
+    const existingWorkspace = await this.prisma.workspace.findFirst({
+      where: {
+        createdById: owner.id,
+      },
+    });
 
-      console.log('Database seeded successfully.');
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
-    } finally {
-      client.release();
+    const workspace =
+      existingWorkspace ??
+      (await this.prisma.workspace.create({
+        data: {
+          name: `${owner.firstName}'s Workspace`,
+          description: "Default workspace",
+          createdById: owner.id,
+        },
+      }));
+
+    console.log(`✅ Workspace ready: ${workspace.name}`);
+
+    // Create or update workspace membership
+    await this.prisma.workspaceMember.upsert({
+      where: {
+        workspaceId_userId: {
+          workspaceId: workspace.id,
+          userId: owner.id,
+        },
+      },
+      update: {},
+      create: {
+        workspaceId: workspace.id,
+        userId: owner.id,
+        role: WorkspaceRole.OWNER,
+      },
+    });
+
+    console.log(`✅ Workspace membership ready`);
+
+    // Create default boards
+    for (const boardName of defaultBoards) {
+      await this.prisma.board.upsert({
+        where: {
+          workspaceId_name: {
+            workspaceId: workspace.id,
+            name: boardName,
+          },
+        },
+        update: {},
+        create: {
+          name: boardName,
+          workspaceId: workspace.id,
+          createdById: owner.id,
+
+        },
+      });
     }
+
+    console.log(`✅ Default boards ready for ${workspace.name}`);
   }
+
+  console.log("🎉 Database seeded successfully.");
+}
 }

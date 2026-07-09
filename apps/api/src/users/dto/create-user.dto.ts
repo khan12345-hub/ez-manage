@@ -1,5 +1,5 @@
 import { IsEmail, IsEnum, IsString, MinLength } from 'class-validator';
-import { UserStatus } from '@shared/*';
+import { UserStatus } from '@repo/shared';
 
 
 export class CreateUserDto {

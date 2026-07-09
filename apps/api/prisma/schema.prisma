@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                   Int               @id @default(autoincrement())
+  firstName            String            @map("first_name") @db.VarChar(100)
+  lastName             String            @map("last_name") @db.VarChar(100)
+  email                String            @unique @db.VarChar(255)
+  password             String            @map("password_hash")
+  phone                String?           @db.VarChar(20)
+  avatarUrl            String?           @map("avatar_url")
+
+  status               UserStatus        @default(ACTIVE)
+
+  lastLoginAt          DateTime?         @map("last_login_at") @db.Timestamptz(6)
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  invitationsSent      Invitation[]      @relation("InvitationSender")
+
+  workspaceMemberships WorkspaceMember[]
+  boardMemberships     BoardMember[]
+
+  createdWorkspaces    Workspace[]       @relation("WorkspaceCreator")
+  createdBoards        Board[]            @relation("BoardCreator")
+  @@map("users")
+}
+
+model Session {
+  sid    String   @id @db.VarChar
+  sess   Json
+  expire DateTime @db.Timestamp(6)
+
+  @@map("sessions")
+}
+
+model Invitation {
+  id          Int                 @id @default(autoincrement())
+
+  email       String
+  token       String              @unique
+
+  workspaceId Int
+  role        WorkspaceRole
+
+  status      InvitationStatus    @default(PENDING)
+
+  invitedById Int
+
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime            @default(now())
+
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id])
+  invitedBy   User                @relation("InvitationSender", fields: [invitedById], references: [id])
+
+  boards      InvitationBoard[]
+  boardIds    Int[]
+
+  @@map("invitations")
+}
+
+model InvitationBoard {
+  id           Int @id @default(autoincrement())
+
+  invitationId Int
+  boardId      Int
+
+  invitation Invitation @relation(fields: [invitationId], references: [id])
+  board      Board      @relation(fields: [boardId], references: [id])
+
+  @@unique([invitationId, boardId])
+  @@map("invitation_boards")
+}
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+model WorkspaceMember {
+  id          Int                 @id @default(autoincrement())
+  workspaceId Int
+  userId      Int
+  role        WorkspaceRole
+  createdAt   DateTime            @default(now())
+  user        User                @relation(fields: [userId], references: [id])
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId,userId])
+  @@map("workspace_members")
+
+}
+enum BoardRole {
+  ADMIN
+  MEMBER
+  VIEWER
+}
+model BoardMember {
+  id      Int @id @default(autoincrement())
+  boardId Int
+  userId  Int
+
+  board Board @relation(fields: [boardId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+  createdAt   DateTime            @default(now())
+
+  @@unique([boardId, userId])
+  @@map("board_members")
+}
+enum BoardVisibility {
+    PUBLIC
+    PRIVATE
+}
+
+enum WorkspaceVisibility {
+    PUBLIC
+    PRIVATE
+}
+model Board {
+  id               Int               @id @default(autoincrement())
+  name             String
+  workspaceId      Int
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
+  invitationBoards InvitationBoard[]
+  
+  visibility       BoardVisibility   @default(PUBLIC)
+  members          BoardMember[]
+
+  createdById      Int
+  createdBy        User @relation("BoardCreator", fields:[createdById], references:[id])
+
+  @@unique([workspaceId, name])
+  @@map("boards")
+}
+
+model Workspace {
+  id          Int      @id @default(autoincrement())
+
+  name        String
+  description String?
+  visibility  WorkspaceVisibility @default(PRIVATE)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdById Int
+  createdBy   User      @relation("WorkspaceCreator", fields: [createdById], references: [id])
+
+  boards      Board[]
+  members     WorkspaceMember[]
+  invitations Invitation[]
+
+  @@map("workspaces")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+
+  @@map("user_status")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+
+  @@map("user_role") // OPTIMIZATION: Clean database-level lowercasing
+}
+
+
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+
+  @@map("invitation_status")
+}
