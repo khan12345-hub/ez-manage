@@ -1,8 +1,11 @@
 {
-  "name": "@shared",
-  "version": "1.0.0",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "files": ["dist"],
-  "type":"module"
+  "name": "@repo/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
 }

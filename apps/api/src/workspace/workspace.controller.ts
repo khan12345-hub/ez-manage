@@ -17,14 +17,14 @@ import { SessionUser } from 'src/auth/types/session-user.type';
 import { BoardsService } from 'src/boards/boards.service';
 import { WorkspaceMemberGuard } from 'src/auth/guards/permission.guard';
 import { SessionAuthGuard } from 'src/auth/guards/session.guard';
+import { WorkspaceAccessService } from './workspace-access.service';
 
 @Controller('workspaces')
-@UseGuards(SessionAuthGuard)
 export class WorkspaceController {
   constructor(
     private readonly workspaceService: WorkspaceService,
     private readonly boardsService: BoardsService,
-
+    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
   @Post()
@@ -58,15 +58,23 @@ export class WorkspaceController {
   }
 
   @Patch(':workspaceId')
-  update(
-    @Param('workspaceId') id: string,
+  @UseGuards(WorkspaceMemberGuard)
+  async update(
+    @Param('workspaceId', ParseIntPipe) workspaceId: number,
     @Body() updateWorkspaceDto: UpdateWorkspaceDto,
+    @CurrentUser() user: SessionUser,
   ) {
-    return this.workspaceService.update(+id, updateWorkspaceDto);
+    await this.workspaceAccessService.requireOwner(workspaceId, user.id);
+    return this.workspaceService.update(workspaceId, updateWorkspaceDto);
   }
 
   @Delete(':workspaceId')
-  remove(@Param('id') id: string) {
-    return this.workspaceService.remove(+id);
+  @UseGuards(WorkspaceMemberGuard)
+  async remove(
+    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    await this.workspaceAccessService.requireOwner(workspaceId, user.id);
+    return this.workspaceService.remove(workspaceId);
   }
 }

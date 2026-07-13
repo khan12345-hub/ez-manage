@@ -30,6 +30,9 @@ model User {
 
   createdWorkspaces    Workspace[]       @relation("WorkspaceCreator")
   createdBoards        Board[]            @relation("BoardCreator")
+  createdGroups        Group[]            @relation("GroupCreator")
+  createdTasks        Task[]            @relation("TaskCreator")
+
   @@map("users")
 }
 
@@ -131,14 +134,17 @@ model Board {
   updatedAt        DateTime          @updatedAt
   workspace        Workspace         @relation(fields: [workspaceId], references: [id])
   invitationBoards InvitationBoard[]
-  
   visibility       BoardVisibility   @default(PUBLIC)
   members          BoardMember[]
 
   createdById      Int
   createdBy        User @relation("BoardCreator", fields:[createdById], references:[id])
 
+  groups            Group[]
+  columns           BoardColumn[]
+
   @@unique([workspaceId, name])
+  @@index([workspaceId])
   @@map("boards")
 }
 
@@ -161,6 +167,101 @@ model Workspace {
 
   @@map("workspaces")
 }
+
+model Group {
+  id          Int      @id @default(autoincrement())
+
+  name        String
+  color       String?
+  order       Int
+
+  boardId     Int
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById Int
+  createdBy    User  @relation("GroupCreator",fields: [createdById], references: [id])
+
+  board        Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks        Task[]
+
+  @@index([boardId])
+  @@index([boardId, order])
+}
+
+model Task {
+  id          Int      @id @default(autoincrement())
+
+  groupId     Int
+  order        Float
+
+  createdById Int
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  group        Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy    User  @relation("TaskCreator", fields: [createdById], references: [id])
+
+  cells        TaskCell[]
+
+  @@index([groupId])
+  @@index([groupId, order])
+}
+
+model TaskCell {
+  id        Int @id @default(autoincrement())
+
+  taskId    Int
+  columnId  Int
+
+  value     Json?
+
+  task       Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  column     BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, columnId])
+
+  @@index([taskId])
+  @@index([columnId])
+}
+
+enum BoardColumnType {
+  TEXT
+  NUMBER
+  DATE
+  STATUS
+  PERSON
+  CHECKBOX
+  DROPDOWN
+  LABEL
+}
+
+model BoardColumn {
+  id          Int      @id @default(autoincrement())
+
+  name        String
+  type        BoardColumnType
+
+  order       Float
+
+  width       Int      @default(180)
+
+  settings    Json?
+
+  boardId     Int
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  cells      TaskCell[]
+
+  @@index([boardId])
+  @@unique([boardId, name])
+}
+
 
 enum UserStatus {
   ACTIVE

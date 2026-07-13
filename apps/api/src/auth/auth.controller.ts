@@ -8,10 +8,12 @@ import type { Response } from 'express';
 import { Request } from 'express-session';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { SetupAccountDto } from './dto/setup-account.dto';
+import { Public } from './decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+  @Public()
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: any) {
     const user = this.authService.login(dto, req);
@@ -20,14 +22,12 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(SessionAuthGuard)
   async me(@CurrentUser() user: SessionUser
   ) {
     return this.authService.me(user);
   }
 
   @Post('logout')
-  @UseGuards(SessionAuthGuard)
   async logout(
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
@@ -36,7 +36,6 @@ export class AuthController {
   }
 
   @Post('change-password')
-  @UseGuards(SessionAuthGuard)
   async changePassword(
     @CurrentUser() user: SessionUser,
     @Body() dto: ChangePasswordDto,
@@ -44,6 +43,7 @@ export class AuthController {
     return this.authService.changePassword(user.id, dto);
   }
 
+  @Public()
   @Post('setup-account')
   async setupAccount(
     @Body() dto: SetupAccountDto,
@@ -52,6 +52,7 @@ export class AuthController {
     return this.authService.setupAccount(dto, req);
   }
 
+  @Public()
   @Get('invitation-details/:token')
   async getInvitationDetails(@Param('token') token: string) {
     return this.authService.getInvitationDetails(token);

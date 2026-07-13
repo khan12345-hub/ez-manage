@@ -6,7 +6,6 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   email: string;
-  role: UserRole;
   status: USerStatus;
 }
 

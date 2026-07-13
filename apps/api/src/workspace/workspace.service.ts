@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { PrismaService } from 'prisma/prisma.service';
@@ -7,10 +7,32 @@ import { WorkspaceRole } from '../../generated/prisma/client';
 @Injectable()
 export class WorkspaceService {
   constructor(private readonly prisma: PrismaService) {}
-  create(createWorkspaceDto: CreateWorkspaceDto, userId: number) {
+  async create(createWorkspaceDto: CreateWorkspaceDto, userId: number) {
+   
+    const name = createWorkspaceDto.name.trim();
+
+    if (!name) {
+      throw new BadRequestException('Workspace name is required.');
+    }
+
+    // Optional: prevent duplicate workspace names for same owner
+    const existingWorkspace = await this.prisma.workspace.findFirst({
+      where: {
+        createdById: userId,
+        name: {
+          equals: name,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existingWorkspace) {
+      throw new ConflictException('A workspace with this name already exists.');
+    }
+
     return this.prisma.workspace.create({
       data: {
-        name: createWorkspaceDto.name,
+        name,
         visibility: createWorkspaceDto.visibility,
         createdById: userId,
         members: {
@@ -45,6 +67,14 @@ export class WorkspaceService {
         id: workspaceId,
       },
       include: {
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
         members: {
           include: {
             user: {
@@ -79,16 +109,16 @@ export class WorkspaceService {
                 members: true,
               },
             },
-            members: {
-              take: 3,
-              include: {
-                user: {
-                  select: {
-                    avatarUrl: true,
-                  },
-                },
-              },
-            },
+            // members: {
+            //   take: 3,
+            //   include: {
+            //     user: {
+            //       select: {
+            //         avatarUrl: true,
+            //       },
+            //     },
+            //   },
+            // },
           },
         },
 
@@ -103,10 +133,46 @@ export class WorkspaceService {
   }
 
   update(id: number, updateWorkspaceDto: UpdateWorkspaceDto) {
-    return `This action updates a #${id} workspace`;
+    return this.prisma.workspace.update({
+      where: { id },
+      data: {
+        name: updateWorkspaceDto.name,
+        visibility: updateWorkspaceDto.visibility,
+      },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} workspace`;
+  async remove(id: number) {
+    // Delete all workspace members first
+    await this.prisma.workspaceMember.deleteMany({
+      where: { workspaceId: id },
+    });
+
+    // Delete all boards in the workspace
+    await this.prisma.board.deleteMany({
+      where: { workspaceId: id },
+    });
+
+    // Finally delete the workspace
+    return this.prisma.workspace.delete({
+      where: { id },
+      include: {
+        members: true,
+      },
+    });
   }
 }
