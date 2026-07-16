@@ -13,7 +13,7 @@ export function useLogin() {
       queryClient.invalidateQueries({
         queryKey: ["me"],
       });
-      router.push("/dashboard");
+      router.push("/workspace/1");
     },
     onError: (error: any) => {
       const errorMsg =

@@ -17,6 +17,7 @@ import { AppSelect } from "./ui/AppSelect";
 import { getBoards } from "@/services/boards.api";
 import { FormMultiSelect } from "./form/FormMultiSelect";
 import { useInviteModalStore } from "@/store/invite-modal";
+import { getUserByEmail } from "@/services/users.api";
 
 // Zod validation schema
 const inviteSchema = z.object({
@@ -74,6 +75,14 @@ export function InviteModal() {
   });
 
   const { isOpen, close, workspaceId, boardId } = useInviteModalStore();
+  const email = watch("email");
+  const { data: existingUser, isFetching: checkingUser } = useQuery({
+    queryKey: ["user-by-email", email],
+    queryFn: () => getUserByEmail(email),
+    enabled: z.email().safeParse(email).success,
+    retry: false,
+    staleTime: 60_000,
+  });
 
   // Reset boardIds if selected workspace changes
   // useEffect(() => {
@@ -81,19 +90,19 @@ export function InviteModal() {
   // }, [selectedWorkspaceId, setValue]);
 
   // Reset form when modal closes or opens
-useEffect(() => {
-  if (!isOpen) return;
+  useEffect(() => {
+    if (!isOpen) return;
 
-  if (workspaceId) {
-    setValue("workspaceId", workspaceId);
-  }
+    if (workspaceId) {
+      setValue("workspaceId", workspaceId);
+    }
 
-  if (boardId) {
-    setValue("boardIds", [boardId]);
-  }
+    if (boardId) {
+      setValue("boardIds", [boardId]);
+    }
 
-  console.log("after setValue", getValues("boardIds"));
-}, [isOpen, workspaceId, boardId]);
+    console.log("after setValue", getValues("boardIds"));
+  }, [isOpen, workspaceId, boardId]);
 
   const onSubmit = (values: InviteFormValues) => {
     createInvitationMutation.mutate(values, {
@@ -162,6 +171,45 @@ useEffect(() => {
               label="Email Address"
               placeholder="e.g. muhammadali@ezaccounts.ca"
             />
+
+            {checkingUser && (
+              <p className="text-xs text-muted-foreground">Checking user...</p>
+            )}
+
+            {existingUser && (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-sm font-semibold text-white">
+                    {existingUser.firstName[0]}
+                    {existingUser.lastName[0]}
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-medium">
+                      {existingUser.firstName} {existingUser.lastName}
+                    </p>
+
+                    <p className="text-xs text-muted-foreground">
+                      Existing EzManage user. They will be added directly to the
+                      selected boards.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {email &&
+              !checkingUser &&
+              !existingUser &&
+              z.email().safeParse(email).success && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                  <p className="text-sm font-medium">New user</p>
+
+                  <p className="text-xs text-muted-foreground">
+                    An invitation email will be sent after you click Continue.
+                  </p>
+                </div>
+              )}
 
             <FormSelect
               name="workspaceId"

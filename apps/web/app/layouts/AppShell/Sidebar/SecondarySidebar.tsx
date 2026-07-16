@@ -68,6 +68,11 @@ export function SecondarySidebar({
     enabled: !!workspace?.id,
   });
   // write tanstack query to get all workspaces
+  useEffect(()=>{
+    if(workspaces.length > 0){
+      setWorkspace(workspaces[0])
+    }
+  },[workspaces])
   const { setBoard } = useInviteModalStore();
   return (
     <div className="relative flex h-full select-none flex-col border-r border-gray-200 bg-white">

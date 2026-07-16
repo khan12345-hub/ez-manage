@@ -29,23 +29,59 @@ export class BoardAccessService {
         },
       },
     });
-    return isMember
+    return isMember;
   }
 
-  // async requireEditor(workspaceId: number, boardId: number, userId: number) {
-  //   const access = await this.requireViewer(workspaceId, boardId, userId);
+  async requireEditor(boardId: number, userId: number) {
+    const user = await this.prisma.boardMember.findFirst({
+      where: {
+        boardId,
+        userId,
+        board: {
+          workspace: {
+            members: {
+              some: {
+                userId,
+              },
+            },
+          },
+        },
+      },
+      select: {
+        board: {
+          select: {
+            id: true,
+            workspaceId: true,
+            workspace: {
+              select: {
+                members: {
+                  where: {
+                    userId,
+                  },
+                  select: {
+                    role: true,
+                  },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
 
-  //   if (
-  //     access.workspaceMembership.role !== UserRole.OWNER &&
-  //     access.workspaceMembership.role !== UserRole.ADMIN
-  //   ) {
-  //     throw new ForbiddenException(
-  //       "You don't have permission to edit this board.",
-  //     );
-  //   }
+    const workspaceRole = user?.board.workspace.members[0]?.role;
 
-  //   return access;
-  // }
+    if (
+      workspaceRole !== UserRole.OWNER &&
+      workspaceRole !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException(
+        "You don't have permission to edit this board.",
+      );
+    }
+    return true;
+  }
 
   // async requireOwner(workspaceId: number, boardId: number, userId: number) {
   //   const access = await this.requireViewer(workspaceId, boardId, userId);

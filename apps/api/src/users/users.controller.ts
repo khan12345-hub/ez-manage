@@ -1,16 +1,13 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+  // users.controller.ts
 
-  @Post()
-  async create(
-    @Body() dto:CreateUserDto
-  ){
-    return this.usersService.create(dto)
+  @Get('by-email')
+  async findByEmail(@Query('email') email: string) {
+    return this.usersService.findByEmailForInvite(email);
   }
-
 }

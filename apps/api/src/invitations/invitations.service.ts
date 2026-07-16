@@ -25,6 +25,74 @@ export class InvitationsService {
   ) {}
 
   async create(dto: CreateInvitationDto, invitedById: number) {
+    // Check if the invited user already exists
+    const existingUser = await this.usersRepository.findByEmail(dto.email);
+
+    if (existingUser) {
+      await this.prisma.$transaction(async (tx) => {
+        // Ensure the user belongs to the workspace
+        const workspaceMember = await tx.workspaceMember.findUnique({
+          where: {
+            workspaceId_userId: {
+              workspaceId: dto.workspaceId,
+              userId: existingUser.id,
+            },
+          },
+        });
+
+        if (!workspaceMember) {
+          await tx.workspaceMember.create({
+            data: {
+              workspaceId: dto.workspaceId,
+              userId: existingUser.id,
+              role: dto.role,
+            },
+          });
+        }
+
+        // Find boards the user is already a member of
+        const existingBoardMembers = await tx.boardMember.findMany({
+          where: {
+            userId: existingUser.id,
+            boardId: {
+              in: dto.boardIds,
+            },
+          },
+          select: {
+            boardId: true,
+          },
+        });
+
+        const existingBoardIds = new Set(
+          existingBoardMembers.map((b) => b.boardId),
+        );
+
+        const boardsToAdd = dto.boardIds.filter(
+          (boardId) => !existingBoardIds.has(boardId),
+        );
+
+        if (boardsToAdd.length === 0) {
+          throw new BadRequestException(
+            'This user is already a member of all selected boards.',
+          );
+        }
+
+        await tx.boardMember.createMany({
+          data: boardsToAdd.map((boardId) => ({
+            boardId,
+            userId: existingUser.id,
+            role: dto.role,
+          })),
+        });
+      });
+
+      return {
+        success: true,
+        message: 'User added to board(s) successfully.',
+        userId: existingUser.id,
+      };
+    }
+
     const inviter = await this.usersRepository.findById(invitedById);
 
     if (!inviter) {
@@ -52,11 +120,6 @@ export class InvitationsService {
     }
 
     // Check if the invited user already exists
-    const existingUser = await this.usersRepository.findByEmail(dto.email);
-
-    if (existingUser) {
-      throw new BadRequestException('A user with this email already exists.');
-    }
 
     // Check for existing pending invitation
     const existingInvitation = await this.prisma.invitation.findFirst({
@@ -89,34 +152,6 @@ export class InvitationsService {
       `,
       text: `You have been invited to join EzManage. Accept your invitation here: http://localhost:3000/invitations/${token}`,
     });
-    // Create invitation
-    // Add checks all the selected board should be part of workspace
-    // const board = await this.prisma.board.findUnique({
-    //   where: {
-    //     id: dto.boardId,
-    //   },
-    // });
-
-    // if (!board || board.workspaceId !== dto.workspaceId) {
-    //   throw new BadRequestException(
-    //     'The specified board does not belong to this workspace.',
-    //   );
-    // }
-
-    const existingMember = await this.prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId: dto.workspaceId,
-        user: {
-          email: dto.email,
-        },
-      },
-    });
-
-    if (existingMember) {
-      throw new BadRequestException(
-        'User is already a member of this workspace.',
-      );
-    }
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -147,7 +182,7 @@ export class InvitationsService {
           email: dto.email,
           token,
           workspaceId: dto.workspaceId,
-          boardIds:dto.boardIds,
+          boardIds: dto.boardIds,
           role: dto.role,
           invitedById,
           expiresAt,
@@ -176,13 +211,9 @@ export class InvitationsService {
   }
 
   async accept(dto: AcceptInvitationDto, id) {
-
-
     const invitation = await this.prisma.invitation.findUnique({
       where: { token: dto.token },
     });
-
-
 
     if (!invitation) {
       throw new NotFoundException('Invitation not found.');
@@ -201,8 +232,6 @@ export class InvitationsService {
     //     status: InvitationStatus.ACCEPTED,
     //   },
     // });
-
-    console.log("invi", invitation)
 
     return this.prisma.$transaction(async (tx) => {
       const invitation = await tx.invitation.findUnique({
@@ -227,17 +256,14 @@ export class InvitationsService {
         },
       });
 
-  
       await tx.boardMember.createMany({
         data: invitation.boardIds.map((boardId) => ({
           boardId,
-          userId:id,
+          userId: id,
+          role: invitation.role,
+
         })),
       });
-
-  
-
-
     });
   }
 }

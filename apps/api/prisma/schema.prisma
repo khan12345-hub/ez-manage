@@ -33,6 +33,8 @@ model User {
   createdGroups        Group[]            @relation("GroupCreator")
   createdTasks        Task[]            @relation("TaskCreator")
 
+  filesUploaded       File[]            @relation("FileUploader")
+
   @@map("users")
 }
 
@@ -101,6 +103,7 @@ model WorkspaceMember {
 
 }
 enum BoardRole {
+  OWNER
   ADMIN
   MEMBER
   VIEWER
@@ -109,7 +112,7 @@ model BoardMember {
   id      Int @id @default(autoincrement())
   boardId Int
   userId  Int
-
+  role    BoardRole
   board Board @relation(fields: [boardId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
   createdAt   DateTime            @default(now())
@@ -136,6 +139,8 @@ model Board {
   invitationBoards InvitationBoard[]
   visibility       BoardVisibility   @default(PUBLIC)
   members          BoardMember[]
+
+  updatedById      Int?
 
   createdById      Int
   createdBy        User @relation("BoardCreator", fields:[createdById], references:[id])
@@ -165,6 +170,7 @@ model Workspace {
   members     WorkspaceMember[]
   invitations Invitation[]
 
+  @@unique([createdById, name])
   @@map("workspaces")
 }
 
@@ -178,6 +184,7 @@ model Group {
   boardId     Int
 
   createdAt   DateTime @default(now())
+  updatedById Int?
   updatedAt   DateTime @updatedAt
   createdById Int
   createdBy    User  @relation("GroupCreator",fields: [createdById], references: [id])
@@ -187,44 +194,14 @@ model Group {
 
   @@index([boardId])
   @@index([boardId, order])
+   @@unique([boardId, name])
+  @@map("groups")
+
 }
 
-model Task {
-  id          Int      @id @default(autoincrement())
 
-  groupId     Int
-  order        Float
 
-  createdById Int
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  group        Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  createdBy    User  @relation("TaskCreator", fields: [createdById], references: [id])
-
-  cells        TaskCell[]
-
-  @@index([groupId])
-  @@index([groupId, order])
-}
-
-model TaskCell {
-  id        Int @id @default(autoincrement())
-
-  taskId    Int
-  columnId  Int
-
-  value     Json?
-
-  task       Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  column     BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
-
-  @@unique([taskId, columnId])
-
-  @@index([taskId])
-  @@index([columnId])
-}
 
 enum BoardColumnType {
   TEXT
@@ -258,8 +235,97 @@ model BoardColumn {
 
   cells      TaskCell[]
 
+  isPrimary Boolean @default(false)
+
   @@index([boardId])
   @@unique([boardId, name])
+  @@map("board_columns")
+
+}
+model Task {
+  id          Int      @id @default(autoincrement())
+  groupId     Int
+  order        Float
+  name String
+
+  createdById Int
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  group        Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy    User  @relation("TaskCreator", fields: [createdById], references: [id])
+
+  cells        TaskCell[]
+
+
+  parentId    Int?
+
+  parent       Task?   @relation("TaskHierarchy", fields: [parentId], references: [id])
+  subtasks     Task[]  @relation("TaskHierarchy")
+
+
+
+  @@index([groupId])
+  @@index([groupId, order])
+
+  @@map("tasks")
+}
+model TaskCell {
+  id        Int @id @default(autoincrement())
+
+  taskId    Int
+  columnId  Int
+
+  value     Json?
+
+  task       Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  column     BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+
+  files      TaskCellFile[]
+
+  @@unique([taskId, columnId])
+
+  @@index([taskId])
+  @@index([columnId])
+  @@map("task_cells")
+
+}
+model TaskCellFile {
+  id        Int      @id @default(autoincrement())
+
+  cellId    Int
+  fileId    Int
+
+  createdAt DateTime @default(now())
+
+  cell TaskCell @relation(fields: [cellId], references: [id], onDelete: Cascade)
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([cellId, fileId])
+
+  @@index([cellId])
+  @@index([fileId])
+  @@map("task_cell_files")
+
+}
+model File {
+  id           Int      @id @default(autoincrement())
+
+  originalName String
+  storedName   String
+  mimeType     String
+  size         Int
+  url          String
+
+  uploadedById Int
+  uploadedAt   DateTime @default(now())
+
+  uploadedBy User @relation("FileUploader", fields: [uploadedById], references: [id])
+
+  cells TaskCellFile[]
+  @@map("files")
+
 }
 
 

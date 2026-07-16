@@ -197,7 +197,8 @@ export class AuthService {
       await tx.boardMember.createMany({
         data: invitation.boardIds.map((boardId) => ({
           boardId,
-          userId:newUser.id,
+          userId: newUser.id,
+          role: invitation.role,
         })),
       });
 

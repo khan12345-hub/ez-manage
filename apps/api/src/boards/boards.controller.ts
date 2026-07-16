@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   UseGuards,
   ForbiddenException,
+  Query,
 } from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import { CreateBoardDto } from './dto/create-board.dto';
@@ -36,13 +37,23 @@ export class BoardsController {
   findOne(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: SessionUser,
-
   ) {
-    const isMember = this.boardsAccessService.requireViewer(id, user.id)
-    if(!isMember){
-      throw new ForbiddenException(`Board not found or you don't have valid permission`);
+    const isMember = this.boardsAccessService.requireViewer(id, user.id);
+    if (!isMember) {
+      throw new ForbiddenException(
+        `Board not found or you don't have valid permission`,
+      );
     }
     return this.boardsService.findOne(id);
+  }
+
+  @Get(':boardId/members')
+  findMembers(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Query('search') search: string,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.boardsService.findMembers(boardId, user.id, search);
   }
 
   @Patch(':id')
@@ -56,7 +67,7 @@ export class BoardsController {
     if (!board || board.createdById !== user.id) {
       throw new ForbiddenException('Only board creator can update this board');
     }
-    return this.boardsService.update(id, updateBoardDto);
+    return this.boardsService.update(id, updateBoardDto, user.id);
   }
 
   @Delete(':id')
@@ -69,6 +80,6 @@ export class BoardsController {
     if (!board || board.createdById !== user.id) {
       throw new ForbiddenException('Only board creator can delete this board');
     }
-    return this.boardsService.remove(id);
+    return this.boardsService.remove(id, user.id);
   }
 }

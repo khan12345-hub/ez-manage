@@ -13,7 +13,7 @@ export class WorkspaceAccessService {
         userId,
       },
     });
-
+    console.log("member", member)
     if (!member) {
       throw new ForbiddenException("You are not a member of this workspace.");
     }

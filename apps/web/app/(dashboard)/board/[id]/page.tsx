@@ -5,8 +5,12 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getBoardDetail } from "@/services/boards.api";
 import { Board } from "../Board";
+import { useEffect } from "react";
+import { useGroupStore } from "@/store/create-group-store";
+import { TaskDetailsSheet } from "../Task/TaskDetailsDrawer";
 
 export default function BoardPage() {
+  const { setGroups, groups } = useGroupStore();
   const params = useParams<{ id: string }>();
   const boardId = Number(params.id);
 
@@ -18,8 +22,16 @@ export default function BoardPage() {
     queryKey: ["board", boardId],
     queryFn: () => getBoardDetail(boardId),
     enabled: Number.isFinite(boardId),
-    retry:0
+    retry: 0,
   });
+
+  
+  useEffect(() => {
+    if (board?.groups) {
+      setGroups(board.groups)
+    }
+    console.log("groups", groups)
+  }, [board]);
 
   if (isLoading) {
     return (
@@ -37,9 +49,13 @@ export default function BoardPage() {
     );
   }
 
+
   return (
-    <div className="bg-background p-6">
-      <Board board={board} />
-    </div>
+    <>
+      <div className="bg-background p-6">
+        <Board board={board} />
+      </div>
+      <TaskDetailsSheet/>
+    </>
   );
 }

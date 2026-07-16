@@ -20,11 +20,11 @@ export function BoardTable({ boards }: Props) {
   });
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-background">
+    <div className="overflow-hidden rounded-xl border bg-background ">
 
       {/* Horizontal Scroll */}
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto scrollbar-none">
 
         <table className="min-w-[1200px] border-collapse">
 

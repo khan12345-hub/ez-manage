@@ -1,5 +1,5 @@
-import { UserRole } from '../enums/user-roles.enum.js';
-import { USerStatus } from '../enums/user-status.enum.js';
+import { UserRole } from "../enums/user-roles.enum.js";
+import { USerStatus } from "../enums/user-status.enum.js";
 
 export interface AuthUser {
   id: number;
@@ -7,6 +7,8 @@ export interface AuthUser {
   lastName: string;
   email: string;
   status: USerStatus;
+  workspaces: number[];
+  boards: number[];
 }
 
 export interface LoginResponse {

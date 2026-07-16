@@ -2,6 +2,9 @@
 import { WorkspaceModule } from './workspace/workspace.module';
 import { BoardsModule } from './boards/boards.module';
 import { GroupsModule } from './groups/groups.module';
+import { TasksModule } from './tasks/tasks.module';
+import { ColumnsModule } from './columns/columns.module';
+import { CellsModule } from './cells/cells.module';
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);

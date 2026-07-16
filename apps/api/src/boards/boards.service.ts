@@ -9,125 +9,98 @@ import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { WorkspaceAccessService } from 'src/workspace/workspace-access.service';
+import { BoardAccessService } from './board-access.service';
+import { getDefaultCellValue } from './defaults/default-cell-value.template';
+import {
+  DEFAULT_COLUMNS,
+  DEFAULT_GROUPS,
+} from './defaults/default-board.template';
+import { BoardRole } from 'generated/prisma/enums';
 
 @Injectable()
 export class BoardsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly workspaceAccess: WorkspaceAccessService,
+    private readonly boardAccess: BoardAccessService,
   ) {}
   create(createBoardDto: CreateBoardDto, userId: number) {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.board.findFirst({
-        where: {
-          workspaceId: createBoardDto.workspaceId,
-          name: createBoardDto.name,
-        },
-      });
-
-      if (existing) {
-        throw new ConflictException('Board with this name already exists.');
-      }
-
       const board = await tx.board.create({
         data: {
           name: createBoardDto.name,
           workspaceId: createBoardDto.workspaceId,
-          visibility: createBoardDto.visibility ?? 'PRIVATE',
+          visibility: createBoardDto.visibility ?? 'PUBLIC',
           createdById: userId,
 
           members: {
             create: {
               userId,
+              role:BoardRole.OWNER
             },
           },
         },
       });
 
-      const columns = await tx.boardColumn.createManyAndReturn({
-        data: [
-          {
-            boardId: board.id,
-            name: 'Task',
-            type: 'TEXT',
-            order: 1000,
-          },
-          {
-            boardId: board.id,
-            name: 'Status',
-            type: 'STATUS',
-            order: 2000,
-          },
-          {
-            boardId: board.id,
-            name: 'Person',
-            type: 'PERSON',
-            order: 3000,
-          },
-          {
-            boardId: board.id,
-            name: 'Due Date',
-            type: 'DATE',
-            order: 4000,
-          },
-        ],
-      });
-
-      const group = await tx.group.create({
-        data: {
-          boardId: board.id,
-          name: 'New Group',
-          color: '#4F46E5',
-          order: 1000,
-          createdById: userId,
+      const user = await this.prisma.user.findUniqueOrThrow({
+        where: {
+          id: userId,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
         },
       });
 
-      const tasks = await tx.task.createManyAndReturn({
-        data: [
-          {
-            groupId: group.id,
-            order: 1000,
-            createdById: userId,
-          },
-          {
-            groupId: group.id,
-            order: 2000,
-            createdById: userId,
-          },
-          {
-            groupId: group.id,
-            order: 3000,
-            createdById: userId,
-          },
-        ],
+      // Create default columns
+      const columns = await tx.boardColumn.createManyAndReturn({
+        data: DEFAULT_COLUMNS.map((column, index) => ({
+          boardId: board.id,
+          name: column.name,
+          type: column.type,
+          isPrimary: column.isPrimary,
+          order: (index + 1) * 1000,
+        })),
       });
 
-      const taskColumn = columns.find((c) => c.type === 'TEXT');
+      // Create groups, tasks and cells
+      for (const groupTemplate of DEFAULT_GROUPS) {
+        const group = await tx.group.create({
+          data: {
+            boardId: board.id,
+            name: groupTemplate.name,
+            color: groupTemplate.color,
+            order: groupTemplate.order * 1000,
+            createdById: userId,
+          },
+        });
 
-      await tx.taskCell.createMany({
-        data: tasks.flatMap((task, index) =>
-          columns.map((column) => ({
-            taskId: task.id,
-            columnId: column.id,
-            value:
-              column.type === 'TEXT'
-                ? {
-                    text: index === 0 ? 'New Task' : '',
-                  }
-                : column.type === 'STATUS'
-                  ? {
-                      label: 'Not Started',
-                      color: 'gray',
-                    }
-                  : column.type === 'PERSON'
-                    ? {}
-                    : column.type === 'DATE'
-                      ? {}
-                      : {},
+        const tasks = await tx.task.createManyAndReturn({
+          data: groupTemplate.tasks.map((task, index) => ({
+            groupId: group.id,
+            name: task.title, // <-- Store task title here
+            order: (index + 1) * 1000,
+            createdById: userId,
           })),
-        ),
-      });
+        });
+
+        await tx.taskCell.createMany({
+          data: tasks.flatMap((task, index) =>
+            columns
+              .filter((column) => !column.isPrimary) // or column.kind !== ColumnKind.TASK_NAME
+              .map((column) => ({
+                taskId: task.id,
+                columnId: column.id,
+                value: getDefaultCellValue(
+                  column.type,
+                  groupTemplate.tasks[index],
+                  user,
+                ),
+              })),
+          ),
+        });
+      }
 
       return tx.board.findUniqueOrThrow({
         where: {
@@ -176,16 +149,6 @@ export class BoardsService {
   }
 
   async findAll(workspaceId: number, userId: number) {
-    // const workspace = await this.prisma.workspaceMember.findFirst({
-    //   where: {
-    //     workspaceId,
-    //     userId,
-    //   },
-    // });
-    // if (!workspace) {
-    //   throw new ForbiddenException();
-    // }
-
     const workspace = await this.workspaceAccess.getWorkspaceMember(
       workspaceId,
       userId,
@@ -204,14 +167,16 @@ export class BoardsService {
     if (!boards) {
       throw new ForbiddenException();
     }
+    console.log("user boards", boards)
     return boards.map((board) => ({
       id: board.id,
       name: board.name,
       role: workspace.role,
     }));
+
   }
 
-async findOne(id: number) {
+  async findOne(id: number) {
     try {
       const board = await this.prisma.board.findUnique({
         where: { id },
@@ -282,45 +247,160 @@ async findOne(id: number) {
       );
     }
   }
+  async update(id: number, updateBoardDto: UpdateBoardDto, userId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const board = await tx.board.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          workspaceId: true,
+        },
+      });
 
-  update(id: number, updateBoardDto: UpdateBoardDto) {
-    return this.prisma.board.update({
-      where: { id },
-      data: {
-        name: updateBoardDto.name,
-        visibility: updateBoardDto.visibility,
-      },
-      include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                avatarUrl: true,
+      if (!board) {
+        throw new NotFoundException('Board not found.');
+      }
+
+      await this.boardAccess.requireEditor(board.id, userId);
+
+      // Prevent duplicate board names within the same workspace
+      if (updateBoardDto.name && updateBoardDto.name !== board.name) {
+        const existing = await tx.board.findFirst({
+          where: {
+            workspaceId: board.workspaceId,
+            name: updateBoardDto.name,
+            NOT: {
+              id,
+            },
+          },
+        });
+
+        if (existing) {
+          throw new ConflictException(
+            'A board with this name already exists in this workspace.',
+          );
+        }
+      }
+
+      return tx.board.update({
+        where: { id },
+        data: {
+          ...(updateBoardDto.name !== undefined && {
+            name: updateBoardDto.name.trim(),
+          }),
+          ...(updateBoardDto.visibility !== undefined && {
+            visibility: updateBoardDto.visibility,
+          }),
+          updatedById: userId,
+        },
+        include: {
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true,
+                },
               },
             },
           },
         },
-      },
+      });
+    });
+  }
+  async remove(id: number, userId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const board = await tx.board.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          workspaceId: true,
+        },
+      });
+
+      if (!board) {
+        throw new NotFoundException('Board not found.');
+      }
+
+      await this.boardAccess.requireEditor(board.id, userId);
+
+      // Delete related data if not using Cascade
+      await tx.boardMember.deleteMany({
+        where: { boardId: id },
+      });
+
+      await tx.invitationBoard.deleteMany({
+        where: { boardId: id },
+      });
+
+      return tx.board.delete({
+        where: { id },
+      });
     });
   }
 
-  async remove(id: number) {
-    // Delete all board members first
-    await this.prisma.boardMember.deleteMany({
-      where: { boardId: id },
-    });
+  async findMembers(boardId: number, userId: number, search?: string) {
+    await this.boardAccess.requireViewer(boardId, userId);
 
-    // Delete all invitation boards
-    await this.prisma.invitationBoard.deleteMany({
-      where: { boardId: id },
-    });
-
-    // Finally delete the board
-    return this.prisma.board.delete({
-      where: { id },
-    });
+    return this.prisma.boardMember
+      .findMany({
+        where: {
+          boardId,
+          ...(search
+            ? {
+                user: {
+                  OR: [
+                    {
+                      firstName: {
+                        contains: search,
+                        mode: 'insensitive',
+                      },
+                    },
+                    {
+                      lastName: {
+                        contains: search,
+                        mode: 'insensitive',
+                      },
+                    },
+                    {
+                      email: {
+                        contains: search,
+                        mode: 'insensitive',
+                      },
+                    },
+                  ],
+                },
+              }
+            : {}),
+        },
+        select: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              avatarUrl: true, // change to avatar if that's your field
+            },
+          },
+        },
+        orderBy: {
+          user: {
+            firstName: 'asc',
+          },
+        },
+      })
+      .then((members) =>
+        members.map((member) => ({
+          id: member.user.id,
+          firstName: member.user.firstName,
+          lastName: member.user.lastName,
+          email: member.user.email,
+          avatarUrl: member.user.avatarUrl,
+        })),
+      );
   }
 }

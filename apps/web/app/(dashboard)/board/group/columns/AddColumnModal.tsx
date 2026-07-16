@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 export type ColumnType =
   | "STATUS"
   | "TEXT"
-  | "PEOPLE"
+  | "PERSON"
   | "DROPDOWN"
   | "DATE"
   | "NUMBER"
@@ -60,8 +60,8 @@ const COLUMN_TYPES: ColumnTypeItem[] = [
     color: "bg-yellow-500",
   },
   {
-    label: "People",
-    type: "PEOPLE",
+    label: "Person",
+    type: "PERSON",
     category: "Essentials",
     icon: User,
     color: "bg-sky-500",
@@ -139,6 +139,7 @@ export function ColumnTypeModal({
     (x) => x.category === "Super useful"
   );
 
+  
   const renderSection = (
     title: string,
     items: ColumnTypeItem[]

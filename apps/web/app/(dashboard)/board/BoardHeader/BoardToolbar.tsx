@@ -13,13 +13,13 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-
-export function BoardToolbar() {
+interface Props {
+  onHideColumns: () => void;
+}
+export function BoardToolbar({ onHideColumns }: Props) {
   return (
     <div className="flex items-center justify-between px-6 py-4">
-
       <div className="flex items-center gap-2">
-
         <Button>
           New task
           <Plus className="ml-2 h-4 w-4" />
@@ -46,7 +46,7 @@ export function BoardToolbar() {
           Sort
         </Button>
 
-        <Button variant="ghost">
+        <Button variant="ghost" onClick={onHideColumns}>
           <EyeOff className="mr-2 h-4 w-4" />
           Hide
         </Button>
@@ -59,9 +59,7 @@ export function BoardToolbar() {
         <Button variant="ghost" size="icon">
           <MoreHorizontal className="h-4 w-4" />
         </Button>
-
       </div>
-
     </div>
   );
 }

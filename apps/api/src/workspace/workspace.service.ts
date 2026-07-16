@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { PrismaService } from 'prisma/prisma.service';
@@ -7,15 +12,14 @@ import { WorkspaceRole } from '../../generated/prisma/client';
 @Injectable()
 export class WorkspaceService {
   constructor(private readonly prisma: PrismaService) {}
+
   async create(createWorkspaceDto: CreateWorkspaceDto, userId: number) {
-   
     const name = createWorkspaceDto.name.trim();
 
     if (!name) {
       throw new BadRequestException('Workspace name is required.');
     }
 
-    // Optional: prevent duplicate workspace names for same owner
     const existingWorkspace = await this.prisma.workspace.findFirst({
       where: {
         createdById: userId,
@@ -27,7 +31,9 @@ export class WorkspaceService {
     });
 
     if (existingWorkspace) {
-      throw new ConflictException('A workspace with this name already exists.');
+      throw new ConflictException(
+        'A workspace with this name already exists.',
+      );
     }
 
     return this.prisma.workspace.create({
@@ -46,23 +52,26 @@ export class WorkspaceService {
   }
 
   async findAll(userId: number) {
-    const memberShips = await this.prisma.workspaceMember.findMany({
+    const memberships = await this.prisma.workspaceMember.findMany({
       where: { userId },
       include: {
         workspace: true,
       },
+      orderBy: {
+        workspace: {
+          createdAt: 'desc',
+        },
+      },
     });
-    if (!memberShips) {
-      throw new ForbiddenException();
-    }
-    return memberShips.map((memberShip) => ({
-      ...memberShip.workspace,
-      role: memberShip.role,
+
+    return memberships.map(({ workspace, role }) => ({
+      ...workspace,
+      role,
     }));
   }
 
-  findOne(workspaceId: number, userId: number) {
-    return this.prisma.workspace.findUnique({
+  async findOne(workspaceId: number, userId: number) {
+    const workspace = await this.prisma.workspace.findUnique({
       where: {
         id: workspaceId,
       },
@@ -75,6 +84,7 @@ export class WorkspaceService {
             avatarUrl: true,
           },
         },
+
         members: {
           include: {
             user: {
@@ -109,16 +119,9 @@ export class WorkspaceService {
                 members: true,
               },
             },
-            // members: {
-            //   take: 3,
-            //   include: {
-            //     user: {
-            //       select: {
-            //         avatarUrl: true,
-            //       },
-            //     },
-            //   },
-            // },
+          },
+          orderBy: {
+            createdAt: 'asc',
           },
         },
 
@@ -130,15 +133,68 @@ export class WorkspaceService {
         },
       },
     });
+    
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found.');
+    }
+
+    return workspace;
   }
 
-  update(id: number, updateWorkspaceDto: UpdateWorkspaceDto) {
-    return this.prisma.workspace.update({
-      where: { id },
-      data: {
-        name: updateWorkspaceDto.name,
-        visibility: updateWorkspaceDto.visibility,
+  async update(
+    workspaceId: number,
+    updateWorkspaceDto: UpdateWorkspaceDto,
+  ) {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: {
+        id: workspaceId,
       },
+    });
+
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found.');
+    }
+
+    const data: UpdateWorkspaceDto = {};
+
+    if (updateWorkspaceDto.name !== undefined) {
+      const name = updateWorkspaceDto.name.trim();
+
+      if (!name) {
+        throw new BadRequestException('Workspace name is required.');
+      }
+
+      const existingWorkspace = await this.prisma.workspace.findFirst({
+        where: {
+          createdById: workspace.createdById,
+          id: {
+            not: workspaceId,
+          },
+          name: {
+            equals: name,
+            mode: 'insensitive',
+          },
+        },
+      });
+
+      if (existingWorkspace) {
+        throw new ConflictException(
+          'A workspace with this name already exists.',
+        );
+      }
+
+      data.name = name;
+    }
+
+    if (updateWorkspaceDto.visibility !== undefined) {
+      data.visibility = updateWorkspaceDto.visibility;
+    }
+
+    return this.prisma.workspace.update({
+      where: {
+        id: workspaceId,
+      },
+      data,
       include: {
         members: {
           include: {
@@ -156,23 +212,35 @@ export class WorkspaceService {
     });
   }
 
-  async remove(id: number) {
-    // Delete all workspace members first
-    await this.prisma.workspaceMember.deleteMany({
-      where: { workspaceId: id },
-    });
-
-    // Delete all boards in the workspace
-    await this.prisma.board.deleteMany({
-      where: { workspaceId: id },
-    });
-
-    // Finally delete the workspace
-    return this.prisma.workspace.delete({
-      where: { id },
-      include: {
-        members: true,
+  async remove(workspaceId: number) {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: {
+        id: workspaceId,
       },
+    });
+
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.workspaceMember.deleteMany({
+        where: {
+          workspaceId,
+        },
+      });
+
+      await tx.board.deleteMany({
+        where: {
+          workspaceId,
+        },
+      });
+
+      return tx.workspace.delete({
+        where: {
+          id: workspaceId,
+        },
+      });
     });
   }
 }

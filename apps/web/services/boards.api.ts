@@ -96,3 +96,24 @@ export async function deleteBoard(boardId: number) {
   const response = await api.delete(`/boards/${boardId}`);
   return response.data;
 }
+
+export interface BoardMember {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatar?: string | null;
+}
+
+export async function getBoardMembers(
+  boardId: number | undefined,
+  search = ""
+): Promise<BoardMember[]> {
+  const { data } = await api.get(`/boards/${boardId}/members`, {
+    params: {
+      search,
+    },
+  });
+
+  return data;
+}

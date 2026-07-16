@@ -9,9 +9,14 @@ import { WorkspaceModule } from './workspace/workspace.module';
 import { BoardsModule } from './boards/boards.module';
 import { APP_GUARD } from '@nestjs/core';
 import { SessionAuthGuard } from './auth/guards/session.guard';
+import { GroupsModule } from './groups/groups.module';
+import { TasksModule } from './tasks/tasks.module';
+import { ColumnsModule } from './columns/columns.module';
+import { UsersModule } from './users/users.module';
+import { CellsModule } from './cells/cells.module';
 
 @Module({
-  imports: [AuthModule, DatabaseModule, InvitationsModule, WorkspaceModule, BoardsModule],
+  imports: [AuthModule, DatabaseModule, UsersModule, InvitationsModule, WorkspaceModule, BoardsModule, GroupsModule, TasksModule, ColumnsModule, CellsModule],
   controllers: [AppController],
   providers: [AppService,
     {
