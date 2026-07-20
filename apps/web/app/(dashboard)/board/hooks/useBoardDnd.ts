@@ -186,12 +186,13 @@ export function useBoardDnd({
     if (!over) return;
 
     const activeData = active.data.current as DragData | undefined;
-    const overData = over.data.current as DragData | undefined;
+    if (!activeData) return;
 
-    if (!activeData || !overData) return;
+    const overData = over.data.current as DragData | undefined;
 
     switch (activeData.type) {
       case "task": {
+        if (!overData) return;
         const nextGroups = handleTaskDragOver({
           groups: dragGroups,
           activeTaskId: activeData.taskId,
@@ -202,16 +203,28 @@ export function useBoardDnd({
         });
 
         setDragGroups(nextGroups);
-
         break;
       }
 
       case "group": {
+        // Resolve the target group id from overData, or parse from over.id (e.g. "group-3" or "3")
         let overGroupId: number | string | undefined;
-        if (overData.type === "group" || overData.type === "group-drop") {
-          overGroupId = overData.groupId;
-        } else if (overData.type === "task") {
-          overGroupId = overData.groupId;
+
+        if (overData) {
+          if (overData.type === "group" || overData.type === "group-drop") {
+            overGroupId = overData.groupId;
+          } else if (overData.type === "task") {
+            overGroupId = overData.groupId;
+          }
+        }
+
+        // Fallback: parse the group id from over.id (handles "group-3" format from SortableGroupContainer)
+        if (!overGroupId && over.id) {
+          const overId = String(over.id);
+          const parsed = overId.startsWith("group-")
+            ? Number(overId.replace("group-", ""))
+            : Number(overId);
+          if (!isNaN(parsed)) overGroupId = parsed;
         }
 
         if (!overGroupId || activeData.groupId === overGroupId) break;
@@ -226,6 +239,7 @@ export function useBoardDnd({
       }
 
       case "column": {
+        if (!overData) return;
         if (overData.type !== "column") break;
         if (activeData.columnId === overData.columnId) break;
 
@@ -257,22 +271,20 @@ export function useBoardDnd({
       return;
     }
 
-      console.log("active", active);
-  console.log("over", over);
-
-  console.log("active data", active.data.current);
-  console.log("over data", over.data.current);
-
     const activeData = active.data.current as DragData | undefined;
     const overData = over.data.current as DragData | undefined;
 
-    if (!activeData || !overData) {
+    if (!activeData) {
       handleDragCancel();
       return;
     }
 
     switch (activeData.type) {
       case "task": {
+        if (!overData) {
+          handleDragCancel();
+          break;
+        }
         const result = findTaskLocation(dragGroups, activeData.taskId);
 
         if (!result) break;

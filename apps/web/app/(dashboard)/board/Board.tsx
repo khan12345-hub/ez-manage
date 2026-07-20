@@ -126,7 +126,7 @@ export function Board({ board }: any) {
             {dragGroups.map((group: any) => (
               <SortableGroupContainer key={group.id} groupId={group.id as number}>
                 {({ attributes, listeners }: any) => (
-                  <SortableGroup key={group.id} id={group.id.toString()}>
+                  <SortableGroup key={group.id} id={group.id.toString()} groupId={group.id as number}>
                     <Group
                       group={group}
                       columns={filteredColumns}

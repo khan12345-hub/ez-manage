@@ -1,20 +1,27 @@
+"use client";
+
 import { useDroppable } from "@dnd-kit/core";
 
 export function SortableGroup({
-    id,
-    children,
-}:{
-    id:string;
-    children:React.ReactNode;
+  id,
+  groupId,
+  children,
+}: {
+  id: string;
+  groupId: number;
+  children: React.ReactNode;
 }) {
+  const { setNodeRef } = useDroppable({
+    id,
+    data: {
+      type: "group",
+      groupId,
+    },
+  });
 
-    const {setNodeRef}=useDroppable({
-        id,
-    });
-
-    return (
-        <div ref={setNodeRef}>
-            {children}
-        </div>
-    );
+  return (
+    <div ref={setNodeRef}>
+      {children}
+    </div>
+  );
 }
