@@ -1,25 +1,38 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
+  Get,
+  Param,
   ParseIntPipe,
+  Patch,
+  Post,
+  UseGuards,
 } from '@nestjs/common';
+
 import { TasksService } from './tasks.service';
+
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { SessionUser } from 'src/auth/types/session-user.type';
 import { ReorderTaskDto } from './dto/reorder-task.dto';
 
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { RequireBoardPermission } from 'src/auth/decorators/require-board-permission.decorator';
+
+import { SessionUser } from 'src/auth/types/session-user.type';
+
+import { SessionAuthGuard } from 'src/auth/guards/session.guard';
+import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
+
+import { BoardPermission } from '@repo/shared';
+
 @Controller('tasks')
+@UseGuards(SessionAuthGuard, BoardPermissionGuard)
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post()
+  @RequireBoardPermission(BoardPermission.EDIT)
   create(
     @Body() createTaskDto: CreateTaskDto,
     @CurrentUser() user: SessionUser,
@@ -27,50 +40,36 @@ export class TasksController {
     return this.tasksService.create(createTaskDto, user.id);
   }
 
-  // @Get()
-  // findAll() {
-  //   return this.tasksService.findAll();
-  // }
-
-    @Patch('reorder')
-  reorder(@Body() dto: ReorderTaskDto, @CurrentUser() user: SessionUser) {
-    console.log("BACKEND DTO", dto);
+  @Patch('reorder')
+  @RequireBoardPermission(BoardPermission.EDIT)
+  reorder(
+    @Body() dto: ReorderTaskDto,
+  ) {
     return this.tasksService.reorder(dto);
   }
+
   @Get(':id')
+  @RequireBoardPermission(BoardPermission.VIEW)
   findOne(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: SessionUser,
   ) {
-    return this.tasksService.findOne(id, user.id);
+    return this.tasksService.findOne(id);
   }
 
   @Patch(':id')
+  @RequireBoardPermission(BoardPermission.EDIT)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTaskDto,
-    @CurrentUser() user: SessionUser,
   ) {
-    return this.tasksService.update(id, dto, user.id);
+    return this.tasksService.update(id, dto);
   }
-
-
 
   @Delete(':id')
+  @RequireBoardPermission(BoardPermission.DELETE)
   remove(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: SessionUser,
   ) {
-    return this.tasksService.remove(id, user.id);
+    return this.tasksService.remove(id);
   }
-
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
-  //   return this.tasksService.update(+id, updateTaskDto);
-  // }
-
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.tasksService.remove(+id);
-  // }
 }

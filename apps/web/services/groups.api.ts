@@ -53,8 +53,9 @@ export async function deleteGroup(
 
 export interface ReorderGroupDto {
   boardId: number;
-  draggedGroupId: number;
-  targetGroupId: number;
+  groupId: number;
+  previousGroupId: number;
+  nextGroupId: number;
 }
 
 export async function reorderGroup(data: ReorderGroupDto) {

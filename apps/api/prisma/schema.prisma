@@ -6,7 +6,10 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-
+enum SystemRole {
+  USER
+  SUPER_ADMIN
+}
 model User {
   id                   Int               @id @default(autoincrement())
   firstName            String            @map("first_name") @db.VarChar(100)
@@ -17,6 +20,7 @@ model User {
   avatarUrl            String?           @map("avatar_url")
 
   status               UserStatus        @default(ACTIVE)
+  systemRole SystemRole  @default(USER)
 
   lastLoginAt          DateTime?         @map("last_login_at") @db.Timestamptz(6)
   createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -32,6 +36,8 @@ model User {
   createdBoards        Board[]            @relation("BoardCreator")
   createdGroups        Group[]            @relation("GroupCreator")
   createdTasks        Task[]            @relation("TaskCreator")
+
+  
 
   filesUploaded       File[]            @relation("FileUploader")
 
@@ -53,7 +59,7 @@ model Invitation {
   token       String              @unique
 
   workspaceId Int
-  role        WorkspaceRole
+  role WorkspaceMemberRole
 
   status      InvitationStatus    @default(PENDING)
 
@@ -84,7 +90,7 @@ model InvitationBoard {
   @@unique([invitationId, boardId])
   @@map("invitation_boards")
 }
-enum WorkspaceRole {
+enum WorkspaceMemberRole {
   OWNER
   ADMIN
   MEMBER
@@ -93,7 +99,7 @@ model WorkspaceMember {
   id          Int                 @id @default(autoincrement())
   workspaceId Int
   userId      Int
-  role        WorkspaceRole
+  role        WorkspaceMemberRole
   createdAt   DateTime            @default(now())
   user        User                @relation(fields: [userId], references: [id])
   workspace   Workspace           @relation(fields: [workspaceId], references: [id])
@@ -102,7 +108,7 @@ model WorkspaceMember {
   @@map("workspace_members")
 
 }
-enum BoardRole {
+enum BoardMemberRole {
   OWNER
   ADMIN
   MEMBER
@@ -112,7 +118,7 @@ model BoardMember {
   id      Int @id @default(autoincrement())
   boardId Int
   userId  Int
-  role    BoardRole
+  role    BoardMemberRole
   board Board @relation(fields: [boardId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
   createdAt   DateTime            @default(now())
@@ -179,7 +185,7 @@ model Group {
 
   name        String
   color       String?
-  order       Int
+  order       Float @default(1000)
 
   boardId     Int
 
@@ -335,15 +341,6 @@ enum UserStatus {
   SUSPENDED
 
   @@map("user_status")
-}
-
-enum UserRole {
-  OWNER
-  ADMIN
-  MEMBER
-  VIEWER
-
-  @@map("user_role") // OPTIMIZATION: Clean database-level lowercasing
 }
 
 

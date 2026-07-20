@@ -14,7 +14,9 @@ export class ColumnsService {
     private readonly prisma: PrismaService,
     // private readonly boardsAccessService: BoardAccessService,
   ) {}
+
   async create(dto: CreateColumnDto) {
+    const ORDER_GAP = 1000
     return this.prisma.$transaction(async (tx) => {
       const board = await tx.board.findUnique({
         where: {
@@ -58,7 +60,7 @@ export class ColumnsService {
           boardId: dto.boardId,
           name,
           type: dto.type,
-          order: lastColumn ? lastColumn.order + 1 : 2,
+          order: lastColumn ? lastColumn.order + ORDER_GAP : ORDER_GAP,
         },
       });
 
@@ -121,7 +123,6 @@ export class ColumnsService {
           'A column with this name already exists.',
         );
       }
-      
 
       return tx.boardColumn.update({
         where: {
@@ -135,68 +136,81 @@ export class ColumnsService {
   }
 
   async reorder(dto: ReorderColumnDto) {
-    const dragged = await this.prisma.boardColumn.findFirst({
-      where: { id: dto.draggedColumnId, boardId: dto.boardId },
+    const column = await this.prisma.boardColumn.findFirst({
+      where: {
+        id: dto.columnId,
+        boardId: dto.boardId,
+      },
     });
 
-    const target = await this.prisma.boardColumn.findFirst({
-      where: { id: dto.targetColumnId, boardId: dto.boardId },
-    });
-
-    if (!dragged || !target) {
-      throw new NotFoundException('Dragged or target column not found');
+    if (!column) {
+      throw new NotFoundException('Column not found');
     }
 
-    if (dragged.isPrimary || target.isPrimary) {
-      throw new BadRequestException('Primary column cannot be reordered or targeted for reordering');
+    if (column.isPrimary) {
+      throw new BadRequestException('Primary column cannot be reordered');
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      if (dragged.order < target.order) {
-        // moving right: decrement columns between dragged.order and target.order
-        await tx.boardColumn.updateMany({
-          where: {
-            boardId: dto.boardId,
-            order: {
-              gt: dragged.order,
-              lte: target.order,
+    const [previousColumn, nextColumn] = await Promise.all([
+      dto.previousColumnId
+        ? this.prisma.boardColumn.findFirst({
+            where: {
+              id: dto.previousColumnId,
+              boardId: dto.boardId,
             },
-            isPrimary: false,
-          },
-          data: {
-            order: {
-              decrement: 1.0,
-            },
-          },
-        });
-      } else if (dragged.order > target.order) {
-        // moving left: increment columns between target.order and dragged.order
-        await tx.boardColumn.updateMany({
-          where: {
-            boardId: dto.boardId,
-            order: {
-              gte: target.order,
-              lt: dragged.order,
-            },
-            isPrimary: false,
-          },
-          data: {
-            order: {
-              increment: 1.0,
-            },
-          },
-        });
-      }
+          })
+        : Promise.resolve(null),
 
-      await tx.boardColumn.update({
-        where: { id: dragged.id },
-        data: {
-          order: target.order,
-        },
-      });
+      dto.nextColumnId
+        ? this.prisma.boardColumn.findFirst({
+            where: {
+              id: dto.nextColumnId,
+              boardId: dto.boardId,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    if (previousColumn?.isPrimary || nextColumn?.isPrimary) {
+      throw new BadRequestException(
+        'Primary column cannot be used for reordering',
+      );
+    }
+
+    let newOrder: number;
+
+    // Only movable column
+    if (!previousColumn && !nextColumn) {
+      newOrder = 1000;
+    }
+
+    // First movable column
+    else if (!previousColumn && nextColumn) {
+      newOrder = nextColumn.order - 1000;
+    }
+
+    // Last movable column
+    else if (previousColumn && !nextColumn) {
+      newOrder = previousColumn.order + 1000;
+    }
+
+    // Between two columns
+    else {
+      newOrder = (previousColumn!.order + nextColumn!.order) / 2;
+    }
+
+    await this.prisma.boardColumn.update({
+      where: {
+        id: dto.columnId,
+      },
+      data: {
+        order: newOrder,
+      },
     });
 
-    return { message: 'Columns reordered successfully' };
+    return {
+      message: 'Columns reordered successfully',
+    };
   }
 
   async remove(columnId: number) {
@@ -214,7 +228,6 @@ export class ColumnsService {
       if (column.isPrimary) {
         throw new BadRequestException('This column cannot be deleted.');
       }
-
 
       // Remove task cells first if cascade isn't configured
       await tx.taskCell.deleteMany({

@@ -2,9 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
-  UserRole,
   UserStatus,
-  WorkspaceRole,
+  WorkspaceMemberRole,
 } from '../../../generated/prisma/client';
 
 @Injectable()
@@ -82,7 +81,7 @@ async seed() {
       create: {
         workspaceId: workspace.id,
         userId: owner.id,
-        role: WorkspaceRole.OWNER,
+        role: WorkspaceMemberRole.OWNER,
       },
     });
 

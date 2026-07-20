@@ -42,8 +42,9 @@ export const deleteColumn = async (id: number) => {
 
 export interface ReorderColumnDto {
   boardId: number;
-  draggedColumnId: number;
-  targetColumnId: number;
+  columnId:number;
+  previousColumnId: number;
+  nextColumnId: number;
 }
 
 export const reorderColumn = async (data: ReorderColumnDto) => {

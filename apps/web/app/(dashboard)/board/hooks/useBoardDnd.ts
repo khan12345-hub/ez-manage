@@ -198,7 +198,9 @@ export function useBoardDnd({
           activeTaskId: activeData.taskId,
           overTaskId: overData.type === "task" ? overData.taskId : undefined,
           overGroupId:
-            overData.type === "group-drop" || overData.type === "group" ? overData.groupId : undefined,
+            overData.type === "group-drop" || overData.type === "group"
+              ? overData.groupId
+              : undefined,
           overType: overData.type,
         });
 
@@ -229,7 +231,9 @@ export function useBoardDnd({
 
         if (!overGroupId || activeData.groupId === overGroupId) break;
 
-        const oldIndex = dragGroups.findIndex((g: any) => g.id === activeData.groupId);
+        const oldIndex = dragGroups.findIndex(
+          (g: any) => g.id === activeData.groupId,
+        );
         const newIndex = dragGroups.findIndex((g: any) => g.id === overGroupId);
 
         if (oldIndex !== -1 && newIndex !== -1) {
@@ -243,13 +247,27 @@ export function useBoardDnd({
         if (overData.type !== "column") break;
         if (activeData.columnId === overData.columnId) break;
 
-        const overColumn = dragColumns.find((c: any) => c.id === overData.columnId);
-        const activeColumn = dragColumns.find((c: any) => c.id === activeData.columnId);
+        const overColumn = dragColumns.find(
+          (c: any) => c.id === overData.columnId,
+        );
+        const activeColumn = dragColumns.find(
+          (c: any) => c.id === activeData.columnId,
+        );
 
-        if (!overColumn || !activeColumn || overColumn.isPrimary || activeColumn.isPrimary) break;
+        if (
+          !overColumn ||
+          !activeColumn ||
+          overColumn.isPrimary ||
+          activeColumn.isPrimary
+        )
+          break;
 
-        const oldIndex = dragColumns.findIndex((c: any) => c.id === activeData.columnId);
-        const newIndex = dragColumns.findIndex((c: any) => c.id === overData.columnId);
+        const oldIndex = dragColumns.findIndex(
+          (c: any) => c.id === activeData.columnId,
+        );
+        const newIndex = dragColumns.findIndex(
+          (c: any) => c.id === overData.columnId,
+        );
 
         if (oldIndex !== -1 && newIndex !== -1) {
           setDragColumns(arrayMove(dragColumns, oldIndex, newIndex));
@@ -281,55 +299,120 @@ export function useBoardDnd({
 
     switch (activeData.type) {
       case "task": {
-        if (!overData) {
-          handleDragCancel();
+        const sourceGroup = groups.find((g) => g.id === activeData.groupId);
+
+        const destinationGroup = dragGroups.find(
+          (g) => g.id === overData?.groupId,
+        );
+
+        if (!sourceGroup || !destinationGroup) {
           break;
         }
-        const result = findTaskLocation(dragGroups, activeData.taskId);
 
-        if (!result) break;
+        const destinationTasks = destinationGroup.tasks;
 
+        const taskIndex = destinationTasks.findIndex(
+          (t) => t.id === activeData.taskId,
+        );
+
+        if (taskIndex === -1) {
+          break;
+        }
+
+        const previousTask = destinationTasks[taskIndex - 1];
+        const nextTask = destinationTasks[taskIndex + 1];
+
+        // Optimistic UI update
         setGroups(dragGroups);
 
-        const overTaskId = overData.type === "task" ? overData.taskId : undefined;
         reorderTaskMutation.mutate({
-          draggedTaskId: activeData.taskId,
-          targetTaskId: overTaskId,
-          destinationGroupId: result.group.id,
+          taskId: Number(activeData.taskId),
+          destinationGroupId: destinationGroup.id,
+          previousTaskId: previousTask?.id ?? null,
+          nextTaskId: nextTask?.id ?? null,
         });
 
         break;
       }
 
-      case "group": {
-        const oldIndex = groups.findIndex((g: any) => g.id === activeData.groupId);
-        const newIndex = dragGroups.findIndex((g: any) => g.id === activeData.groupId);
+      // case "group": {
+      //   const oldIndex = groups.findIndex(
+      //     (g: any) => g.id === activeData.groupId,
+      //   );
+      //   const newIndex = dragGroups.findIndex(
+      //     (g: any) => g.id === activeData.groupId,
+      //   );
 
-        if (oldIndex !== newIndex && newIndex !== -1) {
-          setGroups(dragGroups);
-          const targetGroup = groups[newIndex];
-          reorderGroupMutation.mutate({
-            boardId,
-            draggedGroupId: Number(activeData.groupId),
-            targetGroupId: Number(targetGroup.id),
-          });
+      //   const index = dragGroups.findIndex((g) => g.id === active.id);
+
+      //   const previous = dragGroups[index - 1];
+      //   const next = dragGroups[index + 1];
+
+      //   if (oldIndex !== newIndex && newIndex !== -1) {
+      //     setGroups(dragGroups);
+      //     const targetGroup = groups[newIndex];
+      //     reorderGroupMutation.mutate({
+      //       boardId,
+      //       draggedGroupId: Number(activeData.groupId),
+      //       targetGroupId: Number(targetGroup.id),
+      //     });
+      //   }
+      //   break;
+      // }
+
+      case "group": {
+        const oldIndex = groups.findIndex((g) => g.id === activeData.groupId);
+
+        const newIndex = dragGroups.findIndex(
+          (g) => g.id === activeData.groupId,
+        );
+
+        if (oldIndex === newIndex || newIndex === -1) {
+          break;
         }
+
+        // Update the UI immediately
+        setGroups(dragGroups);
+
+        // Find neighbors in the NEW order
+        const previousGroup = dragGroups[newIndex - 1];
+        const nextGroup = dragGroups[newIndex + 1];
+
+        reorderGroupMutation.mutate({
+          boardId,
+          groupId: Number(activeData.groupId),
+          previousGroupId: previousGroup?.id ?? null,
+          nextGroupId: nextGroup?.id ?? null,
+        });
+
         break;
       }
 
       case "column": {
-        const oldIndex = columns.findIndex((c: any) => c.id === activeData.columnId);
-        const newIndex = dragColumns.findIndex((c: any) => c.id === activeData.columnId);
+        const oldIndex = columns.findIndex((c) => c.id === activeData.columnId);
 
-        if (oldIndex !== newIndex && newIndex !== -1) {
-          setColumns(dragColumns);
-          const targetColumn = columns[newIndex];
-          reorderColumnMutation.mutate({
-            boardId,
-            draggedColumnId: Number(activeData.columnId),
-            targetColumnId: Number(targetColumn.id),
-          });
+        const newIndex = dragColumns.findIndex(
+          (c) => c.id === activeData.columnId,
+        );
+
+        if (oldIndex === newIndex || newIndex === -1) {
+          break;
         }
+
+        // Optimistically update the UI
+        setColumns(dragColumns);
+
+        // Find neighboring columns in the NEW order
+        const previousColumn = dragColumns[newIndex - 1];
+        const nextColumn = dragColumns[newIndex + 1];
+
+        reorderColumnMutation.mutate({
+          boardId,
+          columnId: Number(activeData.columnId),
+          previousColumnId: previousColumn?.id ?? null,
+          nextColumnId: nextColumn?.id ?? null,
+        });
+
         break;
       }
     }

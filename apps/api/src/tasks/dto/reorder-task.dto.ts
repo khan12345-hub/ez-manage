@@ -2,12 +2,16 @@ import { IsInt, IsOptional } from "class-validator";
 
 export class ReorderTaskDto {
   @IsInt()
-  draggedTaskId!: number;
-
-  @IsInt()
-  @IsOptional()
-  targetTaskId?: number;
+  taskId!: number;
 
   @IsInt()
   destinationGroupId!: number;
+
+  @IsOptional()
+  @IsInt()
+  previousTaskId?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  nextTaskId?: number | null;
 }

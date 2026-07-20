@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { InvitationStatus, WorkspaceRole } from '../../generated/prisma/client';
+import { InvitationStatus, WorkspaceMemberRole } from '../../generated/prisma/client';
 
 import { InvitationsRepository } from './invitations.repository';
 import { UsersRepository } from '../users/users.repository';
@@ -111,8 +111,8 @@ export class InvitationsService {
 
     // Verify inviter has permission to invite
     if (
-      membership.role !== WorkspaceRole.OWNER &&
-      membership.role !== WorkspaceRole.ADMIN
+      membership.role !== WorkspaceMemberRole.OWNER &&
+      membership.role !== WorkspaceMemberRole.ADMIN
     ) {
       throw new ForbiddenException(
         'You do not have permission to invite users.',

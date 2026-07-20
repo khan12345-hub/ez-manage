@@ -1,12 +1,17 @@
-import { IsInt } from "class-validator";
+import { IsInt, IsOptional } from "class-validator";
 
 export class ReorderGroupDto {
   @IsInt()
   boardId!: number;
 
   @IsInt()
-  draggedGroupId!: number;
+  groupId!: number;
 
+  @IsOptional()
   @IsInt()
-  targetGroupId!: number;
+  previousGroupId!: number | null;
+
+  @IsOptional()
+  @IsInt()
+  nextGroupId!: number | null;
 }

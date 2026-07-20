@@ -3,21 +3,20 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
+import { PrismaService } from 'prisma/prisma.service';
+
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { ReorderGroupDto } from './dto/reorder-group.dto';
-import { PrismaService } from 'prisma/prisma.service';
-import { WorkspaceAccessService } from 'src/workspace/workspace-access.service';
-import { BoardAccessService } from 'src/boards/board-access.service';
-import { DeleteGroupDto } from './dto/delete-group.dto';
 
 @Injectable()
 export class GroupsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly boardAccessService: BoardAccessService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
+
   async create(createGroupDto: CreateGroupDto, userId: number) {
+    const ORDER_GAP = 1000;
+
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.group.findFirst({
         where: {
@@ -39,34 +38,30 @@ export class GroupsService {
         },
       });
 
-      const group = await tx.group.create({
+      return tx.group.create({
         data: {
-          name: createGroupDto.name,
           boardId: createGroupDto.boardId,
+          name: createGroupDto.name,
+          color: createGroupDto.color,
           createdById: userId,
-          color:createGroupDto.color,
-          order: (lastGroup?.order ?? -1) + 1,
+          order: lastGroup
+            ? lastGroup.order + ORDER_GAP
+            : ORDER_GAP,
         },
       });
-
-      return group;
     });
   }
 
-  async update(id: number, updateGroupDto: UpdateGroupDto, userId: number) {
+  async update(
+    id: number,
+    updateGroupDto: UpdateGroupDto,
+    userId: number,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const group = await tx.group.findFirst({
         where: {
           id,
           boardId: updateGroupDto.boardId,
-        },
-        include: {
-          board: {
-            select: {
-              id: true,
-              workspaceId: true,
-            },
-          },
         },
       });
 
@@ -74,12 +69,10 @@ export class GroupsService {
         throw new NotFoundException('Group not found.');
       }
 
-      await this.boardAccessService.requireViewer(
-        group.board.workspaceId,
-        userId,
-      );
-
-      if (updateGroupDto.name && updateGroupDto.name !== group.name) {
+      if (
+        updateGroupDto.name &&
+        updateGroupDto.name !== group.name
+      ) {
         const existing = await tx.group.findFirst({
           where: {
             boardId: updateGroupDto.boardId,
@@ -91,12 +84,16 @@ export class GroupsService {
         });
 
         if (existing) {
-          throw new ConflictException('Group with this name already exists.');
+          throw new ConflictException(
+            'Group with this name already exists.',
+          );
         }
       }
 
       return tx.group.update({
-        where: { id },
+        where: {
+          id,
+        },
         data: {
           ...(updateGroupDto.name !== undefined && {
             name: updateGroupDto.name,
@@ -110,34 +107,29 @@ export class GroupsService {
     });
   }
 
-  async remove(id: number, boardId: number, userId: number) {
+  async remove(
+    id: number,
+    boardId: number,
+    userId: number,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const group = await tx.group.findFirst({
         where: {
           id,
           boardId,
         },
-        include: {
-          board: {
-            select: {
-              id: true,
-              workspaceId: true,
-            },
-          },
-        },
       });
 
       if (!group) {
-        throw new NotFoundException('Group not found for the specified board.');
+        throw new NotFoundException(
+          'Group not found for the specified board.',
+        );
       }
 
-      await this.boardAccessService.requireViewer(
-        group.board.workspaceId,
-        userId,
-      );
-
       await tx.group.delete({
-        where: { id },
+        where: {
+          id,
+        },
       });
 
       return {
@@ -145,71 +137,82 @@ export class GroupsService {
       };
     });
   }
-  async reorder(dto: ReorderGroupDto, userId: number) {
-    const dragged = await this.prisma.group.findFirst({
-      where: { id: dto.draggedGroupId, boardId: dto.boardId },
+
+  async reorder(
+    dto: ReorderGroupDto,
+    userId: number,
+  ) {
+    const group = await this.prisma.group.findFirst({
+      where: {
+        id: dto.groupId,
+        boardId: dto.boardId,
+      },
     });
 
-    const target = await this.prisma.group.findFirst({
-      where: { id: dto.targetGroupId, boardId: dto.boardId },
-    });
-
-    if (!dragged || !target) {
-      throw new NotFoundException('Dragged or target group not found');
+    if (!group) {
+      throw new NotFoundException('Group not found.');
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      if (dragged.order < target.order) {
-        // moving down: decrement groups between dragged.order and target.order
-        await tx.group.updateMany({
-          where: {
-            boardId: dto.boardId,
-            order: {
-              gt: dragged.order,
-              lte: target.order,
+    const [previousGroup, nextGroup] = await Promise.all([
+      dto.previousGroupId
+        ? this.prisma.group.findFirst({
+            where: {
+              id: dto.previousGroupId,
+              boardId: dto.boardId,
             },
-          },
-          data: {
-            order: {
-              decrement: 1,
-            },
-          },
-        });
-      } else if (dragged.order > target.order) {
-        // moving up: increment groups between target.order and dragged.order
-        await tx.group.updateMany({
-          where: {
-            boardId: dto.boardId,
-            order: {
-              gte: target.order,
-              lt: dragged.order,
-            },
-          },
-          data: {
-            order: {
-              increment: 1,
-            },
-          },
-        });
-      }
+          })
+        : Promise.resolve(null),
 
-      await tx.group.update({
-        where: { id: dragged.id },
-        data: {
-          order: target.order,
-          updatedById: userId,
-        },
-      });
+      dto.nextGroupId
+        ? this.prisma.group.findFirst({
+            where: {
+              id: dto.nextGroupId,
+              boardId: dto.boardId,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    let newOrder: number;
+
+    // Only group in board
+    if (!previousGroup && !nextGroup) {
+      newOrder = 1000;
+    }
+    // Move to beginning
+    else if (!previousGroup && nextGroup) {
+      newOrder = nextGroup.order - 1000;
+    }
+    // Move to end
+    else if (previousGroup && !nextGroup) {
+      newOrder = previousGroup.order + 1000;
+    }
+    // Move between two groups
+    else {
+      newOrder =
+        (previousGroup!.order + nextGroup!.order) / 2;
+    }
+
+    await this.prisma.group.update({
+      where: {
+        id: dto.groupId,
+      },
+      data: {
+        order: newOrder,
+        updatedById: userId,
+      },
     });
 
-    return { message: 'Groups reordered successfully' };
+    return {
+      message: 'Groups reordered successfully.',
+    };
   }
 
   findAll() {
-    return `This action returns all groups`;
+    return 'This action returns all groups';
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} group`;
+    return `This action returns group #${id}`;
   }
 }

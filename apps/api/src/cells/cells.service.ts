@@ -3,6 +3,7 @@ import { CreateCellDto } from './dto/create-cell.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { BoardAccessService } from 'src/boards/board-access.service';
 import { UpdateCellDto } from './dto/update-cell.dto';
+import { BoardPermission } from '@repo/shared';
 
 @Injectable()
 export class CellsService {
@@ -40,7 +41,13 @@ export class CellsService {
       throw new NotFoundException('Cell not found.');
     }
 
-    await this.boardAccess.requireViewer(cell.column.boardId, userId);
+    
+
+    await this.boardAccess.requirePermission(
+      cell.column.boardId,
+      userId,
+      BoardPermission.BOARD_VIEW,
+    );
 
     return this.prisma.taskCell.update({
       where: {

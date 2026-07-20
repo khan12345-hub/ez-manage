@@ -73,11 +73,11 @@ export async function deleteTask(taskId: number) {
   const { data } = await api.delete(`/tasks/${taskId}`);
   return data;
 }
-
 export interface ReorderTaskDto {
-  draggedTaskId: number;
-  targetTaskId: number;
-  destinationGroupId: number | string | null;
+  taskId: number;
+  destinationGroupId: number;
+  previousTaskId?: number | null;
+  nextTaskId?: number | null;
 }
 
 export async function reorderTask(dto: ReorderTaskDto) {

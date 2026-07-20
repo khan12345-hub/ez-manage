@@ -1,90 +1,79 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
+  Param,
   ParseIntPipe,
-  ForbiddenException,
+  Patch,
+  Post,
+  UseGuards,
 } from '@nestjs/common';
+
 import { GroupsService } from './groups.service';
+
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { ReorderGroupDto } from './dto/reorder-group.dto';
-import { BoardAccessService } from 'src/boards/board-access.service';
-import { SessionUser } from 'src/auth/types/session-user.type';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { DeleteGroupDto } from './dto/delete-group.dto';
 
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { RequireBoardPermission } from 'src/auth/decorators/require-board-permission.decorator';
+
+import { SessionUser } from 'src/auth/types/session-user.type';
+
+import { SessionAuthGuard } from 'src/auth/guards/session.guard';
+import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
+
+import { BoardPermission } from '@repo/shared';
+
 @Controller('groups')
+@UseGuards(SessionAuthGuard, BoardPermissionGuard)
 export class GroupsController {
-  constructor(
-    private readonly groupsService: GroupsService,
-    private readonly boardsAccessService: BoardAccessService,
-  ) {}
+  constructor(private readonly groupsService: GroupsService) {}
 
   @Post()
+  @RequireBoardPermission(BoardPermission.EDIT)
   create(
     @Body() createGroupDto: CreateGroupDto,
     @CurrentUser() user: SessionUser,
   ) {
-    const isMember = this.boardsAccessService.requireViewer(
-      createGroupDto.boardId,
-      user.id,
-    );
-    if (!isMember) {
-      throw new ForbiddenException(
-        `Board not found or you don't have valid permission`,
-      );
-    }
     return this.groupsService.create(createGroupDto, user.id);
   }
 
-  @Get()
-  findAll() {
-    return this.groupsService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.groupsService.findOne(+id);
-  }
-
   @Patch('reorder')
+  @RequireBoardPermission(BoardPermission.EDIT)
   reorder(
     @Body() dto: ReorderGroupDto,
     @CurrentUser() user: SessionUser,
   ) {
-    const isMember = this.boardsAccessService.requireViewer(
-      dto.boardId,
-      user.id,
-    );
-    if (!isMember) {
-      throw new ForbiddenException(
-        `Board not found or you don't have valid permission`,
-      );
-    }
     return this.groupsService.reorder(dto, user.id);
   }
 
   @Patch(':id')
+  @RequireBoardPermission(BoardPermission.EDIT)
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateGroupDto: UpdateGroupDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.groupsService.update(+id, updateGroupDto, user.id);
+    return this.groupsService.update(
+      id,
+      updateGroupDto,
+      user.id,
+    );
   }
 
   @Delete(':id')
+  @RequireBoardPermission(BoardPermission.DELETE)
   remove(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() deleteGroupDto: DeleteGroupDto,
     @CurrentUser() user: SessionUser,
-
   ) {
-    return this.groupsService.remove(+id, deleteGroupDto.boardId, user.id);
+    return this.groupsService.remove(
+      id,
+      deleteGroupDto.boardId,
+      user.id,
+    );
   }
 }

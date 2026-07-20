@@ -7,7 +7,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { WorkspaceRole } from '../../../generated/prisma/client';
+import { WorkspaceMemberRole } from '../../../generated/prisma/client';
 
 export class CreateInvitationDto {
   @IsEmail()
@@ -25,6 +25,6 @@ export class CreateInvitationDto {
   @Min(1, { each: true })
   boardIds!: number[];
 
-  @IsEnum(WorkspaceRole)
-  role!: WorkspaceRole;
+  @IsEnum(WorkspaceMemberRole)
+  role!: WorkspaceMemberRole;
 }

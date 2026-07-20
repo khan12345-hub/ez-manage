@@ -4,10 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PrismaService } from 'prisma/prisma.service';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
-import { PrismaService } from 'prisma/prisma.service';
-import { WorkspaceRole } from '../../generated/prisma/client';
+import { WorkspaceMemberRole } from 'generated/prisma/enums';
 
 @Injectable()
 export class WorkspaceService {
@@ -44,7 +44,7 @@ export class WorkspaceService {
         members: {
           create: {
             userId,
-            role: WorkspaceRole.OWNER,
+            role: WorkspaceMemberRole.OWNER,
           },
         },
       },
@@ -53,7 +53,9 @@ export class WorkspaceService {
 
   async findAll(userId: number) {
     const memberships = await this.prisma.workspaceMember.findMany({
-      where: { userId },
+      where: {
+        userId,
+      },
       include: {
         workspace: true,
       },
@@ -70,7 +72,7 @@ export class WorkspaceService {
     }));
   }
 
-  async findOne(workspaceId: number, userId: number) {
+  async findOne(workspaceId: number) {
     const workspace = await this.prisma.workspace.findUnique({
       where: {
         id: workspaceId,
@@ -99,13 +101,6 @@ export class WorkspaceService {
         },
 
         boards: {
-          where: {
-            members: {
-              some: {
-                userId,
-              },
-            },
-          },
           include: {
             createdBy: {
               select: {
@@ -133,7 +128,7 @@ export class WorkspaceService {
         },
       },
     });
-    
+
     if (!workspace) {
       throw new NotFoundException('Workspace not found.');
     }
@@ -144,6 +139,7 @@ export class WorkspaceService {
   async update(
     workspaceId: number,
     updateWorkspaceDto: UpdateWorkspaceDto,
+    userId: number,
   ) {
     const workspace = await this.prisma.workspace.findUnique({
       where: {
@@ -155,7 +151,7 @@ export class WorkspaceService {
       throw new NotFoundException('Workspace not found.');
     }
 
-    const data: UpdateWorkspaceDto = {};
+    const data: UpdateWorkspaceDto & { updatedById?: number } = {};
 
     if (updateWorkspaceDto.name !== undefined) {
       const name = updateWorkspaceDto.name.trim();
@@ -190,6 +186,8 @@ export class WorkspaceService {
       data.visibility = updateWorkspaceDto.visibility;
     }
 
+    data.updatedById = userId;
+
     return this.prisma.workspace.update({
       where: {
         id: workspaceId,
@@ -223,24 +221,10 @@ export class WorkspaceService {
       throw new NotFoundException('Workspace not found.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      await tx.workspaceMember.deleteMany({
-        where: {
-          workspaceId,
-        },
-      });
-
-      await tx.board.deleteMany({
-        where: {
-          workspaceId,
-        },
-      });
-
-      return tx.workspace.delete({
-        where: {
-          id: workspaceId,
-        },
-      });
+    return this.prisma.workspace.delete({
+      where: {
+        id: workspaceId,
+      },
     });
   }
 }

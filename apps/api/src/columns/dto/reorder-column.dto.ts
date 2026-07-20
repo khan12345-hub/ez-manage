@@ -1,12 +1,17 @@
-import { IsInt } from "class-validator";
+import { IsInt, IsOptional } from "class-validator";
 
 export class ReorderColumnDto {
   @IsInt()
   boardId!: number;
 
   @IsInt()
-  draggedColumnId!: number;
+  columnId!: number;
 
+  @IsOptional()
   @IsInt()
-  targetColumnId!: number;
+  previousColumnId?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  nextColumnId?: number | null;
 }
