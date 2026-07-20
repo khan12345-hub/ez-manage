@@ -78,22 +78,7 @@ export function PrimarySidebar({ activeTab = "Workspace", onTabChange }: Primary
         </nav>
       </div>
 
-      {/* Bottom Profile and Help */}
-      <div className="flex w-full flex-col items-center gap-5">
-        {/* Upgrade / Notification Dot */}
-        <button className="group relative flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100">
-          <Sparkles className="h-5 w-5 animate-pulse" />
-          <div className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#FF3D57]" />
-        </button>
-
-        {/* User Profile Avatar */}
-        <div className="relative h-10 w-10 cursor-pointer rounded-full bg-gradient-to-tr from-pink-500 to-yellow-500 p-[2px] transition-transform hover:scale-105">
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-white">
-            <span className="text-xs font-bold text-gray-800">MA</span>
-          </div>
-          <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
-        </div>
-      </div>
+      
     </div>
   );
 }

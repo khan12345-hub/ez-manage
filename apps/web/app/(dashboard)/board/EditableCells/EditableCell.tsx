@@ -8,6 +8,13 @@ export interface CellEditorProps<T> {
   setValue: React.Dispatch<React.SetStateAction<T>>;
   save: (value?: T) => void;
   cancel: () => void;
+
+  column?: any;
+  task?: any;
+  cell?: any;
+  isPrimary?: boolean;
+  isDragging?: boolean;
+
 }
 
 interface EditableCellProps {
@@ -15,7 +22,13 @@ interface EditableCellProps {
   render: (value: any) => React.ReactNode;
   editor: ComponentType<CellEditorProps<any>>;
   onSave: (value: any) => void;
+
+  column?: any;
+  task?: any;
+  cell?: any;
+
   editable?: boolean;
+  isDragging?: boolean;
 }
 
 export function EditableCell<T>({
@@ -24,6 +37,9 @@ export function EditableCell<T>({
   editor: Editor,
   onSave,
   editable = true,
+  column,
+  task,
+  cell,
 }: EditableCellProps) {
   const [editing, setEditing] = useState(false);
   const [localValue, setLocalValue] = useState(value);
@@ -68,6 +84,11 @@ export function EditableCell<T>({
         setValue={setLocalValue}
         save={save}
         cancel={cancel}
+        column={column}
+        task={task}
+        cell={cell}
+        isPrimary={column?.isPrimary}
+        // isDragging={isDragging}
       />
     );
   }

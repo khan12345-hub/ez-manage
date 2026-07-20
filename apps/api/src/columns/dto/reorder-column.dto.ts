@@ -1,12 +1,12 @@
 import { IsInt } from "class-validator";
 
-export class ReorderGroupDto {
+export class ReorderColumnDto {
   @IsInt()
   boardId!: number;
 
   @IsInt()
-  draggedGroupId!: number;
+  draggedColumnId!: number;
 
   @IsInt()
-  targetGroupId!: number;
+  targetColumnId!: number;
 }

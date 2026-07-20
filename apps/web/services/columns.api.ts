@@ -39,3 +39,14 @@ export const updateColumn = async (id: number, name: string) => {
 export const deleteColumn = async (id: number) => {
   await api.delete(`/columns/${id}`);
 };
+
+export interface ReorderColumnDto {
+  boardId: number;
+  draggedColumnId: number;
+  targetColumnId: number;
+}
+
+export const reorderColumn = async (data: ReorderColumnDto) => {
+  const { data: resData } = await api.patch("/columns/reorder", data);
+  return resData;
+};

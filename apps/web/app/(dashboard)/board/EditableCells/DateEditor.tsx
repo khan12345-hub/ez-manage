@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/popover";
 
 import { CellEditorProps } from "./EditableCell";
+import { useState } from "react";
 export interface DateValue {
-  date: string;
+  date?: Date;
 }
 export function DateEditor({
   inputRef,
@@ -22,10 +23,12 @@ export function DateEditor({
   save,
   cancel,
 }: CellEditorProps<DateValue>) {
-  const date = value ? parseISO(value.date) : undefined;
-
+  console.log("DATE", value);
+  const date = value?.date;
+  // const date = new Date()
+  const [open, setOpen] = useState(false);
   return (
-    <Popover defaultOpen>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           ref={inputRef}
@@ -49,15 +52,13 @@ export function DateEditor({
             if (!selected) return;
 
             const newValue = {
-              date: format(selected, "yyyy-MM-dd"),
+              date: selected,
             };
 
             setValue(newValue);
             save(newValue);
+            setOpen(false);
           }}
-          // onKeyDown={(e) => {
-          //   if (e.key === "Escape") cancel();
-          // }}
         />
       </PopoverContent>
     </Popover>

@@ -7,6 +7,8 @@ import { DateEditor } from "../EditableCells/DateEditor";
 import { StatusCell } from "./status/StatusCell";
 import { PersonCell } from "./PersonCell";
 import { DateCell } from "./DateCell";
+import { updateTask } from "@/services/tasks.api";
+import { updateCell } from "@/services/cells.api";
 
 export interface CellConfig<T = any> {
   editor: ComponentType<CellEditorProps<any>>;
@@ -15,12 +17,13 @@ export interface CellConfig<T = any> {
   getValue: (task: any, cell: any, column: any) => T;
 
   toCellValue: (value: T, previous: any) => any;
+  save: (args: { task: any; cell: any; column: any; value: T }) => Promise<any>;
 }
 
 export const CELL_CONFIG: Record<string, CellConfig> = {
   TEXT: {
     editor: TextEditor,
-    render: (value) => <span>{value}</span>,
+    render: (value) => <span className="text-red-600">{value}</span>,
 
     getValue: (task, cell, column) => {
       // Primary column is the task title
@@ -34,6 +37,19 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     toCellValue: (value) => ({
       text: value,
     }),
+    save: ({ task, cell, column, value }) => {
+      if (column.isPrimary) {
+        return updateTask(task.id, {
+          name: value,
+        });
+      }
+
+      return updateCell(cell.id, {
+        value: {
+          text: value,
+        },
+      });
+    },
   },
 
   PERSON: {
@@ -41,6 +57,13 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     render: (value) => <PersonCell cell={value} />,
     getValue: (_, cell) => cell?.value,
     toCellValue: (value) => value,
+    save: ({ cell, value }) => {
+      return updateCell(cell.id, {
+        value: {
+          users: [...value.users],
+        },
+      });
+    },
   },
 
   STATUS: {
@@ -48,6 +71,14 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     render: (value) => <StatusCell cell={value} />,
     getValue: (_, cell) => cell?.value,
     toCellValue: (value) => value,
+    save: ({ cell, value }) => {
+      return updateCell(cell.id, {
+        value: {
+          label: value.label,
+          color: value.color,
+        },
+      });
+    },
   },
 
   DATE: {
@@ -55,5 +86,12 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     render: (value) => <DateCell cell={value} />,
     getValue: (_, cell) => cell?.value,
     toCellValue: (value) => value,
+    save: ({ cell, value }) => {
+      return updateCell(cell.id, {
+        value: {
+          date: value.date,
+        },
+      });
+    },
   },
 };

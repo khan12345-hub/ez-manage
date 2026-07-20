@@ -1,10 +1,18 @@
+"use client";
+
 import { User2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 interface BoardMember {
   id: number;
   firstName: string;
   lastName: string;
+  email?: string;
   avatar?: string | null;
 }
 
@@ -26,25 +34,64 @@ export function PersonCell({ cell }: Props) {
   }
 
   return (
-    <div className="flex -space-x-2">
-      {users.slice(0, 3).map((user) => (
-        <Avatar
-          key={user.id}
-          className="h-7 w-7 border-2 border-background"
-        >
-          <AvatarImage src={user.avatar ?? undefined} />
-          <AvatarFallback>
-            {user.firstName?.[0]}
-            {user.lastName?.[0]}
-          </AvatarFallback>
-        </Avatar>
-      ))}
+    <HoverCard openDelay={100}>
+      <HoverCardTrigger asChild>
+        <div className="flex cursor-pointer -space-x-2">
+          {users.slice(0, 3).map((user) => (
+            <Avatar
+              key={user.id}
+              className="h-7 w-7 border-2 border-background"
+            >
+              <AvatarImage src={user.avatar ?? undefined} />
+              <AvatarFallback>
+                {user.firstName?.[0]}
+                {user.lastName?.[0]}
+              </AvatarFallback>
+            </Avatar>
+          ))}
 
-      {users.length > 1 && (
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs">
-          +{users.length - 3}
+          {users.length > 3 && (
+            <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-medium">
+              +{users.length - 3}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </HoverCardTrigger>
+
+      <HoverCardContent
+        side="top"
+        align="start"
+        className="w-64 p-2"
+      >
+        <div className="space-y-2">
+          {users.map((user) => (
+            <div
+              key={user.id}
+              className="flex items-center gap-3 rounded-md p-2 hover:bg-accent"
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user.avatar ?? undefined} />
+                <AvatarFallback>
+                  {user.firstName?.[0]}
+                  {user.lastName?.[0]}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">
+                  {user.firstName} {user.lastName}
+                </p>
+
+                {user.email && (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {user.email}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 }

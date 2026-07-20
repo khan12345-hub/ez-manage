@@ -32,11 +32,10 @@ export class BoardsService {
           workspaceId: createBoardDto.workspaceId,
           visibility: createBoardDto.visibility ?? 'PUBLIC',
           createdById: userId,
-
           members: {
             create: {
               userId,
-              role:BoardRole.OWNER
+              role: BoardRole.OWNER,
             },
           },
         },
@@ -101,8 +100,15 @@ export class BoardsService {
           ),
         });
       }
+      const member = await tx.boardMember.findFirst({
+        where: {
+          boardId: board.id,
+          userId,
+        },
+      });
 
-      return tx.board.findUniqueOrThrow({
+      
+      const userBoards = tx.board.findUniqueOrThrow({
         where: {
           id: board.id,
         },
@@ -145,35 +151,44 @@ export class BoardsService {
           },
         },
       });
+
+      return userBoards
     });
   }
 
   async findAll(workspaceId: number, userId: number) {
-    const workspace = await this.workspaceAccess.getWorkspaceMember(
-      workspaceId,
-      userId,
-    );
+;
 
     const boards = await this.prisma.board.findMany({
-      where: {
-        workspaceId,
-        members: {
-          some: {
-            userId,
-          },
+    where: {
+      workspaceId,
+      members: {
+        some: {
+          userId,
         },
       },
-    });
+    },
+    include: {
+      members: {
+        where: {
+          userId,
+        },
+        select: {
+          role: true,
+        },
+      },
+    },
+  });
+
     if (!boards) {
       throw new ForbiddenException();
     }
-    console.log("user boards", boards)
+    
     return boards.map((board) => ({
       id: board.id,
       name: board.name,
-      role: workspace.role,
+      role: board.members[0]?.role,
     }));
-
   }
 
   async findOne(id: number) {

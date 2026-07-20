@@ -11,6 +11,7 @@ import {
 import { ColumnsService } from './columns.service';
 import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
+import { ReorderColumnDto } from './dto/reorder-column.dto';
 
 @Controller('columns')
 export class ColumnsController {
@@ -29,6 +30,11 @@ export class ColumnsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.columnsService.findOne(+id);
+  }
+
+  @Patch('reorder')
+  reorder(@Body() dto: ReorderColumnDto) {
+    return this.columnsService.reorder(dto);
   }
 
   @Patch(':id')

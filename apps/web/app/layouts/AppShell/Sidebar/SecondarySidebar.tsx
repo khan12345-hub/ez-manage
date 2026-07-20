@@ -74,6 +74,7 @@ export function SecondarySidebar({
     }
   },[workspaces])
   const { setBoard } = useInviteModalStore();
+  console.log("ROLE", boards)
   return (
     <div className="relative flex h-full select-none flex-col border-r border-gray-200 bg-white">
       {/* Secondary Sidebar Content Container */}
@@ -197,7 +198,7 @@ export function SecondarySidebar({
                         >
                           {item.name}
                         </Link>
-                        {workspace && (
+                        {(item.role === "OWNER" || item.role === "ADMIN") && workspace && (
                           <ManageBoardDropdown
                             boardId={item.id}
                             boardName={item.name}

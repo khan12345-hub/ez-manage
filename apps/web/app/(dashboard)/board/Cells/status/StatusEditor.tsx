@@ -45,7 +45,10 @@ export function StatusEditor({
   value,
   setValue,
   save,
-}: CellEditorProps<StatusValue>) {
+  isDragging,
+}: CellEditorProps<StatusValue> & {
+  isDragging?: boolean;
+}) {
   const [mode, setMode] = useState<"picker" | "edit">("picker");
   const [statuses, setStatuses] = useState(DEFAULT_STATUSES);
   const [open, setOpen] = useState(true);
@@ -69,10 +72,17 @@ export function StatusEditor({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(v) => {
+        if (!isDragging) {
+          setOpen(v);
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <button
-          className="cursor-pointer flex h-8 w-full items-center justify-center rounded px-3 text-sm font-medium text-white"
+          className="absolute top-0 left-0 cursor-pointer flex items-center h-full w-full justify-center text-sm font-medium text-white"
           style={{ background: current?.color }}
         >
           {current?.label}
@@ -93,7 +103,7 @@ export function StatusEditor({
 
                   setValue(newValue);
                   save(newValue);
-                  setOpen(!open)
+                  setOpen(!open);
                 }}
                 className="relative flex h-10 w-full items-center justify-center rounded text-sm font-medium text-white transition hover:opacity-90"
                 style={{ background: status.color }}

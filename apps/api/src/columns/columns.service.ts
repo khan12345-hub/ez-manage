@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
+import { ReorderColumnDto } from './dto/reorder-column.dto';
 import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
@@ -131,6 +132,71 @@ export class ColumnsService {
         },
       });
     });
+  }
+
+  async reorder(dto: ReorderColumnDto) {
+    const dragged = await this.prisma.boardColumn.findFirst({
+      where: { id: dto.draggedColumnId, boardId: dto.boardId },
+    });
+
+    const target = await this.prisma.boardColumn.findFirst({
+      where: { id: dto.targetColumnId, boardId: dto.boardId },
+    });
+
+    if (!dragged || !target) {
+      throw new NotFoundException('Dragged or target column not found');
+    }
+
+    if (dragged.isPrimary || target.isPrimary) {
+      throw new BadRequestException('Primary column cannot be reordered or targeted for reordering');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (dragged.order < target.order) {
+        // moving right: decrement columns between dragged.order and target.order
+        await tx.boardColumn.updateMany({
+          where: {
+            boardId: dto.boardId,
+            order: {
+              gt: dragged.order,
+              lte: target.order,
+            },
+            isPrimary: false,
+          },
+          data: {
+            order: {
+              decrement: 1.0,
+            },
+          },
+        });
+      } else if (dragged.order > target.order) {
+        // moving left: increment columns between target.order and dragged.order
+        await tx.boardColumn.updateMany({
+          where: {
+            boardId: dto.boardId,
+            order: {
+              gte: target.order,
+              lt: dragged.order,
+            },
+            isPrimary: false,
+          },
+          data: {
+            order: {
+              increment: 1.0,
+            },
+          },
+        });
+      }
+
+      await tx.boardColumn.update({
+        where: { id: dragged.id },
+        data: {
+          order: target.order,
+        },
+      });
+    });
+
+    return { message: 'Columns reordered successfully' };
   }
 
   async remove(columnId: number) {

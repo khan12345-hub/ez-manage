@@ -69,3 +69,19 @@ export const updateTask = async (
   return data;
 };
 
+export async function deleteTask(taskId: number) {
+  const { data } = await api.delete(`/tasks/${taskId}`);
+  return data;
+}
+
+export interface ReorderTaskDto {
+  draggedTaskId: number;
+  targetTaskId: number;
+  destinationGroupId: number | string | null;
+}
+
+export async function reorderTask(dto: ReorderTaskDto) {
+  const { data } = await api.patch("/tasks/reorder", dto);
+
+  return data;
+}

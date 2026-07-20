@@ -50,3 +50,14 @@ export async function deleteGroup(
     data,
   });
 }
+
+export interface ReorderGroupDto {
+  boardId: number;
+  draggedGroupId: number;
+  targetGroupId: number;
+}
+
+export async function reorderGroup(data: ReorderGroupDto) {
+  const response = await api.patch("/groups/reorder", data);
+  return response.data;
+}

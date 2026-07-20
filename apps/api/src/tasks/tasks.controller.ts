@@ -13,6 +13,7 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SessionUser } from 'src/auth/types/session-user.type';
+import { ReorderTaskDto } from './dto/reorder-task.dto';
 
 @Controller('tasks')
 export class TasksController {
@@ -31,6 +32,11 @@ export class TasksController {
   //   return this.tasksService.findAll();
   // }
 
+    @Patch('reorder')
+  reorder(@Body() dto: ReorderTaskDto, @CurrentUser() user: SessionUser) {
+    console.log("BACKEND DTO", dto);
+    return this.tasksService.reorder(dto);
+  }
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -46,6 +52,16 @@ export class TasksController {
     @CurrentUser() user: SessionUser,
   ) {
     return this.tasksService.update(id, dto, user.id);
+  }
+
+
+
+  @Delete(':id')
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.tasksService.remove(id, user.id);
   }
 
   // @Patch(':id')

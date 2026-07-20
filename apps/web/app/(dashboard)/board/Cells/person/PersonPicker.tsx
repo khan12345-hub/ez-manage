@@ -15,15 +15,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { getBoardMembers, BoardMember } from "@/services/boards.api";
 import { useInviteModalStore } from "@/store/invite-modal";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+
+export interface PersonValue {
+  users: BoardMember[];
+}
 
 interface Props {
-  boardId: number;
 
-  value?: BoardMember | BoardMember[] | null;
+  value?: PersonValue | null;
 
-  onChange: (value: BoardMember | BoardMember[] | null) => void;
-
-  multiple?: boolean;
+  onChange: (value: PersonValue | null) => void;
 
   placeholder?: string;
 
@@ -33,7 +39,6 @@ interface Props {
 export default function PersonPicker({
   value,
   onChange,
-  multiple = false,
   placeholder = "Search people...",
   className,
 }: Props) {
@@ -43,7 +48,7 @@ export default function PersonPicker({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const { boardId } = useInviteModalStore();
-  console.log("Board Id", boardId)
+  
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
@@ -65,10 +70,12 @@ export default function PersonPicker({
     staleTime: 1000 * 60 * 5,
   });
 
-  const selectedUsers = useMemo(() => {
-    if (!value) return [];
-    return Array.isArray(value) ? value : [value];
-  }, [value]);
+  // const selectedUsers = useMemo(() => {
+  //   if (!value) return [];
+  //   return Array.isArray(value) ? value : [value];
+  // }, [value]);
+
+  const selectedUsers = value?.users ?? [];
 
   function initials(user: BoardMember | undefined) {
     return `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`;
@@ -79,24 +86,21 @@ export default function PersonPicker({
   }
 
   function handleSelect(user: BoardMember) {
-    if (!multiple) {
-      onChange(user);
-      setOpen(false);
-      return;
-    }
-
     const exists = selectedUsers.some((u) => u.id === user.id);
 
     if (exists) {
-      onChange(selectedUsers.filter((u) => u.id !== user.id));
+      onChange({
+        users: selectedUsers.filter((u) => u.id !== user.id),
+      });
     } else {
-      onChange([...selectedUsers, user]);
+      onChange({
+        users: [...selectedUsers, user],
+      });
     }
   }
 
   function clearSelection() {
-    onChange(multiple ? [] : null);
-    setOpen(false);
+    onChange({ users: [] });
   }
 
   return (
@@ -104,7 +108,7 @@ export default function PersonPicker({
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "flex cursor-pointer h-9 w-full items-center gap-2 rounded-md border bg-background px-2 hover:bg-accent transition-colors",
+            "flex cursor-pointer w-full items-center gap-2 rounded-md bg-background hover:bg-accent transition-colors",
             className,
           )}
         >
@@ -115,42 +119,59 @@ export default function PersonPicker({
                 Assign person
               </span>
             </>
-          ) : selectedUsers.length === 1 ? (
+          )  : (
             <>
-              <Avatar className="h-6 w-6">
-                <AvatarImage src={selectedUsers[0]?.avatar ?? undefined} />
-                <AvatarFallback className="text-xs">
-                  {initials(selectedUsers[0])} 
-                </AvatarFallback>
-              </Avatar>
+              <HoverCard openDelay={100}>
+                <HoverCardTrigger asChild>
+                  <div className="inline-flex cursor-pointer -space-x-2">
+                    {selectedUsers.slice(0, 3).map((user) => (
+                      <Avatar
+                        key={user.id}
+                        className="h-10 w-10 border-2 border-background"
+                      >
+                        <AvatarImage src={user.avatar ?? undefined} />
+                        <AvatarFallback>
+                          {initials(user)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
 
-              <span className="truncate text-sm">
-                {selectedUsers[0]?.firstName} {selectedUsers[0]?.lastName}
-              </span>
-            </>
-          ) : (
-            <>
-              <div className="flex -space-x-2">
-                {selectedUsers.slice(0, 3).map((user) => (
-                  <Avatar
-                    key={user.id}
-                    className="h-6 w-6 border-2 border-background"
-                  >
-                    <AvatarImage src={user.avatar ?? undefined} />
-                    <AvatarFallback className="text-[10px]">
-                      {initials(user)}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
-
-                {selectedUsers.length > 3 && (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px]">
-                    +{selectedUsers.length - 3}
+                    {selectedUsers.length > 3 && (
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium">
+                        +{selectedUsers.length - 3}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </HoverCardTrigger>
 
-              <span className="text-sm">{selectedUsers.length} people</span>
+                <HoverCardContent side="top" align="start" className="w-72 p-2">
+                  <div className="space-y-2">
+                    {selectedUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex items-center gap-3 rounded-md p-2"
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={user.avatar ?? undefined} />
+                          <AvatarFallback>{initials(user)}</AvatarFallback>
+                        </Avatar>
+
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">
+                            {user.firstName} {user.lastName}
+                          </div>
+
+                          <div className="truncate text-xs text-muted-foreground">
+                            {user.email}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
+
+              {/* <span className="text-sm">{selectedUsers.length} people 2</span> */}
             </>
           )}
         </button>
@@ -204,7 +225,7 @@ export default function PersonPicker({
               <button
                 key={user.id}
                 onClick={() => handleSelect(user)}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-accent"
+                className="flex w-full items-center gap-3  text-left transition-colors hover:bg-accent"
               >
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={user.avatar ?? undefined} />

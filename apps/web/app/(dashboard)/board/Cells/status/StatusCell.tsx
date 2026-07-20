@@ -9,7 +9,7 @@ export function StatusCell({ cell }: Props) {
   return (
     <div
       style={{ backgroundColor: cell.color }}
-      className={`rounded px-2 py-1 text-center text-white`}
+      className={`rounded text-center text-white`}
     >
       {cell.label ?? "—"}
     </div>

@@ -40,7 +40,7 @@ export class CellsService {
       throw new NotFoundException('Cell not found.');
     }
 
-    await this.boardAccess.requireEditor(cell.column.boardId, userId);
+    await this.boardAccess.requireViewer(cell.column.boardId, userId);
 
     return this.prisma.taskCell.update({
       where: {

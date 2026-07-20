@@ -12,6 +12,7 @@ import {
 import { GroupsService } from './groups.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
+import { ReorderGroupDto } from './dto/reorder-group.dto';
 import { BoardAccessService } from 'src/boards/board-access.service';
 import { SessionUser } from 'src/auth/types/session-user.type';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
@@ -49,6 +50,23 @@ export class GroupsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.groupsService.findOne(+id);
+  }
+
+  @Patch('reorder')
+  reorder(
+    @Body() dto: ReorderGroupDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    const isMember = this.boardsAccessService.requireViewer(
+      dto.boardId,
+      user.id,
+    );
+    if (!isMember) {
+      throw new ForbiddenException(
+        `Board not found or you don't have valid permission`,
+      );
+    }
+    return this.groupsService.reorder(dto, user.id);
   }
 
   @Patch(':id')

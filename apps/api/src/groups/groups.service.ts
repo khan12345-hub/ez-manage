@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
+import { ReorderGroupDto } from './dto/reorder-group.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { WorkspaceAccessService } from 'src/workspace/workspace-access.service';
 import { BoardAccessService } from 'src/boards/board-access.service';
@@ -144,6 +145,66 @@ export class GroupsService {
       };
     });
   }
+  async reorder(dto: ReorderGroupDto, userId: number) {
+    const dragged = await this.prisma.group.findFirst({
+      where: { id: dto.draggedGroupId, boardId: dto.boardId },
+    });
+
+    const target = await this.prisma.group.findFirst({
+      where: { id: dto.targetGroupId, boardId: dto.boardId },
+    });
+
+    if (!dragged || !target) {
+      throw new NotFoundException('Dragged or target group not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (dragged.order < target.order) {
+        // moving down: decrement groups between dragged.order and target.order
+        await tx.group.updateMany({
+          where: {
+            boardId: dto.boardId,
+            order: {
+              gt: dragged.order,
+              lte: target.order,
+            },
+          },
+          data: {
+            order: {
+              decrement: 1,
+            },
+          },
+        });
+      } else if (dragged.order > target.order) {
+        // moving up: increment groups between target.order and dragged.order
+        await tx.group.updateMany({
+          where: {
+            boardId: dto.boardId,
+            order: {
+              gte: target.order,
+              lt: dragged.order,
+            },
+          },
+          data: {
+            order: {
+              increment: 1,
+            },
+          },
+        });
+      }
+
+      await tx.group.update({
+        where: { id: dragged.id },
+        data: {
+          order: target.order,
+          updatedById: userId,
+        },
+      });
+    });
+
+    return { message: 'Groups reordered successfully' };
+  }
+
   findAll() {
     return `This action returns all groups`;
   }
