@@ -8,26 +8,20 @@ import { PrismaService } from 'prisma/prisma.service';
 
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
-
+import type { Express } from 'express';
 @Injectable()
 export class CommentsService {
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(
-    boardId: number,
     taskId: number,
     userId: number,
     dto: CreateCommentDto,
+    files: any[] = [],
   ) {
-    // Verify task exists and belongs to the requested board
-    const task = await this.prisma.task.findFirst({
+    const task = await this.prisma.task.findUnique({
       where: {
         id: taskId,
-        group: {
-          boardId,
-        },
       },
       select: {
         id: true,
@@ -35,121 +29,44 @@ export class CommentsService {
     });
 
     if (!task) {
-      throw new NotFoundException(
-        'Task not found or does not belong to this board',
-      );
+      throw new NotFoundException('Task not found');
     }
 
-    // Validate parent comment
-    if (dto.parentId) {
-      const parentComment =
-        await this.prisma.taskComment.findUnique({
-          where: {
-            id: dto.parentId,
-          },
+    const comment = await this.prisma.taskComment.create({
+      data: {
+        taskId,
+        userId,
+        content: dto.content,
+
+        files: {
+          create: files.map((file) => ({
+            fileName: file.originalname,
+            mimeType: file.mimetype,
+            fileSize: file.size,
+
+            // Temporary/local storage
+            // Replace with your actual uploaded file path
+            storageKey: file.filename,
+          })),
+        },
+      },
+
+      include: {
+        user: {
           select: {
             id: true,
-            taskId: true,
-            parentId: true,
-          },
-        });
-
-      if (!parentComment) {
-        throw new NotFoundException(
-          'Parent comment not found',
-        );
-      }
-
-      if (parentComment.taskId !== taskId) {
-        throw new BadRequestException(
-          'Parent comment does not belong to this task',
-        );
-      }
-
-      // Prevent nested replies
-      if (parentComment.parentId !== null) {
-        throw new BadRequestException(
-          'Replies cannot be nested more than one level',
-        );
-      }
-    }
-
-    const mentionedUserIds = [
-      ...new Set(dto.mentionedUserIds ?? []),
-    ];
-
-    // Validate mentioned users
-    if (mentionedUserIds.length > 0) {
-      const users = await this.prisma.user.findMany({
-        where: {
-          id: {
-            in: mentionedUserIds,
-          },
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      const existingUserIds = new Set(
-        users.map((user) => user.id),
-      );
-
-      const invalidUserIds = mentionedUserIds.filter(
-        (id) => !existingUserIds.has(id),
-      );
-
-      if (invalidUserIds.length > 0) {
-        throw new BadRequestException(
-          'One or more mentioned users do not exist',
-        );
-      }
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const comment = await tx.taskComment.create({
-        data: {
-          taskId,
-          userId,
-          content: dto.content.trim(),
-          parentId: dto.parentId ?? null,
-
-          mentions: {
-            create: mentionedUserIds.map(
-              (mentionedUserId) => ({
-                userId: mentionedUserId,
-              }),
-            ),
+            firstName: true,
+            lastName: true,
+            email: true,
+            avatarUrl: true,
           },
         },
 
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              avatarUrl: true,
-            },
-          },
-
-          mentions: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      return comment;
+        files: true,
+      },
     });
+
+    return comment;
   }
 
   async findAll(boardId: number) {
@@ -190,19 +107,81 @@ export class CommentsService {
     });
   }
 
-  async findOne(
-    boardId: number,
-    id: number,
-  ) {
-    const comment =
-      await this.prisma.taskComment.findFirst({
-        where: {
-          id,
-          task: {
-            group: {
-              boardId,
+  async findOne(boardId: number, id: number) {
+    const comment = await this.prisma.taskComment.findFirst({
+      where: {
+        id,
+        task: {
+          group: {
+            boardId,
+          },
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+
+        mentions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+              },
             },
           },
+        },
+      },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    return comment;
+  }
+
+  async update(
+    boardId: number,
+    id: number,
+    updateCommentDto: UpdateCommentDto,
+  ) {
+    // First verify that the comment belongs
+    // to a task in this board.
+    const comment = await this.prisma.taskComment.findFirst({
+      where: {
+        id,
+        task: {
+          group: {
+            boardId,
+          },
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Update the comment itself
+      const updatedComment = await tx.taskComment.update({
+        where: {
+          id,
+        },
+        data: {
+          content: updateCommentDto?.content?.trim(),
         },
         include: {
           user: {
@@ -229,107 +208,28 @@ export class CommentsService {
         },
       });
 
-    if (!comment) {
-      throw new NotFoundException(
-        'Comment not found',
-      );
-    }
-
-    return comment;
-  }
-
-  async update(
-    boardId: number,
-    id: number,
-    updateCommentDto: UpdateCommentDto,
-  ) {
-    // First verify that the comment belongs
-    // to a task in this board.
-    const comment =
-      await this.prisma.taskComment.findFirst({
-        where: {
-          id,
-          task: {
-            group: {
-              boardId,
-            },
-          },
-        },
-        select: {
-          id: true,
-        },
-      });
-
-    if (!comment) {
-      throw new NotFoundException(
-        'Comment not found',
-      );
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      // Update the comment itself
-      const updatedComment =
-        await tx.taskComment.update({
-          where: {
-            id,
-          },
-          data: {
-            content:
-              updateCommentDto?.content?.trim(),
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                avatarUrl: true,
-              },
-            },
-
-            mentions: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    avatarUrl: true,
-                  },
-                },
-              },
-            },
-          },
-        });
-
       return updatedComment;
     });
   }
 
-  async remove(
-    boardId: number,
-    id: number,
-  ) {
+  async remove(boardId: number, id: number) {
     // Verify comment belongs to this board
-    const comment =
-      await this.prisma.taskComment.findFirst({
-        where: {
-          id,
-          task: {
-            group: {
-              boardId,
-            },
+    const comment = await this.prisma.taskComment.findFirst({
+      where: {
+        id,
+        task: {
+          group: {
+            boardId,
           },
         },
-        select: {
-          id: true,
-        },
-      });
+      },
+      select: {
+        id: true,
+      },
+    });
 
     if (!comment) {
-      throw new NotFoundException(
-        'Comment not found',
-      );
+      throw new NotFoundException('Comment not found');
     }
 
     await this.prisma.taskComment.delete({

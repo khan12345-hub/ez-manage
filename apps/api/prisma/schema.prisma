@@ -338,6 +338,8 @@ model File {
 
 }
 
+
+
 model TaskComment {
   id        Int      @id @default(autoincrement())
 
@@ -364,7 +366,9 @@ model TaskComment {
 
   replies TaskComment[] @relation("CommentReplies")
 
-   mentions  TaskCommentMention[]
+  mentions  TaskCommentMention[]
+
+  files     TaskCommentFile[]
 
   @@index([taskId])
   @@index([taskId, createdAt])
@@ -372,6 +376,23 @@ model TaskComment {
   @@index([userId])
 
   @@map("task_comments")
+}
+
+model TaskCommentFile {
+  id         Int      @id @default(autoincrement())
+  commentId  Int      @map("comment_id")
+
+  storageKey String   @map("storage_key")
+  fileName   String   @map("file_name") @db.VarChar(255)
+  mimeType   String?  @map("mime_type") @db.VarChar(100)
+  fileSize   Int?     @map("file_size")
+
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  comment    TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+  @@map("task_comment_files")
 }
 
 model TaskCommentMention {

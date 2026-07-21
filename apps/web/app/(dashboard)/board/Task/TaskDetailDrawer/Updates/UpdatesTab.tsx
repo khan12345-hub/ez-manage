@@ -1,6 +1,6 @@
 "use client";
 
-import { UpdateComposer } from "./UpdateComposer";
+import { CommentComposer } from "./UpdateComposer";
 import { CommentThread } from "./CommentThread";
 
 interface UpdatesTabProps {
@@ -13,7 +13,7 @@ export function UpdatesTab({
 }: UpdatesTabProps) {
   return (
     <div className="flex min-h-full flex-col">
-      <UpdateComposer
+      <CommentComposer
         taskId={task?.id}
   
       />

@@ -14,9 +14,10 @@ import { TasksModule } from './tasks/tasks.module';
 import { ColumnsModule } from './columns/columns.module';
 import { UsersModule } from './users/users.module';
 import { CellsModule } from './cells/cells.module';
+import { CommentsModule } from './comments/comments.module';
 
 @Module({
-  imports: [AuthModule, DatabaseModule, UsersModule, InvitationsModule, WorkspaceModule, BoardsModule, GroupsModule, TasksModule, ColumnsModule, CellsModule],
+  imports: [AuthModule, DatabaseModule, UsersModule, InvitationsModule, WorkspaceModule, BoardsModule, GroupsModule, TasksModule, ColumnsModule, CellsModule, CommentsModule],
   controllers: [AppController],
   providers: [AppService,
     {

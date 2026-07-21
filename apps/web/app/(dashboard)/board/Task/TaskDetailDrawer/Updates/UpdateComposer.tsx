@@ -1,149 +1,182 @@
 "use client";
 
 import {
-  AtSign,
+  useRef,
+  useState,
+} from "react";
+
+import {
   Paperclip,
-  Smile,
-  Sparkles,
+  Send,
 } from "lucide-react";
 
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 import {
-  Button,
-} from "@/components/ui/button";
-
-import { RichTextEditor } from "./RichTextEditor/RichTextEditor";
+  RichTextEditor,
+} from "./RichTextEditor/RichTextEditor";
 
 import {
-  extractMentionedUserIds,
-} from "./RichTextEditor/editor-utils";
+  CommentFilePreview,
+} from "./CommentFilePreview";
 
-interface UpdateComposerProps {
+import {
+  useCreateTaskComment,
+} from "./useCreateComment.hooks";
+
+interface Props {
   taskId: number;
 }
 
-export function UpdateComposer({
+export function CommentComposer({
   taskId,
-}: UpdateComposerProps) {
-  const [content, setContent] =
-    useState("");
+}: Props) {
+  const [
+    content,
+    setContent,
+  ] = useState("");
 
-  const [editorJson, setEditorJson] =
-    useState<any>(null);
+  const [
+    files,
+    setFiles,
+  ] = useState<File[]>([]);
 
-  const handleSubmit = () => {
-    const plainText =
-      editorJson?.content
-        ?.map((node: any) =>
-          node.content
-            ?.map((item: any) =>
-              item.text ?? "",
-            )
-            .join(""),
-        )
-        .join("")
-        .trim() ?? "";
+  const fileInputRef =
+    useRef<HTMLInputElement>(
+      null,
+    );
 
-    if (!plainText) {
+  const createComment =
+    useCreateTaskComment(
+      taskId,
+    );
+
+  function handleFiles(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const selectedFiles =
+      Array.from(
+        event.target.files ?? [],
+      );
+
+    if (
+      selectedFiles.length ===
+      0
+    ) {
       return;
     }
 
-    const mentionedUserIds =
-      editorJson
-        ? extractMentionedUserIds(
-            editorJson,
-          )
-        : [];
+    setFiles((current) => [
+      ...current,
+      ...selectedFiles,
+    ]);
 
-    console.log({
-      taskId,
-      content,
-      mentionedUserIds,
-    });
+    // Allows selecting
+    // the same file again
+    event.target.value = "";
+  }
+
+  function removeFile(
+    index: number,
+  ) {
+    setFiles((current) =>
+      current.filter(
+        (_, fileIndex) =>
+          fileIndex !== index,
+      ),
+    );
+  }
+
+  function isContentEmpty(
+    html: string,
+  ) {
+    const text =
+      html
+        .replace(
+          /<[^>]*>/g,
+          "",
+        )
+        .trim();
+
+    return text.length === 0;
+  }
+
+  async function handleSubmit() {
+    if (
+      isContentEmpty(content) &&
+      files.length === 0
+    ) {
+      return;
+    }
+
+    await createComment.mutateAsync(
+      {
+        content,
+        files,
+      },
+    );
 
     setContent("");
-    setEditorJson(null);
-  };
+    setFiles([]);
+  }
+
+  const isSubmitting =
+    createComment.isPending;
 
   return (
-    <div className="border-b p-4">
-      <div className="mb-3 flex items-center gap-3 text-sm text-muted-foreground">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-auto gap-1 p-0 hover:bg-transparent hover:text-foreground"
-        >
-          <AtSign className="h-4 w-4" />
-
-          Mention
-        </Button>
-
-        <span>|</span>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-auto p-0 hover:bg-transparent hover:text-foreground"
-        >
-          Give feedback
-        </Button>
-      </div>
-
+    <div className="overflow-hidden rounded-lg border bg-background">
       <RichTextEditor
         value={content}
-        onChange={(html) => {
-          setContent(html);
-        }}
+        onChange={setContent}
       />
 
-      <div className="mt-3 flex items-center justify-between">
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-          >
-            <AtSign className="h-4 w-4" />
-          </Button>
+      <CommentFilePreview
+        files={files}
+        onRemove={removeFile}
+      />
+
+      <div className="flex items-center justify-between border-t bg-muted/30 px-2 py-1">
+        <div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFiles}
+          />
 
           <Button
             type="button"
             variant="ghost"
             size="icon"
             className="h-8 w-8"
+            onClick={() =>
+              fileInputRef.current?.click()
+            }
           >
             <Paperclip className="h-4 w-4" />
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-          >
-            <Smile className="h-4 w-4" />
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-          >
-            <Sparkles className="h-4 w-4" />
           </Button>
         </div>
 
         <Button
           type="button"
-          onClick={handleSubmit}
-          disabled={!content}
+          size="sm"
+          disabled={
+            isSubmitting ||
+            (isContentEmpty(
+              content,
+            ) &&
+              files.length === 0)
+          }
+          onClick={
+            handleSubmit
+          }
         >
-          Post
+          <Send className="mr-2 h-4 w-4" />
+
+          {isSubmitting
+            ? "Posting..."
+            : "Post"}
         </Button>
       </div>
     </div>

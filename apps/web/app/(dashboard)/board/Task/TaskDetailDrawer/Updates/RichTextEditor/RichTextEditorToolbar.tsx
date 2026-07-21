@@ -51,7 +51,9 @@ export function RichTextToolbar({
           >
             <Bold
               className={
-                editor.isActive("bold")
+                editor.isActive(
+                  "bold",
+                )
                   ? "h-4 w-4 text-primary"
                   : "h-4 w-4"
               }
@@ -81,7 +83,9 @@ export function RichTextToolbar({
           >
             <Italic
               className={
-                editor.isActive("italic")
+                editor.isActive(
+                  "italic",
+                )
                   ? "h-4 w-4 text-primary"
                   : "h-4 w-4"
               }

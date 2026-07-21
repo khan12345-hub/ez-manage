@@ -1,60 +1,59 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseIntPipe,
-  Patch,
   Post,
-  UseGuards,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
+
+import {
+  FilesInterceptor,
+} from '@nestjs/platform-express';
 
 import { CommentsService } from './comments.service';
 
 import { CreateCommentDto } from './dto/create-comment.dto';
-import { UpdateCommentDto } from './dto/update-comment.dto';
 
-import { RequireBoardPermission } from 'src/auth/decorators/require-board-permission.decorator';
+import type { Express } from 'express';
 
-import { SessionAuthGuard } from 'src/auth/guards/session.guard';
-import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
-
-import { BoardPermission } from '@repo/shared';
-import { SessionUser } from 'src/auth/types/session-user.type';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-
-@Controller('boards/:boardId/tasks/:taskId/comments')
-@UseGuards(SessionAuthGuard, BoardPermissionGuard)
+@Controller('tasks')
 export class CommentsController {
   constructor(
     private readonly commentsService: CommentsService,
   ) {}
 
-  @Post()
-  @RequireBoardPermission(BoardPermission.EDIT)
-  create(
-    @Param('boardId', ParseIntPipe) boardId: number,
-    @Param('taskId', ParseIntPipe) taskId: number,
-    @Body() dto: CreateCommentDto,
-    @CurrentUser() user: SessionUser,
-  ) {
-    return this.commentsService.create(
-      boardId,
-      taskId,
-      user.id,
-      dto,
-    );
-  }
+  @Post(':taskId/comments')
+  @UseInterceptors(
+    FilesInterceptor(
+      'files',
+      10,
+    ),
+  )
+  async create(
+    @Param(
+      'taskId',
+      ParseIntPipe,
+    )
+    taskId: number,
 
-  @Get()
-  @RequireBoardPermission(BoardPermission.VIEW)
-  findAll(
-    @Param('boardId', ParseIntPipe) boardId: number,
-    @Param('taskId', ParseIntPipe) taskId: number,
+    @Body()
+    dto: CreateCommentDto,
+
+    @UploadedFiles()
+    files: any[],
   ) {
-    return this.commentsService.findAll(
-      boardId,
+    // Replace this with your actual
+    // authenticated user ID.
+    const userId = 1;
+
+    return this.commentsService.create(
+      taskId,
+      userId,
+      dto,
+      files ?? [],
     );
   }
 }

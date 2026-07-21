@@ -1,6 +1,11 @@
 "use client";
 
-import { Table2 } from "lucide-react";
+import {
+  MoreHorizontal,
+  Plus,
+  Trash2,
+} from "lucide-react";
+
 import type { Editor } from "@tiptap/react";
 
 import {
@@ -13,83 +18,75 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
 interface TablePopoverProps {
   editor: Editor;
 }
 
-const MAX_ROWS = 6;
-const MAX_COLS = 6;
-
 export function TablePopover({
   editor,
 }: TablePopoverProps) {
+  const isInTable = editor.isActive("table");
+
   return (
     <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-            >
-              <Table2 className="h-4 w-4" />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-
-        <TooltipContent>
-          Insert table
-        </TooltipContent>
-      </Tooltip>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+          Table
+        </Button>
+      </PopoverTrigger>
 
       <PopoverContent
         align="start"
-        className="w-auto p-3"
+        className="w-52 p-2"
       >
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Select table size
-          </p>
+        <div className="flex flex-col gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            className="justify-start"
+            onClick={() =>
+              editor
+                .chain()
+                .focus()
+                .insertTable({
+                  rows: 3,
+                  cols: 3,
+                  withHeaderRow: true,
+                })
+                .run()
+            }
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Insert Table
+          </Button>
 
-          <div className="grid gap-1">
-            {Array.from({
-              length: MAX_ROWS,
-            }).map((_, row) => (
-              <div
-                key={row}
-                className="flex gap-1"
+          {isInTable && (
+            <>
+              <div className="my-1 border-t" />
+
+              <Button
+                type="button"
+                variant="ghost"
+                className="justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() =>
+                  editor
+                    .chain()
+                    .focus()
+                    .deleteTable()
+                    .run()
+                }
               >
-                {Array.from({
-                  length: MAX_COLS,
-                }).map((_, col) => (
-                  <button
-                    key={col}
-                    type="button"
-                    className="h-5 w-5 rounded-sm border bg-muted transition-colors hover:bg-primary"
-                    onClick={() => {
-                      editor
-                        .chain()
-                        .focus()
-                        .insertTable({
-                          rows: row + 1,
-                          cols: col + 1,
-                          withHeaderRow: true,
-                        })
-                        .run();
-                    }}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Table
+              </Button>
+            </>
+          )}
         </div>
       </PopoverContent>
     </Popover>
