@@ -7,15 +7,17 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { getTask } from "@/services/tasks.api";
+import { useInviteModalStore } from "@/store/invite-modal";
 import { useTaskDetailsStore } from "@/store/task-details-store";
 import { useQuery } from "@tanstack/react-query";
 
 export function TaskDetailsSheet() {
   const { isOpen, close, context } = useTaskDetailsStore();
+  const { boardId } = useInviteModalStore();
 
   const { data: task } = useQuery({
     queryKey: ["task", context.taskId],
-    queryFn: () => getTask(context.taskId!),
+    queryFn: () => getTask(context.taskId!, boardId!),
     enabled: !!context.taskId,
   });
   return (
@@ -23,7 +25,7 @@ export function TaskDetailsSheet() {
       <SheetContent side="right" className="w-130 p-0">
         <SheetHeader className="border-b px-6 py-5">
           <SheetTitle className="text-2xl font-semibold">
-            {task && task.cells[0]?.value.text}
+            {task?.name}
           </SheetTitle>
         </SheetHeader>
 

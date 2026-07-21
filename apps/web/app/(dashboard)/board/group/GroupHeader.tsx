@@ -31,7 +31,16 @@ export function GroupHeader({ group }: Props) {
   }, [group.isNew]);
 
   const createMutation = useMutation({
-    mutationFn: createGroup,
+    mutationFn: ({
+      boardId,
+      data,
+    }: {
+      boardId: number;
+      data: {
+        name: string;
+        color?: string;
+      };
+    }) => createGroup(boardId, data),
 
     onSuccess: (newGroup) => {
       updateGroup(group.id, {
@@ -46,16 +55,17 @@ export function GroupHeader({ group }: Props) {
 
   const updateMutation = useMutation({
     mutationFn: ({
+      boardId,
       id,
       data,
     }: {
+      boardId: number;
       id: number;
       data: {
-        boardId: number;
         name?: string;
         color?: string;
       };
-    }) => updateGroupApi(id, data),
+    }) => updateGroupApi(boardId, id, data),
 
     onSuccess: (_, variables) => {
       updateGroup(variables.id, {
@@ -70,13 +80,15 @@ export function GroupHeader({ group }: Props) {
         <ColorPicker
           value={group.color}
           onChange={(color) => {
+            // Update local state immediately
             updateGroup(group.id, { color });
 
+            // Don't call API for a temporary group
             if (!group.isNew && boardId) {
               updateMutation.mutate({
+                boardId,
                 id: group.id,
                 data: {
-                  boardId,
                   color,
                 },
               });
@@ -112,21 +124,27 @@ export function GroupHeader({ group }: Props) {
               return;
             }
 
+            // Create new group
             if (group.isNew) {
               createMutation.mutate({
                 boardId,
-                name,
-                color: group.color,
-              });
-            } else {
-              updateMutation.mutate({
-                id: group.id,
                 data: {
-                  boardId,
                   name,
+                  color: group.color,
                 },
               });
+
+              return;
             }
+
+            // Update existing group
+            updateMutation.mutate({
+              boardId,
+              id: group.id,
+              data: {
+                name,
+              },
+            });
           }}
         />
       </div>

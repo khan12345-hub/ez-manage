@@ -14,7 +14,6 @@ import { GroupsService } from './groups.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { ReorderGroupDto } from './dto/reorder-group.dto';
-import { DeleteGroupDto } from './dto/delete-group.dto';
 
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { RequireBoardPermission } from 'src/auth/decorators/require-board-permission.decorator';
@@ -26,32 +25,45 @@ import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
 
 import { BoardPermission } from '@repo/shared';
 
-@Controller('groups')
+@Controller('boards/:boardId/groups')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
 export class GroupsController {
-  constructor(private readonly groupsService: GroupsService) {}
+  constructor(
+    private readonly groupsService: GroupsService,
+  ) {}
 
   @Post()
   @RequireBoardPermission(BoardPermission.EDIT)
   create(
+    @Param('boardId', ParseIntPipe) boardId: number,
     @Body() createGroupDto: CreateGroupDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.groupsService.create(createGroupDto, user.id);
+    return this.groupsService.create(
+      createGroupDto,
+      user.id,
+      boardId,
+    );
   }
 
   @Patch('reorder')
   @RequireBoardPermission(BoardPermission.EDIT)
   reorder(
+    @Param('boardId', ParseIntPipe) boardId: number,
     @Body() dto: ReorderGroupDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.groupsService.reorder(dto, user.id);
+    return this.groupsService.reorder(
+      dto,
+      user.id,
+      boardId,
+    );
   }
 
   @Patch(':id')
   @RequireBoardPermission(BoardPermission.EDIT)
   update(
+    @Param('boardId', ParseIntPipe) boardId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateGroupDto: UpdateGroupDto,
     @CurrentUser() user: SessionUser,
@@ -60,19 +72,20 @@ export class GroupsController {
       id,
       updateGroupDto,
       user.id,
+      boardId,
     );
   }
 
   @Delete(':id')
   @RequireBoardPermission(BoardPermission.DELETE)
   remove(
+    @Param('boardId', ParseIntPipe) boardId: number,
     @Param('id', ParseIntPipe) id: number,
-    @Body() deleteGroupDto: DeleteGroupDto,
     @CurrentUser() user: SessionUser,
   ) {
     return this.groupsService.remove(
       id,
-      deleteGroupDto.boardId,
+      boardId,
       user.id,
     );
   }

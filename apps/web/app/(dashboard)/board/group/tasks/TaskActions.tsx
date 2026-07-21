@@ -20,7 +20,7 @@ export function TaskActions({ task }: Props) {
   const queryClient = useQueryClient();
   const { boardId } = useInviteModalStore();
   const deleteTaskMutation = useMutation({
-    mutationFn: deleteTask,
+    mutationFn: (id: number) => deleteTask(id, boardId!),
     onSuccess: () => {
       toast.success("Task deleted");
 

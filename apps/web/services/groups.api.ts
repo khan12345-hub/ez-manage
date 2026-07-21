@@ -1,64 +1,127 @@
 import { api } from "@/lib/api";
 
-export interface CreateGroupDto {
-  boardId: number;
-  name: string;
-  color: string;
-}
-
-export interface UpdateGroupDto {
-  boardId: number;
-  name?: string;
-  color?: string;
-}
-
-export interface DeleteGroupDto {
-  boardId: number;
-}
-
 export interface GroupResponse {
   id: number;
   boardId: number;
   name: string;
-  color: string;
+  color: string | null;
   order: number;
+  createdById: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export async function createGroup(data: CreateGroupDto) {
-    console.log("payload", data)
-  const response = await api.post<GroupResponse>("/groups", data);
-  return response.data;
+export interface CreateGroupDto {
+  name: string;
+  color?: string;
 }
 
-export async function updateGroup(
-  id: number,
-  data: UpdateGroupDto,
-) {
-  const response = await api.patch<GroupResponse>(
-    `/groups/${id}`,
-    data,
-  );
-
-  return response.data;
-}
-
-export async function deleteGroup(
-  id: number,
-  data: DeleteGroupDto,
-) {
-  await api.delete(`/groups/${id}`, {
-    data,
-  });
+export interface UpdateGroupDto {
+  name?: string;
+  color?: string;
 }
 
 export interface ReorderGroupDto {
-  boardId: number;
   groupId: number;
-  previousGroupId: number;
-  nextGroupId: number;
+  previousGroupId?: number | null;
+  nextGroupId?: number | null;
 }
 
-export async function reorderGroup(data: ReorderGroupDto) {
-  const response = await api.patch("/groups/reorder", data);
-  return response.data;
-}
+/**
+ * Create a group
+ *
+ * POST /boards/:boardId/groups
+ */
+export const createGroup = async (
+  boardId: number,
+  dto: CreateGroupDto,
+) => {
+  const { data } = await api.post<GroupResponse>(
+    `/boards/${boardId}/groups`,
+    dto,
+  );
+
+  return data;
+};
+
+/**
+ * Get all groups for a board
+ *
+ * GET /boards/:boardId/groups
+ */
+export const getGroups = async (
+  boardId: number,
+) => {
+  const { data } = await api.get<GroupResponse[]>(
+    `/boards/${boardId}/groups`,
+  );
+
+  return data;
+};
+
+/**
+ * Get a single group
+ *
+ * GET /boards/:boardId/groups/:groupId
+ */
+export const getGroup = async (
+  boardId: number,
+  groupId: number,
+) => {
+  const { data } = await api.get<GroupResponse>(
+    `/boards/${boardId}/groups/${groupId}`,
+  );
+
+  return data;
+};
+
+/**
+ * Update a group
+ *
+ * PATCH /boards/:boardId/groups/:groupId
+ */
+export const updateGroup = async (
+  boardId: number | undefined,
+  groupId: number,
+  dto: UpdateGroupDto,
+) => {
+  const { data } = await api.patch<GroupResponse>(
+    `/boards/${boardId}/groups/${groupId}`,
+    dto,
+  );
+
+  return data;
+};
+
+/**
+ * Delete a group
+ *
+ * DELETE /boards/:boardId/groups/:groupId
+ */
+export const deleteGroup = async (
+  groupId: number,
+  boardId: number,
+) => {
+  const { data } = await api.delete(
+    `/boards/${boardId}/groups/${groupId}`,
+  );
+
+  return data;
+};
+
+/**
+ * Reorder groups
+ *
+ * PATCH /boards/:boardId/groups/reorder
+ */
+export const reorderGroup = async (
+  boardId: number,
+  dto: ReorderGroupDto,
+) => {
+  const { data } = await api.patch(
+    `/boards/${boardId}/groups/reorder`,
+    dto,
+  );
+
+  return data;
+};

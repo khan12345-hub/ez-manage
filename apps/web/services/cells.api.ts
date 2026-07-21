@@ -5,9 +5,14 @@ export interface UpdateCellDto {
 }
 
 export const updateCell = async (
+  boardId: number | undefined,
   cellId: number,
   dto: UpdateCellDto,
 ) => {
-  const { data } = await api.patch(`/cells/${cellId}`, dto);
+  const { data } = await api.patch(
+    `/boards/${boardId}/cells/${cellId}`,
+    dto,
+  );
+
   return data;
 };

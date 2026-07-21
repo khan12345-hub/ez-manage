@@ -12,6 +12,7 @@ import { FormInput } from "./form/FormInput";
 import { FormRadio } from "./form/FormRadio";
 import { Button } from "./ui/button";
 import { createBoard } from "@/services/boards.api";
+import { useRouter } from "next/navigation";
 
 const boardSchema = z.object({
   name: z.string().trim().min(1, "Board name is required"),
@@ -56,7 +57,7 @@ export function CreateBoardModal({
   });
 
   const { reset } = form;
-
+  const router = useRouter();
   const createBoardMutation = useMutation({
     mutationFn: (values: BoardFormValues) =>
       createBoard({
@@ -66,6 +67,7 @@ export function CreateBoardModal({
     onSuccess: (board) => {
       queryClient.invalidateQueries({ queryKey: ["boards", workspaceId] });
       toast.success(`Board "${board.name}" created.`);
+      router.replace(`board/${board.id}`);
       onClose();
     },
     onError: (error: any) => {

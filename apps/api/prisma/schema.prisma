@@ -40,6 +40,7 @@ model User {
   
 
   filesUploaded       File[]            @relation("FileUploader")
+  taskComments TaskComment[] @relation("TaskCommentAuthor")
 
   @@map("users")
 }
@@ -205,6 +206,31 @@ model Group {
 
 }
 
+model TaskComment {
+  id        Int      @id @default(autoincrement())
+
+  taskId    Int
+  userId    Int
+
+  content   String
+
+  // null = top-level comment
+  // non-null = reply
+  parentId  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  parent    TaskComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   TaskComment[] @relation("CommentReplies")
+
+  @@index([taskId])
+  @@index([parentId])
+}
+
 
 
 
@@ -332,6 +358,53 @@ model File {
   cells TaskCellFile[]
   @@map("files")
 
+}
+
+model TaskComment {
+  id        Int      @id @default(autoincrement())
+
+  taskId    Int
+  userId    Int
+
+  content   String   @db.Text
+
+  // null = top-level comment
+  // non-null = reply to a top-level comment
+  parentId  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Task
+  task Task @relation(
+    fields: [taskId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  // Author
+  user User @relation(
+    "TaskCommentAuthor",
+    fields: [userId],
+    references: [id]
+  )
+
+  // One-level comment/reply hierarchy
+  parent TaskComment? @relation(
+    "CommentReplies",
+    fields: [parentId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  replies TaskComment[] @relation("CommentReplies")
+
+  @@index([taskId])
+  @@index([taskId, createdAt])
+  @@index([parentId])
+  @@index([userId])
+
+  @@map("task_comments")
 }
 
 

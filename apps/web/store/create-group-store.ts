@@ -10,7 +10,7 @@ export interface Task {
 export interface Group {
   id: number | string;
   name: string;
-  color: string;
+  color?: string | null;
   tasks: Task[];
 
   isNew?: boolean;

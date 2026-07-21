@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { updateBoard, deleteBoard } from "@/services/boards.api";
+import { useRouter } from "next/navigation";
 
 interface ManageBoardDropdownProps {
   boardId: number;
@@ -41,7 +42,7 @@ export function ManageBoardDropdown({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-
+  const router = useRouter()
   const { mutate: renameMutation, isPending: isRenaming_ } = useMutation({
     mutationFn: () => updateBoard(boardId, { name: newName.trim() }),
     onSuccess: () => {
@@ -65,6 +66,7 @@ export function ManageBoardDropdown({
       queryClient.invalidateQueries({
         queryKey: ["boards", workspaceId],
       });
+      router.replace("/dashboard")
       setIsDeleteDialogOpen(false);
       toast.success("Board deleted successfully");
     },

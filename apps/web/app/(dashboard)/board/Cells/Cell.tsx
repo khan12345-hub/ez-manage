@@ -1,10 +1,11 @@
+import { MessageSquare } from "lucide-react";
+
 import { EditableCell } from "../EditableCells/EditableCell";
 import { CELL_CONFIG } from "./cell-config";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { updateTask, UpdateTaskDto } from "@/services/tasks.api";
+
 import { useInviteModalStore } from "@/store/invite-modal";
+import { useTaskDetailsStore } from "@/store/task-details-store";
 import { cn } from "@/lib/utils";
-import { updateCell, UpdateCellDto } from "@/services/cells.api";
 
 interface CellProps {
   column: any;
@@ -15,103 +16,78 @@ interface CellProps {
 export function Cell({ column, task, isDragging }: CellProps) {
   const { boardId } = useInviteModalStore();
 
-  const queryClient = useQueryClient();
+  const openTaskDetails = useTaskDetailsStore((state) => state.open);
+
   const isPrimary = column.isPrimary;
+
   const cell = isPrimary
     ? null
     : task.cells.find((c: any) => c.columnId === column.id);
-  // const cell = task.cells.find(
-  //   (item: any) => item.columnId === column.id
-  // );
-  console.log({
-    column: column.name,
-    type: column.type,
-    cellColumn: cell?.column?.name,
-    value: cell?.value,
-  });
+
   const config = CELL_CONFIG[column.type as keyof typeof CELL_CONFIG];
-
-  const mutation = useMutation({
-    mutationFn: ({ id, value }: { id: number; value: any }) =>
-      updateCell(id, value),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
-    },
-  });
 
   if (!config) {
     return <td className="border px-3 py-2">—</td>;
   }
 
   const Editor = config.editor;
+
   const value = config.getValue(task, cell, column);
-
-  const taskMutation = useMutation({
-    mutationFn: ({ taskId, dto }: { taskId: number; dto: UpdateTaskDto }) =>
-      updateTask(taskId, dto),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
-    },
-  });
-
-  const cellMutation = useMutation({
-    mutationFn: ({ cellId, dto }: { cellId: number; dto: UpdateCellDto }) =>
-      updateCell(cellId, dto),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
-    },
-  });
 
   return (
     <td
       className={cn(
         "border relative px-3 py-2",
-        column.isPrimary && "sticky left-0 bg-background z-10",
+        isPrimary && "sticky left-0 bg-background z-10",
       )}
     >
-      <EditableCell
-        value={value}
-        render={config.render}
-        editor={Editor}
-        isDragging={isDragging}
-        onSave={(value) =>
-          config.save({
-            task,
-            cell,
-            column,
-            value,
-          })
-        }
-        // onSave={(value) => {
-        //   if (column.isPrimary) {
-        //     console.log("value", value);
-        //     taskMutation.mutate({
-        //       taskId: task.id,
-        //       dto: {
-        //         name: value,
-        //       },
-        //     });
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <EditableCell
+            value={value}
+            render={config.render}
+            editor={Editor}
+            isDragging={isDragging}
+            onSave={(value) =>
+              config.save({
+                task,
+                cell,
+                column,
+                value,
+                boardId,
+              })
+            }
+          />
+        </div>
 
-        //     return;
-        //   }
+        {isPrimary && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
 
-        //   cellMutation.mutate({
-        //     cellId: cell.id,
-        //     dto: {
-        //       value,
-        //     },
-        //   });
-        // }}
-      />
+              openTaskDetails({
+                taskId: task.id,
+                boardId,
+                groupId: task.groupId,
+              });
+            }}
+            className={cn(
+              "flex h-7 w-7 shrink-0",
+              "items-center justify-center",
+              "rounded-md",
+              "text-muted-foreground",
+              "hover:bg-muted",
+              "hover:text-foreground",
+              "transition-colors",
+            )}
+            title="Open task details"
+            aria-label="Open task details"
+          >
+            <MessageSquare className="h-4 w-4" />
+          </button>
+        )}
+      </div>
     </td>
   );
 }

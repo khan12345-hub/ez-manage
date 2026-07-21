@@ -1,20 +1,32 @@
 "use client";
 
+import { useInviteModalStore } from "@/store/invite-modal";
 import { ComponentType, useEffect, useRef, useState } from "react";
 
 export interface CellEditorProps<T> {
   inputRef: React.RefObject<any>;
+
   value: T;
-  setValue: React.Dispatch<React.SetStateAction<T>>;
+
+  setValue: React.Dispatch<
+    React.SetStateAction<T>
+  >;
+
   save: (value?: T) => void;
+
   cancel: () => void;
 
   column?: any;
-  task?: any;
-  cell?: any;
-  isPrimary?: boolean;
-  isDragging?: boolean;
 
+  task?: any;
+
+  cell?: any;
+
+  boardId?: number;
+
+  isPrimary?: boolean;
+
+  isDragging?: boolean;
 }
 
 interface EditableCellProps {
@@ -46,6 +58,7 @@ export function EditableCell<T>({
   const [displayValue, setDisplayValue] = useState(value);
 
   const inputRef = useRef<any>(null);
+  const { boardId } = useInviteModalStore();
 
   useEffect(() => {
     setLocalValue((value ?? "") as T);
@@ -87,6 +100,7 @@ export function EditableCell<T>({
         column={column}
         task={task}
         cell={cell}
+        boardId={boardId}
         isPrimary={column?.isPrimary}
         // isDragging={isDragging}
       />

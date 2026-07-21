@@ -26,7 +26,7 @@ import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
 
 import { BoardPermission } from '@repo/shared';
 
-@Controller('tasks')
+@Controller('boards/:boardId/tasks')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
@@ -34,18 +34,24 @@ export class TasksController {
   @Post()
   @RequireBoardPermission(BoardPermission.EDIT)
   create(
+    @Param('boardId', ParseIntPipe) boardId: number,
     @Body() createTaskDto: CreateTaskDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.tasksService.create(createTaskDto, user.id);
+    return this.tasksService.create(
+      createTaskDto,
+      user.id,
+      boardId,
+    );
   }
 
   @Patch('reorder')
   @RequireBoardPermission(BoardPermission.EDIT)
   reorder(
+    @Param('boardId', ParseIntPipe) boardId: number,
     @Body() dto: ReorderTaskDto,
   ) {
-    return this.tasksService.reorder(dto);
+    return this.tasksService.reorder(dto, boardId);
   }
 
   @Get(':id')

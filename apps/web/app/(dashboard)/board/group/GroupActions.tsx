@@ -38,7 +38,7 @@ export function GroupActions({ group }: Props) {
         name?: string;
         color?: string;
       };
-    }) => updateGroup(id, data),
+    }) => updateGroup(boardId, id, data),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -55,9 +55,9 @@ export function GroupActions({ group }: Props) {
       id: number;
       boardId: number;
     }) =>
-      deleteGroup(id, {
-        boardId,
-      }),
+      deleteGroup(id,
+        boardId
+      ),
 
     onSuccess: (_, variables) => {
       removeLocal(variables.id);

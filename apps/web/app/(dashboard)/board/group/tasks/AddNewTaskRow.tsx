@@ -22,9 +22,9 @@ export function NewTaskRow({ columns, color, groupId }: Props) {
 
   const { boardId } = useInviteModalStore();
   const queryClient = useQueryClient();
-
+  
   const createTaskMutation = useMutation({
-    mutationFn: (name: string) => createTask(name, groupId),
+    mutationFn: (name: string) => createTask(name, groupId, boardId),
     onSuccess: () => {
       setName("");
 

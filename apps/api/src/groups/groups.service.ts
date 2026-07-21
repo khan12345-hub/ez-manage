@@ -14,24 +14,30 @@ import { ReorderGroupDto } from './dto/reorder-group.dto';
 export class GroupsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createGroupDto: CreateGroupDto, userId: number) {
+  async create(
+    createGroupDto: CreateGroupDto,
+    userId: number,
+    boardId: number,
+  ) {
     const ORDER_GAP = 1000;
 
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.group.findFirst({
         where: {
-          boardId: createGroupDto.boardId,
+          boardId,
           name: createGroupDto.name,
         },
       });
 
       if (existing) {
-        throw new ConflictException('Group with this name already exists.');
+        throw new ConflictException(
+          'Group with this name already exists.',
+        );
       }
 
       const lastGroup = await tx.group.findFirst({
         where: {
-          boardId: createGroupDto.boardId,
+          boardId,
         },
         orderBy: {
           order: 'desc',
@@ -40,7 +46,7 @@ export class GroupsService {
 
       return tx.group.create({
         data: {
-          boardId: createGroupDto.boardId,
+          boardId,
           name: createGroupDto.name,
           color: createGroupDto.color,
           createdById: userId,
@@ -56,26 +62,29 @@ export class GroupsService {
     id: number,
     updateGroupDto: UpdateGroupDto,
     userId: number,
+    boardId: number,
   ) {
     return this.prisma.$transaction(async (tx) => {
       const group = await tx.group.findFirst({
         where: {
           id,
-          boardId: updateGroupDto.boardId,
+          boardId,
         },
       });
 
       if (!group) {
-        throw new NotFoundException('Group not found.');
+        throw new NotFoundException(
+          'Group not found for the specified board.',
+        );
       }
 
       if (
-        updateGroupDto.name &&
+        updateGroupDto.name !== undefined &&
         updateGroupDto.name !== group.name
       ) {
         const existing = await tx.group.findFirst({
           where: {
-            boardId: updateGroupDto.boardId,
+            boardId,
             name: updateGroupDto.name,
             NOT: {
               id,
@@ -98,9 +107,11 @@ export class GroupsService {
           ...(updateGroupDto.name !== undefined && {
             name: updateGroupDto.name,
           }),
+
           ...(updateGroupDto.color !== undefined && {
             color: updateGroupDto.color,
           }),
+
           updatedById: userId,
         },
       });
@@ -141,52 +152,59 @@ export class GroupsService {
   async reorder(
     dto: ReorderGroupDto,
     userId: number,
+    boardId: number,
   ) {
     const group = await this.prisma.group.findFirst({
       where: {
         id: dto.groupId,
-        boardId: dto.boardId,
+        boardId,
       },
     });
 
     if (!group) {
-      throw new NotFoundException('Group not found.');
+      throw new NotFoundException(
+        'Group not found for the specified board.',
+      );
     }
 
-    const [previousGroup, nextGroup] = await Promise.all([
-      dto.previousGroupId
-        ? this.prisma.group.findFirst({
-            where: {
-              id: dto.previousGroupId,
-              boardId: dto.boardId,
-            },
-          })
-        : Promise.resolve(null),
+    const [previousGroup, nextGroup] =
+      await Promise.all([
+        dto.previousGroupId
+          ? this.prisma.group.findFirst({
+              where: {
+                id: dto.previousGroupId,
+                boardId,
+              },
+            })
+          : Promise.resolve(null),
 
-      dto.nextGroupId
-        ? this.prisma.group.findFirst({
-            where: {
-              id: dto.nextGroupId,
-              boardId: dto.boardId,
-            },
-          })
-        : Promise.resolve(null),
-    ]);
+        dto.nextGroupId
+          ? this.prisma.group.findFirst({
+              where: {
+                id: dto.nextGroupId,
+                boardId,
+              },
+            })
+          : Promise.resolve(null),
+      ]);
 
     let newOrder: number;
 
-    // Only group in board
+    // Only group in board / no surrounding groups
     if (!previousGroup && !nextGroup) {
       newOrder = 1000;
     }
+
     // Move to beginning
     else if (!previousGroup && nextGroup) {
       newOrder = nextGroup.order - 1000;
     }
+
     // Move to end
     else if (previousGroup && !nextGroup) {
       newOrder = previousGroup.order + 1000;
     }
+
     // Move between two groups
     else {
       newOrder =
@@ -204,15 +222,38 @@ export class GroupsService {
     });
 
     return {
-      message: 'Groups reordered successfully.',
+      message: 'Group reordered successfully.',
     };
   }
 
-  findAll() {
-    return 'This action returns all groups';
+  async findAll(boardId: number) {
+    return this.prisma.group.findMany({
+      where: {
+        boardId,
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns group #${id}`;
+  async findOne(
+    id: number,
+    boardId: number,
+  ) {
+    const group = await this.prisma.group.findFirst({
+      where: {
+        id,
+        boardId,
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException(
+        'Group not found for the specified board.',
+      );
+    }
+
+    return group;
   }
 }

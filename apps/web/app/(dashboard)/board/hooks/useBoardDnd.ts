@@ -7,8 +7,8 @@ import { DragStartEvent, DragOverEvent, DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 
-import { reorderTask } from "@/services/tasks.api";
-import { reorderGroup } from "@/services/groups.api";
+import { reorderTask, ReorderTaskDto } from "@/services/tasks.api";
+import { reorderGroup, ReorderGroupDto } from "@/services/groups.api";
 import { reorderColumn } from "@/services/columns.api";
 import { findTaskLocation } from "./dnd.utils";
 import { handleTaskDragOver } from "./dnd/task-dnd";
@@ -78,7 +78,7 @@ export function useBoardDnd({
   }, [columns]);
 
   const reorderTaskMutation = useMutation({
-    mutationFn: reorderTask,
+    mutationFn: (data: ReorderTaskDto) => reorderTask(boardId, data),
     onMutate: async () => {
       await queryClient.cancelQueries({
         queryKey: ["board", boardId],
@@ -97,17 +97,26 @@ export function useBoardDnd({
   });
 
   const reorderGroupMutation = useMutation({
-    mutationFn: reorderGroup,
+    mutationFn: ({
+      boardId,
+      data,
+    }: {
+      boardId: number;
+      data: ReorderGroupDto;
+    }) => reorderGroup(boardId, data),
+
     onMutate: async () => {
       await queryClient.cancelQueries({
         queryKey: ["board", boardId],
       });
     },
+
     onError: () => {
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
       });
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
@@ -380,9 +389,11 @@ export function useBoardDnd({
 
         reorderGroupMutation.mutate({
           boardId,
-          groupId: Number(activeData.groupId),
-          previousGroupId: previousGroup?.id ?? null,
-          nextGroupId: nextGroup?.id ?? null,
+          data: {
+            groupId: Number(activeData.groupId),
+            previousGroupId: previousGroup?.id ?? null,
+            nextGroupId: nextGroup?.id ?? null,
+          },
         });
 
         break;

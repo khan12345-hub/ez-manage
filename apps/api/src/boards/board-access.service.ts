@@ -5,9 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 
-import {
-  BoardPermission,
-} from '@repo/shared';
+import { BoardPermission } from '@repo/shared';
 
 import {
   BoardMemberRole,
@@ -50,6 +48,12 @@ export class BoardAccessService {
     // ---------------------------------------
     // Load Board Access
     // ---------------------------------------
+    console.log({
+      boardId,
+      userId,
+      permission
+    });
+
     const board = await this.prisma.board.findUnique({
       where: {
         id: boardId,
@@ -84,18 +88,18 @@ export class BoardAccessService {
       throw new NotFoundException('Board not found.');
     }
 
-    const workspaceRole =
-      board.workspace.members[0]?.role as WorkspaceMemberRole | undefined;
+    const workspaceRole = board.workspace.members[0]?.role as
+      | WorkspaceMemberRole
+      | undefined;
 
-    const boardRole =
-      board.members[0]?.role as BoardMemberRole | undefined;
+    const boardRole = board.members[0]?.role as BoardMemberRole | undefined;
 
     // Workspace role takes precedence
 
     console.log({
       boardRole,
-      workspaceRole
-    })
+      workspaceRole,
+    });
     if (
       workspaceRole &&
       WORKSPACE_ROLE_PERMISSIONS[workspaceRole]?.includes(permission)
@@ -104,10 +108,7 @@ export class BoardAccessService {
     }
 
     // Then board-specific permissions
-    if (
-      boardRole &&
-      BOARD_ROLE_PERMISSIONS[boardRole]?.includes(permission)
-    ) {
+    if (boardRole && BOARD_ROLE_PERMISSIONS[boardRole]?.includes(permission)) {
       return true;
     }
 

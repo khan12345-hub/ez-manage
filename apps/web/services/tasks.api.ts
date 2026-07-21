@@ -42,16 +42,29 @@ export interface TaskResponse {
 }
 
 export interface CreateTaskDto {
-  groupId: number;
   name: string;
+  groupId: number;
+  boardId: number;
 }
 
-export const createTask = async (name: string, groupId: number) => {
-  const { data } = await api.post("/tasks", { name, groupId });
+export const createTask = async (
+  name: string,
+  groupId: number,
+  boardId: number | undefined,
+) => {
+  const { data } = await api.post(`/boards/${boardId}/tasks`, {
+    name,
+    groupId,
+  });
+
   return data;
 };
-export async function getTask(id: number) {
-  const response = await api.get<TaskResponse>(`/tasks/${id}`);
+
+export async function getTask(taskId: number, boardId: number) {
+  const response = await api.get<TaskResponse>(
+    `/boards/${boardId}/tasks/${taskId}`,
+  );
+
   return response.data;
 }
 
@@ -62,15 +75,18 @@ export interface UpdateTaskDto {
 }
 
 export const updateTask = async (
+  boardId: number | undefined,
   taskId: number,
   dto: UpdateTaskDto,
 ) => {
-  const { data } = await api.patch(`/tasks/${taskId}`, dto);
+  const { data } = await api.patch(`/boards/${boardId}/tasks/${taskId}`, dto);
+
   return data;
 };
 
-export async function deleteTask(taskId: number) {
-  const { data } = await api.delete(`/tasks/${taskId}`);
+export async function deleteTask(taskId: number, boardId: number) {
+  const { data } = await api.delete(`/boards/${boardId}/tasks/${taskId}`);
+
   return data;
 }
 export interface ReorderTaskDto {
@@ -80,8 +96,8 @@ export interface ReorderTaskDto {
   nextTaskId?: number | null;
 }
 
-export async function reorderTask(dto: ReorderTaskDto) {
-  const { data } = await api.patch("/tasks/reorder", dto);
+export async function reorderTask(boardId: number, dto: ReorderTaskDto) {
+  const { data } = await api.patch(`/boards/${boardId}/tasks/reorder`, dto);
 
   return data;
 }
