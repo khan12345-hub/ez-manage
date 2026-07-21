@@ -37,10 +37,11 @@ model User {
   createdGroups        Group[]            @relation("GroupCreator")
   createdTasks        Task[]            @relation("TaskCreator")
 
-  
+  commentsAuthored TaskComment[] @relation("TaskCommentAuthor")
+  commentMentions  TaskCommentMention[] @relation("TaskCommentMentionUser")
 
   filesUploaded       File[]            @relation("FileUploader")
-  taskComments TaskComment[] @relation("TaskCommentAuthor")
+  
 
   @@map("users")
 }
@@ -206,30 +207,7 @@ model Group {
 
 }
 
-model TaskComment {
-  id        Int      @id @default(autoincrement())
 
-  taskId    Int
-  userId    Int
-
-  content   String
-
-  // null = top-level comment
-  // non-null = reply
-  parentId  Int?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  parent    TaskComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   TaskComment[] @relation("CommentReplies")
-
-  @@index([taskId])
-  @@index([parentId])
-}
 
 
 
@@ -277,26 +255,26 @@ model BoardColumn {
 model Task {
   id          Int      @id @default(autoincrement())
   groupId     Int
-  order        Float
-  name String
+  order       Float
+  name        String
 
   createdById Int
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  group        Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  createdBy    User  @relation("TaskCreator", fields: [createdById], references: [id])
+  group       Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy   User  @relation("TaskCreator", fields: [createdById], references: [id])
 
-  cells        TaskCell[]
+  cells       TaskCell[]
 
-
+  // Task hierarchy
   parentId    Int?
+  parent      Task?  @relation("TaskHierarchy", fields: [parentId], references: [id])
+  subtasks    Task[] @relation("TaskHierarchy")
 
-  parent       Task?   @relation("TaskHierarchy", fields: [parentId], references: [id])
-  subtasks     Task[]  @relation("TaskHierarchy")
-
-
+  // Task comments
+  comments    TaskComment[]
 
   @@index([groupId])
   @@index([groupId, order])
@@ -376,28 +354,17 @@ model TaskComment {
   updatedAt DateTime @updatedAt
 
   // Task
-  task Task @relation(
-    fields: [taskId],
-    references: [id],
-    onDelete: Cascade
-  )
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   // Author
-  user User @relation(
-    "TaskCommentAuthor",
-    fields: [userId],
-    references: [id]
-  )
+  user User @relation("TaskCommentAuthor", fields: [userId], references: [id])
 
   // One-level comment/reply hierarchy
-  parent TaskComment? @relation(
-    "CommentReplies",
-    fields: [parentId],
-    references: [id],
-    onDelete: Cascade
-  )
+  parent TaskComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
 
   replies TaskComment[] @relation("CommentReplies")
+
+   mentions  TaskCommentMention[]
 
   @@index([taskId])
   @@index([taskId, createdAt])
@@ -407,6 +374,22 @@ model TaskComment {
   @@map("task_comments")
 }
 
+model TaskCommentMention {
+  id        Int @id @default(autoincrement())
+
+  commentId Int
+  userId    Int
+
+createdAt DateTime @default(now())
+  comment   TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User    @relation("TaskCommentMentionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
+  @@map("task_comment_mentions")
+
+}
 
 enum UserStatus {
   ACTIVE
