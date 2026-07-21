@@ -7,7 +7,8 @@ import { getBoardDetail } from "@/services/boards.api";
 import { Board } from "../Board";
 import { useEffect } from "react";
 import { useGroupStore } from "@/store/create-group-store";
-import { TaskDetailsSheet } from "../Task/TaskDetailsDrawer";
+import { TaskDetailsSheet } from "../Task/TaskDetailDrawer/Updates/TaskDetailsDrawer";
+
 
 export default function BoardPage() {
   const { setGroups, groups } = useGroupStore();

@@ -13,13 +13,11 @@ import { ReplyComposer } from "./ReplyComposer";
 interface CommentItemProps {
   comment: any;
   taskId: number;
-  boardId: number;
 }
 
 export function CommentItem({
   comment,
   taskId,
-  boardId,
 }: CommentItemProps) {
   const [showReply, setShowReply] =
     useState(false);
@@ -80,7 +78,6 @@ export function CommentItem({
           {showReply && (
             <ReplyComposer
               taskId={taskId}
-              boardId={boardId}
               parentCommentId={comment.id}
               onCancel={() =>
                 setShowReply(false)

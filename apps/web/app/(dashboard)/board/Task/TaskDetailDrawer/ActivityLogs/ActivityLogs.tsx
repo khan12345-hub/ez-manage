@@ -1,11 +1,9 @@
 interface ActivityTabProps {
   task: any;
-  boardId: number;
 }
 
 export function ActivityTab({
   task,
-  boardId,
 }: ActivityTabProps) {
   return (
     <div className="p-5">

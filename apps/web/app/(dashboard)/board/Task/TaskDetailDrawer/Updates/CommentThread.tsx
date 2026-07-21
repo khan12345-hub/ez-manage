@@ -6,12 +6,10 @@ import { CommentItem } from "./CommentItem";
 
 interface CommentThreadProps {
   taskId: number;
-  boardId: number;
 }
 
 export function CommentThread({
   taskId,
-  boardId,
 }: CommentThreadProps) {
   // Replace this with useQuery once the API is implemented.
   const comments: any[] = [];
@@ -42,7 +40,6 @@ export function CommentThread({
           key={comment.id}
           comment={comment}
           taskId={taskId}
-          boardId={boardId}
         />
       ))}
     </div>

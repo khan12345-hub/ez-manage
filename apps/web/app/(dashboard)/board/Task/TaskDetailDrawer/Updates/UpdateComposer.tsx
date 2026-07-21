@@ -9,106 +9,142 @@ import {
 
 import { useState } from "react";
 
+import {
+  Button,
+} from "@/components/ui/button";
+
+import { RichTextEditor } from "./RichTextEditor/RichTextEditor";
+
+import {
+  extractMentionedUserIds,
+} from "./RichTextEditor/editor-utils";
+
 interface UpdateComposerProps {
   taskId: number;
-  boardId: number;
 }
 
 export function UpdateComposer({
   taskId,
-  boardId,
 }: UpdateComposerProps) {
-  const [value, setValue] =
+  const [content, setContent] =
     useState("");
 
-  const handleSubmit = () => {
-    const content = value.trim();
+  const [editorJson, setEditorJson] =
+    useState<any>(null);
 
-    if (!content) {
+  const handleSubmit = () => {
+    const plainText =
+      editorJson?.content
+        ?.map((node: any) =>
+          node.content
+            ?.map((item: any) =>
+              item.text ?? "",
+            )
+            .join(""),
+        )
+        .join("")
+        .trim() ?? "";
+
+    if (!plainText) {
       return;
     }
 
+    const mentionedUserIds =
+      editorJson
+        ? extractMentionedUserIds(
+            editorJson,
+          )
+        : [];
+
     console.log({
       taskId,
-      boardId,
       content,
+      mentionedUserIds,
     });
 
-    setValue("");
+    setContent("");
+    setEditorJson(null);
   };
 
   return (
     <div className="border-b p-4">
-      {/* Optional actions */}
       <div className="mb-3 flex items-center gap-3 text-sm text-muted-foreground">
-        <button
+        <Button
           type="button"
-          className="flex items-center gap-1 hover:text-foreground"
+          variant="ghost"
+          size="sm"
+          className="h-auto gap-1 p-0 hover:bg-transparent hover:text-foreground"
         >
           <AtSign className="h-4 w-4" />
+
           Mention
-        </button>
+        </Button>
 
         <span>|</span>
 
-        <button
+        <Button
           type="button"
-          className="hover:text-foreground"
+          variant="ghost"
+          size="sm"
+          className="h-auto p-0 hover:bg-transparent hover:text-foreground"
         >
           Give feedback
-        </button>
+        </Button>
       </div>
 
-      <div className="rounded-lg border focus-within:border-primary">
-        <textarea
-          value={value}
-          onChange={(e) =>
-            setValue(e.target.value)
-          }
-          placeholder="Write an update and mention others with @"
-          className="min-h-[100px] w-full resize-none border-0 bg-transparent p-3 text-sm outline-none placeholder:text-muted-foreground"
-        />
+      <RichTextEditor
+        value={content}
+        onChange={(html) => {
+          setContent(html);
+        }}
+      />
 
-        <div className="flex items-center justify-between px-3 pb-3">
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <button
-              type="button"
-              className="hover:text-foreground"
-            >
-              <AtSign className="h-5 w-5" />
-            </button>
-
-            <button
-              type="button"
-              className="hover:text-foreground"
-            >
-              <Paperclip className="h-5 w-5" />
-            </button>
-
-            <button
-              type="button"
-              className="hover:text-foreground"
-            >
-              <Smile className="h-5 w-5" />
-            </button>
-
-            <button
-              type="button"
-              className="hover:text-foreground"
-            >
-              <Sparkles className="h-5 w-5" />
-            </button>
-          </div>
-
-          <button
+      <div className="mt-3 flex items-center justify-between">
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <Button
             type="button"
-            onClick={handleSubmit}
-            disabled={!value.trim()}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
           >
-            Post
-          </button>
+            <AtSign className="h-4 w-4" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+          >
+            <Smile className="h-4 w-4" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+          >
+            <Sparkles className="h-4 w-4" />
+          </Button>
         </div>
+
+        <Button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!content}
+        >
+          Post
+        </Button>
       </div>
     </div>
   );

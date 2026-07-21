@@ -1,11 +1,10 @@
 interface FilesTabProps {
   task: any;
-  boardId: number;
+  
 }
-
 export function FilesTab({
   task,
-  boardId,
+  
 }: FilesTabProps) {
   return (
     <div className="flex min-h-[400px] flex-col items-center justify-center px-8 text-center">

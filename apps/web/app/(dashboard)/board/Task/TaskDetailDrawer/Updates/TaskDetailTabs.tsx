@@ -1,136 +1,70 @@
 "use client";
 
-import {
-  File,
-  Home,
-  Plus,
-  MessageSquare,
-  History,
-} from "lucide-react";
-
-import { useState } from "react";
+import { File, Home, Plus, History } from "lucide-react";
 
 import { UpdatesTab } from "./UpdatesTab";
-import { FilesTab } from "./FilesTab";
-import { ActivityTab } from "./ActivityTab";
+import { FilesTab } from "../Files/Filestab";
+import { ActivityTab } from "../ActivityLogs/ActivityLogs";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface TaskDetailsTabsProps {
   task: any;
-  boardId: number;
 }
 
-type Tab = "updates" | "files" | "activity";
-
-export function TaskDetailsTabs({
-  task,
-  boardId,
-}: TaskDetailsTabsProps) {
-  const [activeTab, setActiveTab] =
-    useState<Tab>("updates");
-
+export function TaskDetailsTabs({ task }: TaskDetailsTabsProps) {
   return (
     <div className="flex h-full flex-col">
-      {/* Tabs */}
-      <div className="flex h-12 items-center border-b px-4">
-        <TabButton
-          active={activeTab === "updates"}
-          onClick={() =>
-            setActiveTab("updates")
-          }
-          icon={<Home className="h-4 w-4" />}
-        >
-          Updates
-        </TabButton>
+      <Tabs defaultValue="updates" className="flex h-full min-h-0 flex-col">
+        <div className="flex h-12 shrink-0 items-end border-b px-4">
+          <TabsList className="h-full rounded-none bg-transparent p-0">
+            <TabsTrigger
+              value="updates"
+              className="relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-primary"
+            >
+              <Home className="h-4 w-4" />
+              Updates
+            </TabsTrigger>
 
-        <TabButton
-          active={activeTab === "files"}
-          onClick={() =>
-            setActiveTab("files")
-          }
-          icon={<File className="h-4 w-4" />}
-        >
-          Files
-        </TabButton>
+            <TabsTrigger
+              value="files"
+              className="relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-primary"
+            >
+              <File className="h-4 w-4" />
+              Files
+            </TabsTrigger>
 
-        <TabButton
-          active={activeTab === "activity"}
-          onClick={() =>
-            setActiveTab("activity")
-          }
-          icon={
-            <History className="h-4 w-4" />
-          }
-        >
-          Activity Log
-        </TabButton>
+            <TabsTrigger
+              value="activity"
+              className="relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-primary"
+            >
+              <History className="h-4 w-4" />
+              Activity Log
+            </TabsTrigger>
+          </TabsList>
 
-        <button
-          type="button"
-          className="ml-2 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
+          <button
+            type="button"
+            className="ml-2 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
 
-      {/* Tab Content */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {activeTab === "updates" && (
-          <UpdatesTab
-            task={task}
-            boardId={boardId}
-          />
-        )}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <TabsContent value="updates" className="m-0 h-full">
+            <UpdatesTab task={task} />
+          </TabsContent>
 
-        {activeTab === "files" && (
-          <FilesTab
-            task={task}
-            boardId={boardId}
-          />
-        )}
+          <TabsContent value="files" className="m-0 h-full">
+            <FilesTab task={task} />
+          </TabsContent>
 
-        {activeTab === "activity" && (
-          <ActivityTab
-            task={task}
-            boardId={boardId}
-          />
-        )}
-      </div>
+          <TabsContent value="activity" className="m-0 h-full">
+            <ActivityTab task={task} />
+          </TabsContent>
+        </div>
+      </Tabs>
     </div>
-  );
-}
-
-interface TabButtonProps {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}
-
-function TabButton({
-  active,
-  onClick,
-  icon,
-  children,
-}: TabButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "relative flex h-full items-center gap-2 px-3",
-        "text-sm font-medium transition-colors",
-        active
-          ? "text-foreground"
-          : "text-muted-foreground hover:text-foreground",
-      ].join(" ")}
-    >
-      {icon}
-
-      {children}
-
-      {active && (
-        <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />
-      )}
-    </button>
   );
 }

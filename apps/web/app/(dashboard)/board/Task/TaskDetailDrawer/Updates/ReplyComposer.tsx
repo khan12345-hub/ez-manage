@@ -4,14 +4,12 @@ import { useState } from "react";
 
 interface ReplyComposerProps {
   taskId: number;
-  boardId: number;
   parentCommentId: number;
   onCancel: () => void;
 }
 
 export function ReplyComposer({
   taskId,
-  boardId,
   parentCommentId,
   onCancel,
 }: ReplyComposerProps) {
@@ -27,7 +25,6 @@ export function ReplyComposer({
 
     console.log({
       taskId,
-      boardId,
       parentCommentId,
       content,
     });
