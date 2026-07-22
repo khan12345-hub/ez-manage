@@ -15,7 +15,11 @@ import {
   DEFAULT_COLUMNS,
   DEFAULT_GROUPS,
 } from './defaults/default-board.template';
-import { BoardMemberRole, SystemRole, WorkspaceMemberRole } from 'generated/prisma/enums';
+import {
+  BoardMemberRole,
+  SystemRole,
+  WorkspaceMemberRole,
+} from 'generated/prisma/enums';
 import { BoardPermission } from '@repo/shared';
 
 @Injectable()
@@ -227,52 +231,72 @@ export class BoardsService {
         (isWorkspaceAdmin ? BoardMemberRole.OWNER : null),
     }));
   }
-  async findOne(id: number) {
-    try {
-      const board = await this.prisma.board.findUnique({
-        where: { id },
-        include: {
-          columns: {
-            orderBy: {
-              order: 'asc',
-            },
+async findOne(id: number) {
+  try {
+    const board = await this.prisma.board.findUnique({
+      where: { id },
+
+      include: {
+        columns: {
+          orderBy: {
+            order: 'asc',
           },
-          members: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
-                },
+        },
+
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
               },
             },
           },
-          groups: {
-            orderBy: {
-              order: 'asc',
-            },
-            include: {
-              tasks: {
-                orderBy: {
-                  order: 'asc',
-                },
-                include: {
-                  cells: {
-                    include: {
-                      column: {
-                        select: {
-                          id: true,
-                          name: true,
-                          type: true,
-                          order: true,
-                        },
+        },
+
+        groups: {
+          orderBy: {
+            order: 'asc',
+          },
+
+          include: {
+            tasks: {
+              orderBy: {
+                order: 'asc',
+              },
+
+              include: {
+                cells: {
+                  orderBy: {
+                    column: {
+                      order: 'asc',
+                    },
+                  },
+
+                  include: {
+                    column: {
+                      select: {
+                        id: true,
+                        name: true,
+                        type: true,
+                        order: true,
                       },
                     },
-                    orderBy: {
-                      column: {
-                        order: 'asc',
+
+                    files: {
+                      select: {
+                        file: {
+                          select: {
+                            id: true,
+                            fileName: true,
+                            url: true,
+                            mimeType: true,
+                            fileSize: true,
+                            storageKey: true,
+                          },
+                        },
                       },
                     },
                   },
@@ -281,23 +305,36 @@ export class BoardsService {
             },
           },
         },
-      });
+      },
+    });
 
-      if (!board) {
-        throw new NotFoundException(`Board with ID ${id} not found.`);
-      }
-
-      return board;
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException(
-        'An error occurred while retrieving the board.',
-      );
+    if (!board) {
+      throw new NotFoundException(`Board with ID ${id} not found.`);
     }
+
+    return {
+      ...board,
+      groups: board.groups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => ({
+          ...task,
+          cells: task.cells.map((cell) => ({
+            ...cell,
+            files: cell.files.map(({ file }) => file),
+          })),
+        })),
+      })),
+    };
+  } catch (error) {
+    if (error instanceof NotFoundException) {
+      throw error;
+    }
+
+    throw new InternalServerErrorException(
+      'An error occurred while retrieving the board.',
+    );
   }
+}
   async update(id: number, updateBoardDto: UpdateBoardDto, userId: number) {
     return this.prisma.$transaction(async (tx) => {
       const board = await tx.board.findUnique({
@@ -379,7 +416,6 @@ export class BoardsService {
       if (!board) {
         throw new NotFoundException('Board not found.');
       }
-
 
       await this.boardAccess.requirePermission(
         board.id,

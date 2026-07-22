@@ -5,13 +5,12 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 
-import {
-  FilesInterceptor,
-} from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 import { CommentsService } from './comments.service';
 
@@ -45,8 +44,7 @@ export class CommentsController {
     @UploadedFiles()
     files: any[],
   ) {
-    // Replace this with your actual
-    // authenticated user ID.
+    // Replace with authenticated user ID
     const userId = 1;
 
     return this.commentsService.create(
@@ -54,6 +52,65 @@ export class CommentsController {
       userId,
       dto,
       files ?? [],
+    );
+  }
+
+  @Post(':taskId/comments/:commentId/replies')
+  @UseInterceptors(
+    FilesInterceptor(
+      'files',
+      10,
+    ),
+  )
+  async createReply(
+    @Param(
+      'taskId',
+      ParseIntPipe,
+    )
+    taskId: number,
+
+    @Param(
+      'commentId',
+      ParseIntPipe,
+    )
+    commentId: number,
+
+    @Body()
+    dto: CreateCommentDto,
+
+    @UploadedFiles()
+    files: any[],
+  ) {
+    // Replace with authenticated user ID
+    const userId = 1;
+
+    return this.commentsService.createReply(
+      taskId,
+      commentId,
+      userId,
+      dto,
+      files ?? [],
+    );
+  }
+
+  @Get(':taskId/comments')
+  async findAllByTask(
+    @Param(
+      'taskId',
+      ParseIntPipe,
+    )
+    taskId: number,
+
+    @Query('page')
+    page?: string,
+
+    @Query('limit')
+    limit?: string,
+  ) {
+    return this.commentsService.findAllByTask(
+      taskId,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 20,
     );
   }
 }

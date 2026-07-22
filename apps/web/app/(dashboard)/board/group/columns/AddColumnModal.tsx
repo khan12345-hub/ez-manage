@@ -32,7 +32,7 @@ export type ColumnType =
   | "DROPDOWN"
   | "DATE"
   | "NUMBER"
-  | "FILES"
+  | "FILE"
   | "TIMELINE"
   | "CHECKBOX"
 
@@ -89,7 +89,7 @@ const COLUMN_TYPES: ColumnTypeItem[] = [
   },
   {
     label: "Files",
-    type: "FILES",
+    type: "FILE",
     category: "Super useful",
     icon: File,
     color: "bg-red-400",

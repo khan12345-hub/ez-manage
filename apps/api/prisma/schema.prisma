@@ -222,6 +222,8 @@ enum BoardColumnType {
   CHECKBOX
   DROPDOWN
   LABEL
+  TIMELINE
+  FILE
 }
 
 model BoardColumn {
@@ -322,10 +324,10 @@ model TaskCellFile {
 model File {
   id           Int      @id @default(autoincrement())
 
-  originalName String
-  storedName   String
+  fileName String
+  storageKey   String
   mimeType     String
-  size         Int
+  fileSize         Int
   url          String
 
   uploadedById Int

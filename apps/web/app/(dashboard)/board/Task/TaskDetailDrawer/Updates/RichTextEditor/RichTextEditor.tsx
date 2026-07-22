@@ -1,6 +1,11 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEffect } from "react";
+
+import {
+  useEditor,
+  EditorContent,
+} from "@tiptap/react";
 
 import StarterKit from "@tiptap/starter-kit";
 import Mention from "@tiptap/extension-mention";
@@ -16,22 +21,45 @@ import TableHeader from "@tiptap/extension-table-header";
 import { RichTextToolbar } from "./RichTextEditorToolbar";
 import { FileAttachmentPicker } from "./FileAttachmentPicker";
 import { createMentionSuggestion } from "./mention-suggestion";
+
 import { useInviteModalStore } from "@/store/invite-modal";
 
 interface RichTextEditorProps {
   value?: string;
   onChange?: (html: string) => void;
   onFilesChange?: (files: File[]) => void;
+
+  /**
+   * Used for reply composers.
+   * Makes the editor smaller and more compact.
+   */
+  compact?: boolean;
+
+  /**
+   * Placeholder text shown when editor is empty.
+   */
+  placeholder?: string;
+
+  /**
+   * Automatically focus editor when mounted.
+   */
+  autoFocus?: boolean;
 }
 
 export function RichTextEditor({
   value = "",
   onChange,
   onFilesChange,
+  compact = false,
+  placeholder = "Write an update...",
+  autoFocus = false,
 }: RichTextEditorProps) {
   const { boardId } = useInviteModalStore();
+
   const editor = useEditor({
     immediatelyRender: false,
+
+    autofocus: autoFocus,
 
     extensions: [
       StarterKit,
@@ -58,7 +86,8 @@ export function RichTextEditor({
 
       Mention.configure({
         HTMLAttributes: {
-          class: "rounded bg-primary/10 px-1 py-0.5 font-medium text-primary",
+          class:
+            "rounded bg-primary/10 px-1 py-0.5 font-medium text-primary",
         },
 
         renderText: ({ node }) => {
@@ -88,13 +117,22 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class: [
-          "min-h-[100px]",
-          "max-h-[300px]",
+          compact
+            ? "min-h-[60px] max-h-[180px]"
+            : "min-h-[100px] max-h-[300px]",
+
           "overflow-y-auto",
           "px-3",
           "py-3",
           "text-sm",
           "outline-none",
+
+          // Placeholder
+          "is-editor-empty:before:content-[attr(data-placeholder)]",
+          "is-editor-empty:before:text-muted-foreground",
+          "is-editor-empty:before:float-left",
+          "is-editor-empty:before:pointer-events-none",
+          "is-editor-empty:before:h-0",
 
           // Table
           "[&_table]:my-2",
@@ -128,6 +166,8 @@ export function RichTextEditor({
           // Column resize
           "[&_.column-resize-handle]:bg-primary",
         ].join(" "),
+
+        "data-placeholder": placeholder,
       },
     },
 
@@ -135,6 +175,22 @@ export function RichTextEditor({
       onChange?.(editor.getHTML());
     },
   });
+
+  /**
+   * Keep editor content synchronized when
+   * the parent value changes.
+   */
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    if (value !== editor.getHTML()) {
+      editor.commands.setContent(value, {
+        emitUpdate: false,
+      });
+    }
+  }, [editor, value]);
 
   if (!editor) {
     return null;
@@ -144,7 +200,9 @@ export function RichTextEditor({
     <div className="overflow-hidden rounded-lg border">
       <EditorContent editor={editor} />
 
-      <FileAttachmentPicker onFilesChange={onFilesChange} />
+      <FileAttachmentPicker
+        onFilesChange={onFilesChange}
+      />
 
       <div className="flex items-center border-t bg-muted/30 px-2 py-1">
         <RichTextToolbar editor={editor} />

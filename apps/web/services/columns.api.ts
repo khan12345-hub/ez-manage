@@ -1,21 +1,13 @@
 import { api } from "@/lib/api";
 
 export type BoardColumnType =
-  // TEXT = "TEXT",
-  // NUMBER = "NUMBER",
-  // DATE = "DATE",
-  // STATUS = "STATUS",
-  // PERSON = "PERSON",
-  // CHECKBOX = "CHECKBOX",
-  // DROPDOWN = "DROPDOWN",
-  // LABEL = "LABEL",
   | "STATUS"
   | "TEXT"
   | "PERSON"
   | "DROPDOWN"
   | "DATE"
   | "NUMBER"
-  | "FILES"
+  | "FILE"
   | "TIMELINE"
   | "CHECKBOX";
 

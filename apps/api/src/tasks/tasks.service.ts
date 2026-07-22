@@ -65,53 +65,75 @@ export class TasksService {
     });
   }
 
-  async findOne(taskId: number) {
-    const task = await this.prisma.task.findUnique({
-      where: {
-        id: taskId,
+async findOne(taskId: number) {
+  const task = await this.prisma.task.findUnique({
+    where: {
+      id: taskId,
+    },
+    include: {
+      group: {
+        select: {
+          id: true,
+          name: true,
+          boardId: true,
+        },
       },
-      include: {
-        group: {
-          select: {
-            id: true,
-            name: true,
-            boardId: true,
-          },
+
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
         },
-        createdBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            avatarUrl: true,
-          },
-        },
-        cells: {
-          include: {
-            column: {
-              select: {
-                id: true,
-                name: true,
-                type: true,
-                order: true,
-              },
-            },
-          },
-          orderBy: {
-            column: {
-              order: 'asc',
+      },
+
+      cells: {
+        include: {
+          column: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              order: true,
             },
           },
         },
+        orderBy: {
+          column: {
+            order: 'asc',
+          },
+        },
       },
-    });
 
-    if (!task) {
-      throw new NotFoundException('Task not found.');
-    }
+      comments: {
+        orderBy: {
+          createdAt: 'asc',
+        },
 
-    return task;
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              avatarUrl: true,
+            },
+          },
+
+          files: true,
+        },
+      },
+    },
+  });
+
+  if (!task) {
+    throw new NotFoundException('Task not found.');
   }
+
+  return task;
+}
 
   async reorder(
     dto: ReorderTaskDto,

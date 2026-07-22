@@ -161,3 +161,22 @@ a {
     @apply font-sans;
   }
 }
+
+.excel-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.excel-preview th,
+.excel-preview td {
+  border: 1px solid hsl(var(--border));
+  padding: 8px 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.excel-preview th {
+  font-weight: 600;
+  background: hsl(var(--muted));
+}

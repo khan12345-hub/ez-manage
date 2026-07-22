@@ -1,33 +1,34 @@
 import { ComponentType } from "react";
-
 import { CellEditorProps } from "../EditableCells/EditableCell";
 import { TextEditor } from "../EditableCells/TextEditor";
-import { StatusEditor } from "./status/StatusEditor";
+import { StatusEditor } from "./Status/StatusEditor";
 import { PersonEditor } from "../EditableCells/PersonEditor";
 import { DateEditor } from "../EditableCells/DateEditor";
-
-import { StatusCell } from "./status/StatusCell";
-import { PersonCell } from "./PersonCell";
+import { StatusCell } from "./Status/StatusCell";
+import { PersonCell } from "./Person/PersonCell";
 import { DateCell } from "./DateCell";
-
 import { updateTask } from "@/services/tasks.api";
 import { updateCell } from "@/services/cells.api";
+import { TimelineEditor } from "../EditableCells/TimelineEditor";
+import { TimelineCell } from "./TimelineCell";
+import { CheckboxCell } from "./CheckboxCell";
+import { CheckboxEditor } from "../EditableCells/CheckboxEditor";
+import { FileCell } from "./File/FileCell";
 
 export interface CellConfig<T = any> {
   editor: ComponentType<CellEditorProps<any>>;
 
-  render: (value: T) => React.ReactNode;
+  render: (args: {
+    value: T;
+    task: any;
+    cellId: any;
+    column: any;
+    files:any[]
+  }) => React.ReactNode;
 
-  getValue: (
-    task: any,
-    cell: any,
-    column: any,
-  ) => T;
+  getValue: (task: any, cell: any, column: any) => T;
 
-  toCellValue: (
-    value: T,
-    previous: any,
-  ) => any;
+  toCellValue: (value: T, previous: any) => any;
 
   save: (args: {
     task: any;
@@ -42,11 +43,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   TEXT: {
     editor: TextEditor,
 
-    render: (value) => (
-      <span className="text-red-600">
-        {value}
-      </span>
-    ),
+    render: (value) => <span className="text-red-600">{value.value}</span>,
 
     getValue: (task, cell, column) => {
       // Primary column stores the value in Task.name
@@ -61,125 +58,131 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       text: value,
     }),
 
-    save: ({
-      task,
-      cell,
-      column,
-      value,
-      boardId,
-    }) => {
+    save: ({ task, cell, column, value, boardId }) => {
       if (column.isPrimary) {
-        return updateTask(
-          boardId!,
-          task.id,
-          {
-            name: value,
-          },
-        );
+        return updateTask(boardId!, task.id, {
+          name: value,
+        });
       }
 
-      return updateCell(
-        boardId,
-        cell.id,
-        {
-          value: {
-            text: value,
-          },
+      return updateCell(boardId, cell.id, {
+        value: {
+          text: value,
         },
-      );
+      });
     },
   },
 
   PERSON: {
     editor: PersonEditor,
 
-    render: (value) => (
-      <PersonCell cell={value} />
-    ),
+    render: (value) => <PersonCell cell={value} />,
 
-    getValue: (_, cell) =>
-      cell?.value,
+    getValue: (_, cell) => cell?.value,
 
-    toCellValue: (value) =>
-      value,
+    toCellValue: (value) => value,
 
-    save: ({
-      cell,
-      value,
-      boardId,
-    }) => {
-      return updateCell(
-        boardId,
-        cell.id,
-        {
-          value: {
-            users: [
-              ...value.users,
-            ],
-          },
+    save: ({ cell, value, boardId }) => {
+      return updateCell(boardId, cell.id, {
+        value: {
+          users: [...value.users],
         },
-      );
+      });
     },
   },
 
   STATUS: {
     editor: StatusEditor,
 
-    render: (value) => (
-      <StatusCell cell={value} />
-    ),
+    render: (value) => <StatusCell cell={value} />,
 
-    getValue: (_, cell) =>
-      cell?.value,
+    getValue: (_, cell) => cell?.value,
 
-    toCellValue: (value) =>
-      value,
+    toCellValue: (value) => value,
 
-    save: ({
-      cell,
-      value,
-      boardId,
-    }) => {
-      return updateCell(
-        boardId,
-        cell.id,
-        {
-          value: {
-            label: value.label,
-            color: value.color,
-          },
+    save: ({ cell, value, boardId }) => {
+      return updateCell(boardId, cell.id, {
+        value: {
+          label: value.label,
+          color: value.color,
         },
-      );
+      });
     },
   },
 
   DATE: {
     editor: DateEditor,
 
+    render: (value) => <DateCell cell={value} />,
+
+    getValue: (_, cell) => cell?.value,
+
+    toCellValue: (value) => value,
+
+    save: ({ cell, value, boardId }) => {
+      return updateCell(boardId, cell.id, {
+        value: {
+          date: value.date,
+        },
+      });
+    },
+  },
+  TIMELINE: {
+    editor: TimelineEditor,
+
+    render: (value) => <TimelineCell cell={value} />,
+
+    getValue: (_, cell) => cell?.value,
+
+    toCellValue: (value) => value,
+
+    save: ({ cell, value, boardId }) => {
+      return updateCell(boardId, cell.id, {
+        value: {
+          startDate: new Date(value.startDate),
+          endDate: new Date(value.endDate),
+        },
+      });
+    },
+  },
+  CHECKBOX: {
+    editor: CheckboxEditor,
+
+    render: (value) => <CheckboxCell checked={value.value} />,
+
+    getValue: (_, cell) => cell?.value?.checked ?? false,
+
+    toCellValue: (value) => ({
+      checked: value,
+    }),
+
+    save: ({ cell, value, boardId }) => {
+      return updateCell(boardId, cell.id, {
+        value: {
+          checked: value,
+        },
+      });
+    },
+  },
+  FILE: {
+    editor: FileCell as any,
+
     render: (value) => (
-      <DateCell cell={value} />
+      <FileCell value={value}/>
     ),
 
-    getValue: (_, cell) =>
-      cell?.value,
+    getValue: (_, cell) => ({
+      cellId: cell?.id,
+      files: cell?.files ?? [],
+    }),
 
-    toCellValue: (value) =>
-      value,
+    toCellValue: () => null,
 
-    save: ({
-      cell,
-      value,
-      boardId,
-    }) => {
-      return updateCell(
-        boardId,
-        cell.id,
-        {
-          value: {
-            date: value.date,
-          },
-        },
-      );
+    // Files are uploaded/deleted through
+    // dedicated file APIs, not updateCell.
+    save: async () => {
+      return null;
     },
+
   },
 };

@@ -17,7 +17,7 @@ interface BoardMember {
 }
 
 interface Props {
-  cell?: BoardMember | BoardMember[] | null;
+  cell?: BoardMember | BoardMember[] | null | any;
 }
 
 export function PersonCell({ cell }: Props) {

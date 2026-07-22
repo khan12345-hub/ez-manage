@@ -1,55 +1,98 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { RichTextEditor } from "./RichTextEditor/RichTextEditor";
+import { createCommentReply } from "@/services/comments.api";
+
+
+
+
 
 interface ReplyComposerProps {
   taskId: number;
   parentCommentId: number;
-  onCancel: () => void;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
 export function ReplyComposer({
   taskId,
   parentCommentId,
+  onSuccess,
   onCancel,
 }: ReplyComposerProps) {
-  const [value, setValue] =
+  const queryClient =
+    useQueryClient();
+
+  const [content, setContent] =
     useState("");
 
-  const handleSubmit = () => {
-    const content = value.trim();
+  const [files, setFiles] =
+    useState<File[]>([]);
 
-    if (!content) {
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+
+  const handleSubmit = async () => {
+    if (
+      !content.trim() ||
+      isSubmitting
+    ) {
       return;
     }
 
-    console.log({
-      taskId,
-      parentCommentId,
-      content,
-    });
+    try {
+      setIsSubmitting(true);
 
-    setValue("");
-    onCancel();
+      await createCommentReply(
+        taskId,
+        parentCommentId,
+        content,
+        files,
+      );
+
+      // Refresh comments and replies
+      await queryClient.invalidateQueries({
+        queryKey: [
+          "task-comments",
+          taskId,
+        ],
+      });
+
+      // Reset local state
+      setContent("");
+      setFiles([]);
+
+      // Close composer
+      onSuccess?.();
+    } catch (error) {
+      console.error(
+        "Failed to create reply:",
+        error,
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="mt-3">
-      <textarea
-        value={value}
-        onChange={(e) =>
-          setValue(e.target.value)
-        }
+    <div className="space-y-2">
+      <RichTextEditor
+        value={content}
+        onChange={setContent}
+        onFilesChange={setFiles}
         placeholder="Write a reply..."
-        className="min-h-[70px] w-full resize-none rounded-md border p-3 text-sm outline-none focus:border-primary"
+        compact
         autoFocus
       />
 
-      <div className="mt-2 flex justify-end gap-2">
+      <div className="flex justify-end gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md px-3 py-1.5 text-sm hover:bg-muted"
+          disabled={isSubmitting}
+          className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           Cancel
         </button>
@@ -57,10 +100,15 @@ export function ReplyComposer({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!value.trim()}
-          className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
+          disabled={
+            !content.trim() ||
+            isSubmitting
+          }
+          className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:pointer-events-none disabled:opacity-50"
         >
-          Reply
+          {isSubmitting
+            ? "Replying..."
+            : "Reply"}
         </button>
       </div>
     </div>

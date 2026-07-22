@@ -1,4 +1,4 @@
-import PersonPicker, { PersonValue } from "../Cells/person/PersonPicker";
+import PersonPicker, { PersonValue } from "../Cells/Person/PersonPicker";
 import { CellEditorProps } from "./EditableCell";
 
 

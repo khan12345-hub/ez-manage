@@ -101,3 +101,22 @@ export async function reorderTask(boardId: number, dto: ReorderTaskDto) {
 
   return data;
 }
+
+export async function uploadTaskCellFiles(
+  boardId: number | undefined,
+  cellId: number,
+  files: File[],
+) {
+  const formData = new FormData();
+
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  const response = await api.post(
+    `/boards/${boardId}/cells/${cellId}/files`,
+    formData,
+  );
+
+  return response.data;
+}

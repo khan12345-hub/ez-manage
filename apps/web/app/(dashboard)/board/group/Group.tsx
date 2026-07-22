@@ -110,7 +110,7 @@ export function Group({ group, columns, dragHandleProps, isDraggingGroup }: Prop
 
                   <th
                     onClick={() => setOpen(true)}
-                    className="flex w-44 cursor-pointer items-center gap-2 px-4 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="flex w-44 cursor-pointer items-center gap-2 px-4 py-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <Plus className="h-4 w-4" />
                     Add Column

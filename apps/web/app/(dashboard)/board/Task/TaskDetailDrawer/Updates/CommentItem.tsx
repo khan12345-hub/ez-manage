@@ -19,12 +19,10 @@ export function CommentItem({
   comment,
   taskId,
 }: CommentItemProps) {
-  const [showReply, setShowReply] =
-    useState(false);
+  const [showReply, setShowReply] = useState(false);
 
   return (
     <div className="p-4">
-      {/* Main Comment */}
       <div className="flex gap-3">
         <Avatar
           name={comment.user?.firstName}
@@ -32,6 +30,7 @@ export function CommentItem({
         />
 
         <div className="min-w-0 flex-1">
+          {/* Comment Header */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold">
               {comment.user?.firstName}{" "}
@@ -42,15 +41,24 @@ export function CommentItem({
               {comment.createdAt}
             </span>
 
-            <button className="ml-auto text-muted-foreground hover:text-foreground">
+            <button
+              type="button"
+              className="ml-auto text-muted-foreground hover:text-foreground"
+            >
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </div>
 
-          <p className="mt-1 text-sm">
-            {comment.content}
-          </p>
+          {/* Comment Content */}
+          <div className="prose prose-sm max-w-none">
+            <div
+              dangerouslySetInnerHTML={{
+                __html: comment.content,
+              }}
+            />
+          </div>
 
+          {/* Actions */}
           <div className="mt-3 flex items-center gap-4">
             <button
               type="button"
@@ -62,7 +70,8 @@ export function CommentItem({
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <Reply className="h-3.5 w-3.5" />
-              Reply
+
+              {showReply ? "Cancel" : "Reply"}
             </button>
 
             <button
@@ -70,19 +79,25 @@ export function CommentItem({
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <MessageCircle className="h-3.5 w-3.5" />
+
               Comment
             </button>
           </div>
 
-          {/* Reply composer */}
+          {/* Reply Composer */}
           {showReply && (
-            <ReplyComposer
-              taskId={taskId}
-              parentCommentId={comment.id}
-              onCancel={() =>
-                setShowReply(false)
-              }
-            />
+            <div className="mt-4">
+              <ReplyComposer
+                taskId={taskId}
+                parentCommentId={comment.id}
+                onSuccess={() =>
+                  setShowReply(false)
+                }
+                onCancel={() =>
+                  setShowReply(false)
+                }
+              />
+            </div>
           )}
 
           {/* Replies */}
@@ -128,9 +143,15 @@ function ReplyItem({
           </span>
         </div>
 
-        <p className="mt-1 text-sm">
-          {reply.content}
-        </p>
+        <div className="prose prose-sm max-w-none">
+          <div
+            dangerouslySetInnerHTML={{
+              __html: reply.content,
+            }}
+          />
+        </div>
+
+        {/* Reply files can be rendered here later */}
       </div>
     </div>
   );
@@ -141,7 +162,7 @@ function Avatar({
   avatarUrl,
 }: {
   name?: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 }) {
   if (avatarUrl) {
     return (
@@ -155,8 +176,9 @@ function Avatar({
 
   return (
     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-      {name?.charAt(0)?.toUpperCase() ??
-        "U"}
+      {name
+        ?.charAt(0)
+        ?.toUpperCase() ?? "U"}
     </div>
   );
 }
