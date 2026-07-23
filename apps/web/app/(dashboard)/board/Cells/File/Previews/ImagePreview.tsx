@@ -11,7 +11,7 @@ export default function ImagePreview({
 }: ImagePreviewProps) {
   return (
     <div className="relative flex h-[70vh] items-center justify-center overflow-hidden rounded-lg bg-muted/30 p-4">
-      <Image
+      <img
         src={url}
         alt={fileName}
         width={1200}

@@ -12,16 +12,16 @@ import {
 import { Button } from "@/components/ui/button";
 
 import FilePreview, {
-  FilePreviewItem,
+  FilePreviewItemType,
 } from "./FilePreview";
 
 interface FilePreviewModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  file: FilePreviewItem | null;
+  file: FilePreviewItemType | null;
 }
 
-export default function FilePreviewModal({
+export default function SingleFilePreviewModal({
   open,
   onOpenChange,
   file,
@@ -41,7 +41,7 @@ export default function FilePreviewModal({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-3/4!">
         <DialogHeader>
           <div className="flex items-center justify-between gap-4">
             <DialogTitle className="truncate">
@@ -49,21 +49,21 @@ export default function FilePreviewModal({
             </DialogTitle>
 
             {fileUrl && (
-            //   <Button
-            //     variant="outline"
-            //     size="sm"
-            //     asChild
-            //   >
-            //   </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mr-8"
+                
+              >
                 <a
                   href={fileUrl}
                   download={file.fileName}
                   target="_blank"
                   rel="noopener noreferrer"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download
+                  >
+                  <Download className="h-4 w-4" />
                 </a>
+                  </Button>
             )}
           </div>
         </DialogHeader>

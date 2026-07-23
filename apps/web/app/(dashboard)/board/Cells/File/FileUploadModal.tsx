@@ -1,16 +1,12 @@
 "use client";
 
-import {
-  File as FileIcon,
-  Image as ImageIcon,
-  Trash2,
-  Upload,
-} from "lucide-react";
-
+import { File as FileIcon, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import Image from "next/image";
 
 import { uploadTaskCellFiles } from "@/services/tasks.api";
+import { useInviteModalStore } from "@/store/invite-modal";
 
 import {
   Dialog,
@@ -20,56 +16,41 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
-
-import FileRow from "./FileRow";
-import { useInviteModalStore } from "@/store/invite-modal";
-import Image from "next/image";
-
-interface FileItem {
-  id: number;
-  fileName: string;
-  mimeType: string;
-  fileSize: number;
-  storageKey: string;
-  url?: string;
-}
+import FileThumbnail from "./Previews/FilePreviewItemThumbnail";
 
 interface FileUploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cellId: number;
-  files: FileItem[];
+  onUploadSuccess: () => void;
 }
 
 export function FileUploadModal({
   open,
   onOpenChange,
   cellId,
-  files,
+  onUploadSuccess,
 }: FileUploadModalProps) {
   const { boardId } = useInviteModalStore();
   const queryClient = useQueryClient();
 
-  // Files selected locally but not uploaded yet
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const uploadMutation = useMutation({
-    mutationFn: (files: File[]) =>
-      uploadTaskCellFiles(boardId, cellId, files),
+    mutationFn: (files: File[]) => uploadTaskCellFiles(boardId, cellId, files),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
       });
 
-      // Clear selected files after successful upload
       setSelectedFiles([]);
+      onOpenChange(false);
+      onUploadSuccess();
     },
   });
 
-  const handleFileChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(event.target.files ?? []);
 
     if (newFiles.length > 0) {
@@ -100,51 +81,69 @@ export function FileUploadModal({
     onOpenChange(open);
   };
 
-  console.log("files", files)
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-max!">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Files</DialogTitle>
+          <DialogTitle>Upload files</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Existing uploaded files */}
-          {files && files.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium">
-                Uploaded files
-              </p>
-
-              {files?.map((file) => (
-                <FileRow
-                  key={file.id}
-                  file={file}
-                />
-              ))}
+        <div className="space-y-4 overflow-scroll scrollbar-none">
+          {/* Upload Dropzone */}
+          <label
+            htmlFor="file-upload"
+            className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-muted-foreground/25 bg-muted/20 px-6 py-10 text-center transition-all hover:border-primary/50 hover:bg-muted/40"
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-background shadow-sm ring-1 ring-border transition-transform group-hover:scale-105">
+              <Upload className="h-5 w-5 text-primary" />
             </div>
-          )}
 
-          {/* Selected files preview */}
+            <p className="text-sm font-semibold">Click to upload files</p>
+
+            <p className="mt-1 text-xs text-muted-foreground">
+              Select one or multiple files
+            </p>
+
+            <span className="mt-4 rounded-md border bg-background px-3 py-1.5 text-xs font-medium shadow-sm transition-colors group-hover:bg-muted">
+              Choose files
+            </span>
+
+            <input
+              id="file-upload"
+              type="file"
+              multiple
+              disabled={uploadMutation.isPending}
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </label>
+
+          {/* Selected Files */}
           {selectedFiles.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium">
-                Files ready to upload
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Files ready to upload</p>
 
-              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  {selectedFiles.length}{" "}
+                  {selectedFiles.length === 1 ? "file" : "files"}
+                </p>
+              </div>
+
+              <div className="max-h-64 space-y-2 overflow-y-auto rounded-md border p-2">
                 {selectedFiles.map((file, index) => (
                   <div
                     key={`${file.name}-${index}`}
-                    className="flex items-center gap-3 rounded-md border p-3"
+                    className="flex items-center gap-3 rounded-md border bg-background p-3"
                   >
-                    {/* Image preview */}
-                    {file.type.startsWith("image/") ? (
+                    {/* Preview */}
+                    {/* {file.type.startsWith("image/") ? (
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border">
                         <Image
                           src={URL.createObjectURL(file)}
                           alt={file.name}
+                          width={48}
+                          height={48}
                           className="h-full w-full object-cover"
                         />
                       </div>
@@ -152,9 +151,13 @@ export function FileUploadModal({
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-muted">
                         <FileIcon className="h-6 w-6 text-muted-foreground" />
                       </div>
-                    )}
+                    )} */}
+                    <FileThumbnail
+                      fileName={file.name}
+                      mimeType={file.type}
+                    />
 
-                    {/* File info */}
+                    {/* File Info */}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {file.name}
@@ -171,9 +174,7 @@ export function FileUploadModal({
                       variant="ghost"
                       size="icon"
                       disabled={uploadMutation.isPending}
-                      onClick={() =>
-                        removeSelectedFile(index)
-                      }
+                      onClick={() => removeSelectedFile(index)}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -183,50 +184,7 @@ export function FileUploadModal({
             </div>
           )}
 
-          {/* Empty state */}
-          {files.length === 0 &&
-            selectedFiles.length === 0 && (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-10 text-center">
-                <FileIcon className="mb-3 h-8 w-8 text-muted-foreground" />
-
-                <p className="text-sm font-medium">
-                  No files uploaded
-                </p>
-
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Select files below to attach them to this cell.
-                </p>
-              </div>
-            )}
-
-          {/* File input / Dropzone */}
-          <label
-            htmlFor="file-upload"
-            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-8 text-center transition-colors hover:bg-muted"
-          >
-            <Upload className="h-6 w-6 text-muted-foreground" />
-
-            <div>
-              <p className="text-sm font-medium">
-                Click to select files
-              </p>
-
-              <p className="mt-1 text-xs text-muted-foreground">
-                You can select multiple files
-              </p>
-            </div>
-
-            <input
-              id="file-upload"
-              type="file"
-              multiple
-              disabled={uploadMutation.isPending}
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </label>
-
-          {/* Upload button */}
+          {/* Upload Button */}
           {selectedFiles.length > 0 && (
             <Button
               type="button"
@@ -239,9 +197,7 @@ export function FileUploadModal({
               {uploadMutation.isPending
                 ? "Uploading..."
                 : `Upload ${selectedFiles.length} ${
-                    selectedFiles.length === 1
-                      ? "file"
-                      : "files"
+                    selectedFiles.length === 1 ? "file" : "files"
                   }`}
             </Button>
           )}

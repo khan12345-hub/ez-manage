@@ -5,13 +5,24 @@ import * as dotenv from 'dotenv';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import { postgresProvider } from './database/postgres.provider';
-import cookieParser from "cookie-parser";
+import cookieParser from 'cookie-parser';
 import { join } from 'node:path';
 import { NestExpressApplication } from '@nestjs/platform-express';
+
 dotenv.config();
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(
+    AppModule,
+  );
+
+  // CORS
+  app.enableCors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  });
+
+  // Global validation
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -20,27 +31,23 @@ async function bootstrap() {
     }),
   );
 
+  // Cookies
   app.use(cookieParser());
 
+  // Static uploads
   app.useStaticAssets(
-    join(
-      process.cwd(),
-      'uploads',
-    ),
+    join(process.cwd(), 'uploads'),
     {
       prefix: '/uploads/',
     },
   );
 
-  app.enableCors({
-    origin: "http://localhost:3000", // Next.js frontend
-    credentials: true, // Required for cookies
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  });
-
+  // Global API prefix
   app.setGlobalPrefix('api');
+
+  // Session
   const PgSession = connectPgSimple(session);
+
   app.use(
     session({
       store: new PgSession({
@@ -58,4 +65,5 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3001);
 }
+
 bootstrap();

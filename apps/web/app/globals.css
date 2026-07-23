@@ -163,20 +163,29 @@ a {
 }
 
 .excel-preview table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .excel-preview th,
 .excel-preview td {
-  border: 1px solid hsl(var(--border));
+  border: 1px solid #e5e7eb;
   padding: 8px 12px;
   text-align: left;
+  vertical-align: top;
   white-space: nowrap;
 }
 
 .excel-preview th {
+  background: #f3f4f6;
   font-weight: 600;
-  background: hsl(var(--muted));
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.excel-preview tr:hover td {
+  background: #f9fafb;
 }

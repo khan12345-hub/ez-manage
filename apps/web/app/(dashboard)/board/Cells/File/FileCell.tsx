@@ -1,16 +1,11 @@
 "use client";
 
-import {
-  File as FileIcon,
-  Paperclip,
-} from "lucide-react";
+import { File as FileIcon, Paperclip } from "lucide-react";
 
-import {
-  useState,
-} from "react";
+import { useState } from "react";
 import { FileUploadModal } from "./FileUploadModal";
-
-
+import { FilePreviewModal } from "./Previews/FilePreviewModal";
+import { Button } from "@/components/ui/button";
 
 export interface FileItem {
   id: number;
@@ -22,49 +17,37 @@ export interface FileItem {
 }
 
 interface FileCellProps {
-  value?:any
+  value?: any;
 }
 
-export function FileCell({
+export function FileCell({ value }: FileCellProps) {
+  const [open, setOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
-  value
-}: FileCellProps) {
-  const [
-    open,
-    setOpen,
-  ] = useState(false);
-  console.log("cell id",value)
-  
   return (
     <>
-      <button
+      <Button
         type="button"
-        onClick={() =>
-          setOpen(true)
-        }
-        className="flex min-h-8 w-full items-center gap-2 px-2 text-left hover:bg-muted/50"
+        variant="ghost"
+        onClick={() => setPreviewOpen(true)}
       >
-        <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <Paperclip className="mr-2 h-4 w-4" />
+        {value.files.length} files
+      </Button>
 
-        {value && value.files.length > 0 ? (
-          <span className="text-xs text-muted-foreground">
-            {value.files.length}{" "}
-            {value.files.length === 1
-              ? "file"
-              : "files"}
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">
-            Add files
-          </span>
-        )}
-      </button>
+      <FilePreviewModal
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        files={value.files}
+        onUploadClick={() => setUploadOpen(true)}
+      />
 
       <FileUploadModal
-        open={open}
-        onOpenChange={setOpen}
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
         cellId={value.cellId}
-        files={value.files}
+        onUploadSuccess={()=>setPreviewOpen(true)}
       />
     </>
   );

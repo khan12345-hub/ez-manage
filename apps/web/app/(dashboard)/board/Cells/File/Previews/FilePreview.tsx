@@ -1,13 +1,13 @@
 "use client";
-import ImagePreview from "./Previews/ImagePreview";
-import PdfPreview from "./Previews/PdfPreview";
-import ExcelPreview from "./Previews/ExcelPreview";
-import VideoPreview from "./Previews/VideoPreview";
-import AudioPreview from "./Previews/AudioPreview";
-import TextPreview from "./Previews/TextPreview";
-import UnsupportedFilePreview from "./Previews/UnsupportedPreview";
+import ImagePreview from "./ImagePreview";
+import PdfPreview from "./PdfPreview";
+import ExcelPreview from "./ExcelPreview/ExcelPreview";
+import VideoPreview from "./VideoPreview";
+import AudioPreview from "./AudioPreview";
+import TextPreview from "./TextPreview";
+import UnsupportedFilePreview from "./UnsupportedPreview";
 
-export interface FilePreviewItem {
+export interface FilePreviewItemType {
   id: number;
   fileName: string;
   mimeType: string;
@@ -16,7 +16,7 @@ export interface FilePreviewItem {
 }
 
 interface FilePreviewProps {
-  file: FilePreviewItem;
+  file: FilePreviewItemType;
 }
 
 export default function FilePreview({

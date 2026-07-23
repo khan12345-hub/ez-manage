@@ -32,7 +32,7 @@ export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post()
-  @RequireBoardPermission(BoardPermission.EDIT)
+  @RequireBoardPermission(BoardPermission.CREATE_TASK)
   create(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Body() createTaskDto: CreateTaskDto,

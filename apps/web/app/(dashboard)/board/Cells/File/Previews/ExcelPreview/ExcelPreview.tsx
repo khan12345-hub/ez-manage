@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import * as XLSX from "xlsx";
+import ExcelTable from "./ExcelPreviewTable";
+import {
+  parseExcel,
+} from "./excel-utils";
+import type {
+  ExcelTableData,
+} from "./excel.types";
 
 interface ExcelPreviewProps {
   url: string;
@@ -12,60 +18,53 @@ export default function ExcelPreview({
   url,
   fileName,
 }: ExcelPreviewProps) {
-  const [html, setHtml] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [data, setData] =
+    useState<ExcelTableData | null>(
+      null
+    );
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    const loadExcel = async () => {
+    async function loadExcel() {
       try {
         setLoading(true);
         setError(false);
 
-        const response = await fetch(url);
+        const response = await fetch(
+          url,
+          {
+            credentials: "include",
+          }
+        );
 
         if (!response.ok) {
           throw new Error(
-            "Failed to fetch Excel file",
+            "Failed to fetch Excel file"
           );
         }
 
         const arrayBuffer =
           await response.arrayBuffer();
 
-        const workbook = XLSX.read(
-          arrayBuffer,
-          {
-            type: "array",
-          },
-        );
-
-        const firstSheetName =
-          workbook.SheetNames[0];
-
-        if (!firstSheetName) {
-          throw new Error(
-            "Excel file has no sheets",
-          );
-        }
-
-        const worksheet =
-          workbook.Sheets[firstSheetName];
-
-        const htmlTable =
-          XLSX.utils.sheet_to_html(
-            worksheet || [],
+        const parsed =
+          await parseExcel(
+            arrayBuffer
           );
 
         if (!cancelled) {
-          setHtml(htmlTable);
+          setData(parsed);
         }
       } catch (error) {
         console.error(
           "Excel preview error:",
-          error,
+          error
         );
 
         if (!cancelled) {
@@ -76,7 +75,7 @@ export default function ExcelPreview({
           setLoading(false);
         }
       }
-    };
+    }
 
     loadExcel();
 
@@ -95,7 +94,7 @@ export default function ExcelPreview({
     );
   }
 
-  if (error) {
+  if (error || !data) {
     return (
       <div className="flex h-[70vh] items-center justify-center">
         <p className="text-sm text-destructive">
@@ -106,13 +105,8 @@ export default function ExcelPreview({
   }
 
   return (
-    <div className="h-[70vh] overflow-auto rounded-md border">
-      <div
-        className="excel-preview min-w-full"
-        dangerouslySetInnerHTML={{
-          __html: html,
-        }}
-      />
+    <div className="h-[70vh] overflow-auto rounded-md border bg-white">
+      <ExcelTable data={data} />
     </div>
   );
 }

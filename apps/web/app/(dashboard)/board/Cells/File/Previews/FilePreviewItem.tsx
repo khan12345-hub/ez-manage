@@ -1,30 +1,22 @@
 "use client";
 
-import {
-  FileIcon,
-  Trash2,
-} from "lucide-react";
+import { FileIcon, Trash2 } from "lucide-react";
 
 import { useState } from "react";
 
-import {
-  FilePreviewItem,
-} from "./FilePreview";
+import { FilePreviewItemType } from "./FilePreview";
 
-import FilePreviewModal from "./FilePreviewModal";
+import FilePreviewModal from "./SingleFilePreviewModal";
+import FileThumbnail from "./FilePreviewItemThumbnail";
 
-interface FileRowProps {
-  file: FilePreviewItem;
+interface FilePreviewItemProps {
+  file: FilePreviewItemType;
 }
 
-export default function FileRow({
-  file,
-}: FileRowProps) {
-  const [previewOpen, setPreviewOpen] =
-    useState(false);
+export default function FilePreviewItem({ file }: FilePreviewItemProps) {
+  const [previewOpen, setPreviewOpen] = useState(false);
 
-  const isImage =
-    file.mimeType?.startsWith("image/");
+  const isImage = file.mimeType?.startsWith("image/");
 
   const fileUrl = file.url
     ? file.url.startsWith("http")
@@ -32,29 +24,17 @@ export default function FileRow({
       : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${file.url}`
     : null;
 
-  const formatFileSize = (
-    bytes: number,
-  ) => {
+  const formatFileSize = (bytes: number) => {
     if (bytes === 0) {
       return "0 Bytes";
     }
 
-    const units = [
-      "Bytes",
-      "KB",
-      "MB",
-      "GB",
-    ];
+    const units = ["Bytes", "KB", "MB", "GB"];
 
-    const index = Math.floor(
-      Math.log(bytes) / Math.log(1024),
-    );
+    const index = Math.floor(Math.log(bytes) / Math.log(1024));
 
     return `${parseFloat(
-      (
-        bytes /
-        Math.pow(1024, index)
-      ).toFixed(2),
+      (bytes / Math.pow(1024, index)).toFixed(2),
     )} ${units[index]}`;
   };
 
@@ -67,7 +47,7 @@ export default function FileRow({
           onClick={() => setPreviewOpen(true)}
           className="shrink-0"
         >
-          {isImage && fileUrl ? (
+          {/* {isImage && fileUrl ? (
             <div className="h-12 w-12 overflow-hidden rounded-md border">
               <img
                 src={fileUrl}
@@ -79,7 +59,12 @@ export default function FileRow({
             <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted transition-colors hover:bg-muted/80">
               <FileIcon className="h-5 w-5 text-muted-foreground" />
             </div>
-          )}
+          )} */}
+          <FileThumbnail
+            fileName={file.fileName}
+            mimeType={file.mimeType}
+            url={file.url}
+          />
         </button>
 
         {/* File information */}
@@ -88,7 +73,7 @@ export default function FileRow({
           onClick={() => setPreviewOpen(true)}
           className="min-w-0 flex-1 text-left"
         >
-          <p className="truncate text-sm font-medium hover:underline">
+          <p className="line-clamp-2 text-sm font-medium hover:underline">
             {file.fileName}
           </p>
 
