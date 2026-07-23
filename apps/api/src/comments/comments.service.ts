@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,16 +9,21 @@ import { PrismaService } from 'prisma/prisma.service';
 
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
+import { LocalStorageService } from 'src/storage/local-storage.service';
 @Injectable()
 export class CommentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: LocalStorageService,
+  ) {}
 
   async create(
     taskId: number,
     userId: number,
     dto: CreateCommentDto,
-    files: any[] = [],
+    files: Express.Multer.File[] = [],
   ) {
+    // 1. Verify task exists
     const task = await this.prisma.task.findUnique({
       where: {
         id: taskId,
@@ -31,25 +37,56 @@ export class CommentsService {
       throw new NotFoundException('Task not found');
     }
 
+    // 2. Create the comment first
     const comment = await this.prisma.taskComment.create({
       data: {
         taskId,
         userId,
         content: dto.content,
-
-        files: {
-          create: files.map((file) => ({
-            fileName: file.originalname,
-            mimeType: file.mimetype,
-            fileSize: file.size,
-
-            // Temporary/local storage
-            // Replace with your actual uploaded file path
-            storageKey: file.filename,
-          })),
-        },
       },
+    });
 
+    // 3. Upload and save files
+    if (files.length > 0) {
+      const uploadedFiles = await Promise.all(
+        files.map(async (file) => {
+          const uploaded = await this.storageService.upload(file, 'comments');
+
+          // Create File record
+          const createdFile = await this.prisma.file.create({
+            data: {
+              fileName: uploaded.fileName,
+              mimeType: uploaded.mimeType,
+              fileSize: uploaded.fileSize,
+              storageKey: uploaded.storageKey,
+              url: this.storageService.getUrl(uploaded.storageKey),
+              uploadedById: userId,
+            },
+          });
+
+          // Create relationship between comment and file
+          await this.prisma.taskCommentFile.create({
+            data: {
+              commentId: comment.id,
+              storageKey: createdFile.storageKey,
+              fileName: createdFile.fileName,
+              mimeType: createdFile.mimeType,
+              fileSize: createdFile.fileSize,
+              url: createdFile.url,
+              uploadedById:createdFile.uploadedById
+            },
+          });
+
+          return createdFile;
+        }),
+      );
+    }
+
+    // 4. Return comment with user and files
+    return this.prisma.taskComment.findUnique({
+      where: {
+        id: comment.id,
+      },
       include: {
         user: {
           select: {
@@ -60,12 +97,9 @@ export class CommentsService {
             avatarUrl: true,
           },
         },
-
         files: true,
       },
     });
-
-    return comment;
   }
 
   async createReply(
@@ -73,9 +107,9 @@ export class CommentsService {
     commentId: number,
     userId: number,
     dto: CreateCommentDto,
-    files: any[] = [],
+    files: Express.Multer.File[] = [],
   ) {
-    // Check task
+    // 1. Verify task exists
     const task = await this.prisma.task.findUnique({
       where: {
         id: taskId,
@@ -89,7 +123,7 @@ export class CommentsService {
       throw new NotFoundException('Task not found');
     }
 
-    // Check parent comment
+    // 2. Verify parent comment exists and belongs to this task
     const parentComment = await this.prisma.taskComment.findFirst({
       where: {
         id: commentId,
@@ -105,31 +139,61 @@ export class CommentsService {
       throw new NotFoundException('Comment not found');
     }
 
-    // Optional:
-    // Prevent replies to replies.
+    // 3. Prevent replies to replies
     if (parentComment.parentId !== null) {
       throw new BadRequestException(
         'You can only reply to a top-level comment',
       );
     }
 
+    // 4. Create the reply first
     const reply = await this.prisma.taskComment.create({
       data: {
         taskId,
         userId,
         parentId: commentId,
         content: dto.content,
-
-        files: {
-          create: files.map((file) => ({
-            fileName: file.originalname,
-            mimeType: file.mimetype,
-            fileSize: file.size,
-            storageKey: file.filename,
-          })),
-        },
       },
+    });
 
+    // 5. Upload and save files
+    if (files.length > 0) {
+      await Promise.all(
+        files.map(async (file) => {
+          const uploaded = await this.storageService.upload(file, 'comments');
+
+          // Create File record
+          const createdFile = await this.prisma.file.create({
+            data: {
+              fileName: uploaded.fileName,
+              mimeType: uploaded.mimeType,
+              fileSize: uploaded.fileSize,
+              storageKey: uploaded.storageKey,
+              url: this.storageService.getUrl(uploaded.storageKey),
+              uploadedById: userId,
+            },
+          });
+
+          // Create relationship between reply and file
+          await this.prisma.taskCommentFile.create({
+            data: {
+              commentId: reply.id,
+              storageKey: createdFile.storageKey,
+              fileName: createdFile.fileName,
+              mimeType: createdFile.mimeType,
+              fileSize: createdFile.fileSize,
+              url: createdFile.url,
+            },
+          });
+        }),
+      );
+    }
+
+    // 6. Return reply with user and files
+    return this.prisma.taskComment.findUnique({
+      where: {
+        id: reply.id,
+      },
       include: {
         user: {
           select: {
@@ -140,12 +204,9 @@ export class CommentsService {
             avatarUrl: true,
           },
         },
-
         files: true,
       },
     });
-
-    return reply;
   }
 
   async findAll(boardId: number) {
@@ -400,6 +461,45 @@ export class CommentsService {
 
     return {
       message: 'Comment deleted successfully',
+    };
+  }
+
+  async deleteFile(commentId: number, fileId: number, userId: number) {
+    const commentFile = await this.prisma.taskCommentFile.findFirst({
+      where: {
+        id: fileId,
+        commentId,
+      },
+      include: {
+        comment: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    });
+
+    if (!commentFile) {
+      throw new NotFoundException('Comment file not found');
+    }
+
+    // Only the comment author can delete the attachment
+    if (commentFile.comment.userId !== userId) {
+      throw new ForbiddenException('You are not allowed to delete this file');
+    }
+
+    // Delete physical file
+    await this.storageService.delete(commentFile.storageKey);
+
+    // Delete DB record
+    await this.prisma.taskCommentFile.delete({
+      where: {
+        id: commentFile.id,
+      },
+    });
+
+    return {
+      message: 'File deleted successfully',
     };
   }
 }

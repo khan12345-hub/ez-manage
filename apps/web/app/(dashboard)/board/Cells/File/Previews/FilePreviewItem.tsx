@@ -1,28 +1,96 @@
 "use client";
 
-import { FileIcon, Trash2 } from "lucide-react";
-
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { FilePreviewItemType } from "./FilePreview";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import FilePreviewModal from "./SingleFilePreviewModal";
+import { deleteTaskCellFile } from "@/services/tasks.api";
+
+import { useInviteModalStore } from "@/store/invite-modal";
+
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+import { Button } from "@/components/ui/button";
+
+import { FilePreviewItemType } from "./FilePreview";
+import SingleFilePreviewModal from "./SingleFilePreviewModal";
 import FileThumbnail from "./FilePreviewItemThumbnail";
+import { toast } from "sonner";
+import { deleteCommentFile } from "@/services/comments.api";
+import { useAuth } from "@/providers/AuthProvider";
 
 interface FilePreviewItemProps {
   file: FilePreviewItemType;
+  cellId?: number;
+  commentId?: number;
 }
 
-export default function FilePreviewItem({ file }: FilePreviewItemProps) {
+export default function FilePreviewItem({
+  file,
+  cellId,
+  commentId,
+}: FilePreviewItemProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const isImage = file.mimeType?.startsWith("image/");
+  const { boardId } = useInviteModalStore();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { boardRole, workspaceRole } = useInviteModalStore();
+  console.log({
+    boardRole,
+    workspaceRole,
+    user,
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      // Delete Task Cell File
+      if (cellId) {
+        return deleteTaskCellFile(boardId, cellId, file.id);
+      }
 
-  const fileUrl = file.url
-    ? file.url.startsWith("http")
-      ? file.url
-      : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${file.url}`
-    : null;
+      // Delete Comment File
+      if (commentId) {
+        return deleteCommentFile(commentId, file.id);
+      }
+
+      throw new Error("Unable to determine file owner");
+    },
+
+    onSuccess: () => {
+      // Cell file
+      if (cellId) {
+        queryClient.invalidateQueries({
+          queryKey: ["board", boardId],
+        });
+      }
+
+      // Comment file
+      if (commentId) {
+        queryClient.invalidateQueries({
+          queryKey: ["task-comments", boardId],
+        });
+      }
+
+      toast.success("File deleted successfully!");
+
+      setDeleteDialogOpen(false);
+    },
+
+    onError: (error) => {
+      console.error("Failed to delete file:", error);
+
+      toast.error("Failed to delete file. Please try again.");
+    },
+  });
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) {
@@ -38,8 +106,13 @@ export default function FilePreviewItem({ file }: FilePreviewItemProps) {
     )} ${units[index]}`;
   };
 
+  // Show delete button only when file belongs
+  // to either a cell or a comment.
+  const canDelete = Boolean(cellId || commentId);
+
   return (
     <>
+      {/* File Row */}
       <div className="group flex items-center gap-3 rounded-md border p-3">
         {/* Preview thumbnail */}
         <button
@@ -47,19 +120,6 @@ export default function FilePreviewItem({ file }: FilePreviewItemProps) {
           onClick={() => setPreviewOpen(true)}
           className="shrink-0"
         >
-          {/* {isImage && fileUrl ? (
-            <div className="h-12 w-12 overflow-hidden rounded-md border">
-              <img
-                src={fileUrl}
-                alt={file.fileName}
-                className="h-full w-full object-cover transition-opacity hover:opacity-80"
-              />
-            </div>
-          ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted transition-colors hover:bg-muted/80">
-              <FileIcon className="h-5 w-5 text-muted-foreground" />
-            </div>
-          )} */}
           <FileThumbnail
             fileName={file.fileName}
             mimeType={file.mimeType}
@@ -83,19 +143,65 @@ export default function FilePreviewItem({ file }: FilePreviewItemProps) {
         </button>
 
         {/* Delete */}
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-destructive"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        {canDelete && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={deleteMutation.isPending}
+            onClick={() => setDeleteDialogOpen(true)}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
-      <FilePreviewModal
+      {/* File Preview */}
+      <SingleFilePreviewModal
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         file={file}
       />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this file?</AlertDialogTitle>
+
+            <AlertDialogDescription className="max-w-82!">
+              Are you sure you want to delete{" "}
+              <span className="line-clamp-2 font-medium text-foreground">
+                {file.fileName}?
+              </span>{" "}
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            {/* Cancel */}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleteMutation.isPending}
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+
+            {/* Delete */}
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

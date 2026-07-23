@@ -67,7 +67,7 @@ export function CreateBoardModal({
     onSuccess: (board) => {
       queryClient.invalidateQueries({ queryKey: ["boards", workspaceId] });
       toast.success(`Board "${board.name}" created.`);
-      router.replace(`board/${board.id}`);
+      router.replace(`/${board.id}`);
       onClose();
     },
     onError: (error: any) => {

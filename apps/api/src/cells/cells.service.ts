@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -252,6 +253,61 @@ export class CellsService {
 
     return {
       message: 'Cell deleted successfully.',
+    };
+  }
+  async removeFile(
+    boardId: number,
+    cellId: number,
+    fileId: number,
+    userId: number,
+  ) {
+    const file = await this.prisma.taskCellFile.findFirst({
+      where: {
+        cellId,
+        fileId,
+
+        cell: {
+          task: {
+            group: {
+              boardId,
+            },
+          },
+        },
+      },
+      include: {
+        file: true,
+      },
+    });
+
+    if (!file) {
+      throw new NotFoundException('File not found for this cell');
+    }
+
+    const isOwner = file.file.uploadedById === userId;
+
+    if (!isOwner) {
+      throw new ForbiddenException('You can only delete files uploaded by you');
+    }
+
+    // Delete the database relation first
+    await this.prisma.taskCellFile.delete({
+      where: {
+        id: fileId,
+      },
+    });
+
+    // Delete the actual physical file
+    try {
+      await this.storageService.delete(file.file.storageKey);
+    } catch (error) {
+      console.error(
+        `Failed to delete physical file: ${file.file.storageKey}`,
+        error,
+      );
+    }
+
+    return {
+      message: 'File deleted successfully',
     };
   }
 }

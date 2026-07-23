@@ -1,6 +1,6 @@
 "use client";
 
-import { CommentComposer } from "./UpdateComposer";
+import { CommentComposer } from "./CommentComposer";
 import { CommentThread } from "./CommentThread";
 
 interface UpdatesTabProps {

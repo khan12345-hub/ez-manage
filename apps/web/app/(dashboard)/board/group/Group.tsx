@@ -31,8 +31,6 @@ interface Props {
 }
 export function Group({ group, columns, dragHandleProps, isDraggingGroup }: Props) {
   const [open, setOpen] = useState(false);
-  console.log("tasks", group.tasks);
-  const [color, setColor] = useState(group.color);
   const { boardId } = useInviteModalStore();
   const queryClient = useQueryClient();
 

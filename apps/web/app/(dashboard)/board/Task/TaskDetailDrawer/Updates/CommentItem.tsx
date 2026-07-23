@@ -1,25 +1,21 @@
 "use client";
 
-import {
-  MessageCircle,
-  MoreHorizontal,
-  Reply,
-} from "lucide-react";
+import { MessageCircle, MoreHorizontal, Paperclip, Reply } from "lucide-react";
 
 import { useState } from "react";
 
 import { ReplyComposer } from "./ReplyComposer";
+import { FilePreviewModal } from "../../../Cells/File/Previews/FilePreviewModal";
+import { Button } from "@/components/ui/button";
 
 interface CommentItemProps {
   comment: any;
   taskId: number;
 }
 
-export function CommentItem({
-  comment,
-  taskId,
-}: CommentItemProps) {
+export function CommentItem({ comment, taskId }: CommentItemProps) {
   const [showReply, setShowReply] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   return (
     <div className="p-4">
@@ -33,8 +29,7 @@ export function CommentItem({
           {/* Comment Header */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold">
-              {comment.user?.firstName}{" "}
-              {comment.user?.lastName}
+              {comment.user?.firstName} {comment.user?.lastName}
             </span>
 
             <span className="text-xs text-muted-foreground">
@@ -58,15 +53,25 @@ export function CommentItem({
             />
           </div>
 
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setPreviewOpen(true)}
+          >
+            <Paperclip className="mr-2 h-4 w-4" />
+            {comment.files.length} files
+          </Button>
+          <FilePreviewModal
+            open={previewOpen}
+            onOpenChange={setPreviewOpen}
+            files={comment.files}
+          />
+
           {/* Actions */}
           <div className="mt-3 flex items-center gap-4">
             <button
               type="button"
-              onClick={() =>
-                setShowReply(
-                  (current) => !current,
-                )
-              }
+              onClick={() => setShowReply((current) => !current)}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <Reply className="h-3.5 w-3.5" />
@@ -79,7 +84,6 @@ export function CommentItem({
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <MessageCircle className="h-3.5 w-3.5" />
-
               Comment
             </button>
           </div>
@@ -90,12 +94,8 @@ export function CommentItem({
               <ReplyComposer
                 taskId={taskId}
                 parentCommentId={comment.id}
-                onSuccess={() =>
-                  setShowReply(false)
-                }
-                onCancel={() =>
-                  setShowReply(false)
-                }
+                onSuccess={() => setShowReply(false)}
+                onCancel={() => setShowReply(false)}
               />
             </div>
           )}
@@ -103,14 +103,9 @@ export function CommentItem({
           {/* Replies */}
           {comment.replies?.length > 0 && (
             <div className="mt-4 border-l-2 pl-4">
-              {comment.replies.map(
-                (reply: any) => (
-                  <ReplyItem
-                    key={reply.id}
-                    reply={reply}
-                  />
-                ),
-              )}
+              {comment.replies.map((reply: any) => (
+                <ReplyItem key={reply.id} reply={reply} />
+              ))}
             </div>
           )}
         </div>
@@ -119,23 +114,15 @@ export function CommentItem({
   );
 }
 
-function ReplyItem({
-  reply,
-}: {
-  reply: any;
-}) {
+function ReplyItem({ reply }: { reply: any }) {
   return (
     <div className="flex gap-3 py-3">
-      <Avatar
-        name={reply.user?.firstName}
-        avatarUrl={reply.user?.avatarUrl}
-      />
+      <Avatar name={reply.user?.firstName} avatarUrl={reply.user?.avatarUrl} />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">
-            {reply.user?.firstName}{" "}
-            {reply.user?.lastName}
+            {reply.user?.firstName} {reply.user?.lastName}
           </span>
 
           <span className="text-xs text-muted-foreground">
@@ -176,9 +163,7 @@ function Avatar({
 
   return (
     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-      {name
-        ?.charAt(0)
-        ?.toUpperCase() ?? "U"}
+      {name?.charAt(0)?.toUpperCase() ?? "U"}
     </div>
   );
 }

@@ -134,3 +134,14 @@ export async function createCommentReply(
 
   return response.data;
 }
+
+export const deleteCommentFile = async (
+  commentId: number,
+  fileId: number,
+) => {
+  const response = await api.delete(
+    `/comments/${commentId}/files/${fileId}`,
+  );
+
+  return response.data;
+};

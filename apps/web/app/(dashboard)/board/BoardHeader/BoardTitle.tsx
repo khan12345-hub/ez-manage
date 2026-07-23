@@ -10,10 +10,11 @@ interface Props {
 }
 
 export function BoardTitle({ board }: Props) {
-  const { setWorkspace, setBoard, workspaceId } = useInviteModalStore();
+  const { setWorkspace, setBoard, workspaceId, setWorkspaceRole } = useInviteModalStore();
 
   useEffect(() => {
     setWorkspace(workspaceId);
+    // setWorkspaceRole
     setBoard(board.id);
   }, [board]);
   const open = useInviteModalStore((s) => s.open);

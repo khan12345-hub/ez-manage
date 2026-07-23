@@ -36,7 +36,7 @@ export default function WorkspacePage() {
   const { user } = useAuth();
   const [updatedWorkspace, setUpdatedWorkspace] = useState<any>(null);
   const [isRenaming, setIsRenaming] = useState(false);
-  const { setWorkspace } = useInviteModalStore();
+  const { setWorkspace, setWorkspaceRole } = useInviteModalStore();
 
   const {
     data: workspaceDetail,
@@ -49,7 +49,13 @@ export default function WorkspacePage() {
     retry: false,
   });
 
-    useEffect(() => {
+  useEffect(() => {
+    if(workspaceDetail){
+      setWorkspaceRole(workspaceDetail.role);
+    }
+  }, [workspaceDetail]);
+
+  useEffect(() => {
     setWorkspace(workspaceId);
   }, [workspaceId]);
 
@@ -101,8 +107,6 @@ export default function WorkspacePage() {
     );
   }, [workspaceDetail]);
 
-  
-
   if (!canFetchWorkspace) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/30 text-sm text-muted-foreground">
@@ -126,9 +130,6 @@ export default function WorkspacePage() {
       </div>
     );
   }
-
-
-
 
   return (
     <div className="min-h-screen bg-muted/30">

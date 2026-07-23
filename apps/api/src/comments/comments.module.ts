@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { CommentsController } from './comments.controller';
+import { LocalStorageService } from 'src/storage/local-storage.service';
 
 @Module({
   controllers: [CommentsController],
-  providers: [CommentsService],
+  providers: [CommentsService, LocalStorageService],
 })
 export class CommentsModule {}

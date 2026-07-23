@@ -13,6 +13,7 @@ export type WorkspaceDetail = {
   createdAt: string;
   updatedAt: string;
   createdById: number;
+  role:string;
   members: Array<{
     id: number;
     role: string;

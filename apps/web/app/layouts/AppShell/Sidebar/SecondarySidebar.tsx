@@ -72,9 +72,11 @@ export function SecondarySidebar({
     if(workspaces.length > 0){
       setWorkspace(workspaces[0])
     }
+
   },[workspaces])
-  const { setBoard } = useInviteModalStore();
-  console.log("ROLE", boards)
+  const { setBoard, setBoardRole } = useInviteModalStore();
+  
+  
   return (
     <div className="relative flex h-full select-none flex-col border-r border-gray-200 bg-white">
       {/* Secondary Sidebar Content Container */}
@@ -192,7 +194,8 @@ export function SecondarySidebar({
                           href={`/board/${item.id}`}
                           onClick={() => {
                             onSelectItem?.(item.id),
-                            setBoard(item.id)
+                            setBoard(item.id),
+                            setBoardRole(item.role)
                           }}
                           className="flex-1 truncate text-left"
                         >

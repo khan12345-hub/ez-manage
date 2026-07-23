@@ -88,7 +88,7 @@ export function FileUploadModal({
           <DialogTitle>Upload files</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 overflow-scroll scrollbar-none">
+        <div className="space-y-4 overflow-scroll scrollbar-none p-1">
           {/* Upload Dropzone */}
           <label
             htmlFor="file-upload"
@@ -134,7 +134,7 @@ export function FileUploadModal({
                 {selectedFiles.map((file, index) => (
                   <div
                     key={`${file.name}-${index}`}
-                    className="flex items-center gap-3 rounded-md border bg-background p-3"
+                    className="flex items-center gap-3 rounded-md bg-background p-3"
                   >
                     {/* Preview */}
                     {/* {file.type.startsWith("image/") ? (

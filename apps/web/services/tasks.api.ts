@@ -120,3 +120,14 @@ export async function uploadTaskCellFiles(
 
   return response.data;
 }
+export const deleteTaskCellFile = async (
+  boardId: number | undefined,
+  cellId: number,
+  fileId: number,
+) => {
+  const response = await api.delete(
+    `/boards/${boardId}/cells/${cellId}/files/${fileId}`,
+  );
+
+  return response.data;
+};

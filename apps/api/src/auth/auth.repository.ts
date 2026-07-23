@@ -15,7 +15,7 @@ export class AuthRepository {
         lastName: true,
         email: true,
         password: true,
-        
+        systemRole:true,
         status: true,
       },
     });
@@ -29,7 +29,7 @@ export class AuthRepository {
         firstName: true,
         lastName: true,
         email: true,
-        
+        systemRole:true,
         status: true,
         password: true,
 
