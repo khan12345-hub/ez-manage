@@ -1,7 +1,7 @@
 "use client";
 
-import { CommentComposer } from "./CommentComposer";
-import { CommentThread } from "./CommentThread";
+import { CommentComposer } from "./RichTextEditor/Comments/CommentComposer";
+import { CommentThread } from "./RichTextEditor/Comments/CommentThread";
 
 interface UpdatesTabProps {
   task: any;

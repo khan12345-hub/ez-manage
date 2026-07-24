@@ -135,12 +135,27 @@ export async function createCommentReply(
   return response.data;
 }
 
-export const deleteCommentFile = async (
+export interface UpdateCommentPayload {
+  content: string;
+}
+export const updateComment = async (
+  taskId: number,
   commentId: number,
-  fileId: number,
+  payload: UpdateCommentPayload,
 ) => {
+  const { data } = await api.patch(
+    `/tasks/${taskId}/comments/${commentId}`,
+    payload,
+  );
+  return data;
+};
+export const deleteComment = async (taskId: number, commentId: number) => {
+  const { data } = await api.delete(`/tasks/${taskId}/comments/${commentId}`);
+  return data;
+};
+export const deleteCommentFile = async (commentId: number, fileId: number) => {
   const response = await api.delete(
-    `/comments/${commentId}/files/${fileId}`,
+    `/tasks/comments/${commentId}/files/${fileId}`,
   );
 
   return response.data;

@@ -64,16 +64,10 @@ export class CommentsService {
             },
           });
 
-          // Create relationship between comment and file
           await this.prisma.taskCommentFile.create({
             data: {
               commentId: comment.id,
-              storageKey: createdFile.storageKey,
-              fileName: createdFile.fileName,
-              mimeType: createdFile.mimeType,
-              fileSize: createdFile.fileSize,
-              url: createdFile.url,
-              uploadedById:createdFile.uploadedById
+              fileId: createdFile.id,
             },
           });
 
@@ -174,15 +168,10 @@ export class CommentsService {
             },
           });
 
-          // Create relationship between reply and file
           await this.prisma.taskCommentFile.create({
             data: {
               commentId: reply.id,
-              storageKey: createdFile.storageKey,
-              fileName: createdFile.fileName,
-              mimeType: createdFile.mimeType,
-              fileSize: createdFile.fileSize,
-              url: createdFile.url,
+              fileId: createdFile.id,
             },
           });
         }),
@@ -286,7 +275,12 @@ export class CommentsService {
             },
           },
 
-          files: true,
+          files: {
+            include: {
+              file: true,
+            },
+          },
+
           replies: {
             orderBy: {
               createdAt: 'asc',
@@ -303,7 +297,11 @@ export class CommentsService {
                 },
               },
 
-              files: true,
+              files: {
+                include: {
+                  file: true,
+                },
+              },
             },
           },
         },
@@ -316,8 +314,19 @@ export class CommentsService {
       }),
     ]);
 
+    const formattedComments = comments.map((comment) => ({
+      ...comment,
+
+      files: comment.files.map((commentFile) => commentFile.file),
+
+      replies: comment.replies.map((reply) => ({
+        ...reply,
+        files: reply.files.map((commentFile) => commentFile.file),
+      })),
+    }));
+
     return {
-      data: comments,
+      data: formattedComments,
       meta: {
         page,
         limit,
@@ -371,106 +380,66 @@ export class CommentsService {
   }
 
   async update(
-    boardId: number,
-    id: number,
-    updateCommentDto: UpdateCommentDto,
+    taskId: number,
+    commentId: number,
+    userId: number,
+    dto: UpdateCommentDto,
   ) {
-    // First verify that the comment belongs
-    // to a task in this board.
     const comment = await this.prisma.taskComment.findFirst({
-      where: {
-        id,
-        task: {
-          group: {
-            boardId,
-          },
-        },
-      },
-      select: {
-        id: true,
-      },
+      where: { id: commentId, taskId },
+      select: { id: true, userId: true },
     });
-
     if (!comment) {
       throw new NotFoundException('Comment not found');
     }
-
-    return this.prisma.$transaction(async (tx) => {
-      // Update the comment itself
-      const updatedComment = await tx.taskComment.update({
-        where: {
-          id,
-        },
-        data: {
-          content: updateCommentDto?.content?.trim(),
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              avatarUrl: true,
-            },
-          },
-
-          mentions: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
-                },
-              },
-            },
+    if (comment.userId !== userId) {
+      throw new ForbiddenException('You are not allowed to edit this comment');
+    }
+    if (!dto.content?.trim()) {
+      throw new BadRequestException('Comment content cannot be empty');
+    }
+    return this.prisma.taskComment.update({
+      where: { id: commentId },
+      data: { content: dto.content.trim() },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
           },
         },
-      });
-
-      return updatedComment;
+        files: { include: { file: true } },
+      },
     });
   }
 
-  async remove(boardId: number, id: number) {
-    // Verify comment belongs to this board
+  async remove(taskId: number, commentId: number, userId: number) {
     const comment = await this.prisma.taskComment.findFirst({
-      where: {
-        id,
-        task: {
-          group: {
-            boardId,
-          },
-        },
-      },
-      select: {
-        id: true,
-      },
+      where: { id: commentId, taskId },
+      select: { id: true, userId: true },
     });
-
     if (!comment) {
       throw new NotFoundException('Comment not found');
     }
-
-    await this.prisma.taskComment.delete({
-      where: {
-        id,
-      },
-    });
-
-    return {
-      message: 'Comment deleted successfully',
-    };
+    if (comment.userId !== userId) {
+      throw new ForbiddenException(
+        'You are not allowed to delete this comment',
+      );
+    }
+    await this.prisma.taskComment.delete({ where: { id: commentId } });
+    return { message: 'Comment deleted successfully' };
   }
 
   async deleteFile(commentId: number, fileId: number, userId: number) {
     const commentFile = await this.prisma.taskCommentFile.findFirst({
       where: {
-        id: fileId,
         commentId,
+        fileId,
       },
       include: {
+        file: true,
         comment: {
           select: {
             userId: true,
@@ -480,7 +449,9 @@ export class CommentsService {
     });
 
     if (!commentFile) {
-      throw new NotFoundException('Comment file not found');
+      throw new NotFoundException(
+        'File not found or does not belong to this comment',
+      );
     }
 
     // Only the comment author can delete the attachment
@@ -489,9 +460,9 @@ export class CommentsService {
     }
 
     // Delete physical file
-    await this.storageService.delete(commentFile.storageKey);
+    await this.storageService.delete(commentFile.file.storageKey);
 
-    // Delete DB record
+    // Delete TaskCommentFile relation
     await this.prisma.taskCommentFile.delete({
       where: {
         id: commentFile.id,

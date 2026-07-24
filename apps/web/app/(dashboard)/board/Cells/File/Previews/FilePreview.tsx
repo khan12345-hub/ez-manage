@@ -13,6 +13,7 @@ export interface FilePreviewItemType {
   mimeType: string;
   fileSize: number;
   url?: string;
+  uploadedById:number;
 }
 
 interface FilePreviewProps {

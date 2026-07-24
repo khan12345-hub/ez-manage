@@ -21,6 +21,7 @@ interface FileItem {
   fileSize: number;
   storageKey: string;
   url?: string;
+  uploadedById: number;
 }
 
 interface FilePreviewModalProps {
@@ -30,6 +31,7 @@ interface FilePreviewModalProps {
   cellId?: number;
   onUploadClick?: () => void;
   type?: "COMMENT" | "CELL";
+  commentId?: number;
 }
 
 export function FilePreviewModal({
@@ -39,6 +41,7 @@ export function FilePreviewModal({
   cellId,
   onUploadClick,
   type,
+  commentId,
 }: FilePreviewModalProps) {
   const handleUploadClick = () => {
     onOpenChange(false);
@@ -58,7 +61,7 @@ export function FilePreviewModal({
             <div className="max-h-[60vh] overflow-y-auto rounded-md p-2">
               <div className="space-y-2">
                 {files.map((file) => (
-                  <FilePreviewItem cellId={cellId} key={file.id} file={file} />
+                  <FilePreviewItem key={file.storageKey} cellId={cellId} commentId={commentId} file={file} />
                 ))}
               </div>
             </div>

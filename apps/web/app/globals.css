@@ -162,15 +162,18 @@ a {
   }
 }
 
-.excel-preview table {
+.excel-preview table, .app-comment-box table {
   width: max-content;
-  min-width: 100%;
+  min-width: 100% !important;
   border-collapse: collapse;
   font-size: 13px;
 }
 
 .excel-preview th,
-.excel-preview td {
+.excel-preview td,
+.app-comment-box th,
+.app-comment-box td
+{
   border: 1px solid #e5e7eb;
   padding: 8px 12px;
   text-align: left;
@@ -178,7 +181,9 @@ a {
   white-space: nowrap;
 }
 
-.excel-preview th {
+.excel-preview th,
+.app-comment-box th
+{
   background: #f3f4f6;
   font-weight: 600;
   position: sticky;
@@ -188,4 +193,11 @@ a {
 
 .excel-preview tr:hover td {
   background: #f9fafb;
+}
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: gray;
+  float: left;
+  height: 0;
+  pointer-events: none;
 }

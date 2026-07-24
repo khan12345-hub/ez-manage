@@ -36,7 +36,8 @@ export default function WorkspacePage() {
   const { user } = useAuth();
   const [updatedWorkspace, setUpdatedWorkspace] = useState<any>(null);
   const [isRenaming, setIsRenaming] = useState(false);
-  const { setWorkspace, setWorkspaceRole } = useInviteModalStore();
+  const { setWorkspace, setWorkspaceRole, workspaceRole } =
+    useInviteModalStore();
 
   const {
     data: workspaceDetail,
@@ -50,10 +51,17 @@ export default function WorkspacePage() {
   });
 
   useEffect(() => {
-    if(workspaceDetail){
-      setWorkspaceRole(workspaceDetail.role);
+    if (!workspaceDetail || !user.id) {
+      setWorkspaceRole("");
+      return;
     }
-  }, [workspaceDetail]);
+
+    const member = workspaceDetail.members.find(
+      (member) => member.userId === user.id,
+    );
+
+    setWorkspaceRole(member?.role ?? "");
+  }, [workspaceDetail, user.id]);
 
   useEffect(() => {
     setWorkspace(workspaceId);

@@ -6,7 +6,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { createTaskComment } from "@/services/comments.api";
 
-import { RichTextEditor } from "./RichTextEditor/RichTextEditor";
+import { RichTextEditor } from "../RichTextEditor";
+import { Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface CommentComposerProps {
   boardId: number;
@@ -47,7 +49,7 @@ export function CommentComposer({ boardId, taskId }: CommentComposerProps) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 px-4">
       <RichTextEditor
         value={content}
         onChange={setContent}
@@ -56,14 +58,14 @@ export function CommentComposer({ boardId, taskId }: CommentComposerProps) {
       />
 
       <div className="flex justify-end">
-        <button
-          type="button"
+        <Button
           disabled={createCommentMutation.isPending}
           onClick={handleSubmit}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
-          {createCommentMutation.isPending ? "Posting..." : "Comment"}
-        </button>
+          {createCommentMutation.isPending ? "Posting..." : "Post"}
+          <Send />
+        </Button>
       </div>
     </div>
   );

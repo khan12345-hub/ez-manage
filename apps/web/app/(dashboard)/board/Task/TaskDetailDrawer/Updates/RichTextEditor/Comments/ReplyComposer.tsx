@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { RichTextEditor } from "./RichTextEditor/RichTextEditor";
+import { RichTextEditor } from "../RichTextEditor";
 import { createCommentReply } from "@/services/comments.api";
+import { Button } from "@/components/ui/button";
+import { Reply } from "lucide-react";
 
 
 
@@ -88,20 +90,18 @@ export function ReplyComposer({
       />
 
       <div className="flex justify-end gap-2">
-        <button
-          type="button"
+        <Button
+          variant="outline"
           onClick={onCancel}
           disabled={isSubmitting}
           className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           Cancel
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
           onClick={handleSubmit}
           disabled={
-            !content.trim() ||
             isSubmitting
           }
           className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:pointer-events-none disabled:opacity-50"
@@ -109,7 +109,8 @@ export function ReplyComposer({
           {isSubmitting
             ? "Replying..."
             : "Reply"}
-        </button>
+            <Reply />
+        </Button>
       </div>
     </div>
   );

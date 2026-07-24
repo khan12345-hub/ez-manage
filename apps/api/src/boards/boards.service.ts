@@ -335,6 +335,7 @@ export class BoardsService {
                               mimeType: true,
                               fileSize: true,
                               storageKey: true,
+                              uploadedById:true,
                             },
                           },
                         },

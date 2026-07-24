@@ -208,7 +208,7 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
   const open = useInviteModalStore((state) => state.open);
 
   // console.log("Auth:", {...user} );
-
+  console.log({ user });
   return (
     <>
       <div className="-mt-5 flex items-end justify-between">
@@ -270,7 +270,7 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
         </div>
         {/* <WorkspaceActions /> */}
 
-        {workspace.createdById === user.user.id && (
+        {workspace.createdById === user?.user?.id && (
           <>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -279,9 +279,7 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-max">
-                <DropdownMenuItem
-                  onClick={open}
-                >
+                <DropdownMenuItem onClick={open}>
                   <Plus className="mr-2 h-4 w-4" />
                   Invite a member
                 </DropdownMenuItem>

@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   UploadedFiles,
@@ -20,6 +21,7 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import type { Express } from 'express';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SessionUser } from 'src/auth/types/session-user.type';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 
 @Controller('tasks')
 export class CommentsController {
@@ -36,11 +38,13 @@ export class CommentsController {
 
     @UploadedFiles()
     files: any[],
+
+    @CurrentUser()
+    user: SessionUser,
   ) {
     // Replace with authenticated user ID
-    const userId = 1;
 
-    return this.commentsService.create(taskId, userId, dto, files ?? []);
+    return this.commentsService.create(taskId, user.id, dto, files ?? []);
   }
 
   @Post(':taskId/comments/:commentId/replies')
@@ -57,31 +61,43 @@ export class CommentsController {
 
     @UploadedFiles()
     files: any[],
-  ) {
-    // Replace with authenticated user ID
-    const userId = 1;
 
+    @CurrentUser()
+    user: SessionUser,
+  ) {
     return this.commentsService.createReply(
       taskId,
       commentId,
-      userId,
+      user.id,
       dto,
       files ?? [],
     );
   }
 
-@Delete(':commentId/files/:fileId')
-async deleteFile(
-  @Param('commentId', ParseIntPipe) commentId: number,
-  @Param('fileId', ParseIntPipe) fileId: number,
-  @CurrentUser() user: SessionUser,
-) {
-  return this.commentsService.deleteFile(
-    commentId,
-    fileId,
-    user.id,
-  );
-}
+  @Delete('/comments/:commentId/files/:fileId')
+  async deleteFile(
+    @Param('commentId', ParseIntPipe) commentId: number,
+    @Param('fileId', ParseIntPipe) fileId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.commentsService.deleteFile(commentId, fileId, user.id);
+  }
+
+  @Patch(':taskId/comments/:commentId') async update(
+    @Param('taskId', ParseIntPipe) taskId: number,
+    @Param('commentId', ParseIntPipe) commentId: number,
+    @Body() dto: UpdateCommentDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.commentsService.update(taskId, commentId, user.id, dto);
+  }
+  @Delete(':taskId/comments/:commentId') async remove(
+    @Param('taskId', ParseIntPipe) taskId: number,
+    @Param('commentId', ParseIntPipe) commentId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.commentsService.remove(taskId, commentId, user.id);
+  }
 
   @Get(':taskId/comments')
   async findAllByTask(

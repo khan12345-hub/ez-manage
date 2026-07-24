@@ -106,8 +106,8 @@ export function InviteModal() {
 
   const onSubmit = (values: InviteFormValues) => {
     createInvitationMutation.mutate(values, {
-      onSuccess: (data) => {
-        toast.success(`Successfully invited ${data.email}!`);
+      onSuccess: () => {
+        toast.success(existingUser ? `Successfully Added` : `Successfully invited!`);
         close();
       },
       onError: (error: any) => {

@@ -4,13 +4,10 @@ import ExcelIcon from "@/components/ui/icons/ExcelIcon";
 import PdfIcon from "@/components/ui/icons/PdfIcon";
 import { File as FileIcon } from "lucide-react";
 
-// import ExcelIcon from "./file-icons/ExcelIcon";
-// import PdfIcon from "./file-icons/PdfIcon";
-
 interface FileThumbnailProps {
   fileName: string;
-  mimeType?: string;
-  url?: string;
+  mimeType?: string | null;
+  url?: string | null;
   size?: "sm" | "md";
 }
 
@@ -20,18 +17,25 @@ export default function FileThumbnail({
   url,
   size = "md",
 }: FileThumbnailProps) {
-  const isImage = mimeType?.startsWith("image/");
+  const lowerFileName = fileName?.toLowerCase();
+
+  const isImage =
+    mimeType?.startsWith("image/") ||
+    lowerFileName.endsWith(".png") ||
+    lowerFileName.endsWith(".jpg") ||
+    lowerFileName.endsWith(".jpeg") ||
+    lowerFileName.endsWith(".gif") ||
+    lowerFileName.endsWith(".webp");
 
   const isExcel =
     mimeType ===
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
     mimeType === "application/vnd.ms-excel" ||
-    fileName.toLowerCase().endsWith(".xlsx") ||
-    fileName.toLowerCase().endsWith(".xls");
+    lowerFileName.endsWith(".xlsx") ||
+    lowerFileName.endsWith(".xls");
 
   const isPdf =
-    mimeType === "application/pdf" ||
-    fileName.toLowerCase().endsWith(".pdf");
+    mimeType === "application/pdf" || lowerFileName.endsWith(".pdf");
 
   const fileUrl = url
     ? url.startsWith("http")
@@ -44,36 +48,28 @@ export default function FileThumbnail({
     md: "h-12 w-12",
   };
 
-  const iconSize = {
+  const dimensions = {
     sm: 40,
     md: 48,
   };
 
+
+  
   return (
     <div
-      className={`${sizeClasses[size]} shrink-0 overflow-hidden rounded-md`}
+      className={`${sizeClasses[size]} relative shrink-0 overflow-hidden rounded-md`}
     >
-      {/* Image */}
       {isImage && fileUrl ? (
         <img
           src={fileUrl}
           alt={fileName}
-          className="h-full w-full border object-cover"
+          className="h-full w-full object-cover"
         />
       ) : isExcel ? (
-        /* Excel */
-        <ExcelIcon
-          size={iconSize[size]}
-          className="h-full w-full"
-        />
+        <ExcelIcon size={dimensions[size]} className="h-full w-full" />
       ) : isPdf ? (
-        /* PDF */
-        <PdfIcon
-          size={iconSize[size]}
-          className="h-full w-full"
-        />
+        <PdfIcon size={dimensions[size]} className="h-full w-full" />
       ) : (
-        /* Generic File */
         <div className="flex h-full w-full items-center justify-center rounded-md bg-muted">
           <FileIcon className="h-5 w-5 text-muted-foreground" />
         </div>

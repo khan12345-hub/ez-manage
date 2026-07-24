@@ -1,50 +1,47 @@
 "use client";
 
-import {
-  MoreHorizontal,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { Grid3x3, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 
 import type { Editor } from "@tiptap/react";
 
-import {
-  Button,
-} from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TablePopoverProps {
   editor: Editor;
 }
 
-export function TablePopover({
-  editor,
-}: TablePopoverProps) {
+export function TablePopover({ editor }: TablePopoverProps) {
   const isInTable = editor.isActive("table");
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1"
-        >
-          <MoreHorizontal className="h-4 w-4" />
-          Table
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1"
+              >
+                <Grid3x3 />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+
+          <TooltipContent>Table</TooltipContent>
+        </Tooltip>
       </PopoverTrigger>
 
-      <PopoverContent
-        align="start"
-        className="w-52 p-2"
-      >
+      <PopoverContent align="start" className="w-52 p-2">
         <div className="flex flex-col gap-1">
           <Button
             type="button"
@@ -74,13 +71,7 @@ export function TablePopover({
                 type="button"
                 variant="ghost"
                 className="justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={() =>
-                  editor
-                    .chain()
-                    .focus()
-                    .deleteTable()
-                    .run()
-                }
+                onClick={() => editor.chain().focus().deleteTable().run()}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete Table

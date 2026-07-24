@@ -303,44 +303,27 @@ model TaskCell {
   @@map("task_cells")
 
 }
-model TaskCellFile {
-  id        Int      @id @default(autoincrement())
 
-  cellId    Int
-  fileId    Int
-
-  createdAt DateTime @default(now())
-
-  cell TaskCell @relation(fields: [cellId], references: [id], onDelete: Cascade)
-  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
-
-  @@unique([cellId, fileId])
-
-  @@index([cellId])
-  @@index([fileId])
-  @@map("task_cell_files")
-
-}
 model File {
-  id           Int      @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
 
-  fileName String
-  storageKey   String
-  mimeType     String
-  fileSize         Int
-  url          String
+  fileName   String
+  storageKey String
+  mimeType   String
+  fileSize   Int
+  url        String
 
   uploadedById Int
   uploadedAt   DateTime @default(now())
 
   uploadedBy User @relation("FileUploader", fields: [uploadedById], references: [id])
 
-  cells TaskCellFile[]
+  cells    TaskCellFile[]
+  comments TaskCommentFile[]
+
+  @@index([uploadedById])
   @@map("files")
-
 }
-
-
 
 model TaskComment {
   id        Int      @id @default(autoincrement())
@@ -364,13 +347,14 @@ model TaskComment {
   user User @relation("TaskCommentAuthor", fields: [userId], references: [id])
 
   // One-level comment/reply hierarchy
-  parent TaskComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-
+  parent  TaskComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies TaskComment[] @relation("CommentReplies")
 
-  mentions  TaskCommentMention[]
+  // Mentions
+  mentions TaskCommentMention[]
 
-  files     TaskCommentFile[]
+  // Attached files
+  files TaskCommentFile[]
 
   @@index([taskId])
   @@index([taskId, createdAt])
@@ -381,20 +365,40 @@ model TaskComment {
 }
 
 model TaskCommentFile {
-  id         Int      @id @default(autoincrement())
-  commentId  Int      @map("comment_id")
+  id        Int      @id @default(autoincrement())
+  commentId Int      @map("comment_id")
+  fileId    Int      @map("file_id")
 
-  storageKey String   @map("storage_key")
-  fileName   String   @map("file_name") @db.VarChar(255)
-  mimeType   String?  @map("mime_type") @db.VarChar(100)
-  fileSize   Int?     @map("file_size")
-  url          String
-  createdAt  DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  comment    TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  // Comment
+  comment TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
+  // File
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, fileId])
   @@index([commentId])
+  @@index([fileId])
+
   @@map("task_comment_files")
+}
+
+model TaskCellFile {
+  id     Int @id @default(autoincrement())
+  cellId Int @map("cell_id")
+  fileId Int @map("file_id")
+
+  createdAt DateTime @default(now())
+  cell TaskCell @relation(fields: [cellId], references: [id], onDelete: Cascade)
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([cellId, fileId])
+  @@index([cellId])
+  @@index([fileId])
+
+  @@map("task_cell_files")
 }
 
 model TaskCommentMention {

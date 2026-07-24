@@ -1,17 +1,12 @@
 "use client";
 
 import { Link as LinkIcon } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { Editor } from "@tiptap/react";
 
-import {
-  Button,
-} from "@/components/ui/button";
-
-import {
-  Input,
-} from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 import {
   Popover,
@@ -22,6 +17,7 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -29,45 +25,61 @@ interface LinkPopoverProps {
   editor: Editor;
 }
 
-export function LinkPopover({
-  editor,
-}: LinkPopoverProps) {
-  const [open, setOpen] =
-    useState(false);
+export function LinkPopover({ editor }: LinkPopoverProps) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
 
-  const [url, setUrl] =
-    useState("");
+  const savedSelection = useRef<{
+    from: number;
+    to: number;
+  } | null>(null);
 
-  const handleOpen = (
-    nextOpen: boolean,
-  ) => {
-    setOpen(nextOpen);
+  const saveSelection = () => {
+    const { from, to } = editor.state.selection;
 
+    console.log("Saving selection:", { from, to });
+
+    savedSelection.current = {
+      from,
+      to,
+    };
+  };
+
+  const handleOpen = (nextOpen: boolean) => {
     if (nextOpen) {
-      setUrl(
-        editor.getAttributes("link").href ??
-          "",
-      );
+      setUrl(editor.getAttributes("link").href ?? "");
     }
+
+    setOpen(nextOpen);
+  };
+
+  const restoreSelection = () => {
+    const selection = savedSelection.current;
+
+    if (!selection) {
+      return;
+    }
+
+    console.log("Restoring selection:", selection);
+
+    editor.commands.focus();
+
+    editor.commands.setTextSelection({
+      from: selection.from,
+      to: selection.to,
+    });
   };
 
   const handleSave = () => {
     if (!url.trim()) {
-      editor
-        .chain()
-        .focus()
-        .unsetLink()
-        .run();
-
-      setOpen(false);
-
+      handleRemoveLink();
       return;
     }
 
+    restoreSelection();
+
     editor
       .chain()
-      .focus()
-      .extendMarkRange("link")
       .setLink({
         href: url.trim(),
         target: "_blank",
@@ -78,29 +90,40 @@ export function LinkPopover({
     setOpen(false);
   };
 
+  const handleRemoveLink = () => {
+    restoreSelection();
+
+    editor
+      .chain()
+      .unsetLink()
+      .run();
+
+    setOpen(false);
+  };
+
   return (
     <Popover
       open={open}
       onOpenChange={handleOpen}
     >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-            >
-              <LinkIcon className="h-4 w-4" />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onMouseDown={(event) => {
+            // CRITICAL:
+            // Prevent browser from moving focus away from Tiptap
+            event.preventDefault();
 
-        <TooltipContent>
-          Add link
-        </TooltipContent>
-      </Tooltip>
+            // Save the actual editor selection
+            saveSelection();
+          }}
+        >
+          <LinkIcon className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
 
       <PopoverContent
         align="start"
@@ -109,13 +132,14 @@ export function LinkPopover({
         <div className="space-y-3">
           <Input
             value={url}
-            onChange={(e) =>
-              setUrl(e.target.value)
-            }
+            onChange={(event) => {
+              setUrl(event.target.value);
+            }}
             placeholder="https://example.com"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
+            autoFocus
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
                 handleSave();
               }
             }}
@@ -126,15 +150,7 @@ export function LinkPopover({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                editor
-                  .chain()
-                  .focus()
-                  .unsetLink()
-                  .run();
-
-                setOpen(false);
-              }}
+              onClick={handleRemoveLink}
             >
               Remove
             </Button>

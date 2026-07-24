@@ -13,6 +13,7 @@ import {
 import {
   Button,
 } from "@/components/ui/button";
+import Image from "next/image";
 
 interface FileAttachmentPreviewProps {
   files: File[];
@@ -86,7 +87,7 @@ export function FileAttachmentPreview({
                 {isImage &&
                 previews[fileKey] ? (
                   <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border bg-muted">
-                    <img
+                    <Image
                       src={
                         previews[
                           fileKey
@@ -96,6 +97,8 @@ export function FileAttachmentPreview({
                         file.name
                       }
                       className="h-full w-full object-cover"
+                      height={56}
+                      width={56}
                     />
                   </div>
                 ) : (

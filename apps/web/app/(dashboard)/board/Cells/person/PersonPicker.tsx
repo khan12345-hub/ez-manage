@@ -70,10 +70,6 @@ export default function PersonPicker({
     staleTime: 1000 * 60 * 5,
   });
 
-  // const selectedUsers = useMemo(() => {
-  //   if (!value) return [];
-  //   return Array.isArray(value) ? value : [value];
-  // }, [value]);
 
   const selectedUsers = value?.users ?? [];
 

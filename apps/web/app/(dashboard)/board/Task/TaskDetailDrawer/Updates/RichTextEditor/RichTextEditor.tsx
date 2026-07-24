@@ -2,10 +2,7 @@
 
 import { useEffect } from "react";
 
-import {
-  useEditor,
-  EditorContent,
-} from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 
 import StarterKit from "@tiptap/starter-kit";
 import Mention from "@tiptap/extension-mention";
@@ -23,6 +20,7 @@ import { FileAttachmentPicker } from "./FileAttachmentPicker";
 import { createMentionSuggestion } from "./mention-suggestion";
 
 import { useInviteModalStore } from "@/store/invite-modal";
+import Placeholder from "@tiptap/extension-placeholder";
 
 interface RichTextEditorProps {
   value?: string;
@@ -58,12 +56,13 @@ export function RichTextEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
-
     autofocus: autoFocus,
 
     extensions: [
       StarterKit,
-
+      Placeholder.configure({
+        placeholder: "Write a comment...",
+      }),
       TextStyle,
 
       Color.configure({
@@ -86,8 +85,7 @@ export function RichTextEditor({
 
       Mention.configure({
         HTMLAttributes: {
-          class:
-            "rounded bg-primary/10 px-1 py-0.5 font-medium text-primary",
+          class: "rounded bg-primary/10 px-1 py-0.5 font-medium text-primary",
         },
 
         renderText: ({ node }) => {
@@ -128,11 +126,7 @@ export function RichTextEditor({
           "outline-none",
 
           // Placeholder
-          "is-editor-empty:before:content-[attr(data-placeholder)]",
-          "is-editor-empty:before:text-muted-foreground",
-          "is-editor-empty:before:float-left",
-          "is-editor-empty:before:pointer-events-none",
-          "is-editor-empty:before:h-0",
+
 
           // Table
           "[&_table]:my-2",
@@ -198,11 +192,9 @@ export function RichTextEditor({
 
   return (
     <div className="overflow-hidden rounded-lg border">
-      <EditorContent editor={editor} />
+      <EditorContent editor={editor} placeholder="Add Comment" />
 
-      <FileAttachmentPicker
-        onFilesChange={onFilesChange}
-      />
+      <FileAttachmentPicker onFilesChange={onFilesChange} />
 
       <div className="flex items-center border-t bg-muted/30 px-2 py-1">
         <RichTextToolbar editor={editor} />

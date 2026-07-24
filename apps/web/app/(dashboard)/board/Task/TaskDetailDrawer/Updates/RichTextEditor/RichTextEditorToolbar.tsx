@@ -12,10 +12,6 @@ import {
 } from "@/components/ui/button";
 
 import {
-  Separator,
-} from "@/components/ui/separator";
-
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -98,10 +94,7 @@ export function RichTextToolbar({
         </TooltipContent>
       </Tooltip>
 
-      <Separator
-        orientation="vertical"
-        className="mx-1 h-5"
-      />
+      
 
       <LinkPopover
         editor={editor}

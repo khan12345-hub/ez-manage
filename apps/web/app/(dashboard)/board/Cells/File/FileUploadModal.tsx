@@ -4,19 +4,15 @@ import { File as FileIcon, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
-
 import { uploadTaskCellFiles } from "@/services/tasks.api";
 import { useInviteModalStore } from "@/store/invite-modal";
-
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
 import { Button } from "@/components/ui/button";
-import FileThumbnail from "./Previews/FilePreviewItemThumbnail";
 
 interface FileUploadModalProps {
   open: boolean;
@@ -137,7 +133,7 @@ export function FileUploadModal({
                     className="flex items-center gap-3 rounded-md bg-background p-3"
                   >
                     {/* Preview */}
-                    {/* {file.type.startsWith("image/") ? (
+                    {file.type.startsWith("image/") ? (
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border">
                         <Image
                           src={URL.createObjectURL(file)}
@@ -151,11 +147,11 @@ export function FileUploadModal({
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-muted">
                         <FileIcon className="h-6 w-6 text-muted-foreground" />
                       </div>
-                    )} */}
-                    <FileThumbnail
+                    )}
+                    {/* <FileThumbnail
                       fileName={file.name}
                       mimeType={file.type}
-                    />
+                    /> */}
 
                     {/* File Info */}
                     <div className="min-w-0 flex-1">

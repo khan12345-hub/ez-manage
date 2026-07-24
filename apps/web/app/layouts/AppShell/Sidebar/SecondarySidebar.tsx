@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import Link from "next/link";
 import { useInviteModalStore } from "@/store/invite-modal";
+import { useAuth } from "@/providers/AuthProvider";
 interface SecondarySidebarProps {
   isOpen: boolean;
   onToggle: () => void;
@@ -55,6 +56,13 @@ export function SecondarySidebar({
   const [isContentExpanded, setIsContentExpanded] = useState(true);
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
   const [isCreateBoardOpen, setIsCreateBoardOpen] = useState(false);
+  const {
+    setBoard,
+    setBoardRole,
+    setWorkspace: setWorkspaceID,
+    setWorkspaceRole,
+  } = useInviteModalStore();
+  const { user } = useAuth();
 
   const { data: workspaces = [] } = useQuery({
     queryKey: ["workspaces"],
@@ -68,15 +76,19 @@ export function SecondarySidebar({
     enabled: !!workspace?.id,
   });
   // write tanstack query to get all workspaces
-  useEffect(()=>{
-    if(workspaces.length > 0){
-      setWorkspace(workspaces[0])
-    }
+  useEffect(() => {
+    if (workspaces.length > 0) {
+      const firstWorkspace = workspaces[0];
+      setWorkspaceID(firstWorkspace.id);
 
-  },[workspaces])
-  const { setBoard, setBoardRole } = useInviteModalStore();
-  
-  
+      
+      const member = workspaces?.members?.find(
+        (member: any) => member.id === user.id,
+      );
+      setWorkspaceRole(member?.role ?? "");
+    }
+  }, [workspaces]);
+
   return (
     <div className="relative flex h-full select-none flex-col border-r border-gray-200 bg-white">
       {/* Secondary Sidebar Content Container */}
@@ -127,7 +139,6 @@ export function SecondarySidebar({
             workspace={workspace}
             onWorkspaceChange={(selectedWorkspace) => {
               setWorkspace(selectedWorkspace);
-              
             }}
           />
 
@@ -193,21 +204,22 @@ export function SecondarySidebar({
                         <Link
                           href={`/board/${item.id}`}
                           onClick={() => {
-                            onSelectItem?.(item.id),
-                            setBoard(item.id),
-                            setBoardRole(item.role)
+                            (onSelectItem?.(item.id),
+                              setBoard(item.id),
+                              setBoardRole(item.role));
                           }}
                           className="flex-1 truncate text-left"
                         >
                           {item.name}
                         </Link>
-                        {(item.role === "OWNER" || item.role === "ADMIN") && workspace && (
-                          <ManageBoardDropdown
-                            boardId={item.id}
-                            boardName={item.name}
-                            workspaceId={workspace.id}
-                          />
-                        )}
+                        {(item.role === "OWNER" || item.role === "ADMIN") &&
+                          workspace && (
+                            <ManageBoardDropdown
+                              boardId={item.id}
+                              boardName={item.name}
+                              workspaceId={workspace.id}
+                            />
+                          )}
                       </div>
                     );
                   })}

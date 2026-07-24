@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { deleteTaskCellFile } from "@/services/tasks.api";
+import { deleteCommentFile } from "@/services/comments.api";
 
 import { useInviteModalStore } from "@/store/invite-modal";
 
@@ -23,8 +24,8 @@ import { Button } from "@/components/ui/button";
 import { FilePreviewItemType } from "./FilePreview";
 import SingleFilePreviewModal from "./SingleFilePreviewModal";
 import FileThumbnail from "./FilePreviewItemThumbnail";
+
 import { toast } from "sonner";
-import { deleteCommentFile } from "@/services/comments.api";
 import { useAuth } from "@/providers/AuthProvider";
 
 interface FilePreviewItemProps {
@@ -40,16 +41,13 @@ export default function FilePreviewItem({
 }: FilePreviewItemProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleted, setDeleted] = useState(false);
 
-  const { boardId } = useInviteModalStore();
   const queryClient = useQueryClient();
+
+  const { boardId, boardRole, workspaceRole } = useInviteModalStore();
   const { user } = useAuth();
-  const { boardRole, workspaceRole } = useInviteModalStore();
-  console.log({
-    boardRole,
-    workspaceRole,
-    user,
-  });
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
       // Delete Task Cell File
@@ -65,30 +63,41 @@ export default function FilePreviewItem({
       throw new Error("Unable to determine file owner");
     },
 
-    onSuccess: () => {
-      // Cell file
+    onSuccess: async () => {
+      // Immediately remove the file from this UI
+      setDeleted(true);
+
+      // Close preview if it is open
+      setPreviewOpen(false);
+
+      // Close confirmation dialog
+      setDeleteDialogOpen(false);
+
+      // Invalidate cell-related queries
       if (cellId) {
-        queryClient.invalidateQueries({
+        await queryClient.invalidateQueries({
           queryKey: ["board", boardId],
         });
       }
 
-      // Comment file
+      // Invalidate comment-related queries
       if (commentId) {
-        queryClient.invalidateQueries({
+        await queryClient.invalidateQueries({
           queryKey: ["task-comments", boardId],
         });
       }
 
       toast.success("File deleted successfully!");
-
-      setDeleteDialogOpen(false);
     },
 
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Failed to delete file:", error);
 
-      toast.error("Failed to delete file. Please try again.");
+      const message =
+        error?.response?.data?.message ||
+        "Failed to delete file. Please try again.";
+
+      toast.error(Array.isArray(message) ? message.join(", ") : message);
     },
   });
 
@@ -106,9 +115,22 @@ export default function FilePreviewItem({
     )} ${units[index]}`;
   };
 
-  // Show delete button only when file belongs
-  // to either a cell or a comment.
-  const canDelete = Boolean(cellId || commentId);
+  const boardAccess = boardRole === "OWNER" || boardRole === "ADMIN";
+
+  const workspaceAccess =
+    workspaceRole === "OWNER" || workspaceRole === "ADMIN";
+
+  const isFileUploader = user.id === file.uploadedById;
+
+  const canDelete = boardAccess || workspaceAccess || isFileUploader;
+
+  console.log({
+    file
+  });
+  // Don't render anything after successful deletion
+  if (deleted) {
+    return null;
+  }
 
   return (
     <>

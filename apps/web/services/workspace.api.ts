@@ -23,6 +23,7 @@ export type WorkspaceDetail = {
       lastName: string;
       avatarUrl: string | null;
     };
+    userId:number;
   }>;
   boards: Array<{
     id: number;
