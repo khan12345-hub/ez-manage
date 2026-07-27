@@ -25,6 +25,7 @@ import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
 
 import { BoardPermission } from '@repo/shared';
+import { ReorderSubtaskDto } from './dto/reorder-subtask.dto';
 
 @Controller('boards/:boardId/tasks')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -68,5 +69,15 @@ export class TasksController {
     return this.tasksService.remove(id);
   }
 
-
+  @Patch(':taskId/reorder-subtask')
+  async reorderSubtask(
+    @Param('taskId', ParseIntPipe) taskId: number,
+    @Body() dto: ReorderSubtaskDto,
+  ) {
+    return this.tasksService.reorderSubtask(
+      taskId,
+      dto.previousSubtaskId ?? null,
+      dto.nextSubtaskId ?? null,
+    );
+  }
 }

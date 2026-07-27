@@ -30,25 +30,18 @@ export function SortableSubtaskRow({
 
     data: {
       type: "subtask",
-
       taskId: task.id,
-
       groupId: task.groupId,
 
-      parentTaskId,
+      // The ID of the parent task.
+      parentId: parentTaskId,
     },
   });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-
     opacity: isDragging ? 0.5 : 1,
-
-    /**
-     * Visual indentation.
-     * We will improve this inside SubtaskRow later.
-     */
   };
 
   return (

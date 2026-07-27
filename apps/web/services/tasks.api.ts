@@ -143,3 +143,20 @@ export async function getTaskFiles(
 
   return data;
 }
+
+export interface ReorderSubtaskDto {
+  previousTaskId: number | null;
+  nextTaskId: number | null;
+}
+
+export async function reorderSubtask(
+  taskId: number,
+  data: ReorderSubtaskDto,
+) {
+  const response = await api.patch(
+    `/tasks/${taskId}/reorder-subtask`,
+    data,
+  );
+
+  return response.data;
+}

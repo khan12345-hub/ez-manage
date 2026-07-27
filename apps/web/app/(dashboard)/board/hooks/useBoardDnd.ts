@@ -9,13 +9,19 @@ import { DragStartEvent, DragOverEvent, DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 
-import { reorderTask, ReorderTaskDto } from "@/services/tasks.api";
+import {
+  reorderSubtask,
+  ReorderSubtaskDto,
+  reorderTask,
+  ReorderTaskDto,
+} from "@/services/tasks.api";
 
 import { reorderGroup, ReorderGroupDto } from "@/services/groups.api";
 
 import { reorderColumn } from "@/services/columns.api";
 
 import { handleTaskDragOver } from "./dnd/task-dnd";
+import { toast } from "sonner";
 
 /* ============================================================
    DRAG DATA
@@ -23,15 +29,15 @@ import { handleTaskDragOver } from "./dnd/task-dnd";
 
 export type DragData =
   | {
+      type: "subtask";
+      taskId: number;
+      groupId: number;
+      parentId: number;
+    }
+  | {
       type: "task";
       taskId: number;
       groupId: number;
-    }
-  | {
-      type: "subtask";
-      taskId: string | number;
-      groupId: number;
-      parentTaskId: number;
     }
   | {
       type: "group";
@@ -40,17 +46,6 @@ export type DragData =
   | {
       type: "group-drop";
       groupId: number;
-    }
-  | {
-      type: "task-drop";
-      taskId: number;
-      groupId: number;
-    }
-  | {
-      type: "subtask-drop";
-      taskId: string | number;
-      groupId: number;
-      parentTaskId: number;
     }
   | {
       type: "column";
@@ -219,6 +214,36 @@ export function useBoardDnd({
      DRAG START
   ============================================================ */
 
+  const reorderSubtaskMutation = useMutation({
+    mutationFn: ({
+      taskId,
+      data,
+    }: {
+      taskId: number;
+      data: ReorderSubtaskDto;
+    }) => reorderSubtask(taskId, data),
+
+    onMutate: async () => {
+      await queryClient.cancelQueries({
+        queryKey: ["board", boardId],
+      });
+    },
+
+    onError: () => {
+      toast.error("Failed to reorder subtask");
+
+      queryClient.invalidateQueries({
+        queryKey: ["board", boardId],
+      });
+    },
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["board", boardId],
+      });
+    },
+  });
+
   function handleDragStart({ active }: DragStartEvent) {
     const activeData = active.data.current as DragData | undefined;
 
@@ -227,14 +252,10 @@ export function useBoardDnd({
     }
 
     switch (activeData.type) {
-      /* ========================================================
-         TASK
-      ======================================================== */
-
       case "task": {
         const group = groups.find((group) => group.id === activeData.groupId);
 
-        const task = group?.tasks?.find(
+        const task = group?.tasks.find(
           (task: any) => task.id === activeData.taskId,
         );
 
@@ -251,47 +272,25 @@ export function useBoardDnd({
         break;
       }
 
-      /* ========================================================
-         SUBTASK
-      ======================================================== */
-
       case "subtask": {
         const group = groups.find((group) => group.id === activeData.groupId);
 
-        if (!group) {
-          return;
-        }
-
-        // Find the parent task
-        const parentTask = group.tasks?.find(
-          (task: any) => task.id === activeData.parentTaskId,
+        const task = group?.tasks.find(
+          (task: any) => task.id === activeData.taskId,
         );
 
-        if (!parentTask) {
-          return;
-        }
-
-        // Find the real subtask inside the parent's subtasks
-        const subtask = parentTask.subtasks?.find(
-          (subtask: any) => subtask.id === activeData.taskId,
-        );
-
-        if (!subtask) {
+        if (!group || !task) {
           return;
         }
 
         setActiveItem({
           type: "subtask",
-          task: subtask,
+          task,
           group,
         });
 
         break;
       }
-
-      /* ========================================================
-         GROUP
-      ======================================================== */
 
       case "group": {
         const group = groups.find((group) => group.id === activeData.groupId);
@@ -307,10 +306,6 @@ export function useBoardDnd({
 
         break;
       }
-
-      /* ========================================================
-         COLUMN
-      ======================================================== */
 
       case "column": {
         const column = columns.find(
@@ -328,9 +323,6 @@ export function useBoardDnd({
 
         break;
       }
-
-      default:
-        break;
     }
   }
 
@@ -359,7 +351,117 @@ export function useBoardDnd({
       /* ========================================================
          TASK
       ======================================================== */
+      case "subtask": {
+        if (!overData) {
+          return;
+        }
 
+        /*
+         * A subtask can ONLY be dragged over another
+         * subtask belonging to the same parent.
+         */
+        if (overData.type !== "subtask") {
+          break;
+        }
+
+        /*
+         * Prevent moving between different parents.
+         */
+        if (activeData.parentId !== overData.parentId) {
+          break;
+        }
+
+        /*
+         * Prevent dragging onto itself.
+         */
+        if (activeData.taskId === overData.taskId) {
+          break;
+        }
+
+        /*
+         * Find the current group from dragGroups.
+         *
+         * This is important because dragGroups contains
+         * the current optimistic UI state.
+         */
+        const group = dragGroups.find((g: any) => g.id === activeData.groupId);
+
+        if (!group) {
+          break;
+        }
+
+        /*
+         * Get ONLY siblings of the same parent.
+         */
+        const subtasks = group.tasks
+          .filter((task: any) => task.parentId === activeData.parentId)
+          .sort((a: any, b: any) => a.order - b.order);
+
+        const oldIndex = subtasks.findIndex(
+          (task: any) => task.id === activeData.taskId,
+        );
+
+        const newIndex = subtasks.findIndex(
+          (task: any) => task.id === overData.taskId,
+        );
+
+        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
+          break;
+        }
+
+        /*
+         * Reorder the sibling array.
+         */
+        const reorderedSubtasks = arrayMove(subtasks, oldIndex, newIndex);
+
+        /*
+         * Assign temporary order values.
+         *
+         * This ensures TaskHierarchyRow sorts them
+         * in the new visual order.
+         */
+        const orderMap = new Map<number, number>();
+
+        reorderedSubtasks.forEach((subtask: any, index: number) => {
+          orderMap.set(subtask.id, index + 1);
+        });
+
+        /*
+         * Update ONLY the subtasks belonging to
+         * this parent.
+         */
+        const updatedTasks = group.tasks.map((task: any) => {
+          const newOrder = orderMap.get(task.id);
+
+          if (newOrder === undefined) {
+            return task;
+          }
+
+          return {
+            ...task,
+            order: newOrder,
+          };
+        });
+
+        /*
+         * Update dragGroups.
+         *
+         * This is what makes the UI immediately
+         * reflect the drag operation.
+         */
+        setDragGroups(
+          dragGroups.map((currentGroup: any) =>
+            currentGroup.id === group.id
+              ? {
+                  ...currentGroup,
+                  tasks: updatedTasks,
+                }
+              : currentGroup,
+          ),
+        );
+
+        break;
+      }
       case "task": {
         const nextGroups = handleTaskDragOver({
           groups: dragGroups,
@@ -599,29 +701,86 @@ export function useBoardDnd({
       /* ========================================================
          SUBTASK
       ======================================================== */
-
       case "subtask": {
+        if (!overData) {
+          handleDragCancel();
+          return;
+        }
+
         /*
-         * Dummy subtasks currently only exist
-         * inside the TaskHierarchyRow component.
-         *
-         * Their sorting animation is handled by
-         * dnd-kit's SortableContext.
-         *
-         * We intentionally don't call the backend yet.
-         *
-         * Later, when dummy subtasks are replaced
-         * by real database subtasks, this case should
-         * call the subtask reorder API.
+         * A subtask can only be dropped on another
+         * subtask belonging to the same parent.
          */
+        if (
+          overData.type !== "subtask" ||
+          activeData.parentId !== overData.parentId
+        ) {
+          handleDragCancel();
+          return;
+        }
 
-        console.log("Subtask drag ended:", {
-          taskId: activeData.taskId,
+        /*
+         * Find the current group from dragGroups.
+         */
+        const group = dragGroups.find((g: any) => g.id === activeData.groupId);
 
-          parentTaskId: activeData.parentTaskId,
+        if (!group) {
+          handleDragCancel();
+          return;
+        }
 
-          over: overData,
+        /*
+         * Get siblings only.
+         */
+        const subtasks = group.tasks
+          .filter((task: any) => task.parentId === activeData.parentId)
+          .sort((a: any, b: any) => a.order - b.order);
+
+        /*
+         * The UI has already reordered dragGroups
+         * during handleDragOver.
+         *
+         * Therefore the current order of `subtasks`
+         * is the final order.
+         */
+        const currentIndex = subtasks.findIndex(
+          (task: any) => task.id === activeData.taskId,
+        );
+
+        if (currentIndex === -1) {
+          handleDragCancel();
+          return;
+        }
+
+        /*
+         * Get final neighbors.
+         */
+        const previousSubtask = subtasks[currentIndex - 1] ?? null;
+
+        const nextSubtask = subtasks[currentIndex + 1] ?? null;
+
+        /*
+         * IMPORTANT:
+         * Update the main state before calling API.
+         *
+         * This makes the optimistic UI permanent.
+         */
+        setGroups(dragGroups);
+
+        /*
+         * Persist the order.
+         */
+        reorderSubtaskMutation.mutate({
+          taskId: Number(activeData.taskId),
+
+          data: {
+            previousTaskId: previousSubtask?.id ?? null,
+
+            nextTaskId: nextSubtask?.id ?? null,
+          },
         });
+
+        setActiveItem(null);
 
         break;
       }
