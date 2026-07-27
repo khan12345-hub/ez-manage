@@ -473,4 +473,134 @@ export class CommentsService {
       message: 'File deleted successfully',
     };
   }
+
+  async findAllTaskFiles(taskId: number) {
+    const task = await this.prisma.task.findUnique({
+      where: {
+        id: taskId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
+
+    const [commentFiles, cellFiles] = await this.prisma.$transaction([
+      this.prisma.taskCommentFile.findMany({
+        where: {
+          comment: {
+            taskId,
+          },
+        },
+
+        include: {
+          file: {
+            include: {
+              uploadedBy: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
+
+          comment: {
+            select: {
+              id: true,
+              parentId: true,
+              createdAt: true,
+
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+
+      this.prisma.taskCellFile.findMany({
+        where: {
+          cell: {
+            taskId,
+          },
+        },
+
+        include: {
+          file: {
+            include: {
+              uploadedBy: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
+
+          cell: {
+            include: {
+              column: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const commentResults = commentFiles.map((commentFile) => ({
+      id: commentFile.file.id,
+
+      fileName: commentFile.file.fileName,
+      mimeType: commentFile.file.mimeType,
+      fileSize: commentFile.file.fileSize,
+      url: commentFile.file.url,
+      uploadedAt: commentFile.file.uploadedAt,
+
+      source: 'COMMENT' as const,
+
+      commentId: commentFile.comment.id,
+      parentCommentId: commentFile.comment.parentId,
+
+      uploadedBy: commentFile.comment.user,
+    }));
+
+    const cellResults = cellFiles.map((cellFile) => ({
+      id: cellFile.file.id,
+
+      fileName: cellFile.file.fileName,
+      mimeType: cellFile.file.mimeType,
+      fileSize: cellFile.file.fileSize,
+      url: cellFile.file.url,
+      uploadedAt: cellFile.file.uploadedAt,
+
+      source: 'TASK_CELL' as const,
+
+      columnId: cellFile.cell.column.id,
+      columnName: cellFile.cell.column.name,
+
+      uploadedBy: cellFile.file.uploadedBy,
+    }));
+
+    return [...commentResults, ...cellResults].sort(
+      (a, b) =>
+        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
+    );
+  }
 }

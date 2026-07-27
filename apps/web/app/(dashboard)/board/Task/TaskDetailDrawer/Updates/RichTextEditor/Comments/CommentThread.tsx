@@ -10,6 +10,7 @@ import {
   updateComment,
 } from "@/services/comments.api";
 import { toast } from "sonner";
+import { BasicLoader } from "@/components/ui/Loader";
 
 interface CommentThreadProps {
   taskId: number;
@@ -49,8 +50,9 @@ export function CommentThread({ taskId }: CommentThreadProps) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center py-20 border border-red-600">
-        <p className="text-sm text-muted-foreground">Loading comments...</p>
+      <div className="flex flex-1 items-center justify-center py-20 border">
+        {/* <p className="text-sm text-muted-foreground">Loading comments...</p> */}
+        <BasicLoader/>
       </div>
     );
   }

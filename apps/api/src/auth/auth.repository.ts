@@ -32,7 +32,7 @@ export class AuthRepository {
         systemRole:true,
         status: true,
         password: true,
-
+        avatarUrl:true,
       },
     });
   }

@@ -61,7 +61,7 @@ export function FilePreviewModal({
             <div className="max-h-[60vh] overflow-y-auto rounded-md p-2">
               <div className="space-y-2">
                 {files.map((file) => (
-                  <FilePreviewItem key={file.storageKey} cellId={cellId} commentId={commentId} file={file} />
+                  <FilePreviewItem key={file.id} cellId={cellId} commentId={commentId} file={file} />
                 ))}
               </div>
             </div>

@@ -1,4 +1,3 @@
-
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -6,10 +5,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Settings,
-  LogOut,
-} from "lucide-react";
+import { Settings, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
@@ -28,8 +24,8 @@ export default function UserProfile() {
     router.push(path);
     setOpen(false);
   };
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
   const { user, isLoading } = useAuth();
+  console.log({ user });
   return (
     <>
       {isLoading ? (
@@ -39,20 +35,19 @@ export default function UserProfile() {
           <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger>
               <div className="cursor-pointer">
-                {user?.user?.profilePic ? (
-                  <Image
-                    src={`${BASE_URL}${user?.user?.profilePic}`}
+                {user?.avatarUrl ? (
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${user?.avatarUrl}`}
                     alt="Profile"
                     width={40}
                     height={40}
                     className="object-cover h-10 w-10 rounded-full border focus-visible:outline-none"
-                    unoptimized
                   />
                 ) : (
                   <Avatar className="h-10 w-10 focus-visible:outline-none">
                     <AvatarFallback>
-                      {user?.user?.firstName?.charAt(0)}
-                      {user?.user?.lastName?.charAt(0)}
+                      {user?.firstName?.charAt(0)}
+                      {user?.lastName?.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                 )}

@@ -131,3 +131,13 @@ export const deleteTaskCellFile = async (
 
   return response.data;
 };
+
+export async function getTaskFiles(
+  taskId: number,
+) {
+  const { data } = await api.get(
+    `/tasks/${taskId}/files`,
+  );
+
+  return data;
+}

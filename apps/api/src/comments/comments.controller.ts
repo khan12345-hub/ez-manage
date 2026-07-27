@@ -116,4 +116,11 @@ export class CommentsController {
       limit ? Number(limit) : 20,
     );
   }
+  @Get(':taskId/files')
+  async findAllTaskFiles(
+    @Param('taskId', ParseIntPipe)
+    taskId: number,
+  ) {
+    return this.commentsService.findAllTaskFiles(taskId);
+  }
 }

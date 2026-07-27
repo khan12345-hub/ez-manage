@@ -38,11 +38,7 @@ export class TasksController {
     @Body() createTaskDto: CreateTaskDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.tasksService.create(
-      createTaskDto,
-      user.id,
-      boardId,
-    );
+    return this.tasksService.create(createTaskDto, user.id, boardId);
   }
 
   @Patch('reorder')
@@ -56,26 +52,21 @@ export class TasksController {
 
   @Get(':id')
   @RequireBoardPermission(BoardPermission.VIEW)
-  findOne(
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.tasksService.findOne(id);
   }
 
   @Patch(':id')
   @RequireBoardPermission(BoardPermission.EDIT)
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateTaskDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTaskDto) {
     return this.tasksService.update(id, dto);
   }
 
   @Delete(':id')
   @RequireBoardPermission(BoardPermission.DELETE)
-  remove(
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  remove(@Param('id', ParseIntPipe) id: number) {
     return this.tasksService.remove(id);
   }
+
+
 }

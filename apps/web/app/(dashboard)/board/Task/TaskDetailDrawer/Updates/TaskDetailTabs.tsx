@@ -57,7 +57,7 @@ export function TaskDetailsTabs({ task }: TaskDetailsTabsProps) {
           </TabsContent>
 
           <TabsContent value="files" className="m-0 h-full">
-            <FilesTab task={task} />
+            <FilesTab taskId={task?.id} />
           </TabsContent>
 
           <TabsContent value="activity" className="m-0 h-full">

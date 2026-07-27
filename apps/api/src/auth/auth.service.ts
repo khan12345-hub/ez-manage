@@ -77,9 +77,11 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
+    
     const user = await this.authRepository.findUserById(req.id);
-
-
+    
+    
+    console.log({user})
 
     // User deleted
     if (!user) {
@@ -90,9 +92,7 @@ export class AuthService {
     if (user.status !== UserStatus.ACTIVE) {
       throw new ForbiddenException('Your account is inactive.');
     }
-    console.log({user})
     const { password, ...safeUser } = user;
-    console.log({safeUser})
     return safeUser
   }
 
