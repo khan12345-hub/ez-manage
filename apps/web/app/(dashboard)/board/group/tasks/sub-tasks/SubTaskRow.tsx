@@ -3,6 +3,7 @@
 import { forwardRef } from "react";
 import { GripVertical, CornerDownRight } from "lucide-react";
 import { Cell } from "../../../Cells/Cell";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Props {
   task: any;
@@ -42,8 +43,29 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
             CHECKBOX
         ====================================== */}
         <td className="w-10 px-2">
-          <div className="flex items-center justify-center">
-            <input type="checkbox" className="h-4 w-4 rounded border" />
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              {...dragHandleProps}
+              className="
+                relative
+                z-10
+                ml-3
+                mr-2
+                cursor-grab
+                rounded
+                p-1
+                text-muted-foreground
+                opacity-0
+                transition-opacity
+                hover:bg-muted
+                group-hover:opacity-100
+                active:cursor-grabbing
+              "
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </button>
+            <Checkbox/>
           </div>
         </td>
 
@@ -77,27 +99,7 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
             />
 
             
-            <button
-              type="button"
-              {...dragHandleProps}
-              className="
-                relative
-                z-10
-                ml-3
-                mr-2
-                cursor-grab
-                rounded
-                p-1
-                text-muted-foreground
-                opacity-0
-                transition-opacity
-                hover:bg-muted
-                group-hover:opacity-100
-                active:cursor-grabbing
-              "
-            >
-              <GripVertical className="h-3.5 w-3.5" />
-            </button>
+            
 
             
             <CornerDownRight className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
