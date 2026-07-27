@@ -2,18 +2,22 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { TaskRow } from "./TaskRow";
+
+import { SubtaskRow } from "./SubTaskRow";
 
 interface Props {
   task: any;
+  parentTaskId: number;
   columns: any[];
   color: string;
-  onToggleSubtasks?: () => void;
-  hasSubtasks?: boolean;
-  expanded?: boolean;
 }
 
-export function SortableTaskRow({ task, columns, color }: Props) {
+export function SortableSubtaskRow({
+  task,
+  parentTaskId,
+  columns,
+  color,
+}: Props) {
   const {
     attributes,
     listeners,
@@ -22,31 +26,42 @@ export function SortableTaskRow({ task, columns, color }: Props) {
     transition,
     isDragging,
   } = useSortable({
-    id: `task-${task.id}`,
+    id: `subtask-${task.id}`,
+
     data: {
-      type: "task",
+      type: "subtask",
+
       taskId: task.id,
+
       groupId: task.groupId,
+
+      parentTaskId,
     },
   });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+
     opacity: isDragging ? 0.5 : 1,
+
+    /**
+     * Visual indentation.
+     * We will improve this inside SubtaskRow later.
+     */
   };
 
   return (
-    <TaskRow
+    <SubtaskRow
       ref={setNodeRef}
+      task={task}
+      columns={columns}
+      color={color}
       style={style}
       dragHandleProps={{
         ...attributes,
         ...listeners,
       }}
-      task={task}
-      columns={columns}
-      color={color}
       isDragging={isDragging}
     />
   );

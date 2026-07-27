@@ -41,24 +41,26 @@ export interface TaskResponse {
   cells: TaskCellResponse[];
 }
 
-export interface CreateTaskDto {
+
+
+export interface CreateTaskPayload {
   name: string;
   groupId: number;
-  boardId: number;
+  parentId?: number | null;
 }
 
-export const createTask = async (
-  name: string,
-  groupId: number,
+export async function createTask(
+  payload: CreateTaskPayload,
   boardId: number | undefined,
-) => {
-  const { data } = await api.post(`/boards/${boardId}/tasks`, {
-    name,
-    groupId,
-  });
+  parentId?: number | null,
+) {
+  const { data } = await api.post(
+    `/boards/${boardId}/tasks`,
+    payload,
+  );
 
   return data;
-};
+}
 
 export async function getTask(taskId: number, boardId: number) {
   const response = await api.get<TaskResponse>(

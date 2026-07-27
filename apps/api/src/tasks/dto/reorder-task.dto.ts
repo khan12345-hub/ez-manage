@@ -8,6 +8,10 @@ export class ReorderTaskDto {
   destinationGroupId!: number;
 
   @IsOptional()
+   @IsInt()
+  destinationParentId?: number | null;
+
+  @IsOptional()
   @IsInt()
   previousTaskId?: number | null;
 

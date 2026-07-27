@@ -3,9 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-
 import { PrismaService } from 'prisma/prisma.service';
-
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ReorderTaskDto } from './dto/reorder-task.dto';
@@ -14,139 +12,167 @@ import { ReorderTaskDto } from './dto/reorder-task.dto';
 export class TasksService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(
-    createTaskDto: CreateTaskDto,
-    userId: number,
-    boardId: number,
-  ) {
-    const ORDER_GAP = 1000;
+async create(
+  createTaskDto: CreateTaskDto,
+  userId: number,
+  boardId: number,
+) {
+  const ORDER_GAP = 1000;
 
-    return this.prisma.$transaction(async (tx) => {
-      const group = await tx.group.findUnique({
-        where: {
-          id: createTaskDto.groupId,
-        },
-        select: {
-          id: true,
-          boardId: true,
-        },
-      });
+  return this.prisma.$transaction(async (tx) => {
+    const group = await tx.group.findUnique({
+      where: {
+        id: createTaskDto.groupId,
+      },
+      select: {
+        id: true,
+        boardId: true,
+      },
+    });
 
-      if (!group) {
-        throw new NotFoundException('Group not found.');
-      }
+    if (!group) {
+      throw new NotFoundException(
+        'Group not found.',
+      );
+    }
 
-      // Make sure the group belongs to the requested board
-      if (group.boardId !== boardId) {
-        throw new BadRequestException(
-          'Group does not belong to this board.',
+    if (group.boardId !== boardId) {
+      throw new BadRequestException(
+        'Group does not belong to this board.',
+      );
+    }
+
+    let parentId: number | null = null;
+
+    if (createTaskDto.parentId) {
+      const parentTask =
+        await tx.task.findUnique({
+          where: {
+            id: createTaskDto.parentId,
+          },
+          select: {
+            id: true,
+            groupId: true,
+            parentId: true,
+          },
+        });
+
+      if (!parentTask) {
+        throw new NotFoundException(
+          'Parent task not found.',
         );
       }
 
-      const lastTask = await tx.task.findFirst({
+      if (
+        parentTask.groupId !==
+        createTaskDto.groupId
+      ) {
+        throw new BadRequestException(
+          'Parent task must belong to the same group.',
+        );
+      }
+
+      // Prevent nested subtasks.
+      if (parentTask.parentId !== null) {
+        throw new BadRequestException(
+          'A subtask cannot have another subtask.',
+        );
+      }
+
+      parentId = parentTask.id;
+    }
+
+    const lastTask =
+      await tx.task.findFirst({
         where: {
           groupId: createTaskDto.groupId,
+          parentId,
         },
         orderBy: {
           order: 'desc',
         },
-      });
-
-      return tx.task.create({
-        data: {
-          groupId: createTaskDto.groupId,
-          createdById: userId,
-          name: createTaskDto.name,
-          order: lastTask
-            ? lastTask.order + ORDER_GAP
-            : ORDER_GAP,
+        select: {
+          order: true,
         },
       });
+
+    return tx.task.create({
+      data: {
+        groupId:
+          createTaskDto.groupId,
+
+        createdById: userId,
+
+        name: createTaskDto.name,
+
+        parentId,
+
+        order: lastTask
+          ? lastTask.order + ORDER_GAP
+          : ORDER_GAP,
+      },
     });
-  }
-
-async findOne(taskId: number) {
-  const task = await this.prisma.task.findUnique({
-    where: {
-      id: taskId,
-    },
-    include: {
-      group: {
-        select: {
-          id: true,
-          name: true,
-          boardId: true,
-        },
-      },
-
-      createdBy: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          avatarUrl: true,
-        },
-      },
-
-      cells: {
-        include: {
-          column: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-              order: true,
-            },
-          },
-        },
-        orderBy: {
-          column: {
-            order: 'asc',
-          },
-        },
-      },
-
-      comments: {
-        orderBy: {
-          createdAt: 'asc',
-        },
-
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              avatarUrl: true,
-            },
-          },
-
-          files: true,
-        },
-      },
-    },
   });
-
-  if (!task) {
-    throw new NotFoundException('Task not found.');
-  }
-
-  return task;
 }
 
-  async reorder(
-    dto: ReorderTaskDto,
-    boardId: number,
-  ) {
+  async findOne(taskId: number) {
     const task = await this.prisma.task.findUnique({
       where: {
-        id: dto.taskId,
+        id: taskId,
       },
       include: {
         group: {
           select: {
+            id: true,
+            name: true,
             boardId: true,
+          },
+        },
+
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+
+        cells: {
+          include: {
+            column: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                order: true,
+              },
+            },
+          },
+          orderBy: {
+            column: {
+              order: 'asc',
+            },
+          },
+        },
+
+        comments: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
+
+            files: true,
           },
         },
       },
@@ -156,14 +182,37 @@ async findOne(taskId: number) {
       throw new NotFoundException('Task not found.');
     }
 
-    // Make sure the task belongs to the requested board
-    if (task.group.boardId !== boardId) {
-      throw new BadRequestException(
-        'Task does not belong to this board.',
-      );
-    }
+    return task;
+  }
 
-    const destinationGroup = await this.prisma.group.findUnique({
+async reorder(dto: ReorderTaskDto, boardId: number) {
+  const task = await this.prisma.task.findUnique({
+    where: {
+      id: dto.taskId,
+    },
+    include: {
+      group: {
+        select: {
+          boardId: true,
+        },
+      },
+    },
+  });
+
+  if (!task) {
+    throw new NotFoundException(
+      'Task not found.',
+    );
+  }
+
+  if (task.group.boardId !== boardId) {
+    throw new BadRequestException(
+      'Task does not belong to this board.',
+    );
+  }
+
+  const destinationGroup =
+    await this.prisma.group.findUnique({
       where: {
         id: dto.destinationGroupId,
       },
@@ -173,111 +222,172 @@ async findOne(taskId: number) {
       },
     });
 
-    if (!destinationGroup) {
+  if (!destinationGroup) {
+    throw new NotFoundException(
+      'Destination group not found.',
+    );
+  }
+
+  if (
+    destinationGroup.boardId !== boardId
+  ) {
+    throw new BadRequestException(
+      'Destination group does not belong to this board.',
+    );
+  }
+
+  const destinationParentId =
+    dto.destinationParentId ?? null;
+
+  // Validate destination parent
+  if (destinationParentId !== null) {
+    const parentTask =
+      await this.prisma.task.findUnique({
+        where: {
+          id: destinationParentId,
+        },
+        select: {
+          id: true,
+          groupId: true,
+          parentId: true,
+          group: {
+            select: {
+              boardId: true,
+            },
+          },
+        },
+      });
+
+    if (!parentTask) {
       throw new NotFoundException(
-        'Destination group not found.',
+        'Destination parent task not found.',
       );
     }
 
-    // Make sure the destination group belongs to the same board
-    if (destinationGroup.boardId !== boardId) {
+    if (
+      parentTask.groupId !==
+      destinationGroup.id
+    ) {
       throw new BadRequestException(
-        'Destination group does not belong to this board.',
+        'Parent task must belong to the destination group.',
       );
     }
 
-    const [previousTask, nextTask] = await Promise.all([
+    if (
+      parentTask.group.boardId !== boardId
+    ) {
+      throw new BadRequestException(
+        'Parent task does not belong to this board.',
+      );
+    }
+
+    // Prevent sub-subtasks
+    if (parentTask.parentId !== null) {
+      throw new BadRequestException(
+        'A subtask cannot have another subtask.',
+      );
+    }
+
+    // Prevent task from becoming its own parent
+    if (parentTask.id === task.id) {
+      throw new BadRequestException(
+        'A task cannot be its own parent.',
+      );
+    }
+  }
+
+  const [previousTask, nextTask] =
+    await Promise.all([
       dto.previousTaskId
         ? this.prisma.task.findUnique({
             where: {
               id: dto.previousTaskId,
             },
-            include: {
-              group: {
-                select: {
-                  boardId: true,
-                },
-              },
+            select: {
+              id: true,
+              groupId: true,
+              parentId: true,
+              order: true,
             },
           })
-        : Promise.resolve(null),
+        : null,
 
       dto.nextTaskId
         ? this.prisma.task.findUnique({
             where: {
               id: dto.nextTaskId,
             },
-            include: {
-              group: {
-                select: {
-                  boardId: true,
-                },
-              },
+            select: {
+              id: true,
+              groupId: true,
+              parentId: true,
+              order: true,
             },
           })
-        : Promise.resolve(null),
+        : null,
     ]);
 
+  if (previousTask) {
     if (
-      previousTask &&
-      previousTask.group.boardId !== boardId
+      previousTask.groupId !==
+        destinationGroup.id ||
+      previousTask.parentId !==
+        destinationParentId
     ) {
       throw new BadRequestException(
-        'Previous task does not belong to this board.',
+        'Previous task is not a valid sibling.',
       );
     }
-
-    if (
-      nextTask &&
-      nextTask.group.boardId !== boardId
-    ) {
-      throw new BadRequestException(
-        'Next task does not belong to this board.',
-      );
-    }
-
-    let newOrder: number;
-
-    // Empty group
-    if (!previousTask && !nextTask) {
-      newOrder = 1000;
-    }
-
-    // First task
-    else if (!previousTask && nextTask) {
-      newOrder = nextTask.order - 1000;
-    }
-
-    // Last task
-    else if (previousTask && !nextTask) {
-      newOrder = previousTask.order + 1000;
-    }
-
-    // Between two tasks
-    else {
-      newOrder =
-        (previousTask!.order + nextTask!.order) / 2;
-    }
-
-    await this.prisma.task.update({
-      where: {
-        id: dto.taskId,
-      },
-      data: {
-        groupId: dto.destinationGroupId,
-        order: newOrder,
-      },
-    });
-
-    return {
-      message: 'Task reordered successfully.',
-    };
   }
 
-  async update(
-    taskId: number,
-    dto: UpdateTaskDto,
-  ) {
+  if (nextTask) {
+    if (
+      nextTask.groupId !==
+        destinationGroup.id ||
+      nextTask.parentId !==
+        destinationParentId
+    ) {
+      throw new BadRequestException(
+        'Next task is not a valid sibling.',
+      );
+    }
+  }
+
+  let newOrder: number;
+
+  if (!previousTask && !nextTask) {
+    newOrder = 1000;
+  } else if (!previousTask && nextTask) {
+    newOrder = nextTask.order - 1000;
+  } else if (previousTask && !nextTask) {
+    newOrder = previousTask.order + 1000;
+  } else {
+    newOrder =
+      (previousTask!.order +
+        nextTask!.order) /
+      2;
+  }
+
+  await this.prisma.task.update({
+    where: {
+      id: dto.taskId,
+    },
+    data: {
+      groupId:
+        destinationGroup.id,
+      parentId:
+        destinationParentId,
+      order: newOrder,
+    },
+  });
+
+  return {
+    message:
+      'Task reordered successfully.',
+  };
+}
+
+  async update(taskId: number, dto: UpdateTaskDto) {
     const task = await this.prisma.task.findUnique({
       where: {
         id: taskId,

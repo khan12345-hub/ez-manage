@@ -93,8 +93,8 @@ export function Board({ board }: any) {
             easing: "ease",
           }}
         >
-          {activeItem?.type === "task" ? (
-            <div className="rotate-1 opacity-90 shadow-2xl bg-background border rounded">
+          {activeItem?.type === "task" || activeItem?.type === "subtask" ? (
+            <div className="opacity-90 shadow-2xl bg-background border rounded">
               <table>
                 <tbody>
                   <TaskRow

@@ -269,45 +269,100 @@ export class BoardsService {
     }));
   }
 
-  async findOne(id: number) {
-    const board =
-      await this.prisma.board.findUnique({
-        where: {
-          id,
+async findOne(id: number) {
+  const board = await this.prisma.board.findUnique({
+    where: {
+      id,
+    },
+
+    include: {
+      columns: {
+        orderBy: {
+          order: 'asc',
+        },
+      },
+
+      members: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      },
+
+      groups: {
+        orderBy: {
+          order: 'asc',
         },
 
         include: {
-          columns: {
+          tasks: {
+            // Only top-level tasks
+            where: {
+              parentId: null,
+            },
+
             orderBy: {
               order: 'asc',
             },
-          },
 
-          members: {
             include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
+              // ==========================================
+              // PARENT TASK CELLS
+              // ==========================================
+
+              cells: {
+                orderBy: {
+                  column: {
+                    order: 'asc',
+                  },
+                },
+
+                include: {
+                  column: {
+                    select: {
+                      id: true,
+                      name: true,
+                      type: true,
+                      order: true,
+                    },
+                  },
+
+                  files: {
+                    select: {
+                      file: {
+                        select: {
+                          id: true,
+                          fileName: true,
+                          url: true,
+                          mimeType: true,
+                          fileSize: true,
+                          storageKey: true,
+                          uploadedById: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
-            },
-          },
 
-          groups: {
-            orderBy: {
-              order: 'asc',
-            },
+              // ==========================================
+              // SUBTASKS
+              // ==========================================
 
-            include: {
-              tasks: {
+              subtasks: {
                 orderBy: {
                   order: 'asc',
                 },
 
                 include: {
+                  // IMPORTANT:
+                  // Explicitly include cells for every subtask
                   cells: {
                     orderBy: {
                       column: {
@@ -335,7 +390,7 @@ export class BoardsService {
                               mimeType: true,
                               fileSize: true,
                               storageKey: true,
-                              uploadedById:true,
+                              uploadedById: true,
                             },
                           },
                         },
@@ -347,34 +402,60 @@ export class BoardsService {
             },
           },
         },
-      });
+      },
+    },
+  });
 
-    if (!board) {
-      throw new NotFoundException(
-        `Board with ID ${id} not found.`,
-      );
-    }
-
-    return {
-      ...board,
-
-      groups: board.groups.map((group) => ({
-        ...group,
-
-        tasks: group.tasks.map((task) => ({
-          ...task,
-
-          cells: task.cells.map((cell) => ({
-            ...cell,
-
-            files: cell.files.map(
-              ({ file }) => file,
-            ),
-          })),
-        })),
-      })),
-    };
+  if (!board) {
+    throw new NotFoundException(
+      `Board with ID ${id} not found.`,
+    );
   }
+
+  return {
+    ...board,
+
+    groups: board.groups.map((group) => ({
+      ...group,
+
+      tasks: group.tasks.map((task) => ({
+        ...task,
+
+        // ==========================================
+        // PARENT TASK CELLS
+        // ==========================================
+
+        cells: (task.cells ?? []).map((cell) => ({
+          ...cell,
+
+          files: (cell.files ?? []).map(
+            ({ file }) => file,
+          ),
+        })),
+
+        // ==========================================
+        // SUBTASKS
+        // ==========================================
+
+        subtasks: (task.subtasks ?? []).map(
+          (subtask) => ({
+            ...subtask,
+
+            cells: (subtask.cells ?? []).map(
+              (cell) => ({
+                ...cell,
+
+                files: (cell.files ?? []).map(
+                  ({ file }) => file,
+                ),
+              }),
+            ),
+          }),
+        ),
+      })),
+    })),
+  };
+}
 
   async update(
     id: number,
