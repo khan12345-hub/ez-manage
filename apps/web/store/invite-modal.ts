@@ -5,7 +5,6 @@ import { create } from "zustand";
 interface InviteModalStore {
   isOpen: boolean;
 
-  // Active context
   workspaceId?: number;
   boardId?: number;
 
@@ -14,9 +13,10 @@ interface InviteModalStore {
 
   boardRole?: string;
   workspaceRole?: string;
+
   setBoardRole: (role: string) => void;
   setWorkspaceRole: (role: string) => void;
-  // Modal controls
+
   open: () => void;
   close: () => void;
 
@@ -38,10 +38,12 @@ export const useInviteModalStore = create<InviteModalStore>((set) => ({
     set({
       boardId: id,
     }),
+
   setBoardRole: (role) =>
     set({
       boardRole: role,
     }),
+
   setWorkspaceRole: (role) =>
     set({
       workspaceRole: role,
@@ -61,5 +63,7 @@ export const useInviteModalStore = create<InviteModalStore>((set) => ({
     set({
       workspaceId: undefined,
       boardId: undefined,
+      boardRole: undefined,
+      workspaceRole: undefined,
     }),
 }));

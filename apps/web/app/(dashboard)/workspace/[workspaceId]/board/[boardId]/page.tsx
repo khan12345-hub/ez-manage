@@ -10,12 +10,11 @@ import { useGroupStore } from "@/store/create-group-store";
 import { TaskDetailsSheet } from "../Task/TaskDetailDrawer/Updates/TaskDetailsDrawer";
 import { BoardSkeleton } from "./BoardSkeleton";
 
-
 export default function BoardPage() {
   const { setGroups, groups } = useGroupStore();
-  const params = useParams<{ id: string }>();
-  const boardId = Number(params.id);
-
+  const params = useParams();
+  const boardId = Number(params.boardId);
+  console.log({ boardId });
   const {
     data: board,
     isLoading,
@@ -27,18 +26,15 @@ export default function BoardPage() {
     retry: 0,
   });
 
-  
   useEffect(() => {
     if (board?.groups) {
-      setGroups(board.groups)
+      setGroups(board.groups);
     }
-    console.log("groups", groups)
+    console.log("groups", groups);
   }, [board]);
 
   if (isLoading) {
-    return (
-      <BoardSkeleton/>
-    );
+    return <BoardSkeleton />;
   }
 
   if (isError || !board) {
@@ -49,13 +45,12 @@ export default function BoardPage() {
     );
   }
 
-
   return (
     <>
       <div className="bg-background p-6">
         <Board board={board} />
       </div>
-      <TaskDetailsSheet/>
+      <TaskDetailsSheet />
     </>
   );
 }

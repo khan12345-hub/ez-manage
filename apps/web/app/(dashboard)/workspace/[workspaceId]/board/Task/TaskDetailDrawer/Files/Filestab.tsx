@@ -9,11 +9,12 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 
-import { FilePreviewModal } from "@/app/(dashboard)/board/Cells/File/Previews/FilePreviewModal";
+
 import FileThumbnail from "../../../Cells/File/Previews/FilePreviewItemThumbnail";
 import { api } from "@/lib/api";
 import { FileUploaderAvatar } from "./FileUploaderAvatar";
 import { FileItem, TaskFile } from "./FileItem";
+import { FilePreviewModal } from "../../../Cells/File/Previews/FilePreviewModal";
 
 /* =========================================================
    Props

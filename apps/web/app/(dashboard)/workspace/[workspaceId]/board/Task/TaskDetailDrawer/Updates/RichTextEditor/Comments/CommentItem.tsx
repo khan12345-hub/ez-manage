@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 import { CommentMenu } from "./CommentMenu";
 import { DeleteCommentModal } from "./DeleteCommentModal";
 import { ReplyComposer } from "./ReplyComposer";
-import { FilePreviewModal } from "@/app/(dashboard)/board/Cells/File/Previews/FilePreviewModal";
+
 import { ReplyItem } from "./ReplyItem";
 import { CommentEditor } from "./CommentEditor";
 import { format } from "date-fns";
+import { FilePreviewModal } from "../../../../../Cells/File/Previews/FilePreviewModal";
 
 interface CommentItemProps {
   comment: any;
