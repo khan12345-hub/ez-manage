@@ -33,7 +33,7 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
             GROUP COLOR / HIERARCHY INDICATOR
         ====================================== */}
         <td
-          className="relative w-1.5 p-0"
+          className="w-1.5 p-0 sticky left-0 z-20"
           style={{
             backgroundColor: color,
           }}
@@ -42,7 +42,7 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
         {/* =====================================
             CHECKBOX
         ====================================== */}
-        <td className="w-10 px-2">
+        <td className="w-10 px-2 sticky left-2 bg-white z-20">
           <div className="flex items-center justify-between">
             <button
               type="button"

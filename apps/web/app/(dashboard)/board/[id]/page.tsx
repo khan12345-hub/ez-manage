@@ -4,10 +4,11 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import { getBoardDetail } from "@/services/boards.api";
-import { Board } from "../Board";
+import { Board } from "./Board";
 import { useEffect } from "react";
 import { useGroupStore } from "@/store/create-group-store";
 import { TaskDetailsSheet } from "../Task/TaskDetailDrawer/Updates/TaskDetailsDrawer";
+import { BoardSkeleton } from "./BoardSkeleton";
 
 
 export default function BoardPage() {
@@ -36,9 +37,7 @@ export default function BoardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        Loading board...
-      </div>
+      <BoardSkeleton/>
     );
   }
 

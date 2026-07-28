@@ -3,7 +3,6 @@
 import {
   ChevronDown,
   Search,
-  UserCircle2,
   Funnel,
   ArrowUpDown,
   EyeOff,
@@ -13,10 +12,24 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { PersonFilter } from "./Filters/PersonFilterPopover";
+import {
+  PersonValue,
+} from "../../Cells/Person/PersonPicker";
+
 interface Props {
   onHideColumns: () => void;
+  personFilter: PersonValue | null;
+  onPersonFilterChange: (
+    value: PersonValue | null,
+  ) => void;
 }
-export function BoardToolbar({ onHideColumns }: Props) {
+
+export function BoardToolbar({
+  onHideColumns,
+  personFilter,
+  onPersonFilterChange,
+}: Props) {
   return (
     <div className="flex items-center justify-between px-6 py-4">
       <div className="flex items-center gap-2">
@@ -30,10 +43,10 @@ export function BoardToolbar({ onHideColumns }: Props) {
           Search
         </Button>
 
-        <Button variant="ghost">
-          <UserCircle2 className="mr-2 h-4 w-4" />
-          Person
-        </Button>
+        <PersonFilter
+          value={personFilter}
+          onChange={onPersonFilterChange}
+        />
 
         <Button variant="ghost">
           <Funnel className="mr-2 h-4 w-4" />
@@ -46,7 +59,10 @@ export function BoardToolbar({ onHideColumns }: Props) {
           Sort
         </Button>
 
-        <Button variant="ghost" onClick={onHideColumns}>
+        <Button
+          variant="ghost"
+          onClick={onHideColumns}
+        >
           <EyeOff className="mr-2 h-4 w-4" />
           Hide
         </Button>
@@ -56,7 +72,10 @@ export function BoardToolbar({ onHideColumns }: Props) {
           Group by
         </Button>
 
-        <Button variant="ghost" size="icon">
+        <Button
+          variant="ghost"
+          size="icon"
+        >
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </div>

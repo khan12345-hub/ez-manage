@@ -44,10 +44,11 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   TEXT: {
     editor: TextEditor,
 
-    render: (value) => <span className="text-red-600">{value.value}</span>,
+    render: (value) => (
+      <span className="text-red-600">{value.value}</span>
+    ),
 
     getValue: (task, cell, column) => {
-      // Primary column stores the value in Task.name
       if (column.isPrimary) {
         return task.name ?? "";
       }
@@ -66,6 +67,10 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
         });
       }
 
+      if (!cell?.id) {
+        return Promise.resolve(null);
+      }
+      console.log({boardId})
       return updateCell(boardId, cell.id, {
         value: {
           text: value,
@@ -77,10 +82,11 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   NUMBER: {
     editor: NumberEditor,
 
-    render: (value) => <span className="text-red-600">{value.value}</span>,
+    render: (value) => (
+      <span className="text-red-600">{value.value}</span>
+    ),
 
     getValue: (cell) => {
-      // Primary column stores the value in Task.name
       return cell?.value?.text ?? "";
     },
 
@@ -89,7 +95,10 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     }),
 
     save: ({ cell, value, boardId }) => {
-    
+      if (!cell?.id) {
+        return Promise.resolve(null);
+      }
+
       return updateCell(boardId, cell.id, {
         value: {
           text: value,
@@ -108,6 +117,10 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     toCellValue: (value) => value,
 
     save: ({ cell, value, boardId }) => {
+      if (!cell?.id) {
+        return Promise.resolve(null);
+      }
+
       return updateCell(boardId, cell.id, {
         value: {
           users: [...value.users],
@@ -126,6 +139,10 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     toCellValue: (value) => value,
 
     save: ({ cell, value, boardId }) => {
+      if (!cell?.id) {
+        return Promise.resolve(null);
+      }
+
       return updateCell(boardId, cell.id, {
         value: {
           label: value.label,
@@ -145,6 +162,10 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     toCellValue: (value) => value,
 
     save: ({ cell, value, boardId }) => {
+      if (!cell?.id) {
+        return Promise.resolve(null);
+      }
+
       return updateCell(boardId, cell.id, {
         value: {
           date: value.date,
@@ -152,6 +173,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       });
     },
   },
+
   TIMELINE: {
     editor: TimelineEditor,
 
@@ -162,6 +184,10 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     toCellValue: (value) => value,
 
     save: ({ cell, value, boardId }) => {
+      if (!cell?.id) {
+        return Promise.resolve(null);
+      }
+
       return updateCell(boardId, cell.id, {
         value: {
           startDate: new Date(value.startDate),
@@ -170,10 +196,13 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       });
     },
   },
+
   CHECKBOX: {
     editor: CheckboxEditor,
 
-    render: (value) => <CheckboxCell checked={value.value} />,
+    render: (value) => (
+      <CheckboxCell checked={value.value} />
+    ),
 
     getValue: (_, cell) => cell?.value?.checked ?? false,
 
@@ -182,6 +211,10 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     }),
 
     save: ({ cell, value, boardId }) => {
+      if (!cell?.id) {
+        return Promise.resolve(null);
+      }
+
       return updateCell(boardId, cell.id, {
         value: {
           checked: value,
@@ -189,6 +222,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       });
     },
   },
+
   FILE: {
     editor: FileCell as any,
 
@@ -201,8 +235,6 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     toCellValue: () => null,
 
-    // Files are uploaded/deleted through
-    // dedicated file APIs, not updateCell.
     save: async () => {
       return null;
     },

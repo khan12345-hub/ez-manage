@@ -64,7 +64,7 @@ export class TasksController {
   }
 
   @Delete(':id')
-  @RequireBoardPermission(BoardPermission.DELETE)
+  @RequireBoardPermission(BoardPermission.DELETE_TASK)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.tasksService.remove(id);
   }

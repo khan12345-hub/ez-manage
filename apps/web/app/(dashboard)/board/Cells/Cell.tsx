@@ -41,7 +41,7 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
 
   const value = config.getValue(task, cell, column);
 
-  const totalComments = task?._count.comments ?? 0;
+  const totalComments = task?._count?.comments ?? 0;
   console.log({totalComments})
   return (
     <td
@@ -52,7 +52,7 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
     >
       <div className="flex items-center gap-2">
         {isSubTask && isPrimary && (
-          <div className="relative flex items-center">
+          <div className="flex items-center sticky left-2">
             {/* Vertical connecting line */}
             {/* <div className="absolute -top-6 h-10 w-px bg-gray-300" /> */}
 

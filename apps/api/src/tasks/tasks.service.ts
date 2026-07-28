@@ -64,7 +64,6 @@ export class TasksService {
           );
         }
 
-        // Prevent nested subtasks.
         if (parentTask.parentId !== null) {
           throw new BadRequestException(
             'A subtask cannot have another subtask.',
@@ -87,19 +86,43 @@ export class TasksService {
         },
       });
 
-      return tx.task.create({
-        data: {
-          groupId: createTaskDto.groupId,
-
-          createdById: userId,
-
-          name: createTaskDto.name,
-
-          parentId,
-
-          order: lastTask ? lastTask.order + ORDER_GAP : ORDER_GAP,
+      const columns = await tx.boardColumn.findMany({
+        where: {
+          boardId,
+          isPrimary: false,
+        },
+        select: {
+          id: true,
+        },
+        orderBy: {
+          order: 'asc',
         },
       });
+
+      const task = await tx.task.create({
+        data: {
+          groupId: createTaskDto.groupId,
+          createdById: userId,
+          name: createTaskDto.name,
+          parentId,
+          order: lastTask ? lastTask.order + ORDER_GAP : ORDER_GAP,
+
+          cells: {
+            create: columns.map((column) => ({
+              column: {
+                connect: {
+                  id: column.id,
+                },
+              },
+            })),
+          },
+        },
+        include: {
+          cells: true,
+        },
+      });
+
+      return task;
     });
   }
 
@@ -338,7 +361,7 @@ export class TasksService {
     };
   }
 
- async reorderSubtask(
+  async reorderSubtask(
     subtaskId: number,
     previousTaskId: number | null,
     nextTaskId: number | null,
@@ -371,9 +394,7 @@ export class TasksService {
      */
 
     if (subtask.parentId === null) {
-      throw new BadRequestException(
-        'The selected task is not a subtask',
-      );
+      throw new BadRequestException('The selected task is not a subtask');
     }
 
     /*
@@ -487,8 +508,7 @@ export class TasksService {
     let newOrder: number;
 
     if (previousTask && nextTask) {
-      newOrder =
-        (previousTask.order + nextTask.order) / 2;
+      newOrder = (previousTask.order + nextTask.order) / 2;
     } else if (previousTask) {
       newOrder = previousTask.order + 1000;
     } else if (nextTask) {
@@ -558,38 +578,38 @@ export class TasksService {
     });
   }
 
-async remove(taskId: number) {
-  const task = await this.prisma.task.findUnique({
-    where: {
-      id: taskId,
-    },
-    include: {
-      subtasks: {
-        select: {
-          id: true,
+  async remove(taskId: number) {
+    const task = await this.prisma.task.findUnique({
+      where: {
+        id: taskId,
+      },
+      include: {
+        subtasks: {
+          select: {
+            id: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  if (!task) {
-    throw new NotFoundException('Task not found.');
+    if (!task) {
+      throw new NotFoundException('Task not found.');
+    }
+
+    // if (task.subtasks.length > 0) {
+    //   throw new BadRequestException(
+    //     'Cannot delete a task that has subtasks. Please delete the subtasks first.',
+    //   );
+    // }
+
+    await this.prisma.task.delete({
+      where: {
+        id: taskId,
+      },
+    });
+
+    return {
+      message: 'Task deleted successfully.',
+    };
   }
-
-  if (task.subtasks.length > 0) {
-    throw new BadRequestException(
-      'Cannot delete a task that has subtasks. Please delete the subtasks first.',
-    );
-  }
-
-  await this.prisma.task.delete({
-    where: {
-      id: taskId,
-    },
-  });
-
-  return {
-    message: 'Task deleted successfully.',
-  };
-}
 }

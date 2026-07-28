@@ -203,7 +203,7 @@ export default function PersonPicker({
           Board Members
         </div>
 
-        <ScrollArea className="h-72">
+        <ScrollArea className="h-72 px-4">
           {isLoading && (
             <div className="py-8 text-center text-sm text-muted-foreground">
               Loading...
@@ -221,7 +221,7 @@ export default function PersonPicker({
               <button
                 key={user.id}
                 onClick={() => handleSelect(user)}
-                className="flex w-full items-center gap-3  text-left transition-colors hover:bg-accent"
+                className="flex w-full items-center gap-3  text-left transition-colors hover:bg-accent mb-2"
               >
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={user.avatar ?? undefined} />

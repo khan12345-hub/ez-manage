@@ -35,6 +35,7 @@ export const BOARD_ROLE_PERMISSIONS: Record<
     BoardPermission.EDIT,
     BoardPermission.CREATE_TASK,
     BoardPermission.UPDATE_TASK,
+    BoardPermission.DELETE_TASK
   ],
 
   [BoardMemberRole.VIEWER]: [

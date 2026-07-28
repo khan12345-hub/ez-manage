@@ -24,7 +24,7 @@ export interface TaskResponse {
   order: number;
   createdAt: string;
   updatedAt: string;
-
+  name:string;
   createdBy: {
     id: number;
     firstName: string;
