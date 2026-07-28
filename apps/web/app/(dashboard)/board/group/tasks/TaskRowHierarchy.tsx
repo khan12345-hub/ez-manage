@@ -8,22 +8,25 @@ import {
 import { SortableTaskRow } from "./SortableTaskRow";
 import { SortableSubtaskRow } from "./sub-tasks/SortableSubTaskRow";
 import { SubtaskList } from "./sub-tasks/SubTaskList";
+import { useState } from "react";
 
 interface Props {
   task: any;
   columns: any[];
   color: string;
+  isDraggingTask?: boolean;
 }
 
 export function TaskHierarchyRow({
   task,
   columns,
   color,
+  isDraggingTask,
 }: Props) {
   const subtasks = task.subtasks ?? [];
 
   const hasSubtasks = subtasks.length > 0;
-
+  const [isExpanded, setIsExpanded] = useState(false);
   return (
     <>
       {/* =========================================
@@ -34,21 +37,18 @@ export function TaskHierarchyRow({
         task={task}
         columns={columns}
         color={color}
-        onToggleSubtasks={() => {}}
+        onToggleSubtasks={() => setIsExpanded(!isExpanded)}
         hasSubtasks={hasSubtasks}
-        expanded={true}
+        expanded={false}
       />
 
       {/* =========================================
           REAL SUBTASKS
       ========================================== */}
 
-      {hasSubtasks && (
+      {hasSubtasks && isExpanded && !isDraggingTask && (
         <SortableContext
-          items={subtasks.map(
-            (subtask: any) =>
-              `subtask-${subtask.id}`,
-          )}
+          items={subtasks.map((subtask: any) => `subtask-${subtask.id}`)}
           strategy={verticalListSortingStrategy}
         >
           {subtasks.map((subtask: any) => (
@@ -67,11 +67,9 @@ export function TaskHierarchyRow({
           ADD SUBTASK
       ========================================== */}
 
-      <SubtaskList
-        task={task}
-        columns={columns}
-        color={color}
-      />
+      {!isDraggingTask && isExpanded && (
+        <SubtaskList task={task} columns={columns} color={color} />
+      )}
     </>
   );
 }

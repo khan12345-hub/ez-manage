@@ -132,6 +132,7 @@ export function Board({ board }: any) {
                       columns={filteredColumns}
                       dragHandleProps={{ ...attributes, ...listeners }}
                       isDraggingGroup={activeItem?.type === "group"}
+                      isDraggingTask={activeItem?.type === "task"}
                     />
                   </SortableGroup>
                 )}

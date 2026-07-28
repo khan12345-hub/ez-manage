@@ -1,17 +1,13 @@
 import { IsInt, IsOptional, Min } from 'class-validator';
 
 export class ReorderSubtaskDto {
+  @IsOptional()
   @IsInt()
   @Min(1)
-  subtaskId!: number;
+  previousTaskId?: number | null;
 
   @IsOptional()
   @IsInt()
   @Min(1)
-  previousSubtaskId?: number | null;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  nextSubtaskId?: number | null;
+  nextTaskId?: number | null;
 }

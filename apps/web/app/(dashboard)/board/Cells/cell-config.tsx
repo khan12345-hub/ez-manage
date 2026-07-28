@@ -14,6 +14,7 @@ import { TimelineCell } from "./TimelineCell";
 import { CheckboxCell } from "./CheckboxCell";
 import { CheckboxEditor } from "../EditableCells/CheckboxEditor";
 import { FileCell } from "./File/FileCell";
+import { NumberEditor } from "../EditableCells/NumberEditor";
 
 export interface CellConfig<T = any> {
   editor: ComponentType<CellEditorProps<any>>;
@@ -23,7 +24,7 @@ export interface CellConfig<T = any> {
     task: any;
     cellId: any;
     column: any;
-    files:any[]
+    files: any[];
   }) => React.ReactNode;
 
   getValue: (task: any, cell: any, column: any) => T;
@@ -65,6 +66,30 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
         });
       }
 
+      return updateCell(boardId, cell.id, {
+        value: {
+          text: value,
+        },
+      });
+    },
+  },
+
+  NUMBER: {
+    editor: NumberEditor,
+
+    render: (value) => <span className="text-red-600">{value.value}</span>,
+
+    getValue: (cell) => {
+      // Primary column stores the value in Task.name
+      return cell?.value?.text ?? "";
+    },
+
+    toCellValue: (value) => ({
+      text: value,
+    }),
+
+    save: ({ cell, value, boardId }) => {
+    
       return updateCell(boardId, cell.id, {
         value: {
           text: value,
@@ -167,9 +192,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   FILE: {
     editor: FileCell as any,
 
-    render: (value) => (
-      <FileCell value={value}/>
-    ),
+    render: (value) => <FileCell value={value} />,
 
     getValue: (_, cell) => ({
       cellId: cell?.id,
@@ -183,6 +206,5 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     save: async () => {
       return null;
     },
-
   },
 };

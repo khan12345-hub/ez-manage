@@ -76,8 +76,8 @@ export class TasksController {
   ) {
     return this.tasksService.reorderSubtask(
       taskId,
-      dto.previousSubtaskId ?? null,
-      dto.nextSubtaskId ?? null,
+      dto.previousTaskId ?? null,
+      dto.nextTaskId ?? null,
     );
   }
 }

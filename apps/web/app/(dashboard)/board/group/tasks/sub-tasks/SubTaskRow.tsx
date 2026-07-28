@@ -113,7 +113,7 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
             OTHER COLUMNS
         ====================================== */}
         {columns.map((column: any) => (
-          <Cell key={column.id} column={column} task={task} isDragging={isDragging} />
+          <Cell isSubTask={true} key={column.id} column={column} task={task} isDragging={isDragging} />
         ))}
       </tr>
     );

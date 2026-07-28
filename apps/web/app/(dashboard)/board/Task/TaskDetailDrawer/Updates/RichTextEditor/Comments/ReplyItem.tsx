@@ -6,6 +6,7 @@ import { CommentMenu } from "./CommentMenu";
 import { DeleteCommentModal } from "./DeleteCommentModal";
 import { CommentEditor } from "./CommentEditor";
 import { format } from "date-fns";
+import { Avatar } from "./CommentItem";
 
 interface ReplyItemProps {
   reply: any;
@@ -22,9 +23,11 @@ export function ReplyItem({ reply, onEdit, onDelete }: ReplyItemProps) {
     : "";
   return (
     <div className="flex gap-3 py-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-        {reply.user?.firstName?.charAt(0)?.toUpperCase() ?? "U"}
-      </div>
+      
+      <Avatar
+        name={reply.user?.firstName}
+        avatarUrl={reply.user?.avatarUrl}
+      />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -32,9 +35,7 @@ export function ReplyItem({ reply, onEdit, onDelete }: ReplyItemProps) {
             {reply.user?.firstName} {reply.user?.lastName}
           </span>
 
-          <span className="text-xs text-muted-foreground">
-            {formattedDate}
-          </span>
+          <span className="text-xs text-muted-foreground">{formattedDate}</span>
 
           <div className="ml-auto">
             <CommentMenu

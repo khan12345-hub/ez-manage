@@ -1,4 +1,9 @@
-import { MessageSquare } from "lucide-react";
+import {
+  CornerDownRight,
+  Divide,
+  MessageCircleMore,
+  MessageSquare,
+} from "lucide-react";
 
 import { EditableCell } from "../EditableCells/EditableCell";
 import { CELL_CONFIG } from "./cell-config";
@@ -6,14 +11,16 @@ import { CELL_CONFIG } from "./cell-config";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { useTaskDetailsStore } from "@/store/task-details-store";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 interface CellProps {
   column: any;
   task: any;
   isDragging?: boolean;
+  isSubTask?: boolean;
 }
 
-export function Cell({ column, task, isDragging }: CellProps) {
+export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
   const { boardId } = useInviteModalStore();
 
   const openTaskDetails = useTaskDetailsStore((state) => state.open);
@@ -34,15 +41,28 @@ export function Cell({ column, task, isDragging }: CellProps) {
 
   const value = config.getValue(task, cell, column);
 
+  const totalComments = task?._count.comments ?? 0;
+  console.log({totalComments})
   return (
     <td
       className={cn(
         "border relative px-3 py-2",
-        isPrimary && "sticky left-0 bg-background z-10",
+        isPrimary && "sticky left-36 bg-background z-20 min-w-[300px]",
       )}
     >
       <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
+        {isSubTask && isPrimary && (
+          <div className="relative flex items-center">
+            {/* Vertical connecting line */}
+            {/* <div className="absolute -top-6 h-10 w-px bg-gray-300" /> */}
+
+            {/* Horizontal connecting line */}
+            <div className="absolute -left-3 -top-2.5 h-3 w-6 rounded-bl-3xl border-b border-l border-gray-300" />
+            {/* <CornerDownRight size={16} className="text-gray-400" /> */}
+          </div>
+        )}
+
+        <div className={`min-w-0 flex-1 ${isPrimary && "border-r"}`}>
           <EditableCell
             value={value}
             render={config.render}
@@ -59,7 +79,6 @@ export function Cell({ column, task, isDragging }: CellProps) {
             }
           />
         </div>
-
         {isPrimary && (
           <button
             type="button"
@@ -73,18 +92,22 @@ export function Cell({ column, task, isDragging }: CellProps) {
               });
             }}
             className={cn(
-              "flex h-7 w-7 shrink-0",
+              "cursor-pointer flex h-7 w-7 shrink-0",
               "items-center justify-center",
               "rounded-md",
               "text-muted-foreground",
               "hover:bg-muted",
               "hover:text-foreground",
-              "transition-colors",
+              "transition-colors relative",
             )}
             title="Open task details"
             aria-label="Open task details"
           >
-            <MessageSquare className="h-4 w-4" />
+            <MessageCircleMore className={`h-8 w-8 ${totalComments > 0 && "text-primary"}`} />
+            {totalComments > 0 &&
+            <Badge className="absolute left-4 top-4 h-4.5 w-4.5 leading-0.5">
+              {totalComments}
+            </Badge>}
           </button>
         )}
       </div>

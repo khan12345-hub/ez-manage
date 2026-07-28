@@ -35,7 +35,7 @@ export function CommentItem({
   const formattedDate = comment.createdAt
     ? format(comment.createdAt, "do MMMM, yyyy EEEE 'at' h:mm a")
     : "";
-
+  console.log({ comment });
   return (
     <div className="p-4">
       <div className="flex gap-3">
@@ -124,7 +124,6 @@ export function CommentItem({
             <div className="relative mt-5 ">
               {" "}
               {/* Vertical thread line */}{" "}
-              
               <div className="space-y-1">
                 {" "}
                 {comment.replies.map((reply: any, index: number) => (
@@ -188,7 +187,7 @@ function EditComment({
   );
 }
 
-function Avatar({
+export function Avatar({
   name,
   avatarUrl,
 }: {
@@ -198,7 +197,7 @@ function Avatar({
   if (avatarUrl) {
     return (
       <img
-        src={avatarUrl}
+        src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL+avatarUrl}
         alt={name ?? "User"}
         className="h-8 w-8 shrink-0 rounded-full object-cover"
       />

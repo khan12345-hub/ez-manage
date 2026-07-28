@@ -58,7 +58,7 @@ export const Headers = ({ column }: any) => {
         border-b border-l px-4 py-3 font-semibold
         ${
           column.isPrimary
-            ? "sticky left-0 z-30 bg-background min-w-[300px]"
+            ? "sticky left-[150px] z-30 bg-background min-w-[450px]"
             : "min-w-[180px]"
         }
       `}

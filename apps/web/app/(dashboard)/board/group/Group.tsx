@@ -28,6 +28,8 @@ interface Props {
   columns: any[];
   dragHandleProps?: any;
   isDraggingGroup?: boolean;
+  isDraggingTask?: boolean;
+
 }
 
 export function Group({
@@ -35,6 +37,7 @@ export function Group({
   columns,
   dragHandleProps,
   isDraggingGroup,
+  isDraggingTask
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -133,7 +136,7 @@ export function Group({
                     }}
                   />
 
-                  <th>
+                  <th className="sticky left-2 w-1.5 bg-white">
                     <Checkbox />
                   </th>
 
@@ -169,6 +172,7 @@ export function Group({
                         task={task}
                         columns={columns}
                         color={group.color}
+                        isDraggingTask={isDraggingTask}
                       />
                     ))}
 

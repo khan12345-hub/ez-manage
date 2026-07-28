@@ -23,7 +23,7 @@ export function NumberEditor({
             : Number(e.target.value)
         )
       }
-      onBlur={save}
+      onBlur={()=>save()}
       onKeyDown={(e) => {
         if (e.key === "Enter") save();
         if (e.key === "Escape") cancel();

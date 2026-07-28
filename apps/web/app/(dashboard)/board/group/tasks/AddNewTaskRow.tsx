@@ -70,17 +70,17 @@ export function NewTaskRow({ columns, color, groupId, parentId }: Props) {
     <tr className="group hover:bg-muted/30">
       {/* Group color indicator */}
       <td
-        className="sticky left-0 w-1 border opacity-50"
+        className="sticky left-0 min-w-1 border opacity-50"
         style={{ backgroundColor: color }}
       />
 
       {/* Checkbox */}
-      <th>
+      <th className="sticky left-2 h-12 flex justify-end items-center px-5 bg-white min-w-[150px]">
         <Checkbox />
       </th>
 
       {/* Task / Subtask name */}
-      <td className="sticky left-0 border px-2 py-1">
+      <td className="sticky left-[150px] z-20 bg-white border px-2 py-1">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Plus className="h-4 w-4" />
 

@@ -558,25 +558,38 @@ export class TasksService {
     });
   }
 
-  async remove(taskId: number) {
-    const task = await this.prisma.task.findUnique({
-      where: {
-        id: taskId,
+async remove(taskId: number) {
+  const task = await this.prisma.task.findUnique({
+    where: {
+      id: taskId,
+    },
+    include: {
+      subtasks: {
+        select: {
+          id: true,
+        },
       },
-    });
+    },
+  });
 
-    if (!task) {
-      throw new NotFoundException('Task not found.');
-    }
-
-    await this.prisma.task.delete({
-      where: {
-        id: taskId,
-      },
-    });
-
-    return {
-      message: 'Task deleted successfully.',
-    };
+  if (!task) {
+    throw new NotFoundException('Task not found.');
   }
+
+  if (task.subtasks.length > 0) {
+    throw new BadRequestException(
+      'Cannot delete a task that has subtasks. Please delete the subtasks first.',
+    );
+  }
+
+  await this.prisma.task.delete({
+    where: {
+      id: taskId,
+    },
+  });
+
+  return {
+    message: 'Task deleted successfully.',
+  };
+}
 }

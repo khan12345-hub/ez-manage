@@ -13,7 +13,13 @@ interface Props {
   expanded?: boolean;
 }
 
-export function SortableTaskRow({ task, columns, color }: Props) {
+export function SortableTaskRow({
+  task,
+  columns,
+  color,
+  onToggleSubtasks,
+  expanded,
+}: Props) {
   const {
     attributes,
     listeners,
@@ -48,6 +54,8 @@ export function SortableTaskRow({ task, columns, color }: Props) {
       columns={columns}
       color={color}
       isDragging={isDragging}
+      onToggleSubtasks={onToggleSubtasks}
+      expanded={expanded}
     />
   );
 }
