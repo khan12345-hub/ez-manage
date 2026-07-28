@@ -221,7 +221,7 @@ export function useBoardDnd({
     }: {
       taskId: number;
       data: ReorderSubtaskDto;
-    }) => reorderSubtask(taskId, data),
+    }) => reorderSubtask(boardId, taskId, data),
 
     onMutate: async () => {
       await queryClient.cancelQueries({
@@ -262,6 +262,7 @@ export function useBoardDnd({
         if (!group || !task) {
           return;
         }
+        console.log("task is moving...");
 
         setActiveItem({
           type: "task",
@@ -274,21 +275,32 @@ export function useBoardDnd({
 
       case "subtask": {
         const group = groups.find((group) => group.id === activeData.groupId);
-
-        const task = group?.tasks.find(
-          (task: any) => task.id === activeData.taskId,
+        const parentTask = group?.tasks.find(
+          (task: any) => task.id === activeData.parentId,
         );
-
-        if (!group || !task) {
+        if (!group || !parentTask) {
+          console.log("Parent task not found", {
+            groupId: activeData.groupId,
+            taskId: activeData.taskId,
+          });
           return;
         }
-
-        setActiveItem({
-          type: "subtask",
-          task,
-          group,
+        const subtask = parentTask.subtasks?.find(
+          (subtask: any) => subtask.id === activeData.taskId,
+        );
+        if (!subtask) {
+          console.log("Subtask not found", {
+            subtaskId: activeData.taskId,
+            parentTaskId: parentTask.id,
+          });
+          return;
+        }
+        console.log("subtask is moving...", {
+          subtaskId: subtask.id,
+          parentTaskId: parentTask.id,
+          groupId: group.id,
         });
-
+        setActiveItem({ type: "subtask", task: subtask, parentTask, group });
         break;
       }
 
@@ -702,86 +714,65 @@ export function useBoardDnd({
          SUBTASK
       ======================================================== */
       case "subtask": {
-        if (!overData) {
+        if (!overData || overData.type !== "subtask") {
           handleDragCancel();
           return;
         }
-
-        /*
-         * A subtask can only be dropped on another
-         * subtask belonging to the same parent.
-         */
-        if (
-          overData.type !== "subtask" ||
+        /* * A subtask can only be reordered inside * the same parent task. */ if (
+          activeData.groupId !== overData.groupId ||
           activeData.parentId !== overData.parentId
         ) {
           handleDragCancel();
           return;
         }
-
-        /*
-         * Find the current group from dragGroups.
-         */
-        const group = dragGroups.find((g: any) => g.id === activeData.groupId);
-
+        /* * Find the group. */ const group = dragGroups.find(
+          (group: any) => group.id === activeData.groupId,
+        );
         if (!group) {
           handleDragCancel();
           return;
         }
-
-        /*
-         * Get siblings only.
-         */
-        const subtasks = group.tasks
-          .filter((task: any) => task.parentId === activeData.parentId)
-          .sort((a: any, b: any) => a.order - b.order);
-
-        /*
-         * The UI has already reordered dragGroups
-         * during handleDragOver.
-         *
-         * Therefore the current order of `subtasks`
-         * is the final order.
-         */
-        const currentIndex = subtasks.findIndex(
-          (task: any) => task.id === activeData.taskId,
+        /* * Find the parent task. */ const parentTask = group.tasks.find(
+          (task: any) => task.id === activeData.parentId,
         );
-
-        if (currentIndex === -1) {
+        if (!parentTask) {
+          console.error("Parent task not found", {
+            groupId: activeData.groupId,
+            parentTaskId: activeData.parentId,
+          });
           handleDragCancel();
           return;
         }
-
-        /*
-         * Get final neighbors.
-         */
-        const previousSubtask = subtasks[currentIndex - 1] ?? null;
-
+        /* * Get the subtasks from the parent task. * * IMPORTANT: * We use the order already present in dragGroups * because handleDragOver has already updated the UI order. */ const subtasks =
+          [...(parentTask.subtasks ?? [])].sort(
+            (a: any, b: any) => a.order - b.order,
+          );
+        /* * Find the moved subtask. */ const currentIndex = subtasks.findIndex(
+          (subtask: any) => subtask.id === activeData.taskId,
+        );
+        if (currentIndex === -1) {
+          console.error("Moved subtask not found", {
+            subtaskId: activeData.taskId,
+            parentTaskId: activeData.parentId,
+          });
+          handleDragCancel();
+          return;
+        }
+        /* * Get final neighbors. */ const previousSubtask =
+          subtasks[currentIndex - 1] ?? null;
         const nextSubtask = subtasks[currentIndex + 1] ?? null;
-
-        /*
-         * IMPORTANT:
-         * Update the main state before calling API.
-         *
-         * This makes the optimistic UI permanent.
-         */
-        setGroups(dragGroups);
-
-        /*
-         * Persist the order.
-         */
-        reorderSubtaskMutation.mutate({
-          taskId: Number(activeData.taskId),
-
-          data: {
-            previousTaskId: previousSubtask?.id ?? null,
-
-            nextTaskId: nextSubtask?.id ?? null,
+        /* * IMPORTANT: * * dragGroups already contains the reordered UI state. * Commit it to the actual groups state. */ setGroups(
+          dragGroups,
+        );
+        /* * Persist the final order in backend. */ reorderSubtaskMutation.mutate(
+          {
+            taskId: Number(activeData.taskId),
+            data: {
+              previousTaskId: previousSubtask?.id ?? null,
+              nextTaskId: nextSubtask?.id ?? null,
+            },
           },
-        });
-
-        setActiveItem(null);
-
+        );
         break;
       }
 

@@ -23,7 +23,6 @@ export function DateEditor({
   save,
   cancel,
 }: CellEditorProps<DateValue>) {
-  console.log("DATE", value);
   const date = value?.date;
   // const date = new Date()
   const [open, setOpen] = useState(false);

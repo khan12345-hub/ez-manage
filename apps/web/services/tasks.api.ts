@@ -150,11 +150,12 @@ export interface ReorderSubtaskDto {
 }
 
 export async function reorderSubtask(
+  boardId: number | undefined,
   taskId: number,
   data: ReorderSubtaskDto,
 ) {
   const response = await api.patch(
-    `/tasks/${taskId}/reorder-subtask`,
+    `/boards/${boardId}/tasks/${taskId}/reorder-subtask`,
     data,
   );
 

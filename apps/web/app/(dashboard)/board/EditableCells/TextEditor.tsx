@@ -18,7 +18,6 @@ export function TextEditor({
   isPrimary,
 }: Props) {
 
-  console.log("first", isPrimary)
   return (
     <Input
       ref={inputRef}

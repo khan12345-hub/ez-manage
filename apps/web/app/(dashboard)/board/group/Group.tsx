@@ -119,7 +119,10 @@ export function Group({
         )}
 
         {!isDraggingGroup && (
-          <div className="overflow-x-auto scrollbar-none">
+          <div
+           className="overflow-x-auto scrollbar-none "
+           
+           >
             <table className="min-w-[1200px] border-collapse">
               <thead>
                 <tr className="border">
