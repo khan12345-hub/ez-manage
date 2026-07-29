@@ -15,9 +15,12 @@ import { ColumnsModule } from './columns/columns.module';
 import { UsersModule } from './users/users.module';
 import { CellsModule } from './cells/cells.module';
 import { CommentsModule } from './comments/comments.module';
+import { StatusOptionsModule } from './status-options/status-options.module';
 
 @Module({
-  imports: [AuthModule, DatabaseModule, UsersModule, InvitationsModule, WorkspaceModule, BoardsModule, GroupsModule, TasksModule, ColumnsModule, CellsModule, CommentsModule],
+  imports: [AuthModule, DatabaseModule, UsersModule, InvitationsModule, WorkspaceModule, BoardsModule, GroupsModule, TasksModule, ColumnsModule, CellsModule, CommentsModule,
+    StatusOptionsModule,
+  ],
   controllers: [AppController],
   providers: [AppService,
     {

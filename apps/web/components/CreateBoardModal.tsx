@@ -57,6 +57,7 @@ export function CreateBoardModal({
   });
 
   const { reset } = form;
+  
   const router = useRouter();
   const createBoardMutation = useMutation({
     mutationFn: (values: BoardFormValues) =>
@@ -67,7 +68,7 @@ export function CreateBoardModal({
     onSuccess: (board) => {
       queryClient.invalidateQueries({ queryKey: ["boards", workspaceId] });
       toast.success(`Board "${board.name}" created.`);
-      router.push(`/board/${board.id}`);
+      router.push(`/workspace/${workspaceId}/board/${board.id}`);
       onClose();
     },
     onError: (error: any) => {

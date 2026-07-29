@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 
@@ -9,173 +10,216 @@ import { PrismaService } from 'prisma/prisma.service';
 import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 
-import { BoardMemberRole, WorkspaceMemberRole } from 'generated/prisma/enums';
+import { BoardColumnType, BoardMemberRole, WorkspaceMemberRole } from 'generated/prisma/enums';
 
 import { getDefaultCellValue } from './defaults/default-cell-value.template';
 
 import {
   DEFAULT_COLUMNS,
   DEFAULT_GROUPS,
+  DEFAULT_STATUS_OPTIONS,
 } from './defaults/default-board.template';
 
 @Injectable()
 export class BoardsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createBoardDto: CreateBoardDto, userId: number) {
-    return this.prisma.$transaction(async (tx) => {
-      // Prevent duplicate board names within the workspace
-      const existingBoard = await tx.board.findFirst({
-        where: {
-          workspaceId: createBoardDto.workspaceId,
-          name: createBoardDto.name.trim(),
-        },
-        select: {
-          id: true,
-        },
-      });
+async create(createBoardDto: CreateBoardDto, userId: number) {
+  return this.prisma.$transaction(async (tx) => {
+    const existingBoard = await tx.board.findFirst({
+      where: {
+        workspaceId: createBoardDto.workspaceId,
+        name: createBoardDto.name.trim(),
+      },
+      select: {
+        id: true,
+      },
+    });
 
-      if (existingBoard) {
-        throw new ConflictException(
-          'A board with this name already exists in this workspace.',
-        );
-      }
+    if (existingBoard) {
+      throw new ConflictException(
+        'A board with this name already exists in this workspace.',
+      );
+    }
 
-      // Create board and make creator the owner
-      const board = await tx.board.create({
-        data: {
-          name: createBoardDto.name.trim(),
-          workspaceId: createBoardDto.workspaceId,
-          visibility: createBoardDto.visibility ?? 'PUBLIC',
-          createdById: userId,
+    const board = await tx.board.create({
+      data: {
+        name: createBoardDto.name.trim(),
+        workspaceId: createBoardDto.workspaceId,
+        visibility: createBoardDto.visibility ?? 'PUBLIC',
+        createdById: userId,
 
-          members: {
-            create: {
-              userId,
-              role: BoardMemberRole.OWNER,
-            },
+        members: {
+          create: {
+            userId,
+            role: BoardMemberRole.OWNER,
           },
         },
-      });
+      },
+    });
 
-      // Get creator information for default cell values
-      const user = await tx.user.findUniqueOrThrow({
-        where: {
-          id: userId,
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-        },
-      });
+    const user = await tx.user.findUniqueOrThrow({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
 
-      // Create default columns
-      const columns = await tx.boardColumn.createManyAndReturn({
-        data: DEFAULT_COLUMNS.map((column, index) => ({
+    const columns = await tx.boardColumn.createManyAndReturn({
+      data: DEFAULT_COLUMNS.map((column, index) => ({
+        boardId: board.id,
+        name: column.name,
+        type: column.type,
+        isPrimary: column.isPrimary,
+        order: (index + 1) * 1000,
+      })),
+    });
+
+    const statusColumn = columns.find(
+      (column) => column.type === BoardColumnType.STATUS,
+    );
+
+    if (!statusColumn) {
+      throw new InternalServerErrorException(
+        'Default status column was not created.',
+      );
+    }
+
+    const statusOptions = await tx.statusOption.createManyAndReturn({
+      data: DEFAULT_STATUS_OPTIONS.map((status) => ({
+        columnId: statusColumn.id,
+        label: status.label,
+        color: status.color,
+        order: status.order,
+      })),
+    });
+
+    const statusOptionByLabel = new Map(
+      statusOptions.map((status) => [
+        status.label,
+        status.id,
+      ]),
+    );
+
+    for (const groupTemplate of DEFAULT_GROUPS) {
+      const group = await tx.group.create({
+        data: {
           boardId: board.id,
-          name: column.name,
-          type: column.type,
-          isPrimary: column.isPrimary,
+          name: groupTemplate.name,
+          color: groupTemplate.color,
+          order: groupTemplate.order * 1000,
+          createdById: userId,
+        },
+      });
+
+      const tasks = await tx.task.createManyAndReturn({
+        data: groupTemplate.tasks.map((task, index) => ({
+          groupId: group.id,
+          name: task.title,
           order: (index + 1) * 1000,
+          createdById: userId,
         })),
       });
 
-      // Create default groups, tasks and cells
-      for (const groupTemplate of DEFAULT_GROUPS) {
-        const group = await tx.group.create({
-          data: {
-            boardId: board.id,
-            name: groupTemplate.name,
-            color: groupTemplate.color,
-            order: groupTemplate.order * 1000,
-            createdById: userId,
+      await tx.taskCell.createMany({
+        data: tasks.flatMap((task, index) =>
+          columns
+            .filter((column) => !column.isPrimary)
+            .map((column) => ({
+              taskId: task.id,
+              columnId: column.id,
+              value: getDefaultCellValue(
+                column.type,
+                groupTemplate.tasks[index],
+                user,
+                statusOptionByLabel,
+              ),
+            })),
+        ),
+      });
+    }
+
+    return tx.board.findUniqueOrThrow({
+      where: {
+        id: board.id,
+      },
+
+      include: {
+        columns: {
+          orderBy: {
+            order: 'asc',
           },
-        });
-
-        const tasks = await tx.task.createManyAndReturn({
-          data: groupTemplate.tasks.map((task, index) => ({
-            groupId: group.id,
-            name: task.title,
-            order: (index + 1) * 1000,
-            createdById: userId,
-          })),
-        });
-
-        await tx.taskCell.createMany({
-          data: tasks.flatMap((task, index) =>
-            columns
-              .filter((column) => !column.isPrimary)
-              .map((column) => ({
-                taskId: task.id,
-                columnId: column.id,
-                value: getDefaultCellValue(
-                  column.type,
-                  groupTemplate.tasks[index],
-                  user,
-                ),
-              })),
-          ),
-        });
-      }
-
-      // Return complete board
-      return tx.board.findUniqueOrThrow({
-        where: {
-          id: board.id,
+          include: {
+            statusOptions: {
+              where: {
+                isArchived: false,
+              },
+              orderBy: {
+                order: 'asc',
+              },
+            },
+          },
         },
 
-        include: {
-          columns: {
-            orderBy: {
-              order: 'asc',
-            },
+        groups: {
+          orderBy: {
+            order: 'asc',
           },
 
-          groups: {
-            orderBy: {
-              order: 'asc',
-            },
+          include: {
+            tasks: {
+              orderBy: {
+                order: 'asc',
+              },
 
-            include: {
-              tasks: {
-                orderBy: {
-                  order: 'asc',
-                },
-
-                include: {
-                  cells: {
-                    include: {
-                      column: true,
-                    },
-
-                    orderBy: {
-                      column: {
-                        order: 'asc',
+              include: {
+                cells: {
+                  include: {
+                    column: {
+                      include: {
+                        statusOptions: {
+                          where: {
+                            isArchived: false,
+                          },
+                          orderBy: {
+                            order: 'asc',
+                          },
+                        },
                       },
+                    },
+                  },
+
+                  orderBy: {
+                    column: {
+                      order: 'asc',
                     },
                   },
                 },
               },
             },
           },
+        },
 
-          members: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
-                },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
               },
             },
           },
         },
-      });
+      },
     });
-  }
+  });
+}
 
   async findAll(workspaceId: number, userId: number) {
     const workspaceMember = await this.prisma.workspaceMember.findUniqueOrThrow(
@@ -242,134 +286,145 @@ export class BoardsService {
     }));
   }
 
-  async findOne(id: number) {
-    const board = await this.prisma.board.findUnique({
-      where: {
-        id,
-      },
+async findOne(id: number) {
+  const board = await this.prisma.board.findUnique({
+    where: {
+      id,
+    },
 
-      include: {
-        columns: {
-          orderBy: {
-            order: 'asc',
-          },
+    include: {
+      columns: {
+        orderBy: {
+          order: 'asc',
         },
 
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                avatarUrl: true,
-              },
+        include: {
+          statusOptions: {
+            where: {
+              isArchived: false,
+            },
+
+            orderBy: {
+              order: 'asc',
             },
           },
         },
+      },
 
-        groups: {
-          orderBy: {
-            order: 'asc',
+      members: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+            },
           },
+        },
+      },
 
-          include: {
-            tasks: {
-              // Only top-level tasks
-              where: {
-                parentId: null,
+      groups: {
+        orderBy: {
+          order: 'asc',
+        },
+
+        include: {
+          tasks: {
+            where: {
+              parentId: null,
+            },
+
+            orderBy: {
+              order: 'asc',
+            },
+
+            include: {
+              _count: {
+                select: {
+                  comments: true,
+                },
               },
 
-              orderBy: {
-                order: 'asc',
-              },
-
-              include: {
-                _count: {
-                  select: {
-                    comments: true,
-                  },
-                },
-                // ==========================================
-                // PARENT TASK CELLS
-                // ==========================================
-
-                cells: {
-                  orderBy: {
-                    column: {
-                      order: 'asc',
-                    },
-                  },
-
-                  include: {
-                    column: {
-                      select: {
-                        id: true,
-                        name: true,
-                        type: true,
-                        order: true,
-                      },
-                    },
-
-                    files: {
-                      select: {
-                        file: {
-                          select: {
-                            id: true,
-                            fileName: true,
-                            url: true,
-                            mimeType: true,
-                            fileSize: true,
-                            storageKey: true,
-                            uploadedById: true,
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-
-                // ==========================================
-                // SUBTASKS
-                // ==========================================
-
-                subtasks: {
-                  orderBy: {
+              cells: {
+                orderBy: {
+                  column: {
                     order: 'asc',
                   },
+                },
 
-                  include: {
-                    // IMPORTANT:
-                    // Explicitly include cells for every subtask
-                    cells: {
-                      orderBy: {
-                        column: {
+                include: {
+                  column: {
+                    include: {
+                      statusOptions: {
+                        where: {
+                          isArchived: false,
+                        },
+
+                        orderBy: {
                           order: 'asc',
                         },
                       },
+                    },
+                  },
 
-                      include: {
-                        column: {
-                          select: {
-                            id: true,
-                            name: true,
-                            type: true,
-                            order: true,
+                  files: {
+                    select: {
+                      file: {
+                        select: {
+                          id: true,
+                          fileName: true,
+                          url: true,
+                          mimeType: true,
+                          fileSize: true,
+                          storageKey: true,
+                          uploadedById: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+
+              subtasks: {
+                orderBy: {
+                  order: 'asc',
+                },
+
+                include: {
+                  cells: {
+                    orderBy: {
+                      column: {
+                        order: 'asc',
+                      },
+                    },
+
+                    include: {
+                      column: {
+                        include: {
+                          statusOptions: {
+                            where: {
+                              isArchived: false,
+                            },
+
+                            orderBy: {
+                              order: 'asc',
+                            },
                           },
                         },
+                      },
 
-                        files: {
-                          select: {
-                            file: {
-                              select: {
-                                id: true,
-                                fileName: true,
-                                url: true,
-                                mimeType: true,
-                                fileSize: true,
-                                storageKey: true,
-                                uploadedById: true,
-                              },
+                      files: {
+                        select: {
+                          file: {
+                            select: {
+                              id: true,
+                              fileName: true,
+                              url: true,
+                              mimeType: true,
+                              fileSize: true,
+                              storageKey: true,
+                              uploadedById: true,
                             },
                           },
                         },
@@ -382,48 +437,41 @@ export class BoardsService {
           },
         },
       },
-    });
+    },
+  });
 
-    if (!board) {
-      throw new NotFoundException(`Board with ID ${id} not found.`);
-    }
+  if (!board) {
+    throw new NotFoundException(`Board with ID ${id} not found.`);
+  }
 
-    return {
-      ...board,
+  return {
+    ...board,
 
-      groups: board.groups.map((group) => ({
-        ...group,
+    groups: board.groups.map((group) => ({
+      ...group,
 
-        tasks: group.tasks.map((task) => ({
-          ...task,
+      tasks: group.tasks.map((task) => ({
+        ...task,
 
-          // ==========================================
-          // PARENT TASK CELLS
-          // ==========================================
+        cells: (task.cells ?? []).map((cell) => ({
+          ...cell,
 
-          cells: (task.cells ?? []).map((cell) => ({
+          files: (cell.files ?? []).map(({ file }) => file),
+        })),
+
+        subtasks: (task.subtasks ?? []).map((subtask) => ({
+          ...subtask,
+
+          cells: (subtask.cells ?? []).map((cell) => ({
             ...cell,
 
             files: (cell.files ?? []).map(({ file }) => file),
           })),
-
-          // ==========================================
-          // SUBTASKS
-          // ==========================================
-
-          subtasks: (task.subtasks ?? []).map((subtask) => ({
-            ...subtask,
-
-            cells: (subtask.cells ?? []).map((cell) => ({
-              ...cell,
-
-              files: (cell.files ?? []).map(({ file }) => file),
-            })),
-          })),
         })),
       })),
-    };
-  }
+    })),
+  };
+}
 
   async update(id: number, updateBoardDto: UpdateBoardDto, userId: number) {
     return this.prisma.$transaction(async (tx) => {

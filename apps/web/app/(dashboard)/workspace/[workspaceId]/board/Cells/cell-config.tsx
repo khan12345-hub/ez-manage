@@ -1,7 +1,7 @@
 import { ComponentType } from "react";
 import { CellEditorProps } from "../EditableCells/EditableCell";
 import { TextEditor } from "../EditableCells/TextEditor";
-import { StatusEditor } from "./Status/StatusEditor";
+
 import { PersonEditor } from "../EditableCells/PersonEditor";
 import { DateEditor } from "../EditableCells/DateEditor";
 import { StatusCell } from "./Status/StatusCell";
@@ -15,9 +15,14 @@ import { CheckboxCell } from "./CheckboxCell";
 import { CheckboxEditor } from "../EditableCells/CheckboxEditor";
 import { FileCell } from "./File/FileCell";
 import { NumberEditor } from "../EditableCells/NumberEditor";
+import { StatusEditor } from "./Status/StatusEditor";
 
 export interface CellConfig<T = any> {
-  editor: ComponentType<CellEditorProps<any>>;
+  editor: ComponentType<
+    CellEditorProps<any> & {
+      statusOptions?: any[];
+    }
+  >;
 
   render: (args: {
     value: T;
@@ -44,9 +49,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   TEXT: {
     editor: TextEditor,
 
-    render: (value) => (
-      <span className="text-red-600">{value.value}</span>
-    ),
+    render: (value) => <span className="text-red-600">{value.value}</span>,
 
     getValue: (task, cell, column) => {
       if (column.isPrimary) {
@@ -70,7 +73,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
-      console.log({boardId})
+      console.log({ boardId });
       return updateCell(boardId, cell.id, {
         value: {
           text: value,
@@ -82,9 +85,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   NUMBER: {
     editor: NumberEditor,
 
-    render: (value) => (
-      <span className="text-red-600">{value.value}</span>
-    ),
+    render: (value) => <span className="text-red-600">{value.value}</span>,
 
     getValue: (cell) => {
       return cell?.value?.text ?? "";
@@ -130,7 +131,13 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   },
 
   STATUS: {
-    editor: StatusEditor,
+    editor: (props) => (
+      <StatusEditor
+        {...props}
+        statusOptions={props.column?.statusOptions ?? []}
+        columnId={props.column.id}
+      />
+    ),
 
     render: (value) => <StatusCell cell={value} />,
 
@@ -142,11 +149,11 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
-
+      console.log({value})
       return updateCell(boardId, cell.id, {
         value: {
-          label: value.label,
-          color: value.color,
+          label:value.label,
+          color:value.color,
         },
       });
     },
@@ -200,9 +207,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   CHECKBOX: {
     editor: CheckboxEditor,
 
-    render: (value) => (
-      <CheckboxCell checked={value.value} />
-    ),
+    render: (value) => <CheckboxCell checked={value.value} />,
 
     getValue: (_, cell) => cell?.value?.checked ?? false,
 

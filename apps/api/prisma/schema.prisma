@@ -225,6 +225,22 @@ enum BoardColumnType {
   TIMELINE
   FILE
 }
+model StatusOption {
+  id          Int         @id @default(autoincrement())
+  columnId    Int
+  label       String
+  color       String
+  order       Float       @default(1000)
+  isArchived  Boolean     @default(false)
+
+  column      BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([columnId])
+  @@index([columnId, order])
+}
 
 model BoardColumn {
   id          Int      @id @default(autoincrement())
@@ -236,7 +252,7 @@ model BoardColumn {
 
   width       Int      @default(180)
 
-  settings    Json?
+statusOptions StatusOption[]
 
   boardId     Int
 

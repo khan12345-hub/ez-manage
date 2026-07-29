@@ -1,10 +1,11 @@
-import { User } from "../../../generated/prisma/client";
-import { BoardColumnType } from "generated/prisma/enums";
+import { User } from '../../../generated/prisma/client';
+import { BoardColumnType } from 'generated/prisma/enums';
 
 export function getDefaultCellValue(
   type: BoardColumnType,
   task: any,
-  user: Pick<User, "id" | "firstName" | "lastName">,
+  user: Pick<User, 'id' | 'firstName' | 'lastName'>,
+  statusOptionByLabel: Map<string, number>,
 ) {
   switch (type) {
     case BoardColumnType.TEXT:
@@ -20,7 +21,7 @@ export function getDefaultCellValue(
       };
 
     case BoardColumnType.STATUS:
-      return task.status;
+      return String(statusOptionByLabel.get(task.status) ?? '');
 
     case BoardColumnType.DATE:
       return task.date;

@@ -42,7 +42,7 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
   const value = config.getValue(task, cell, column);
 
   const totalComments = task?._count?.comments ?? 0;
-  console.log({totalComments})
+  console.log({ totalComments });
   return (
     <td
       className={cn(
@@ -67,6 +67,8 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
             value={value}
             render={config.render}
             editor={Editor}
+            cell={cell}
+            column={column}
             isDragging={isDragging}
             onSave={(value) =>
               config.save({
@@ -103,11 +105,14 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
             title="Open task details"
             aria-label="Open task details"
           >
-            <MessageCircleMore className={`h-8 w-8 ${totalComments > 0 && "text-primary"}`} />
-            {totalComments > 0 &&
-            <Badge className="absolute left-4 top-4 h-4.5 w-4.5 leading-0.5">
-              {totalComments}
-            </Badge>}
+            <MessageCircleMore
+              className={`h-8 w-8 ${totalComments > 0 && "text-primary"}`}
+            />
+            {totalComments > 0 && (
+              <Badge className="absolute left-4 top-4 h-4.5 w-4.5 leading-0.5">
+                {totalComments}
+              </Badge>
+            )}
           </button>
         )}
       </div>
