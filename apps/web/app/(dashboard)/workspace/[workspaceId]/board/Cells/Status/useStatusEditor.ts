@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   createStatusOption,
@@ -18,12 +19,8 @@ interface UseStatusEditorProps {
   statusOptions: StatusOption[];
   usedStatusValues?: StatusValue[];
   columnId: number;
-  onSetValue: (
-    value: StatusValue,
-  ) => void;
-  onSave: (
-    value: StatusValue,
-  ) => Promise<any>;
+  onSetValue: (value: StatusValue) => void;
+  onSave: (value: StatusValue | null | undefined) => void;
 }
 
 export function useStatusEditor({
@@ -33,21 +30,16 @@ export function useStatusEditor({
   onSetValue,
   onSave,
 }: UseStatusEditorProps) {
-  const [mode, setMode] =
-    useState<StatusEditorMode>(
-      "picker",
-    );
+  const queryClient = useQueryClient();
+
+  const [mode, setMode] = useState<StatusEditorMode>("picker");
 
   const [statuses, setStatuses] =
-    useState<StatusOption[]>(
-      statusOptions,
-    );
+    useState<StatusOption[]>(statusOptions);
 
-  const [open, setOpen] =
-    useState(true);
+  const [open, setOpen] = useState(true);
 
-  const [isSaving, setIsSaving] =
-    useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setStatuses(statusOptions);
@@ -69,19 +61,15 @@ export function useStatusEditor({
     );
   };
 
-  const isStatusUsed = (
-    status: StatusOption,
-  ) => {
+  const isStatusUsed = (status: StatusOption) => {
     if (status.isNew) {
       return false;
     }
 
     return usedStatusValues.some(
       (usedStatus) =>
-        usedStatus.label ===
-          status.label &&
-        usedStatus.color ===
-          status.color,
+        usedStatus.label === status.label &&
+        usedStatus.color === status.color,
     );
   };
 
@@ -114,8 +102,7 @@ export function useStatusEditor({
           prev.length > 0
             ? Math.max(
                 ...prev.map(
-                  (status) =>
-                    status.order,
+                  (status) => status.order,
                 ),
               ) + 1000
             : 1000,
@@ -130,8 +117,7 @@ export function useStatusEditor({
     if (status.isNew) {
       setStatuses((prev) =>
         prev.filter(
-          (item) =>
-            item.id !== status.id,
+          (item) => item.id !== status.id,
         ),
       );
 
@@ -150,10 +136,13 @@ export function useStatusEditor({
 
       setStatuses((prev) =>
         prev.filter(
-          (item) =>
-            item.id !== status.id,
+          (item) => item.id !== status.id,
         ),
       );
+
+      await queryClient.invalidateQueries({
+        queryKey: ["board"],
+      });
     } catch (error) {
       console.error(
         "Failed to delete status option",
@@ -190,45 +179,41 @@ export function useStatusEditor({
     try {
       const savedStatuses =
         await Promise.all(
-          statuses.map(
-            async (status) => {
-              if (status.isNew) {
-                return createStatusOption(
-                  columnId,
-                  {
-                    label:
-                      status.label.trim(),
-                    color:
-                      status.color,
-                  },
-                );
-              }
-
-              return updateStatusOption(
+          statuses.map(async (status) => {
+            if (status.isNew) {
+              return createStatusOption(
                 columnId,
-                status.id,
                 {
                   label:
                     status.label.trim(),
-                  color:
-                    status.color,
+                  color: status.color,
                 },
               );
-            },
-          ),
-        );
+            }
 
-      const normalizedStatuses =
-        savedStatuses.map(
-          (status) => ({
-            ...status,
-            isNew: false,
+            return updateStatusOption(
+              columnId,
+              status.id,
+              {
+                label:
+                  status.label.trim(),
+                color: status.color,
+              },
+            );
           }),
         );
 
-      setStatuses(
-        normalizedStatuses,
-      );
+      const normalizedStatuses =
+        savedStatuses.map((status) => ({
+          ...status,
+          isNew: false,
+        }));
+
+      setStatuses(normalizedStatuses);
+
+      await queryClient.invalidateQueries({
+        queryKey: ["board"],
+      });
 
       setMode("picker");
 
@@ -265,12 +250,10 @@ export function useStatusEditor({
     statuses,
     open,
     isSaving,
-
     currentMode: mode,
-
     setMode,
     setOpen,
-
+    setStatuses,
     updateLabel,
     updateColor,
     addLabel,

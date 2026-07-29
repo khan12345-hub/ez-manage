@@ -149,7 +149,6 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
-      console.log({value})
       return updateCell(boardId, cell.id, {
         value: {
           label:value.label,
