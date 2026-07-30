@@ -73,18 +73,23 @@ export async function getBoards(workspaceId: number | undefined) {
 //   return response.data;
 // }
 
-export const getBoardDetail = async (
+export async function getBoardDetail(
   boardId: number,
   search?: string,
-) => {
-  const response = await api.get(`/boards/${boardId}`, {
-    params: {
-      search: search?.trim() || undefined,
+  person?: string,
+) {
+  const response = await api.get(
+    `/boards/${boardId}`,
+    {
+      params: {
+        search: search || undefined,
+        person: person || undefined,
+      },
     },
-  });
+  );
 
   return response.data;
-};
+}
 
 
 

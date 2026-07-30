@@ -61,7 +61,7 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
           </div>
         )}
 
-        <div className={`min-w-0 flex-1 ${isPrimary && "border-r"}`}>
+        <div className={`min-w-0 flex-1`}>
           <EditableCell
             value={value}
             render={config.render}

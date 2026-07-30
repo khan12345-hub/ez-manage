@@ -2,20 +2,70 @@
 
 import { useParams } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+
 import { getBoardDetail } from "@/services/boards.api";
 import { useGroupStore } from "@/store/create-group-store";
+
 import { TaskDetailsSheet } from "../Task/TaskDetailDrawer/Updates/TaskDetailsDrawer";
 import { Board } from "./Board";
+import { PersonValue } from "../Cells/Person/PersonPicker";
 
 export default function BoardPage() {
   const { setGroups } = useGroupStore();
   const params = useParams();
 
   const boardId = Number(params.boardId);
+
   const [search, setSearch] = useState("");
+
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
+  const [personFilter, setPersonFilter] = useState<PersonValue | null>(null);
+
+  /*
+
+* Get the selected person's name.
+*
+* PersonFilter is single-select, so we only
+* need the first selected user.
+*
+* Example:
+*
+* {
+* users: [
+* 
+  {
+  
+* 
+    firstName: "Manager",
+  
+* 
+    lastName: "Ezify"
+  
+* 
+  }
+  
+* ]
+* }
+*
+* becomes:
+*
+* "Manager Ezify"
+  */
+  const selectedPersonSearch = personFilter?.users?.[0]
+    ? `${personFilter.users[0].firstName ?? ""} ${
+        personFilter.users[0].lastName ?? ""
+      }`.trim()
+    : "";
+
+  /*
+
+* Debounce only the normal search.
+*
+* Person filter does not need to be combined
+* with the search string.
+  */
   useEffect(() => {
     const timeout = setTimeout(() => {
       setDebouncedSearch(search.trim());
@@ -26,29 +76,54 @@ export default function BoardPage() {
     };
   }, [search]);
 
+  /*
+
+* Board API
+*
+* Search and person are sent as separate
+* query parameters.
+*
+* Example:
+*
+* /api/boards/1
+* ?search=working
+* &person=Manager%20Ezify
+  */
   const {
     data: board,
     isLoading,
     isFetching,
     isError,
   } = useQuery({
-    queryKey: ["board", boardId, debouncedSearch],
-    queryFn: () => getBoardDetail(boardId, debouncedSearch),
+    queryKey: ["board", boardId, debouncedSearch, selectedPersonSearch],
+
+    queryFn: () =>
+      getBoardDetail(
+        boardId,
+        debouncedSearch || undefined,
+        selectedPersonSearch || undefined,
+      ),
+
     enabled: Number.isFinite(boardId),
+
     retry: 0,
+
     placeholderData: keepPreviousData,
   });
 
+  /*
+
+* Keep groups store in sync
+  */
   useEffect(() => {
     if (board?.groups) {
       setGroups(board.groups);
     }
   }, [board, setGroups]);
 
-
-
   return (
     <>
+      {" "}
       <div className="bg-background p-6">
         <Board
           board={board ?? []}
@@ -57,9 +132,10 @@ export default function BoardPage() {
           isLoading={isLoading}
           isFetching={isFetching}
           isError={isError}
-        />
+          personFilter={personFilter}
+          setPersonFilter={setPersonFilter}
+        />{" "}
       </div>
-
       <TaskDetailsSheet />
     </>
   );

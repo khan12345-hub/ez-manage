@@ -24,6 +24,8 @@ export function DateEditor({
   cancel,
 }: CellEditorProps<DateValue>) {
   const date = value?.date;
+  
+
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -37,7 +39,8 @@ export function DateEditor({
           }}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP") : "Pick a date"}
+          
+          {date ? format(date, "dd MMM yyyy") : "Pick a date"}
         </Button>
       </PopoverTrigger>
 

@@ -23,10 +23,14 @@ import {
   DEFAULT_GROUPS,
   DEFAULT_STATUS_OPTIONS,
 } from './defaults/default-board.template';
+import { BoardSearchService } from './board-search.service';
 
 @Injectable()
 export class BoardsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly boardSearchService: BoardSearchService,
+  ) {}
 
   async create(createBoardDto: CreateBoardDto, userId: number) {
     return this.prisma.$transaction(async (tx) => {
@@ -288,7 +292,7 @@ export class BoardsService {
     }));
   }
 
-  async findOne(id: number, search?: string) {
+  async findOne(id: number, search?: string, person?: string) {
     const board = await this.prisma.board.findUnique({
       where: {
         id,
@@ -446,138 +450,59 @@ export class BoardsService {
       throw new NotFoundException(`Board with ID ${id} not found.`);
     }
 
-    const searchTerm = search?.trim().toLowerCase();
+    const searchTerm = search?.trim() ?? '';
+
+    const personTerm = person?.trim() ?? '';
 
     const groups = board.groups
       .map((group) => {
-        const tasks = group.tasks
-          .filter((task) => {
-            if (!searchTerm) {
-              return true;
-            }
+        /*
+         * Apply task filters
+         */
+        const tasks = this.boardSearchService.filterTasks(group.tasks, {
+          search: searchTerm,
+          person: personTerm,
+        });
 
-            return this.taskMatchesSearch(task, searchTerm);
-          })
-          .map((task) => ({
-            ...task,
-
-            cells: (task.cells ?? []).map((cell) => ({
-              ...cell,
-
-              files: (cell.files ?? []).map(({ file }) => file),
-            })),
-
-            subtasks: (task.subtasks ?? []).map((subtask) => ({
-              ...subtask,
-
-              cells: (subtask.cells ?? []).map((cell) => ({
-                ...cell,
-
-                files: (cell.files ?? []).map(({ file }) => file),
-              })),
-            })),
-          }));
-
+        /*
+         * Search group name
+         */
         const groupNameMatches =
-          searchTerm && group.name?.trim().toLowerCase().includes(searchTerm);
+          searchTerm &&
+          group.name?.trim().toLowerCase().includes(searchTerm.toLowerCase());
 
+        /*
+         * Hide group when:
+         *
+         * - Group doesn't match search
+         * - No tasks match search
+         * - No person filter match
+         */
         if (searchTerm && !groupNameMatches && tasks.length === 0) {
           return null;
         }
 
+        /*
+         * If group name matches,
+         * return all tasks.
+         *
+         * Otherwise return
+         * filtered tasks.
+         */
         return {
           ...group,
 
-          tasks: groupNameMatches
-            ? group.tasks.map((task) => ({
-                ...task,
-
-                cells: (task.cells ?? []).map((cell) => ({
-                  ...cell,
-
-                  files: (cell.files ?? []).map(({ file }) => file),
-                })),
-
-                subtasks: (task.subtasks ?? []).map((subtask) => ({
-                  ...subtask,
-
-                  cells: (subtask.cells ?? []).map((cell) => ({
-                    ...cell,
-
-                    files: (cell.files ?? []).map(({ file }) => file),
-                  })),
-                })),
-              }))
-            : tasks,
+          tasks: groupNameMatches ? group.tasks : tasks,
         };
       })
-      .filter(Boolean);
+      .filter((group): group is NonNullable<typeof group> => Boolean(group));
 
     return {
       ...board,
+
       groups,
     };
   }
-
-  private taskMatchesSearch(task: any, search: string): boolean {
-    const taskNameMatches = task.name?.trim().toLowerCase().includes(search);
-
-    if (taskNameMatches) {
-      return true;
-    }
-
-    return task.cells.some((cell) => {
-      const columnType = cell.column.type;
-
-      if (columnType === BoardColumnType.STATUS) {
-        const statusValue = cell.value as {
-          label?: string;
-          color?: string;
-        } | null;
-
-        return (
-          statusValue?.label?.trim().toLowerCase().includes(search) ?? false
-        );
-      }
-
-      if (columnType === BoardColumnType.PERSON) {
-        const personValue = cell.value as {
-          users?: {
-            id?: number;
-            role?: string;
-            email?: string;
-            firstName?: string;
-            lastName?: string;
-            avatarUrl?: string | null;
-          }[];
-        } | null;
-
-        if (!personValue?.users?.length) {
-          return false;
-        }
-
-        return personValue.users.some((person) => {
-          const firstName = person.firstName?.trim().toLowerCase() ?? '';
-
-          const lastName = person.lastName?.trim().toLowerCase() ?? '';
-
-          const email = person.email?.trim().toLowerCase() ?? '';
-
-          const fullName = `${firstName} ${lastName}`.trim();
-
-          return (
-            firstName.includes(search) ||
-            lastName.includes(search) ||
-            fullName.includes(search) ||
-            email.includes(search)
-          );
-        });
-      }
-
-      return false;
-    });
-  }
-
   async update(id: number, updateBoardDto: UpdateBoardDto, userId: number) {
     return this.prisma.$transaction(async (tx) => {
       const board = await tx.board.findUnique({
@@ -758,137 +683,5 @@ export class BoardsService {
     }));
   }
 
-  async searchBoardTasks(boardId: number, query: string, userId: number) {
-    const search = query.trim().toLowerCase();
 
-    if (!search) {
-      return [];
-    }
-
-    const board = await this.prisma.board.findFirst({
-      where: {
-        id: boardId,
-        OR: [
-          {
-            createdById: userId,
-          },
-          {
-            members: {
-              some: {
-                userId,
-              },
-            },
-          },
-          {
-            workspace: {
-              members: {
-                some: {
-                  userId,
-                },
-              },
-            },
-          },
-        ],
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!board) {
-      throw new NotFoundException('Board not found.');
-    }
-
-    const tasks = await this.prisma.task.findMany({
-      where: {
-        group: {
-          boardId,
-        },
-      },
-      orderBy: {
-        order: 'asc',
-      },
-      include: {
-        group: true,
-
-        cells: {
-          include: {
-            column: {
-              include: {
-                statusOptions: {
-                  where: {
-                    isArchived: false,
-                  },
-                  orderBy: {
-                    order: 'asc',
-                  },
-                },
-              },
-            },
-          },
-          orderBy: {
-            column: {
-              order: 'asc',
-            },
-          },
-        },
-      },
-    });
-
-    return tasks.filter((task) => {
-      const taskNameMatches = task.name?.trim().toLowerCase().includes(search);
-
-      if (taskNameMatches) {
-        return true;
-      }
-
-      return task.cells.some((cell) => {
-        const columnType = cell.column.type;
-
-        if (columnType === BoardColumnType.STATUS) {
-          const statusValue = cell.value as {
-            label?: string;
-            color?: string;
-          } | null;
-
-          if (!statusValue?.label) {
-            return false;
-          }
-
-          return statusValue.label.trim().toLowerCase().includes(search);
-        }
-
-        if (columnType === BoardColumnType.PERSON) {
-          const personValue = cell.value as {
-            users?: {
-              id?: number;
-              role?: string;
-              email?: string;
-              firstName?: string;
-              lastName?: string;
-              avatarUrl?: string | null;
-            }[];
-          } | null;
-
-          if (!personValue?.users?.length) {
-            return false;
-          }
-
-          return personValue.users.some((person) => {
-            const firstName = person.firstName?.trim().toLowerCase() ?? '';
-            const lastName = person.lastName?.trim().toLowerCase() ?? '';
-            const email = person.email?.trim().toLowerCase() ?? '';
-
-            return (
-              firstName.includes(search) ||
-              lastName.includes(search) ||
-              email.includes(search)
-            );
-          });
-        }
-
-        return false;
-      });
-    });
-  }
 }

@@ -36,6 +36,7 @@ export function PersonFilter({ boardId, value, onChange }: Props) {
       onChange={handleChange}
       placeholder="Search people..."
       className="h-9 w-auto px-3"
+      type="filter"
     />
   );
 }

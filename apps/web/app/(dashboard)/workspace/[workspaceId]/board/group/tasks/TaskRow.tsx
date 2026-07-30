@@ -43,9 +43,9 @@ export const TaskRow = forwardRef<HTMLTableRowElement, Props>(
   ) => {
     return (
       <tr ref={ref} style={style} className="group border-b hover:bg-muted/30">
-        <td style={{ backgroundColor: color }} className="sticky left-0 w-2 z-20 min-w-2" />
+        <td style={{ backgroundColor: color }} className="sticky left-0 w-1 z-20 min-w-1" />
 
-        <td className="sticky bg-white left-2 z-20 min-w-[150px]">
+        <td className="sticky bg-white left-1 z-20 min-w-[150px]">
           <div className="flex items-center gap-2 px-3">
             {/* Drag Handle */}
             <button

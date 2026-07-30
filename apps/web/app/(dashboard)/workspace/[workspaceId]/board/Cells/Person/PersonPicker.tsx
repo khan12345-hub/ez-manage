@@ -20,13 +20,13 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { Button } from "@/components/ui/button";
 
 export interface PersonValue {
   users: BoardMember[];
 }
 
 interface Props {
-
   value?: PersonValue | null;
 
   onChange: (value: PersonValue | null) => void;
@@ -34,6 +34,8 @@ interface Props {
   placeholder?: string;
 
   className?: string;
+
+  type?: "default" | "filter";
 }
 
 export default function PersonPicker({
@@ -41,6 +43,7 @@ export default function PersonPicker({
   onChange,
   placeholder = "Search people...",
   className,
+  type = "default",
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -48,7 +51,7 @@ export default function PersonPicker({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const { boardId } = useInviteModalStore();
-  
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
@@ -70,7 +73,6 @@ export default function PersonPicker({
     staleTime: 1000 * 60 * 5,
   });
 
-
   const selectedUsers = value?.users ?? [];
 
   function initials(user: BoardMember | undefined) {
@@ -81,22 +83,66 @@ export default function PersonPicker({
     return selectedUsers.some((u) => u.id === user.id);
   }
 
-  function handleSelect(user: BoardMember) {
-    const exists = selectedUsers.some((u) => u.id === user.id);
+  // function handleSelect(user: BoardMember) {
+  //   const exists = selectedUsers.some((u) => u.id === user.id);
 
-    if (exists) {
+  //   if (exists) {
+  //     onChange({
+  //       users: selectedUsers.filter((u) => u.id !== user.id),
+  //     });
+  //   } else {
+  //     onChange({
+  //       users: [...selectedUsers, user],
+  //     });
+  //   }
+  // }
+
+  function handleSelect(user: BoardMember) {
+    const exists = selectedUsers.some(
+      (selectedUser) => selectedUser.id === user.id,
+    );
+
+    if (type === "filter") {
+      // If the same person is selected again,
+      // clear the filter
+      if (exists) {
+        onChange(null);
+        return;
+      }
+
+      // Filter allows only one person
       onChange({
-        users: selectedUsers.filter((u) => u.id !== user.id),
+        users: [user],
       });
-    } else {
-      onChange({
-        users: [...selectedUsers, user],
-      });
+
+      setOpen(false);
+
+      return;
     }
+
+    // Existing multi-person behavior
+    if (exists) {
+      const newUsers = selectedUsers.filter(
+        (selectedUser) => selectedUser.id !== user.id,
+      );
+
+      onChange(newUsers.length > 0 ? { users: newUsers } : null);
+
+      return;
+    }
+
+    onChange({
+      users: [...selectedUsers, user],
+    });
   }
 
   function clearSelection() {
     onChange({ users: [] });
+    setOpen(false);
+  }
+
+  function selectAll() {
+    onChange({ users });
   }
 
   return (
@@ -112,10 +158,10 @@ export default function PersonPicker({
             <>
               <User2 className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Assign person
+                {type === "filter" ? "Select person" : "Assign person"}
               </span>
             </>
-          )  : (
+          ) : (
             <>
               <HoverCard openDelay={100}>
                 <HoverCardTrigger asChild>
@@ -126,9 +172,7 @@ export default function PersonPicker({
                         className="h-10 w-10 border-2 border-background"
                       >
                         <AvatarImage src={user.avatar ?? undefined} />
-                        <AvatarFallback>
-                          {initials(user)}
-                        </AvatarFallback>
+                        <AvatarFallback>{initials(user)}</AvatarFallback>
                       </Avatar>
                     ))}
 
@@ -187,17 +231,22 @@ export default function PersonPicker({
             />
           </div>
         </div>
-
-        {selectedUsers.length > 0 && (
-          <>
-            <button
-              onClick={clearSelection}
-              className="w-full border-b px-3 py-2 text-left text-sm text-destructive hover:bg-accent"
-            >
-              Unassign
-            </button>
-          </>
-        )}
+        <div className="flex px-4 gap-2">
+          {type === "default" && <Button onClick={selectAll} variant={"outline"}>
+            
+            Select All
+          </Button>}
+          {selectedUsers.length > 0 && (
+            <>
+              <Button
+                onClick={clearSelection}
+                variant="destructive"
+              >
+                {type === "filter" ? "Clear All" : "Unassign All"}
+              </Button>
+            </>
+          )}
+        </div>
 
         <div className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Board Members

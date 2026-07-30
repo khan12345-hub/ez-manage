@@ -1,28 +1,18 @@
-"use client";
-
+import { BoardContent } from "./BoardContent";
 import { BoardHeader } from "./BoardHeader/BoardHeader";
 import { useBoard } from "./hooks/useBoard.hooks";
-import { BoardContent } from "./BoardContent";
-
-interface BoardProps {
-  board: any;
-  search: string;
-  setSearch: (value: string) => void;
-  isLoading: boolean;
-  isFetching: boolean;
-  isError: boolean;
-}
 
 export function Board({
   board,
   search,
   setSearch,
+  personFilter,
+  setPersonFilter,
   isLoading,
   isFetching,
   isError,
-}: BoardProps) {
+}: any) {
   const {
-    filters,
     dragGroups,
     filteredColumns,
     activeItem,
@@ -30,6 +20,7 @@ export function Board({
     handleDragOver,
     handleDragEnd,
     handleDragCancel,
+    filters,
   } = useBoard({
     board,
   });
@@ -39,8 +30,8 @@ export function Board({
       <BoardHeader
         boardId={board?.id}
         onHideColumns={filters.openHideColumnModal}
-        personFilter={filters.personFilter}
-        onPersonFilterChange={filters.setPersonFilter}
+        personFilter={personFilter}
+        onPersonFilterChange={setPersonFilter}
         search={search}
         setSearch={setSearch}
       />

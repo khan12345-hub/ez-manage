@@ -59,7 +59,7 @@ export function BoardContent({
 
   if (isError || !board) {
     return (
-      <div className="flex min-h-96 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+      <div className="flex min-h-96 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground ">
         Board not found.
       </div>
     );
@@ -93,7 +93,7 @@ export function BoardContent({
           >
             {activeItem?.type === "task" ||
             activeItem?.type === "subtask" ? (
-              <div className="rotate-1 rounded border bg-background opacity-90 shadow-2xl">
+              <div className="rotate-1 rounded border bg-background opacity-90 shadow-2xl ">
                 <table>
                   <tbody>
                     <TaskRow
@@ -130,7 +130,7 @@ export function BoardContent({
             )}
             strategy={verticalListSortingStrategy}
           >
-            <div className="mb-4 space-y-6">
+            <div className="mb-4 space-y-6 mt-20">
               {groupsToRender.map((group: any) => (
                 <SortableGroupContainer
                   key={group.id}
