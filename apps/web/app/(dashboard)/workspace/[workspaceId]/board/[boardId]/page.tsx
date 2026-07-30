@@ -1,55 +1,65 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { getBoardDetail } from "@/services/boards.api";
-import { Board } from "./Board";
-import { useEffect } from "react";
 import { useGroupStore } from "@/store/create-group-store";
 import { TaskDetailsSheet } from "../Task/TaskDetailDrawer/Updates/TaskDetailsDrawer";
-import { BoardSkeleton } from "./BoardSkeleton";
+import { Board } from "./Board";
 
 export default function BoardPage() {
-  const { setGroups, groups } = useGroupStore();
+  const { setGroups } = useGroupStore();
   const params = useParams();
+
   const boardId = Number(params.boardId);
-  console.log({ boardId });
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [search]);
+
   const {
     data: board,
     isLoading,
+    isFetching,
     isError,
   } = useQuery({
-    queryKey: ["board", boardId],
-    queryFn: () => getBoardDetail(boardId),
+    queryKey: ["board", boardId, debouncedSearch],
+    queryFn: () => getBoardDetail(boardId, debouncedSearch),
     enabled: Number.isFinite(boardId),
     retry: 0,
+    placeholderData: keepPreviousData,
   });
 
   useEffect(() => {
     if (board?.groups) {
       setGroups(board.groups);
     }
-    console.log("groups", groups);
-  }, [board]);
+  }, [board, setGroups]);
 
-  if (isLoading) {
-    return <BoardSkeleton />;
-  }
 
-  if (isError || !board) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        Board not found.
-      </div>
-    );
-  }
 
   return (
     <>
       <div className="bg-background p-6">
-        <Board board={board} />
+        <Board
+          board={board ?? []}
+          search={search}
+          setSearch={setSearch}
+          isLoading={isLoading}
+          isFetching={isFetching}
+          isError={isError}
+        />
       </div>
+
       <TaskDetailsSheet />
     </>
   );

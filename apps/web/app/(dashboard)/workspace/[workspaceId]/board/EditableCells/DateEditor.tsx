@@ -24,7 +24,6 @@ export function DateEditor({
   cancel,
 }: CellEditorProps<DateValue>) {
   const date = value?.date;
-  // const date = new Date()
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -96,7 +96,7 @@ export function useStatusEditor({
       ...prev,
       {
         id: Date.now(),
-        label: "New Label",
+        label: `New Label ${prev.length}`,
         color: "#c4c4c4",
         order:
           prev.length > 0

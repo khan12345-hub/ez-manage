@@ -1,11 +1,26 @@
-import { User } from '../../../generated/prisma/client';
-import { BoardColumnType } from 'generated/prisma/enums';
+
+import { BoardColumnType, BoardMemberRole } from 'generated/prisma/enums';
+
+interface DefaultCellUser {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+}
+
+interface DefaultStatusOption {
+  id: number;
+  label: string;
+  color: string;
+}
 
 export function getDefaultCellValue(
   type: BoardColumnType,
   task: any,
-  user: Pick<User, 'id' | 'firstName' | 'lastName'>,
-  statusOptionByLabel: Map<string, number>,
+  user: DefaultCellUser,
+  statusOptions: DefaultStatusOption[],
+  role: BoardMemberRole = BoardMemberRole.OWNER,
 ) {
   switch (type) {
     case BoardColumnType.TEXT:
@@ -15,18 +30,42 @@ export function getDefaultCellValue(
 
     case BoardColumnType.PERSON:
       return {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        users: [
+          {
+            id: user.id,
+            role,
+            email: user.email,
+            lastName: user.lastName,
+            avatarUrl: user.avatarUrl,
+            firstName: user.firstName,
+          },
+        ],
       };
 
-    case BoardColumnType.STATUS:
-      return String(statusOptionByLabel.get(task.status) ?? '');
+    case BoardColumnType.STATUS: {
+      const statusOption = statusOptions.find(
+        (status) => status.label === task.status,
+      );
+
+      if (!statusOption) {
+        return {};
+      }
+
+      return {
+        label: statusOption.label,
+        color: statusOption.color,
+      };
+    }
 
     case BoardColumnType.DATE:
-      return task.date;
+      return task.date
+        ? {
+            date: task.date,
+          }
+        : {};
 
     default:
       return {};
   }
 }
+

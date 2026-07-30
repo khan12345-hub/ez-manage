@@ -42,7 +42,13 @@ export function PersonCell({ cell }: Props) {
               key={user.id}
               className="h-7 w-7 border-2 border-background"
             >
-              <AvatarImage src={user.avatar ?? undefined} />
+              <AvatarImage
+                src={
+                  user.avatarUrl
+                    ? process.env.NEXT_PUBLIC_BACKEND_BASE_URL + user.avatarUrl
+                    : undefined
+                }
+              />
               <AvatarFallback>
                 {user.firstName?.[0]}
                 {user.lastName?.[0]}
@@ -58,11 +64,7 @@ export function PersonCell({ cell }: Props) {
         </div>
       </HoverCardTrigger>
 
-      <HoverCardContent
-        side="top"
-        align="start"
-        className="w-64 p-2"
-      >
+      <HoverCardContent side="top" align="start" className="w-64 p-2">
         <div className="space-y-2">
           {users.map((user) => (
             <div
@@ -70,7 +72,8 @@ export function PersonCell({ cell }: Props) {
               className="flex items-center gap-3 rounded-md p-2 hover:bg-accent"
             >
               <Avatar className="h-8 w-8">
-                <AvatarImage src={user.avatar ?? undefined} />
+                
+
                 <AvatarFallback>
                   {user.firstName?.[0]}
                   {user.lastName?.[0]}

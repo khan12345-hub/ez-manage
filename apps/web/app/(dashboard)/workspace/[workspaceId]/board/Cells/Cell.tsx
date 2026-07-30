@@ -42,7 +42,6 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
   const value = config.getValue(task, cell, column);
 
   const totalComments = task?._count?.comments ?? 0;
-  console.log({ totalComments });
   return (
     <td
       className={cn(

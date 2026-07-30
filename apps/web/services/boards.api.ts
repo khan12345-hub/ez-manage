@@ -68,10 +68,25 @@ export async function getBoards(workspaceId: number | undefined) {
   return response.data;
 }
 
-export async function getBoardDetail(boardId: number) {
-  const response = await api.get<BoardDetail>(`/boards/${boardId}`);
+// export async function getBoardDetail(boardId: number) {
+//   const response = await api.get<BoardDetail>(`/boards/${boardId}`);
+//   return response.data;
+// }
+
+export const getBoardDetail = async (
+  boardId: number,
+  search?: string,
+) => {
+  const response = await api.get(`/boards/${boardId}`, {
+    params: {
+      search: search?.trim() || undefined,
+    },
+  });
+
   return response.data;
-}
+};
+
+
 
 export type CreateBoardDto = {
   name: string;
@@ -117,3 +132,22 @@ export async function getBoardMembers(
 
   return data;
 }
+
+export const searchBoardTasks = async ({
+  boardId,
+  query,
+}: {
+  boardId: number;
+  query: string;
+}) => {
+  const { data } = await api.get(
+    `/boards/${boardId}/search`,
+    {
+      params: {
+        q: query,
+      },
+    },
+  );
+
+  return data;
+};

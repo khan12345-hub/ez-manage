@@ -2,9 +2,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
+  BoardMemberRole,
   UserStatus,
   WorkspaceMemberRole,
 } from '../../../generated/prisma/client';
+
+import { BoardColumnType } from '../../../generated/prisma/client';
+import { getDefaultCellValue } from 'src/boards/defaults/default-cell-value.template';
+import { DEFAULT_COLUMNS, DEFAULT_GROUPS, DEFAULT_STATUS_OPTIONS } from 'src/boards/defaults/default-board.template';
 
 @Injectable()
 export class SeedService {
@@ -14,7 +19,7 @@ export class SeedService {
   ) {}
 
 async seed() {
-  console.log("🌱 Seeding database...");
+  console.log('🌱 Seeding database...');
 
   const passwordHash = await bcrypt.hash(
     process.env.DEFAULT_OWNER_PASSWORD!,
@@ -27,15 +32,7 @@ async seed() {
     email: string;
   }[] = JSON.parse(process.env.DEFAULT_USERS!);
 
-  const defaultBoards = [
-    "General",
-    "Development",
-    "Design",
-    "Human Resources",
-  ];
-
   for (const user of users) {
-    // Create or update user
     const owner = await this.prisma.user.upsert({
       where: {
         email: user.email,
@@ -50,7 +47,6 @@ async seed() {
 
     console.log(`✅ User ready: ${owner.email}`);
 
-    // Create default workspace if one does not already exist for this user
     const existingWorkspace = await this.prisma.workspace.findFirst({
       where: {
         createdById: owner.id,
@@ -62,14 +58,13 @@ async seed() {
       (await this.prisma.workspace.create({
         data: {
           name: `${owner.firstName}'s Workspace`,
-          description: "Default workspace",
+          description: 'Default workspace',
           createdById: owner.id,
         },
       }));
 
     console.log(`✅ Workspace ready: ${workspace.name}`);
 
-    // Create or update workspace membership
     await this.prisma.workspaceMember.upsert({
       where: {
         workspaceId_userId: {
@@ -87,28 +82,109 @@ async seed() {
 
     console.log(`✅ Workspace membership ready`);
 
-    // Create default boards
-    for (const boardName of defaultBoards) {
-      await this.prisma.board.upsert({
-        where: {
-          workspaceId_name: {
+    const existingBoard = await this.prisma.board.findFirst({
+      where: {
+        workspaceId: workspace.id,
+        name: 'Basic Board',
+      },
+    });
+
+    if (!existingBoard) {
+      await this.prisma.$transaction(async (tx) => {
+        const board = await tx.board.create({
+          data: {
+            name: 'Basic Board',
             workspaceId: workspace.id,
-            name: boardName,
+            visibility: 'PUBLIC',
+            createdById: owner.id,
+
+            members: {
+              create: {
+                userId: owner.id,
+                role: BoardMemberRole.OWNER,
+              },
+            },
           },
-        },
-        update: {},
-        create: {
-          name: boardName,
-          workspaceId: workspace.id,
-          createdById: owner.id,
+        });
 
-        },
+        const columns = await tx.boardColumn.createManyAndReturn({
+          data: DEFAULT_COLUMNS.map((column, index) => ({
+            boardId: board.id,
+            name: column.name,
+            type: column.type,
+            isPrimary: column.isPrimary,
+            order: (index + 1) * 1000,
+          })),
+        });
+
+        const statusColumn = columns.find(
+          (column) => column.type === BoardColumnType.STATUS,
+        );
+
+        if (!statusColumn) {
+          throw new Error('Default status column was not created.');
+        }
+
+        const statusOptions = await tx.statusOption.createManyAndReturn({
+          data: DEFAULT_STATUS_OPTIONS.map((status) => ({
+            columnId: statusColumn.id,
+            label: status.label,
+            color: status.color,
+            order: status.order,
+          })),
+        });
+
+        for (const groupTemplate of DEFAULT_GROUPS) {
+          const group = await tx.group.create({
+            data: {
+              boardId: board.id,
+              name: groupTemplate.name,
+              color: groupTemplate.color,
+              order: groupTemplate.order * 1000,
+              createdById: owner.id,
+            },
+          });
+
+          const tasks = await tx.task.createManyAndReturn({
+            data: groupTemplate.tasks.map((task, index) => ({
+              groupId: group.id,
+              name: task.title,
+              order: (index + 1) * 1000,
+              createdById: owner.id,
+            })),
+          });
+
+          await tx.taskCell.createMany({
+            data: tasks.flatMap((task, index) =>
+              columns
+                .filter((column) => !column.isPrimary)
+                .map((column) => ({
+                  taskId: task.id,
+                  columnId: column.id,
+                  value: getDefaultCellValue(
+                    column.type,
+                    groupTemplate.tasks[index],
+                    {
+                      id: owner.id,
+                      email: owner.email,
+                      firstName: owner.firstName,
+                      lastName: owner.lastName,
+                      avatarUrl: owner.avatarUrl,
+                    },
+                    statusOptions,
+                  ),
+                })),
+            ),
+          });
+        }
       });
-    }
 
-    console.log(`✅ Default boards ready for ${workspace.name}`);
+      console.log(`✅ Basic Board created for ${workspace.name}`);
+    } else {
+      console.log(`ℹ️ Basic Board already exists for ${workspace.name}`);
+    }
   }
 
-  console.log("🎉 Database seeded successfully.");
+  console.log('🎉 Database seeded successfully.');
 }
 }

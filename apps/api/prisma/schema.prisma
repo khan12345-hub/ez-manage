@@ -208,11 +208,6 @@ model Group {
 }
 
 
-
-
-
-
-
 enum BoardColumnType {
   TEXT
   NUMBER

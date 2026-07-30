@@ -1,6 +1,5 @@
-"use client";
 
-import { useEffect, useState } from "react";
+"use client";
 
 import { useInviteModalStore } from "@/store/invite-modal";
 import { useGroupStore } from "@/store/create-group-store";
@@ -13,23 +12,15 @@ interface UseBoardProps {
 
 export function useBoard({ board }: UseBoardProps) {
   const groups = useGroupStore((state) => state.groups);
-
   const setGroups = useGroupStore((state) => state.setGroups);
 
   const { boardId } = useInviteModalStore();
 
-  const [columns, setColumns] = useState<any[]>(board.columns || []);
-
-  useEffect(() => {
-    if (!board.columns) {
-      return;
-    }
-
-    setColumns(board.columns);
-  }, [board.columns]);
+  const columns = board?.columns ?? [];
 
   const filters = useBoardFilters({
     columns,
+    boardId: board?.id ?? boardId ?? 0,
   });
 
   const {
@@ -44,8 +35,8 @@ export function useBoard({ board }: UseBoardProps) {
     groups,
     setGroups,
     columns,
-    setColumns,
-    boardId: board.id || boardId || 0,
+    setColumns: () => {},
+    boardId: board?.id ?? boardId ?? 0,
   });
 
   return {
@@ -62,3 +53,4 @@ export function useBoard({ board }: UseBoardProps) {
     handleDragCancel,
   };
 }
+

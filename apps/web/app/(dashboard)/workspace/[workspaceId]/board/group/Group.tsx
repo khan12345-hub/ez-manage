@@ -98,6 +98,7 @@ export function Group({
     (task: any) => !task.parentTaskId,
   );
 
+
   return (
     <>
       <div className="overflow-hidden">
