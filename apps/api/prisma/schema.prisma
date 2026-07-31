@@ -428,6 +428,57 @@ createdAt DateTime @default(now())
   @@map("task_comment_mentions")
 
 }
+enum ActivityType {
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_DELETED
+
+  TASK_ASSIGNED
+  TASK_UNASSIGNED
+
+  TASK_STATUS_CHANGED
+  TASK_MOVED
+
+  COMMENT_ADDED
+  COMMENT_UPDATED
+  COMMENT_DELETED
+
+  FILE_UPLOADED
+  FILE_DELETED
+
+  GROUP_CREATED
+  GROUP_UPDATED
+  GROUP_DELETED
+
+  BOARD_MEMBER_ADDED
+  BOARD_MEMBER_REMOVED
+}
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+
+  type        ActivityType
+
+  actorId     Int
+  boardId     Int?
+  taskId      Int?
+  groupId     Int?
+  commentId   Int?
+
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+
+  actor       User      @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  board       Board?    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  task        Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  group       Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  comment     TaskComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([boardId, createdAt])
+  @@index([taskId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([type, createdAt])
+}
 
 enum UserStatus {
   ACTIVE

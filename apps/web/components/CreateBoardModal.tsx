@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import { FormRadio } from "./form/FormRadio";
 import { Button } from "./ui/button";
 import { createBoard } from "@/services/boards.api";
 import { useRouter } from "next/navigation";
+import { ExcelBoardImport } from "./ExcelBoardImport";
 
 const boardSchema = z.object({
   name: z.string().trim().min(1, "Board name is required"),
@@ -57,7 +58,11 @@ export function CreateBoardModal({
   });
 
   const { reset } = form;
-  
+
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+
+  const [excelPreviewOpen, setExcelPreviewOpen] = useState(false);
+
   const router = useRouter();
   const createBoardMutation = useMutation({
     mutationFn: (values: BoardFormValues) =>
@@ -93,6 +98,8 @@ export function CreateBoardModal({
   };
 
   if (!isOpen) return null;
+
+  
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
@@ -143,6 +150,12 @@ export function CreateBoardModal({
               options={VISIBILITY_OPTIONS}
               gridCols="2"
               gap="2.5"
+            />
+
+            <ExcelBoardImport
+              file={excelFile}
+              onFileChange={setExcelFile}
+              onPreview={() => setExcelPreviewOpen(true)}
             />
 
             <div className="flex items-center justify-end gap-2.5 border-t border-gray-100 pt-4 dark:border-zinc-800">

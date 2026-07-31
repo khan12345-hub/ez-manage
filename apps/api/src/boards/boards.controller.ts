@@ -23,15 +23,15 @@ import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
 
 import { BoardPermission } from '@repo/shared';
+import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
+import { BoardImportService } from './board-import.service';
 
 @Controller('boards')
-@UseGuards(
-  SessionAuthGuard,
-  BoardPermissionGuard,
-)
+@UseGuards(SessionAuthGuard, BoardPermissionGuard)
 export class BoardsController {
   constructor(
     private readonly boardsService: BoardsService,
+    private readonly boardImportService: BoardImportService,
   ) {}
 
   @Post()
@@ -39,21 +39,13 @@ export class BoardsController {
     @Body() createBoardDto: CreateBoardDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.boardsService.create(
-      createBoardDto,
-      user.id,
-    );
+    return this.boardsService.create(createBoardDto, user.id);
   }
 
   @Get(':boardId')
-  @RequireBoardPermission(
-    BoardPermission.VIEW,
-  )
+  @RequireBoardPermission(BoardPermission.VIEW)
   async findOne(
-    @Param(
-      'boardId',
-      ParseIntPipe,
-    )
+    @Param('boardId', ParseIntPipe)
     boardId: number,
 
     @Query('search')
@@ -62,22 +54,13 @@ export class BoardsController {
     @Query('person')
     person?: string,
   ) {
-    return this.boardsService.findOne(
-      boardId,
-      search,
-      person,
-    );
+    return this.boardsService.findOne(boardId, search, person);
   }
 
   @Get(':boardId/members')
-  @RequireBoardPermission(
-    BoardPermission.VIEW,
-  )
+  @RequireBoardPermission(BoardPermission.VIEW)
   findMembers(
-    @Param(
-      'boardId',
-      ParseIntPipe,
-    )
+    @Param('boardId', ParseIntPipe)
     boardId: number,
 
     @Query('search')
@@ -86,22 +69,13 @@ export class BoardsController {
     @CurrentUser()
     user: SessionUser,
   ) {
-    return this.boardsService.findMembers(
-      boardId,
-      user.id,
-      search,
-    );
+    return this.boardsService.findMembers(boardId, user.id, search);
   }
 
   @Patch(':id')
-  @RequireBoardPermission(
-    BoardPermission.EDIT,
-  )
+  @RequireBoardPermission(BoardPermission.EDIT)
   update(
-    @Param(
-      'id',
-      ParseIntPipe,
-    )
+    @Param('id', ParseIntPipe)
     id: number,
 
     @Body()
@@ -110,30 +84,30 @@ export class BoardsController {
     @CurrentUser()
     user: SessionUser,
   ) {
-    return this.boardsService.update(
-      id,
-      updateBoardDto,
-      user.id,
-    );
+    return this.boardsService.update(id, updateBoardDto, user.id);
   }
 
   @Delete(':id')
-  @RequireBoardPermission(
-    BoardPermission.DELETE,
-  )
+  @RequireBoardPermission(BoardPermission.DELETE)
   remove(
-    @Param(
-      'id',
-      ParseIntPipe,
-    )
+    @Param('id', ParseIntPipe)
     id: number,
 
     @CurrentUser()
     user: SessionUser,
   ) {
-    return this.boardsService.remove(
-      id,
-      user.id,
-    );
+    return this.boardsService.remove(id, user.id);
+  }
+
+  @Post('import/excel')
+  async importExcelBoard(
+    @Body()
+    dto: ImportExcelBoardDto,
+    @CurrentUser()
+    user: SessionUser,
+  ) {
+    const userId = 'CURRENT_USER_ID';
+
+    return this.boardImportService.importExcelBoard(user.id, dto);
   }
 }

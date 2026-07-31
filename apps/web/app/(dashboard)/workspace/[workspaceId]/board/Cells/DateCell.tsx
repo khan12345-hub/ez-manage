@@ -11,5 +11,5 @@ export function DateCell({ cell }: Props) {
   //   .replace(/\//g, "-");
 
    const formattedDate = format(date, "dd MMM yyyy")
-  return <>{formattedDate ?? "—"} 2</>;
+  return <>{formattedDate ?? "—"}</>;
 }

@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { BoardColumnType } from "./columns.api";
 
 export type BoardDetail = {
   id: number;
@@ -67,11 +68,6 @@ export async function getBoards(workspaceId: number | undefined) {
   const response = await api.get(`/workspaces/${workspaceId}/boards`);
   return response.data;
 }
-
-// export async function getBoardDetail(boardId: number) {
-//   const response = await api.get<BoardDetail>(`/boards/${boardId}`);
-//   return response.data;
-// }
 
 export async function getBoardDetail(
   boardId: number,
@@ -156,3 +152,29 @@ export const searchBoardTasks = async ({
 
   return data;
 };
+
+export interface ImportExcelBoardPayload {
+  boardName: string;
+  workspaceId: string;
+  taskColumn: string;
+  groupColumn?: string;
+
+  columns: {
+    sourceColumn: string;
+    targetColumn: string;
+    type: BoardColumnType;
+  }[];
+
+  rows: Record<string, unknown>[];
+}
+
+export async function importExcelBoard(
+  payload: ImportExcelBoardPayload,
+) {
+  const response = await api.post(
+    '/boards/import/excel',
+    payload,
+  );
+
+  return response.data;
+}
