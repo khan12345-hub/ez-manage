@@ -385,6 +385,7 @@ export class BoardsService {
                             fileSize: true,
                             storageKey: true,
                             uploadedById: true,
+                            uploadedAt: true,
                           },
                         },
                       },
@@ -431,6 +432,7 @@ export class BoardsService {
                                 fileSize: true,
                                 storageKey: true,
                                 uploadedById: true,
+                                uploadedAt: true,
                               },
                             },
                           },
@@ -456,43 +458,43 @@ export class BoardsService {
 
     const groups = board.groups
       .map((group) => {
-        /*
-         * Apply task filters
-         */
         const tasks = this.boardSearchService.filterTasks(group.tasks, {
           search: searchTerm,
           person: personTerm,
         });
 
-        /*
-         * Search group name
-         */
         const groupNameMatches =
-          searchTerm &&
+          Boolean(searchTerm) &&
           group.name?.trim().toLowerCase().includes(searchTerm.toLowerCase());
 
-        /*
-         * Hide group when:
-         *
-         * - Group doesn't match search
-         * - No tasks match search
-         * - No person filter match
-         */
         if (searchTerm && !groupNameMatches && tasks.length === 0) {
           return null;
         }
 
-        /*
-         * If group name matches,
-         * return all tasks.
-         *
-         * Otherwise return
-         * filtered tasks.
-         */
+        const visibleTasks = groupNameMatches ? group.tasks : tasks;
+
         return {
           ...group,
 
-          tasks: groupNameMatches ? group.tasks : tasks,
+          tasks: visibleTasks.map((task) => ({
+            ...task,
+
+            cells: task.cells.map((cell) => ({
+              ...cell,
+
+              files: cell.files.map(({ file }) => file),
+            })),
+
+            subtasks: task.subtasks.map((subtask) => ({
+              ...subtask,
+
+              cells: subtask.cells.map((cell) => ({
+                ...cell,
+
+                files: cell.files.map(({ file }) => file),
+              })),
+            })),
+          })),
         };
       })
       .filter((group): group is NonNullable<typeof group> => Boolean(group));
@@ -503,6 +505,7 @@ export class BoardsService {
       groups,
     };
   }
+
   async update(id: number, updateBoardDto: UpdateBoardDto, userId: number) {
     return this.prisma.$transaction(async (tx) => {
       const board = await tx.board.findUnique({
@@ -682,6 +685,4 @@ export class BoardsService {
       role: member.role,
     }));
   }
-
-
 }

@@ -24,7 +24,9 @@ export function FileCell({ value }: FileCellProps) {
   const [open, setOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-
+  console.log({
+    "CELL FILES": value.files
+  })
   return (
     <>
       {value.files.length > 0 ? (

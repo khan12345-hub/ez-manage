@@ -124,9 +124,7 @@ export default function FilePreviewItem({
 
   const canDelete = boardAccess || workspaceAccess || isFileUploader;
 
-  console.log({
-    file
-  });
+  
   // Don't render anything after successful deletion
   if (deleted) {
     return null;

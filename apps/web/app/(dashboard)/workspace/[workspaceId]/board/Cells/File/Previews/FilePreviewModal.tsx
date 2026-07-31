@@ -48,6 +48,8 @@ export function FilePreviewModal({
     onUploadClick?.();
   };
 
+  console.log({ files });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -60,8 +62,13 @@ export function FilePreviewModal({
           {files.length > 0 ? (
             <div className="max-h-[60vh] overflow-y-auto rounded-md p-2">
               <div className="space-y-2">
-                {files.map((file) => (
-                  <FilePreviewItem key={file.id} cellId={cellId} commentId={commentId} file={file} />
+                {files.map((file, index) => (
+                  <FilePreviewItem
+                    key={`${file.id}-${file.storageKey}-${index}`}
+                    cellId={cellId}
+                    commentId={commentId}
+                    file={file}
+                  />
                 ))}
               </div>
             </div>

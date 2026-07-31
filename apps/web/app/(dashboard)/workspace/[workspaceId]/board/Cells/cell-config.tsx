@@ -230,7 +230,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   FILE: {
     editor: FileCell as any,
 
-    render: (value) => <FileCell value={value} />,
+    render: (value) => <FileCell value={value.files} />,
 
     getValue: (_, cell) => ({
       cellId: cell?.id,

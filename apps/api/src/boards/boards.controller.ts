@@ -99,15 +99,15 @@ export class BoardsController {
     return this.boardsService.remove(id, user.id);
   }
 
-  @Post('import/excel')
-  async importExcelBoard(
-    @Body()
-    dto: ImportExcelBoardDto,
-    @CurrentUser()
-    user: SessionUser,
-  ) {
-    const userId = 'CURRENT_USER_ID';
+  // @Post('import/excel')
+  // async importExcelBoard(
+  //   @Body()
+  //   dto: ImportExcelBoardDto,
+  //   @CurrentUser()
+  //   user: SessionUser,
+  // ) {
+  //   const userId = 'CURRENT_USER_ID';
 
-    return this.boardImportService.importExcelBoard(user.id, dto);
-  }
+  //   return this.boardImportService.importExcelBoard(user.id, dto);
+  // }
 }
