@@ -19,26 +19,16 @@ export enum NotificationEntityType {
 }
 
 export interface Notification {
-  id: number;
-
+  id: string;
   recipientId: number;
-
-  type: NotificationType;
-
+  type: string;
   title: string;
-
   message: string;
-
-  entityType?: NotificationEntityType | null;
-
+  entityType?: string | null;
   entityId?: number | null;
-
   metadata?: Record<string, unknown> | null;
-
   isRead: boolean;
-
   readAt?: string | null;
-
   createdAt: string;
 }
 
@@ -54,4 +44,7 @@ export interface NotificationsResponse {
 
     totalPages: number;
   };
+}
+export interface UnreadCountResponse {
+count: number;
 }

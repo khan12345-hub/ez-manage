@@ -16,57 +16,61 @@ import { TaskAssignedEvent } from 'src/notifications/events/task-assigned.event'
 
 @Injectable()
 export class CellsService {
-  private extractPersonId(value: unknown): number | null {
-    if (!value) {
-      return null;
-    }
+  private extractPersonIds(value: unknown): number[] {
+    console.log(
+      '[Notification Debug] Extracting person IDs from value:',
+      JSON.stringify(value),
+    );
 
-    if (typeof value !== 'object' || Array.isArray(value)) {
-      return null;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return [];
     }
 
     const person = value as Record<string, unknown>;
 
-    /**
-     * Supports:
-     *
-     * {
-     *   id: 123
-     * }
-     *
-     * or
-     *
-     * {
-     *   userId: 123
-     * }
-     */
-
-    const rawId = person.userId ?? person.id;
-
-    if (typeof rawId === 'number') {
-      return rawId;
+    if (!Array.isArray(person.users)) {
+      return [];
     }
 
-    if (typeof rawId === 'string' && !isNaN(Number(rawId))) {
-      return Number(rawId);
-    }
+    const userIds = person.users
+      .map((user) => {
+        if (!user || typeof user !== 'object') {
+          return null;
+        }
 
-    return null;
+        const userObject = user as Record<string, unknown>;
+
+        const id = userObject.id;
+
+        if (typeof id === 'number') {
+          return id;
+        }
+
+        if (typeof id === 'string' && !isNaN(Number(id))) {
+          return Number(id);
+        }
+
+        return null;
+      })
+      .filter((id): id is number => id !== null);
+
+    console.log('[Notification Debug] Extracted person IDs:', userIds);
+
+    return userIds;
   }
 
   private async handleTaskAssignment(params: {
-  recipientId: number;
+    recipientId: number;
 
-  taskId: number;
+    taskId: number;
 
-  boardId: number;
+    boardId: number;
 
-  taskName: string;
+    taskName: string;
 
-  assignedById: number;
-}) {
-  const assignedBy =
-    await this.prisma.user.findUnique({
+    assignedById: number;
+  }) {
+    const assignedBy = await this.prisma.user.findUnique({
       where: {
         id: params.assignedById,
       },
@@ -79,36 +83,28 @@ export class CellsService {
       },
     });
 
-  if (!assignedBy) {
-    return;
+    if (!assignedBy) {
+      return;
+    }
+
+    this.eventEmitter.emit(
+      'task.assigned',
+
+      new TaskAssignedEvent({
+        recipientId: params.recipientId,
+
+        taskId: params.taskId,
+
+        boardId: params.boardId,
+
+        taskName: params.taskName,
+
+        assignedById: assignedBy.id,
+
+        assignedByName: assignedBy.firstName + ' ' + assignedBy.lastName,
+      }),
+    );
   }
-
-  this.eventEmitter.emit(
-    'task.assigned',
-
-    new TaskAssignedEvent({
-      recipientId:
-        params.recipientId,
-
-      taskId:
-        params.taskId,
-
-      boardId:
-        params.boardId,
-
-      taskName:
-        params.taskName,
-
-      assignedById:
-        assignedBy.id,
-
-      assignedByName:
-        assignedBy.firstName +
-        ' ' +
-        assignedBy.lastName,
-    }),
-  );
-}
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: LocalStorageService,
@@ -330,10 +326,10 @@ export class CellsService {
      * Capture the previous assignee before
      * updating the cell.
      */
-    const previousAssigneeId =
+    const previousAssigneeIds =
       cell.column.type === BoardColumnType.PERSON
-        ? this.extractPersonId(cell.value)
-        : null;
+        ? this.extractPersonIds(cell.value)
+        : [];
 
     /**
      * Update the cell.
@@ -352,21 +348,34 @@ export class CellsService {
      * Handle task assignment notification.
      */
     if (cell.column.type === BoardColumnType.PERSON) {
-      const newAssigneeId = this.extractPersonId(dto.value);
+      const newAssigneeIds = this.extractPersonIds(dto.value);
+
+      console.log(
+        '[Notification Debug] Previous assignees:',
+        previousAssigneeIds,
+      );
+
+      console.log('[Notification Debug] New assignees:', newAssigneeIds);
 
       /**
-       * Notify only when a new user is assigned.
-       *
-       * Examples:
-       *
-       * null -> user 10  => notify user 10
-       * user 10 -> user 20 => notify user 20
-       * user 10 -> user 10 => don't notify
-       * user 10 -> null => don't notify
+       * Find users that are newly assigned.
        */
-      if (newAssigneeId && newAssigneeId !== previousAssigneeId) {
+      const newlyAssignedUserIds = newAssigneeIds.filter(
+        (userId) => !previousAssigneeIds.includes(userId),
+      );
+
+      console.log(
+        '[Notification Debug] Newly assigned users:',
+        newlyAssignedUserIds,
+      );
+
+      /**
+       * Send notification to each newly
+       * assigned user.
+       */
+      for (const recipientId of newlyAssignedUserIds) {
         await this.handleTaskAssignment({
-          recipientId: newAssigneeId,
+          recipientId,
 
           taskId: cell.task.id,
 

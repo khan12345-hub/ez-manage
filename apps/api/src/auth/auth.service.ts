@@ -81,7 +81,7 @@ export class AuthService {
     const user = await this.authRepository.findUserById(req.id);
     
     
-    console.log({user})
+    
 
     // User deleted
     if (!user) {

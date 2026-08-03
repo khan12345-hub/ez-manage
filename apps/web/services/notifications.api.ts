@@ -35,7 +35,7 @@ export async function getUnreadNotificationCount(): Promise<{
 }
 
 export async function markNotificationAsRead(
-  notificationId: number,
+  notificationId: string,
 ): Promise<Notification> {
   const response =
     await api.patch<Notification>(
@@ -68,3 +68,4 @@ export async function deleteNotification(
 
   return response.data;
 }
+

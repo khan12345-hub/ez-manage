@@ -14,15 +14,13 @@ import { NotificationsListener } from './notifications.listener';
 import { MailModule } from 'src/mail/mail.module';
 import { DatabaseModule } from 'src/database/database.module';
 import { PrismaService } from '../../prisma/prisma.service';
-
+import { NotificationStreamService } from './notification-stream.service';
 @Module({
   imports: [
     DatabaseModule,
     BullModule.registerQueue({
       name: 'notifications',
     }),
-
-
 
     MailModule,
   ],
@@ -35,11 +33,12 @@ import { PrismaService } from '../../prisma/prisma.service';
     NotificationsProcessor,
 
     NotificationsListener,
-
+    NotificationStreamService,
     // PrismaService,
   ],
 
-  exports: [NotificationsService, 
+  exports: [
+    NotificationsService,
     // PrismaService
   ],
 })

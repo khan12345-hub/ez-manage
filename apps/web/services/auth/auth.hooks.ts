@@ -18,7 +18,7 @@ export function useLogin() {
     onError: (error: any) => {
       const errorMsg =
         error?.response?.data?.message ||
-        "Failed to send invitation. Please try again.";
+        "Login Failed. Please try again.";
       toast.error(errorMsg);
     },
     retry: false,

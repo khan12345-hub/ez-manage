@@ -96,10 +96,7 @@ export class BoardAccessService {
 
     // Workspace role takes precedence
 
-    console.log({
-      boardRole,
-      workspaceRole,
-    });
+
     if (
       workspaceRole &&
       WORKSPACE_ROLE_PERMISSIONS[workspaceRole]?.includes(permission)

@@ -71,8 +71,8 @@ export class NotificationsProcessor
       message:
         notification.message,
 
-      metadata:
-        notification.metadata,
+      // metadata:
+      //   notification.metadata,
     });
   }
 }

@@ -1,0 +1,73 @@
+import { Injectable } from '@nestjs/common';
+import { Observable, Subject } from 'rxjs';
+
+@Injectable()
+export class NotificationStreamService {
+  private readonly streams = new Map<
+    number,
+    Set<Subject<any>>
+  >();
+
+  connect(userId: number) {
+    const stream = new Subject<any>();
+
+    let userStreams = this.streams.get(userId);
+
+    if (!userStreams) {
+      userStreams = new Set();
+
+      this.streams.set(
+        userId,
+        userStreams,
+      );
+    }
+
+    userStreams.add(stream);
+
+    console.log(
+      `[SSE] User ${userId} connected`,
+    );
+
+    return {
+      observable: stream.asObservable(),
+
+      cleanup: () => {
+        stream.complete();
+
+        userStreams!.delete(stream);
+
+        if (userStreams!.size === 0) {
+          this.streams.delete(userId);
+        }
+
+        console.log(
+          `[SSE] User ${userId} disconnected`,
+        );
+      },
+    };
+  }
+
+  emit(
+    userId: number,
+    notification: any,
+  ) {
+    const userStreams =
+      this.streams.get(userId);
+
+    if (!userStreams) {
+      console.log(
+        `[SSE] No active connection for user ${userId}`,
+      );
+
+      return;
+    }
+
+    console.log(
+      `[SSE] Sending notification to user ${userId}`,
+    );
+
+    for (const stream of userStreams) {
+      stream.next(notification);
+    }
+  }
+}

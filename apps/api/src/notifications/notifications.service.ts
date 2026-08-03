@@ -101,8 +101,8 @@ export class NotificationsService {
         },
         {
           jobId: eventKey
-            ? `notification-email:${eventKey}`
-            : `notification-email:${notification.id}`,
+            ? `notification-email-${eventKey.replace(/:/g, '-')}`
+            : `notification-email-${notification.id}`,
 
           attempts: 3,
 
@@ -170,14 +170,7 @@ export class NotificationsService {
   async getUnreadCount(recipientId: number) {
     const notifications = await this.prisma.notification.findMany();
 
-    console.log(JSON.stringify(notifications, null, 2));
-    return this.prisma.notification.count({
-      where: {
-        recipientId,
 
-        isRead: false,
-      },
-    });
   }
 
   /**
