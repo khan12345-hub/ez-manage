@@ -21,8 +21,10 @@
     "seed": "npm run build && node dist/database/seed/seed.js"
   },
   "dependencies": {
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/event-emitter": "^3.1.0",
     "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/adapter-pg": "^7.8.0",
@@ -30,16 +32,19 @@
     "@repo/shared": "workspace:*",
     "@types/multer": "^2.2.0",
     "bcrypt": "^6.0.0",
+    "bullmq": "^6.0.6",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "connect-pg-simple": "^10.0.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "express-session": "^1.19.0",
+    "ioredis": "^6.0.0",
     "nodemailer": "^9.0.3",
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

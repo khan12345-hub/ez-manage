@@ -12,13 +12,9 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 
-import {
-  FilesInterceptor,
-} from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
-import {
-  memoryStorage,
-} from 'multer';
+import { memoryStorage } from 'multer';
 
 import { CellsService } from './cells.service';
 
@@ -36,24 +32,14 @@ import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
 import { BoardPermission } from '@repo/shared';
 
 @Controller('boards/:boardId/cells')
-@UseGuards(
-  SessionAuthGuard,
-  BoardPermissionGuard,
-)
+@UseGuards(SessionAuthGuard, BoardPermissionGuard)
 export class CellsController {
-  constructor(
-    private readonly cellsService: CellsService,
-  ) {}
+  constructor(private readonly cellsService: CellsService) {}
 
   @Post()
-  @RequireBoardPermission(
-    BoardPermission.EDIT,
-  )
+  @RequireBoardPermission(BoardPermission.EDIT)
   create(
-    @Param(
-      'boardId',
-      ParseIntPipe,
-    )
+    @Param('boardId', ParseIntPipe)
     boardId: number,
 
     @Body()
@@ -62,67 +48,37 @@ export class CellsController {
     @CurrentUser()
     user: SessionUser,
   ) {
-    return this.cellsService.create(
-      createCellDto,
-      boardId,
-      user.id,
-    );
+    return this.cellsService.create(createCellDto, boardId, user.id);
   }
 
   @Get()
-  @RequireBoardPermission(
-    BoardPermission.VIEW,
-  )
+  @RequireBoardPermission(BoardPermission.VIEW)
   findAll(
-    @Param(
-      'boardId',
-      ParseIntPipe,
-    )
+    @Param('boardId', ParseIntPipe)
     boardId: number,
   ) {
-    return this.cellsService.findAll(
-      boardId,
-    );
+    return this.cellsService.findAll(boardId);
   }
 
   @Get(':id')
-  @RequireBoardPermission(
-    BoardPermission.VIEW,
-  )
+  @RequireBoardPermission(BoardPermission.VIEW)
   findOne(
-    @Param(
-      'boardId',
-      ParseIntPipe,
-    )
+    @Param('boardId', ParseIntPipe)
     boardId: number,
 
-    @Param(
-      'id',
-      ParseIntPipe,
-    )
+    @Param('id', ParseIntPipe)
     id: number,
   ) {
-    return this.cellsService.findOne(
-      id,
-      boardId,
-    );
+    return this.cellsService.findOne(id, boardId);
   }
 
   @Patch(':id')
-  @RequireBoardPermission(
-    BoardPermission.EDIT,
-  )
+  @RequireBoardPermission(BoardPermission.EDIT)
   updateCell(
-    @Param(
-      'boardId',
-      ParseIntPipe,
-    )
+    @Param('boardId', ParseIntPipe)
     boardId: number,
 
-    @Param(
-      'id',
-      ParseIntPipe,
-    )
+    @Param('id', ParseIntPipe)
     id: number,
 
     @Body()
@@ -131,33 +87,17 @@ export class CellsController {
     @CurrentUser()
     user: SessionUser,
   ) {
-    return this.cellsService.updateCell(
-      id,
-      dto,
-      user.id,
-      boardId,
-    );
+    return this.cellsService.updateCell(id, dto, user.id, boardId);
   }
 
   @Post(':cellId/files')
   @RequireBoardPermission(BoardPermission.EDIT)
-  @UseInterceptors(
-    FilesInterceptor(
-      'files',
-      10,
-    ),
-  )
+  @UseInterceptors(FilesInterceptor('files', 10))
   uploadFiles(
-    @Param(
-      'boardId',
-      ParseIntPipe,
-    )
+    @Param('boardId', ParseIntPipe)
     boardId: number,
 
-    @Param(
-      'cellId',
-      ParseIntPipe,
-    )
+    @Param('cellId', ParseIntPipe)
     cellId: number,
 
     @UploadedFiles()
@@ -166,51 +106,30 @@ export class CellsController {
     @CurrentUser()
     user: SessionUser,
   ) {
-    return this.cellsService.uploadFiles(
-      cellId,
-      boardId,
-      user.id,
-      files ?? [],
-    );
+    return this.cellsService.uploadFiles(cellId, boardId, user.id, files ?? []);
   }
 
   @Delete(':id')
-  @RequireBoardPermission(
-    BoardPermission.DELETE,
-  )
+  @RequireBoardPermission(BoardPermission.DELETE)
   remove(
-    @Param(
-      'boardId',
-      ParseIntPipe,
-    )
+    @Param('boardId', ParseIntPipe)
     boardId: number,
 
-    @Param(
-      'id',
-      ParseIntPipe,
-    )
+    @Param('id', ParseIntPipe)
     id: number,
   ) {
-    return this.cellsService.remove(
-      id,
-      boardId,
-    );
+    return this.cellsService.remove(id, boardId);
   }
 
-  @Delete(":cellId/files/:fileId")
+  @Delete(':cellId/files/:fileId')
   @UseGuards(BoardPermissionGuard)
   @RequireBoardPermission(BoardPermission.EDIT)
   removeFile(
-    @Param("boardId", ParseIntPipe) boardId: number,
-    @Param("cellId", ParseIntPipe) cellId: number,
-    @Param("fileId", ParseIntPipe) fileId: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('cellId', ParseIntPipe) cellId: number,
+    @Param('fileId', ParseIntPipe) fileId: number,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.cellsService.removeFile(
-      boardId,
-      cellId,
-      fileId,
-      user.id
-    );
+    return this.cellsService.removeFile(boardId, cellId, fileId, user.id);
   }
 }

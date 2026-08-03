@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -685,4 +686,6 @@ export class BoardsService {
       role: member.role,
     }));
   }
+
+
 }

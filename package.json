@@ -1,6 +1,9 @@
 {
   "dependencies": {
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/mapped-types": "*",
+    "bullmq": "^6.0.6",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "name": "ez-manage",

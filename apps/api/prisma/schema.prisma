@@ -42,6 +42,7 @@ model User {
 
   filesUploaded       File[]            @relation("FileUploader")
   
+  notifications        Notification[]
 
   @@map("users")
 }
@@ -247,7 +248,7 @@ model BoardColumn {
 
   width       Int      @default(180)
 
-statusOptions StatusOption[]
+  statusOptions StatusOption[]
 
   boardId     Int
 
@@ -261,7 +262,6 @@ statusOptions StatusOption[]
   isPrimary Boolean @default(false)
 
   @@index([boardId])
-  @@unique([boardId, name])
   @@map("board_columns")
 
 }
@@ -453,32 +453,7 @@ enum ActivityType {
   BOARD_MEMBER_ADDED
   BOARD_MEMBER_REMOVED
 }
-model ActivityLog {
-  id          Int      @id @default(autoincrement())
 
-  type        ActivityType
-
-  actorId     Int
-  boardId     Int?
-  taskId      Int?
-  groupId     Int?
-  commentId   Int?
-
-  metadata    Json?
-
-  createdAt   DateTime @default(now())
-
-  actor       User      @relation(fields: [actorId], references: [id], onDelete: Cascade)
-  board       Board?    @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  task        Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  group       Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  comment     TaskComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
-
-  @@index([boardId, createdAt])
-  @@index([taskId, createdAt])
-  @@index([actorId, createdAt])
-  @@index([type, createdAt])
-}
 
 enum UserStatus {
   ACTIVE
@@ -497,4 +472,58 @@ enum InvitationStatus {
   REVOKED
 
   @@map("invitation_status")
+}
+enum NotificationType {
+  TASK_ASSIGNED
+  COMMENT_MENTION
+  COMMENT_REPLY
+
+  BOARD_MEMBER_ADDED
+  WORKSPACE_MEMBER_ADDED
+
+  TASK_STATUS_CHANGED
+  TASK_DUE_SOON
+
+  LEAVE_REQUEST_CREATED
+  LEAVE_REQUEST_APPROVED
+  LEAVE_REQUEST_REJECTED
+}
+
+enum NotificationEntityType {
+  TASK
+  COMMENT
+  BOARD
+  WORKSPACE
+  LEAVE_REQUEST
+}
+
+
+
+model Notification {
+  id String @id @default(cuid())
+
+  recipientId Int
+
+  type NotificationType
+
+  title   String
+  message String
+
+  entityType NotificationEntityType?
+  entityId   Int?
+
+  metadata Json?
+
+  isRead Boolean @default(false)
+  readAt DateTime?
+
+  eventKey String? @unique
+
+  createdAt DateTime @default(now())
+
+  recipient User @relation(fields: [recipientId],references: [id],onDelete: Cascade)
+
+  @@index([recipientId, isRead])
+  @@index([recipientId, createdAt])
+  @@index([entityType, entityId])
 }

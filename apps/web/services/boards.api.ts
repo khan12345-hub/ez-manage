@@ -153,28 +153,46 @@ export const searchBoardTasks = async ({
   return data;
 };
 
-export interface ImportExcelBoardPayload {
-  boardName: string;
-  workspaceId: string;
-  taskColumn: string;
-  groupColumn?: string;
+// export interface ImportExcelBoardPayload {
+//   boardName: string;
+//   workspaceId: string;
+//   taskColumn: string;
+//   groupColumn?: string;
 
-  columns: {
-    sourceColumn: string;
-    targetColumn: string;
-    type: BoardColumnType;
-  }[];
+//   columns: {
+//     sourceColumn: string;
+//     targetColumn: string;
+//     type: BoardColumnType;
+//   }[];
 
-  rows: Record<string, unknown>[];
-}
+//   rows: Record<string, unknown>[];
+// }
 
-export async function importExcelBoard(
-  payload: ImportExcelBoardPayload,
-) {
+export const importBoard = async ({
+  name,
+  visibility,
+  workspaceId,
+  file,
+}: {
+  name: string;
+  visibility: "PUBLIC" | "PRIVATE";
+  workspaceId: number;
+  file: File;
+}) => {
+  const formData = new FormData();
+
+  formData.append("name", name);
+  formData.append("visibility", visibility);
+  formData.append(
+    "workspaceId",
+    String(workspaceId),
+  );
+  formData.append("file", file);
+
   const response = await api.post(
-    '/boards/import/excel',
-    payload,
+    "/imports/excel",
+    formData,
   );
 
   return response.data;
-}
+};

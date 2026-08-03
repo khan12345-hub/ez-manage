@@ -1,0 +1,261 @@
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  NotificationEntityType,
+  NotificationType,
+} from 'generated/prisma/enums';
+import { PrismaService } from '../../prisma/prisma.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+
+@Injectable()
+export class NotificationsService {
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService,
+
+    @InjectQueue('notifications')
+    private readonly notificationsQueue: Queue,
+  ) {}
+
+  /**
+   * Create an in-app notification
+   * and optionally queue an email.
+   */
+  async notify(params: {
+    recipientId: number;
+
+    type: NotificationType;
+
+    title: string;
+
+    message: string;
+
+    entityType?: NotificationEntityType;
+
+    entityId?: number;
+
+    metadata?: Record<string, any>;
+
+    eventKey?: string;
+
+    sendEmail?: boolean;
+  }) {
+    const {
+      recipientId,
+      type,
+      title,
+      message,
+      entityType,
+      entityId,
+      metadata,
+      eventKey,
+      sendEmail = true,
+    } = params;
+
+    /**
+     * Prevent duplicate notification creation.
+     *
+     * If eventKey exists and the same event was already
+     * processed, return the existing notification.
+     */
+    if (eventKey) {
+      const existing = await this.prisma.notification.findUnique({
+        where: {
+          eventKey,
+        },
+      });
+
+      if (existing) {
+        return existing;
+      }
+    }
+
+    const notification = await this.prisma.notification.create({
+      data: {
+        recipientId,
+
+        type,
+
+        title,
+
+        message,
+
+        entityType,
+
+        entityId,
+
+        metadata,
+
+        eventKey,
+      },
+    });
+
+    /**
+     * Queue email asynchronously.
+     */
+    if (sendEmail) {
+      await this.notificationsQueue.add(
+        'send-email',
+        {
+          notificationId: notification.id,
+        },
+        {
+          jobId: eventKey
+            ? `notification-email:${eventKey}`
+            : `notification-email:${notification.id}`,
+
+          attempts: 3,
+
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+
+          removeOnComplete: true,
+
+          removeOnFail: false,
+        },
+      );
+    }
+
+    return notification;
+  }
+
+  /**
+   * Get paginated notifications.
+   */
+  async findAll(recipientId: number, page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [notifications, total] = await this.prisma.$transaction([
+      this.prisma.notification.findMany({
+        where: {
+          recipientId,
+        },
+
+        orderBy: {
+          createdAt: 'desc',
+        },
+
+        skip,
+
+        take: limit,
+      }),
+
+      this.prisma.notification.count({
+        where: {
+          recipientId,
+        },
+      }),
+    ]);
+
+    return {
+      data: notifications,
+
+      meta: {
+        page,
+
+        limit,
+
+        total,
+
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get unread notification count.
+   */
+  async getUnreadCount(recipientId: number) {
+    const notifications = await this.prisma.notification.findMany();
+
+    console.log(JSON.stringify(notifications, null, 2));
+    return this.prisma.notification.count({
+      where: {
+        recipientId,
+
+        isRead: false,
+      },
+    });
+  }
+
+  /**
+   * Mark one notification as read.
+   */
+  async markAsRead(notificationId: string, recipientId: number) {
+    const notification = await this.prisma.notification.findFirst({
+      where: {
+        id: notificationId,
+
+        recipientId,
+      },
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    if (notification.isRead) {
+      return notification;
+    }
+
+    return this.prisma.notification.update({
+      where: {
+        id: notificationId,
+      },
+
+      data: {
+        isRead: true,
+
+        readAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Mark all notifications as read.
+   */
+  async markAllAsRead(recipientId: number) {
+    return this.prisma.notification.updateMany({
+      where: {
+        recipientId,
+
+        isRead: false,
+      },
+
+      data: {
+        isRead: true,
+
+        readAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Delete notification.
+   */
+  async remove(notificationId: string, recipientId: number) {
+    const notification = await this.prisma.notification.findFirst({
+      where: {
+        id: notificationId,
+
+        recipientId,
+      },
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    await this.prisma.notification.delete({
+      where: {
+        id: notificationId,
+      },
+    });
+
+    return {
+      success: true,
+    };
+  }
+}

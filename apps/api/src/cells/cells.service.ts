@@ -11,12 +11,108 @@ import { CreateCellDto } from './dto/create-cell.dto';
 import { UpdateCellDto } from './dto/update-cell.dto';
 import { BoardColumnType } from 'generated/prisma/enums';
 import { LocalStorageService } from 'src/storage/local-storage.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { TaskAssignedEvent } from 'src/notifications/events/task-assigned.event';
 
 @Injectable()
 export class CellsService {
+  private extractPersonId(value: unknown): number | null {
+    if (!value) {
+      return null;
+    }
+
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    const person = value as Record<string, unknown>;
+
+    /**
+     * Supports:
+     *
+     * {
+     *   id: 123
+     * }
+     *
+     * or
+     *
+     * {
+     *   userId: 123
+     * }
+     */
+
+    const rawId = person.userId ?? person.id;
+
+    if (typeof rawId === 'number') {
+      return rawId;
+    }
+
+    if (typeof rawId === 'string' && !isNaN(Number(rawId))) {
+      return Number(rawId);
+    }
+
+    return null;
+  }
+
+  private async handleTaskAssignment(params: {
+  recipientId: number;
+
+  taskId: number;
+
+  boardId: number;
+
+  taskName: string;
+
+  assignedById: number;
+}) {
+  const assignedBy =
+    await this.prisma.user.findUnique({
+      where: {
+        id: params.assignedById,
+      },
+
+      select: {
+        id: true,
+
+        firstName: true,
+        lastName: true,
+      },
+    });
+
+  if (!assignedBy) {
+    return;
+  }
+
+  this.eventEmitter.emit(
+    'task.assigned',
+
+    new TaskAssignedEvent({
+      recipientId:
+        params.recipientId,
+
+      taskId:
+        params.taskId,
+
+      boardId:
+        params.boardId,
+
+      taskName:
+        params.taskName,
+
+      assignedById:
+        assignedBy.id,
+
+      assignedByName:
+        assignedBy.firstName +
+        ' ' +
+        assignedBy.lastName,
+    }),
+  );
+}
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: LocalStorageService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(createCellDto: CreateCellDto, boardId: number, userId: number) {
@@ -177,19 +273,29 @@ export class CellsService {
     const cell = await this.prisma.taskCell.findFirst({
       where: {
         id: cellId,
+
         task: {
           group: {
             boardId,
           },
         },
       },
+
       select: {
         id: true,
+
         taskId: true,
+
         columnId: true,
+
         value: true,
+
         task: {
           select: {
+            id: true,
+
+            name: true,
+
             group: {
               select: {
                 boardId: true,
@@ -197,9 +303,12 @@ export class CellsService {
             },
           },
         },
+
         column: {
           select: {
             boardId: true,
+
+            type: true,
           },
         },
       },
@@ -209,9 +318,7 @@ export class CellsService {
       throw new NotFoundException('Cell not found for the specified board.');
     }
 
-    // Defense-in-depth check:
-    // Make sure the task and column both belong
-    // to the same board from the URL.
+    // Defense-in-depth check.
     if (
       cell.task.group.boardId !== boardId ||
       cell.column.boardId !== boardId
@@ -219,14 +326,60 @@ export class CellsService {
       throw new NotFoundException('Cell not found for the specified board.');
     }
 
-    return this.prisma.taskCell.update({
+    /**
+     * Capture the previous assignee before
+     * updating the cell.
+     */
+    const previousAssigneeId =
+      cell.column.type === BoardColumnType.PERSON
+        ? this.extractPersonId(cell.value)
+        : null;
+
+    /**
+     * Update the cell.
+     */
+    const updatedCell = await this.prisma.taskCell.update({
       where: {
         id: cellId,
       },
+
       data: {
         value: dto.value,
       },
     });
+
+    /**
+     * Handle task assignment notification.
+     */
+    if (cell.column.type === BoardColumnType.PERSON) {
+      const newAssigneeId = this.extractPersonId(dto.value);
+
+      /**
+       * Notify only when a new user is assigned.
+       *
+       * Examples:
+       *
+       * null -> user 10  => notify user 10
+       * user 10 -> user 20 => notify user 20
+       * user 10 -> user 10 => don't notify
+       * user 10 -> null => don't notify
+       */
+      if (newAssigneeId && newAssigneeId !== previousAssigneeId) {
+        await this.handleTaskAssignment({
+          recipientId: newAssigneeId,
+
+          taskId: cell.task.id,
+
+          boardId,
+
+          taskName: cell.task.name,
+
+          assignedById: userId,
+        });
+      }
+    }
+
+    return updatedCell;
   }
 
   async remove(cellId: number, boardId: number) {

@@ -16,17 +16,42 @@ import { UsersModule } from './users/users.module';
 import { CellsModule } from './cells/cells.module';
 import { CommentsModule } from './comments/comments.module';
 import { StatusOptionsModule } from './status-options/status-options.module';
+import { ImportsModule } from './imports/imports.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { BullModule } from '@nestjs/bullmq';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
-  imports: [AuthModule, DatabaseModule, UsersModule, InvitationsModule, WorkspaceModule, BoardsModule, GroupsModule, TasksModule, ColumnsModule, CellsModule, CommentsModule,
+  imports: [
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: Number(process.env.REDIS_PORT || 6379),
+      },
+    }),
+    EventEmitterModule.forRoot(),
+    AuthModule,
+    DatabaseModule,
+    UsersModule,
+    InvitationsModule,
+    WorkspaceModule,
+    BoardsModule,
+    GroupsModule,
+    TasksModule,
+    ColumnsModule,
+    CellsModule,
+    CommentsModule,
     StatusOptionsModule,
+    ImportsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
-  providers: [AppService,
+  providers: [
+    AppService,
     {
-      provide:APP_GUARD,
-      useClass:SessionAuthGuard
-    }
+      provide: APP_GUARD,
+      useClass: SessionAuthGuard,
+    },
   ],
 })
 export class AppModule {}

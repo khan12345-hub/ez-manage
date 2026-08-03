@@ -48,8 +48,6 @@ export function FilePreviewModal({
     onUploadClick?.();
   };
 
-  console.log({ files });
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

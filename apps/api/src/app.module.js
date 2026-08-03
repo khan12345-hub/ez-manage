@@ -8,6 +8,8 @@ import { CellsModule } from './cells/cells.module';
 import { CommentsModule } from './comments/comments.module';
 import { StatusOptionsModule } from './status-options/status-options.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
+import { ImportsModule } from './imports/imports.module';
+import { NotificationsModule } from './notifications/notifications.module';
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
