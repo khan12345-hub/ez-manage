@@ -119,11 +119,23 @@ export function useBoardDnd({
   ============================================================ */
 
   useEffect(() => {
-    setDragGroups(groups);
+    setDragGroups((currentGroups) => {
+      if (JSON.stringify(currentGroups) === JSON.stringify(groups)) {
+        return currentGroups;
+      }
+
+      return groups;
+    });
   }, [groups]);
 
   useEffect(() => {
-    setDragColumns(columns);
+    setDragColumns((currentColumns) => {
+      if (JSON.stringify(currentColumns) === JSON.stringify(columns)) {
+        return currentColumns;
+      }
+
+      return columns;
+    });
   }, [columns]);
 
   /* ============================================================

@@ -86,24 +86,22 @@ export class CellsService {
     if (!assignedBy) {
       return;
     }
+    const event = new TaskAssignedEvent({
+      recipientId: params.recipientId,
 
-    this.eventEmitter.emit(
-      'task.assigned',
+      taskId: params.taskId,
 
-      new TaskAssignedEvent({
-        recipientId: params.recipientId,
+      boardId: params.boardId,
 
-        taskId: params.taskId,
+      taskName: params.taskName,
 
-        boardId: params.boardId,
+      assignedById: assignedBy.id,
 
-        taskName: params.taskName,
+      assignedByName: `${assignedBy.firstName} ${assignedBy.lastName}`,
+    });
 
-        assignedById: assignedBy.id,
-
-        assignedByName: assignedBy.firstName + ' ' + assignedBy.lastName,
-      }),
-    );
+    console.log('[CellsService] Emitting TaskAssignedEvent:', event);
+    this.eventEmitter.emit('task.assigned', event);
   }
   constructor(
     private readonly prisma: PrismaService,

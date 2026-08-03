@@ -54,4 +54,10 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     },
   ],
 })
-export class AppModule {}
+export class AppModule {
+  constructor() {
+    console.log(
+      '🔥🔥🔥🔥🔥 APP MODULE INITIALIZED 🔥🔥🔥🔥🔥',
+    );
+  }
+}

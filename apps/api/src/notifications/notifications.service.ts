@@ -40,6 +40,8 @@ export class NotificationsService {
 
     sendEmail?: boolean;
   }) {
+    console.log('[NotificationsService] notify() called', params);
+
     const {
       recipientId,
       type,
@@ -53,22 +55,33 @@ export class NotificationsService {
     } = params;
 
     /**
-     * Prevent duplicate notification creation.
-     *
-     * If eventKey exists and the same event was already
-     * processed, return the existing notification.
+     * Check duplicate event.
      */
     if (eventKey) {
+      console.log('[NotificationsService] Checking eventKey:', eventKey);
+
       const existing = await this.prisma.notification.findUnique({
         where: {
           eventKey,
         },
       });
 
+      console.log('[NotificationsService] Existing notification:', existing);
+
       if (existing) {
+        console.log(
+          '[NotificationsService] Duplicate notification found. Returning existing.',
+          existing.id,
+        );
+
         return existing;
       }
     }
+
+    /**
+     * Create notification.
+     */
+    console.log('[NotificationsService] Creating notification...');
 
     const notification = await this.prisma.notification.create({
       data: {
@@ -90,10 +103,17 @@ export class NotificationsService {
       },
     });
 
+    console.log(
+      '[NotificationsService] Notification successfully created:',
+      notification,
+    );
+
     /**
-     * Queue email asynchronously.
+     * Queue email.
      */
     if (sendEmail) {
+      console.log('[NotificationsService] Queueing email:', notification.id);
+
       await this.notificationsQueue.add(
         'send-email',
         {
@@ -101,7 +121,7 @@ export class NotificationsService {
         },
         {
           jobId: eventKey
-            ? `notification-email-${eventKey.replace(/:/g, '-')}`
+            ? `notification-email-${eventKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`
             : `notification-email-${notification.id}`,
 
           attempts: 3,
@@ -116,6 +136,8 @@ export class NotificationsService {
           removeOnFail: false,
         },
       );
+
+      console.log('[NotificationsService] Email queued:', notification.id);
     }
 
     return notification;
@@ -169,8 +191,6 @@ export class NotificationsService {
    */
   async getUnreadCount(recipientId: number) {
     const notifications = await this.prisma.notification.findMany();
-
-
   }
 
   /**

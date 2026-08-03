@@ -1,168 +1,97 @@
-import {
-  Injectable,
-} from "@nestjs/common";
+// import { Injectable } from '@nestjs/common';
+// import { OnEvent } from '@nestjs/event-emitter';
 
-import {
-  OnEvent,
-} from "@nestjs/event-emitter";
-
-// import {
-//   NotificationEntityType,
-//   NotificationType,
-// } from "@prisma/client";
-
+import { Injectable } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
 import { NotificationsService } from "./notifications.service";
-
+import { NotificationStreamService } from "./notification-stream.service";
 import { TaskAssignedEvent } from "./events/task-assigned.event";
-
-import { CommentMentionedEvent } from "./events/comment-mentioned.event";
-
-import { CommentRepliedEvent } from "./events/comment-replied.event";
-import { NotificationEntityType, NotificationType } from "generated/prisma/client";
 
 @Injectable()
 export class NotificationsListener {
   constructor(
-    private readonly notificationsService:
-      NotificationsService,
+    private readonly notificationsService: NotificationsService,
+
+    private readonly notificationStreamService: NotificationStreamService,
   ) {}
 
-  @OnEvent("task.assigned")
+  @OnEvent('task.assigned')
   async handleTaskAssigned(
-    event: TaskAssignedEvent,
+    event: any,
   ) {
-    const {
-      recipientId,
-      taskId,
-      boardId,
-      taskName,
-      assignedById,
-      assignedByName,
-    } = event.data;
+    console.log(
+      '[Notification Listener] Task assigned event received:',
+      event,
+    );
 
-    await this.notificationsService.notify({
-      recipientId,
+    try {
+      console.log(
+        '[Notification Listener] Creating notification for user:',
+        event.recipientId,
+      );
 
-      type:
-        NotificationType.TASK_ASSIGNED,
+      const notification =
+        await this.notificationsService.notify({
+          recipientId: event.recipientId,
 
-      title:
-        "You were assigned a task",
+          type: 'TASK_ASSIGNED',
 
-      message:
-        `${assignedByName} assigned you to "${taskName}"`,
+          title: 'You were assigned a task',
 
-      entityType:
-        NotificationEntityType.TASK,
+          message:
+            `${event.assignedByName} assigned you to "${event.taskName}"`,
 
-      entityId: taskId,
+          entityType: 'TASK',
 
-      metadata: {
-        taskId,
+          entityId: event.taskId,
 
-        boardId,
+          metadata: {
+            taskId: event.taskId,
 
-        assignedById,
-      },
+            boardId: event.boardId,
 
-      eventKey:
-        `task-assigned:${taskId}:${recipientId}`,
+            assignedById: event.assignedById,
+          },
 
-      sendEmail: true,
-    });
-  }
+          eventKey:
+            `task-assigned:${event.taskId}:${event.recipientId}`,
 
-  @OnEvent("comment.mentioned")
-  async handleCommentMentioned(
-    event: CommentMentionedEvent,
-  ) {
-    const {
-      recipientId,
-      commentId,
-      taskId,
-      boardId,
-      taskName,
-      commentAuthorId,
-      commentAuthorName,
-    } = event.data;
+          sendEmail: true,
+        });
 
-    await this.notificationsService.notify({
-      recipientId,
+      console.log(
+        '[Notification Listener] Notification created successfully:',
+        notification,
+      );
 
-      type:
-        NotificationType.COMMENT_MENTION,
+      console.log(
+        '[Notification Listener] Sending notification through SSE:',
+        {
+          recipientId: event.recipientId,
 
-      title:
-        "You were mentioned in a comment",
+          notificationId: notification.id,
+        },
+      );
 
-      message:
-        `${commentAuthorName} mentioned you in a comment on "${taskName}"`,
+      this.notificationStreamService.emit(
+        event.recipientId,
 
-      entityType:
-        NotificationEntityType.COMMENT,
+        notification,
+      );
 
-      entityId: commentId,
-
-      metadata: {
-        commentId,
-
-        taskId,
-
-        boardId,
-
-        commentAuthorId,
-      },
-
-      eventKey:
-        `comment-mention:${commentId}:${recipientId}`,
-
-      sendEmail: true,
-    });
-  }
-
-  @OnEvent("comment.replied")
-  async handleCommentReplied(
-    event: CommentRepliedEvent,
-  ) {
-    const {
-      recipientId,
-      commentId,
-      taskId,
-      boardId,
-      taskName,
-      replyAuthorId,
-      replyAuthorName,
-    } = event.data;
-
-    await this.notificationsService.notify({
-      recipientId,
-
-      type:
-        NotificationType.COMMENT_REPLY,
-
-      title:
-        "Someone replied to your comment",
-
-      message:
-        `${replyAuthorName} replied to your comment on "${taskName}"`,
-
-      entityType:
-        NotificationEntityType.COMMENT,
-
-      entityId: commentId,
-
-      metadata: {
-        commentId,
-
-        taskId,
-
-        boardId,
-
-        replyAuthorId,
-      },
-
-      eventKey:
-        `comment-reply:${commentId}:${replyAuthorId}`,
-    });
+      console.log(
+        '[Notification Listener] SSE notification emitted successfully',
+      );
+    } catch (error) {
+      console.error(
+        '[Notification Listener] Failed to process notification:',
+        error,
+      );
+    }
   }
 }
+
+
+
+
+
