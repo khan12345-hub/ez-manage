@@ -358,20 +358,16 @@ export class CellsService {
       /**
        * Find users that are newly assigned.
        */
-      const newlyAssignedUserIds = newAssigneeIds.filter(
-        (userId) => !previousAssigneeIds.includes(userId),
+      const newlyAssignedUsers = newAssigneeIds.filter(
+        (id) => !previousAssigneeIds.includes(id) && id !== userId,
       );
 
       console.log(
         '[Notification Debug] Newly assigned users:',
-        newlyAssignedUserIds,
+        newlyAssignedUsers,
       );
 
-      /**
-       * Send notification to each newly
-       * assigned user.
-       */
-      for (const recipientId of newlyAssignedUserIds) {
+      for (const recipientId of newlyAssignedUsers) {
         await this.handleTaskAssignment({
           recipientId,
 

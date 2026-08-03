@@ -10,12 +10,79 @@ import { PrismaService } from 'prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { LocalStorageService } from 'src/storage/local-storage.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CommentMentionedEvent } from 'src/notifications/events/comment-mentioned.event';
+import { NotificationsService } from 'src/notifications/notifications.service';
 @Injectable()
 export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
+
     private readonly storageService: LocalStorageService,
+
+    private readonly eventEmitter: EventEmitter2,
+
+    private readonly notificationService: NotificationsService,
   ) {}
+
+  private extractMentionedUserIds(content: string): number[] {
+    if (!content) {
+      return [];
+    }
+
+    const mentionedUserIds = new Set<number>();
+
+    const mentionElementRegex = /<[^>]*data-type=["']mention["'][^>]*>/gi;
+
+    const mentionElements = content.match(mentionElementRegex) ?? [];
+
+    for (const element of mentionElements) {
+      /**
+       * Extract data-id regardless of
+       * attribute ordering.
+       */
+      const idMatch = element.match(/data-id=["'](\d+)["']/i);
+
+      if (!idMatch) {
+        continue;
+      }
+
+      const userId = Number(idMatch[1]);
+
+      if (Number.isInteger(userId) && userId > 0) {
+        mentionedUserIds.add(userId);
+      }
+    }
+
+    return Array.from(mentionedUserIds);
+  }
+
+  private getCommentPreview(content: string): string {
+    if (!content) {
+      return '';
+    }
+
+    return (
+      content
+        /**
+         * Remove HTML tags.
+         */
+        .replace(/<[^>]*>/g, '')
+
+        /**
+         * Convert multiple spaces/newlines
+         * into a single space.
+         */
+        .replace(/\s+/g, ' ')
+
+        .trim()
+
+        /**
+         * Keep metadata small.
+         */
+        .slice(0, 200)
+    );
+  }
 
   async create(
     taskId: number,
@@ -23,13 +90,25 @@ export class CommentsService {
     dto: CreateCommentDto,
     files: Express.Multer.File[] = [],
   ) {
-    // 1. Verify task exists
+    /**
+
+* 1. Verify task exists and get the board ID.
+     */
     const task = await this.prisma.task.findUnique({
       where: {
         id: taskId,
       },
+
       select: {
         id: true,
+
+        name: true,
+
+        group: {
+          select: {
+            boardId: true,
+          },
+        },
       },
     });
 
@@ -37,36 +116,140 @@ export class CommentsService {
       throw new NotFoundException('Task not found');
     }
 
-    // 2. Create the comment first
+    /**
+
+* 2. Create the comment first.
+  */
     const comment = await this.prisma.taskComment.create({
       data: {
         taskId,
+
         userId,
+
         content: dto.content,
       },
     });
 
-    // 3. Upload and save files
+    /**
+
+* 3. Extract mentioned user IDs
+* from the Tiptap HTML content.
+*
+* Example:
+*
+* <span
+* data-type="mention"
+* data-id="3"
+* data-label="Muhammad Ali"
+* >
+* @Muhammad Ali
+* </span>
+
+*/
+    const mentionedUserIds = this.extractMentionedUserIds(dto.content);
+
+    console.log('[Comment Notification] Mentioned user IDs:', mentionedUserIds);
+
+    /**
+
+* 4. Get the comment author's information.
+  */
+    const mentionedBy = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+
+      select: {
+        id: true,
+
+        firstName: true,
+
+        lastName: true,
+      },
+    });
+
+    /**
+
+* 5. Emit mention notifications.
+*
+* Do not notify the comment author
+* if they mention themselves.
+  */
+    if (mentionedBy && mentionedUserIds.length > 0) {
+      const recipients = mentionedUserIds.filter(
+        (recipientId) => recipientId !== userId,
+      );
+
+      console.log(
+        '[Comment Notification] Notification recipients:',
+        recipients,
+      );
+
+      for (const recipientId of recipients) {
+        const event = new CommentMentionedEvent({
+          recipientId,
+
+          commentId: comment.id,
+
+          taskId: task.id,
+
+          boardId: task.group.boardId,
+
+          commentPreview: this.getCommentPreview(dto.content),
+
+          mentionedById: mentionedBy.id,
+
+          mentionedByName: `${mentionedBy.firstName} ${mentionedBy.lastName}`,
+        });
+
+        console.log(
+          '[Comment Notification] Emitting comment.mentioned event:',
+          event,
+        );
+
+        this.eventEmitter.emit(
+          'comment.mentioned',
+
+          event,
+        );
+      }
+    }
+
+    /**
+
+* 6. Upload and save files.
+  */
     if (files.length > 0) {
-      const uploadedFiles = await Promise.all(
+      await Promise.all(
         files.map(async (file) => {
           const uploaded = await this.storageService.upload(file, 'comments');
 
-          // Create File record
+          /**
+           * Create File record.
+           */
           const createdFile = await this.prisma.file.create({
             data: {
               fileName: uploaded.fileName,
+
               mimeType: uploaded.mimeType,
+
               fileSize: uploaded.fileSize,
+
               storageKey: uploaded.storageKey,
+
               url: this.storageService.getUrl(uploaded.storageKey),
+
               uploadedById: userId,
             },
           });
 
+          /**
+           * Create comment-file relation.
+           */
           await this.prisma.taskCommentFile.create({
             data: {
               commentId: comment.id,
+
               fileId: createdFile.id,
             },
           });
@@ -76,21 +259,30 @@ export class CommentsService {
       );
     }
 
-    // 4. Return comment with user and files
+    /**
+
+* 7. Return comment with user and files.
+  */
     return this.prisma.taskComment.findUnique({
       where: {
         id: comment.id,
       },
+
       include: {
         user: {
           select: {
             id: true,
+
             firstName: true,
+
             lastName: true,
+
             email: true,
+
             avatarUrl: true,
           },
         },
+
         files: true,
       },
     });
@@ -103,13 +295,18 @@ export class CommentsService {
     dto: CreateCommentDto,
     files: Express.Multer.File[] = [],
   ) {
-    // 1. Verify task exists
     const task = await this.prisma.task.findUnique({
       where: {
         id: taskId,
       },
       select: {
         id: true,
+        name: true,
+        group: {
+          select: {
+            boardId: true,
+          },
+        },
       },
     });
 
@@ -117,7 +314,6 @@ export class CommentsService {
       throw new NotFoundException('Task not found');
     }
 
-    // 2. Verify parent comment exists and belongs to this task
     const parentComment = await this.prisma.taskComment.findFirst({
       where: {
         id: commentId,
@@ -125,6 +321,7 @@ export class CommentsService {
       },
       select: {
         id: true,
+        userId: true,
         parentId: true,
       },
     });
@@ -133,14 +330,12 @@ export class CommentsService {
       throw new NotFoundException('Comment not found');
     }
 
-    // 3. Prevent replies to replies
     if (parentComment.parentId !== null) {
       throw new BadRequestException(
         'You can only reply to a top-level comment',
       );
     }
 
-    // 4. Create the reply first
     const reply = await this.prisma.taskComment.create({
       data: {
         taskId,
@@ -150,13 +345,11 @@ export class CommentsService {
       },
     });
 
-    // 5. Upload and save files
     if (files.length > 0) {
       await Promise.all(
         files.map(async (file) => {
           const uploaded = await this.storageService.upload(file, 'comments');
 
-          // Create File record
           const createdFile = await this.prisma.file.create({
             data: {
               fileName: uploaded.fileName,
@@ -178,7 +371,74 @@ export class CommentsService {
       );
     }
 
-    // 6. Return reply with user and files
+    const actor = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+
+    const actorName = actor
+      ? `${actor.firstName} ${actor.lastName}`
+      : 'Someone';
+
+    if (parentComment.userId !== userId) {
+      await this.notificationService.notify({
+        recipientId: parentComment.userId,
+        type: 'COMMENT_REPLY',
+        title: 'Someone replied to your comment',
+        message: `${actorName} replied to your comment on "${task.name}"`,
+        entityType: 'TASK',
+        entityId: task.id,
+        metadata: {
+          taskId: task.id,
+          boardId: task.group.boardId,
+          commentId: reply.id,
+          parentCommentId: parentComment.id,
+          repliedById: userId,
+        },
+        eventKey: `comment-reply:${reply.id}:${parentComment.userId}`,
+        sendEmail: true,
+      });
+    }
+
+    const mentionedUserIds = this.extractMentionedUserIds(dto.content);
+
+    const mentionedRecipients = new Set<number>();
+
+    for (const mentionedUserId of mentionedUserIds) {
+      if (
+        mentionedUserId !== userId &&
+        mentionedUserId !== parentComment.userId
+      ) {
+        mentionedRecipients.add(mentionedUserId);
+      }
+    }
+
+    for (const recipientId of mentionedRecipients) {
+      await this.notificationService.notify({
+        recipientId,
+        type: 'COMMENT_MENTION',
+        title: 'You were mentioned in a reply',
+        message: `${actorName} mentioned you in a reply on "${task.name}"`,
+        entityType: 'TASK',
+        entityId: task.id,
+        metadata: {
+          taskId: task.id,
+          boardId: task.group.boardId,
+          commentId: reply.id,
+          parentCommentId: parentComment.id,
+          mentionedById: userId,
+        },
+        eventKey: `comment-mention:${reply.id}:${recipientId}`,
+        sendEmail: true,
+      });
+    }
+
     return this.prisma.taskComment.findUnique({
       where: {
         id: reply.id,
