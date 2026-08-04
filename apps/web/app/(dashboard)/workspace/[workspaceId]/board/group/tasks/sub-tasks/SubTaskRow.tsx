@@ -12,10 +12,15 @@ interface Props {
   style?: React.CSSProperties;
   dragHandleProps?: any;
   isDragging?: boolean;
+  selection?: any;
 }
 
 export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
-  ({ task, columns, color, style, dragHandleProps, isDragging }, ref) => {
+  (
+    { task, columns, color, style, dragHandleProps, isDragging, selection },
+    ref,
+  ) => {
+    const taskSelection = selection.getTaskSelectionState(task);
     return (
       <tr
         ref={ref}
@@ -65,7 +70,15 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
             >
               <GripVertical className="h-3.5 w-3.5" />
             </button>
-            <Checkbox/>
+            <Checkbox
+              checked={
+                taskSelection.indeterminate
+                  ? "indeterminate"
+                  : taskSelection.selected
+              }
+              onCheckedChange={() => selection.toggleTask(task)}
+              aria-label={`Select ${task.name}`}
+            />
           </div>
         </td>
 
@@ -113,7 +126,13 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
             OTHER COLUMNS
         ====================================== */}
         {columns.map((column: any) => (
-          <Cell isSubTask={true} key={column.id} column={column} task={task} isDragging={isDragging} />
+          <Cell
+            isSubTask={true}
+            key={column.id}
+            column={column}
+            task={task}
+            isDragging={isDragging}
+          />
         ))}
       </tr>
     );

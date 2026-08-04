@@ -1,6 +1,8 @@
+import { useTaskSelection } from "../group/tasks/sub-tasks/useTaskSelection";
 import { BoardContent } from "./BoardContent";
 import { BoardHeader } from "./BoardHeader/BoardHeader";
 import { useBoard } from "./hooks/useBoard.hooks";
+
 
 export function Board({
   board,
@@ -24,6 +26,8 @@ export function Board({
   } = useBoard({
     board,
   });
+
+  const selection = useTaskSelection(dragGroups);
 
   return (
     <>
@@ -50,7 +54,9 @@ export function Board({
         handleDragOver={handleDragOver}
         handleDragEnd={handleDragEnd}
         handleDragCancel={handleDragCancel}
+        selection={selection}
       />
+      
     </>
   );
 }

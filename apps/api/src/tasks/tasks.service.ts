@@ -492,14 +492,6 @@ export class TasksService {
       }
     }
 
-    /*
-     * ============================================================
-     * 4. Prevent invalid neighbor combinations
-     * ============================================================
-     *
-     * The previous and next tasks must also belong to
-     * the same parent.
-     */
 
     if (
       previousTask &&
@@ -511,25 +503,7 @@ export class TasksService {
       );
     }
 
-    /*
-     * ============================================================
-     * 5. Calculate new order
-     * ============================================================
-     *
-     * Cases:
-     *
-     * previous + next:
-     *     midpoint
-     *
-     * previous only:
-     *     place after previous
-     *
-     * next only:
-     *     place before next
-     *
-     * neither:
-     *     only subtask / fallback
-     */
+
 
     let newOrder: number;
 
@@ -540,28 +514,11 @@ export class TasksService {
     } else if (nextTask) {
       newOrder = nextTask.order - 1000;
     } else {
-      /*
-       * There are no neighbors.
-       *
-       * Keep the subtask inside its current parent.
-       * We simply keep its current order.
-       */
+
 
       newOrder = subtask.order;
     }
 
-    /*
-     * ============================================================
-     * 6. Update the subtask
-     * ============================================================
-     *
-     * Notice that we NEVER update:
-     *
-     * - groupId
-     * - parentId
-     *
-     * Therefore the subtask cannot escape its parent.
-     */
 
     const updatedSubtask = await this.prisma.task.update({
       where: {

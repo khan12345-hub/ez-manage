@@ -11,6 +11,9 @@ interface Props {
   onToggleSubtasks?: () => void;
   hasSubtasks?: boolean;
   expanded?: boolean;
+  selected?: boolean;
+  indeterminate?: boolean;
+  onSelect?: () => void;
 }
 
 export function SortableTaskRow({
@@ -19,6 +22,9 @@ export function SortableTaskRow({
   color,
   onToggleSubtasks,
   expanded,
+  selected,
+  indeterminate,
+  onSelect,
 }: Props) {
   const {
     attributes,
@@ -56,6 +62,9 @@ export function SortableTaskRow({
       isDragging={isDragging}
       onToggleSubtasks={onToggleSubtasks}
       expanded={expanded}
+      selected={selected}
+      indeterminate={indeterminate}
+      onSelect={onSelect}
     />
   );
 }

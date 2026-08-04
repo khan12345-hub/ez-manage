@@ -24,6 +24,10 @@ interface Props {
   hasSubtasks?: boolean;
 
   expanded?: boolean;
+
+  selected?: boolean;
+  indeterminate?: boolean;
+  onSelect?: () => void;
 }
 
 export const TaskRow = forwardRef<HTMLTableRowElement, Props>(
@@ -37,20 +41,24 @@ export const TaskRow = forwardRef<HTMLTableRowElement, Props>(
       isDragging,
       onToggleSubtasks,
       expanded,
-      
+      selected,
+      indeterminate,
+      onSelect,
     },
     ref,
   ) => {
     return (
       <tr ref={ref} style={style} className="group border-b hover:bg-muted/30">
-        <td style={{ backgroundColor: color }} className="sticky left-0 w-1 z-20 min-w-1" />
+        <td
+          style={{ backgroundColor: color }}
+          className="sticky left-0 w-1 z-20 min-w-1"
+        />
 
         <td className="sticky bg-white left-1 z-20 min-w-[150px]">
           <div className="flex items-center gap-2 px-3">
             {/* Drag Handle */}
             <button
               {...dragHandleProps}
-              
               className="cursor-grab rounded p-1 hover:bg-muted active:cursor-grabbing"
             >
               <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -72,7 +80,11 @@ export const TaskRow = forwardRef<HTMLTableRowElement, Props>(
 
             <TaskActions task={task} />
 
-            <Checkbox />
+            <Checkbox
+              checked={indeterminate ? "indeterminate" : selected}
+              onCheckedChange={onSelect}
+              aria-label={`Select ${task.name}`}
+            />
           </div>
         </td>
 

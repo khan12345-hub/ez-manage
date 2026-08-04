@@ -29,7 +29,7 @@ interface Props {
   dragHandleProps?: any;
   isDraggingGroup?: boolean;
   isDraggingTask?: boolean;
-
+  selection: any;
 }
 
 export function Group({
@@ -37,7 +37,8 @@ export function Group({
   columns,
   dragHandleProps,
   isDraggingGroup,
-  isDraggingTask
+  isDraggingTask,
+  selection,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -98,7 +99,7 @@ export function Group({
     (task: any) => !task.parentTaskId,
   );
 
-
+  const groupSelection = selection.getGroupSelectionState(group);
   return (
     <>
       <div className="overflow-hidden">
@@ -123,10 +124,7 @@ export function Group({
         )}
 
         {!isDraggingGroup && (
-          <div
-           className="overflow-x-auto scrollbar-none "
-           
-           >
+          <div className="overflow-x-auto scrollbar-none ">
             <table className="min-w-[1200px] border-collapse">
               <thead>
                 <tr className="border">
@@ -138,7 +136,15 @@ export function Group({
                   />
 
                   <th className="sticky left-2 w-1.5 bg-white">
-                    <Checkbox />
+                    <Checkbox
+                      checked={
+                        groupSelection.indeterminate
+                          ? "indeterminate"
+                          : groupSelection.selected
+                      }
+                      onCheckedChange={() => selection.toggleGroup(group)}
+                      aria-label={`Select all tasks in ${group.name}`}
+                    />
                   </th>
 
                   <SortableContext
@@ -174,6 +180,7 @@ export function Group({
                         columns={columns}
                         color={group.color}
                         isDraggingTask={isDraggingTask}
+                        selection={selection}
                       />
                     ))}
 

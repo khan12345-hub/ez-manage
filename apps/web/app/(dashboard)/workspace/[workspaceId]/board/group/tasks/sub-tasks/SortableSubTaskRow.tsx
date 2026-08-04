@@ -10,6 +10,7 @@ interface Props {
   parentTaskId: number;
   columns: any[];
   color: string;
+  selection:any;
 }
 
 export function SortableSubtaskRow({
@@ -17,6 +18,7 @@ export function SortableSubtaskRow({
   parentTaskId,
   columns,
   color,
+  selection
 }: Props) {
   const {
     attributes,
@@ -56,6 +58,7 @@ export function SortableSubtaskRow({
         ...listeners,
       }}
       isDragging={isDragging}
+      selection={selection}
     />
   );
 }

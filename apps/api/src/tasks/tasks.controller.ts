@@ -26,11 +26,21 @@ import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
 
 import { BoardPermission } from '@repo/shared';
 import { ReorderSubtaskDto } from './dto/reorder-subtask.dto';
+import { TaskMutationService } from './task-mutation.service';
+import { TaskQueryService } from './task-search.service';
+import { TaskReorderService } from './task-reorder.service';
+import { TaskCreateService } from './task-create.service';
 
 @Controller('boards/:boardId/tasks')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
 export class TasksController {
-  constructor(private readonly tasksService: TasksService) {}
+  constructor(
+    private readonly tasksService: TasksService,
+    private readonly taskCreateService: TaskCreateService,
+    private readonly taskQueryService: TaskQueryService,
+    private readonly taskReorderService: TaskReorderService,
+    private readonly taskMutationService: TaskMutationService,
+  ) {}
 
   @Post()
   @RequireBoardPermission(BoardPermission.CREATE_TASK)
@@ -39,7 +49,7 @@ export class TasksController {
     @Body() createTaskDto: CreateTaskDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.tasksService.create(createTaskDto, user.id, boardId);
+    return this.taskCreateService.create(createTaskDto, user.id, boardId);
   }
 
   @Patch('reorder')
@@ -48,25 +58,25 @@ export class TasksController {
     @Param('boardId', ParseIntPipe) boardId: number,
     @Body() dto: ReorderTaskDto,
   ) {
-    return this.tasksService.reorder(dto, boardId);
+    return this.taskReorderService.reorder(dto, boardId);
   }
 
   @Get(':id')
   @RequireBoardPermission(BoardPermission.VIEW)
   findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.tasksService.findOne(id);
+    return this.taskQueryService.findOne(id);
   }
 
   @Patch(':id')
   @RequireBoardPermission(BoardPermission.EDIT)
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTaskDto) {
-    return this.tasksService.update(id, dto);
+    return this.taskMutationService.update(id, dto);
   }
 
   @Delete(':id')
   @RequireBoardPermission(BoardPermission.DELETE_TASK)
   remove(@Param('id', ParseIntPipe) id: number) {
-    return this.tasksService.remove(id);
+    return this.taskMutationService.remove(id);
   }
 
   @Patch(':taskId/reorder-subtask')
@@ -74,10 +84,27 @@ export class TasksController {
     @Param('taskId', ParseIntPipe) taskId: number,
     @Body() dto: ReorderSubtaskDto,
   ) {
-    return this.tasksService.reorderSubtask(
+    return this.taskReorderService.reorderSubtask(
       taskId,
       dto.previousTaskId ?? null,
       dto.nextTaskId ?? null,
     );
   }
+  // @Patch('bulk/status')
+  // bulkUpdateStatus(
+  //   @Param('boardId', ParseIntPipe) boardId: number,
+  //   @Body() dto: BulkUpdateTaskCellDto,
+  //   @Req() req: any,
+  // ) {
+  //   return this.tasksService.bulkUpdateStatus(boardId, dto, req.user.id);
+  // }
+
+  // @Delete('bulk')
+  // bulkDelete(
+  //   @Param('boardId', ParseIntPipe) boardId: number,
+  //   @Body() dto: BulkDeleteTasksDto,
+  //   @Req() req: any,
+  // ) {
+  //   return this.tasksService.bulkDelete(boardId, dto, req.user.id);
+  // }
 }

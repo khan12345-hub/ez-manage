@@ -15,6 +15,7 @@ import { useGroupStore } from "@/store/create-group-store";
 import { SortableGroup } from "../group/SortableGroup";
 import { SortableGroupContainer } from "../group/SortableGroupContainer";
 import { BoardSkeleton } from "./BoardSkeleton";
+import { BulkActionToolbar } from "./BulkActionsToolbar";
 
 interface BoardContentProps {
   board: any;
@@ -30,6 +31,7 @@ interface BoardContentProps {
   handleDragOver: (event: any) => void;
   handleDragEnd: (event: any) => void;
   handleDragCancel: () => void;
+  selection: any;
 }
 
 export function BoardContent({
@@ -46,12 +48,25 @@ export function BoardContent({
   handleDragOver,
   handleDragEnd,
   handleDragCancel,
+  selection,
 }: BoardContentProps) {
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
 
   const hasDraft = useGroupStore((state) =>
     state.groups.some((group: any) => group.isNew),
   );
+
+  const statusColumns = (board.columns ?? [])
+    .filter((column: any) => column.type === "STATUS")
+    .map((column: any) => ({
+      id: column.id,
+      name: column.name,
+      options: column.statusOptions ?? [],
+
+    }));
+
+  console.log("STATUS COLUMNS:", statusColumns);
+  
 
   if (isLoading) {
     return <BoardSkeleton />;
@@ -67,15 +82,26 @@ export function BoardContent({
 
   const groupsToRender = dragGroups;
 
-  
-
   return (
     <>
+      <BulkActionToolbar
+        selectedCount={selection.selectedCount}
+        statusColumns={statusColumns}
+        onStatusChange={(columnId, statusId) => {
+          console.log({
+            taskIds: Array.from(selection.selectedTaskIds),
+            columnId,
+            statusId,
+          });
+        }}
+        onDelete={() => {
+          console.log(Array.from(selection.selectedTaskIds));
+        }}
+        onClear={selection.clearSelection}
+      />
       <div
         className={
-          isFetching
-            ? "opacity-60 transition-opacity"
-            : "transition-opacity"
+          isFetching ? "opacity-60 transition-opacity" : "transition-opacity"
         }
       >
         <DndContext
@@ -91,16 +117,13 @@ export function BoardContent({
               easing: "ease",
             }}
           >
-            {activeItem?.type === "task" ||
-            activeItem?.type === "subtask" ? (
+            {activeItem?.type === "task" || activeItem?.type === "subtask" ? (
               <div className="rotate-1 rounded border bg-background opacity-90 shadow-2xl ">
                 <table>
                   <tbody>
                     <TaskRow
                       task={activeItem.task}
-                      color={
-                        activeItem.group.color || "#3B82F6"
-                      }
+                      color={activeItem.group.color || "#3B82F6"}
                       columns={filteredColumns}
                     />
                   </tbody>
@@ -125,25 +148,14 @@ export function BoardContent({
           </DragOverlay>
 
           <SortableContext
-            items={groupsToRender.map(
-              (group: any) => `group-${group.id}`,
-            )}
+            items={groupsToRender.map((group: any) => `group-${group.id}`)}
             strategy={verticalListSortingStrategy}
           >
             <div className="mb-4 space-y-6 mt-20">
               {groupsToRender.map((group: any) => (
-                <SortableGroupContainer
-                  key={group.id}
-                  groupId={group.id}
-                >
-                  {({
-                    attributes,
-                    listeners,
-                  }: any) => (
-                    <SortableGroup
-                      id={group.id.toString()}
-                      groupId={group.id}
-                    >
+                <SortableGroupContainer key={group.id} groupId={group.id}>
+                  {({ attributes, listeners }: any) => (
+                    <SortableGroup id={group.id.toString()} groupId={group.id}>
                       <Group
                         group={group}
                         columns={filteredColumns}
@@ -151,12 +163,9 @@ export function BoardContent({
                           ...attributes,
                           ...listeners,
                         }}
-                        isDraggingGroup={
-                          activeItem?.type === "group"
-                        }
-                        isDraggingTask={
-                          activeItem?.type === "task"
-                        }
+                        isDraggingGroup={activeItem?.type === "group"}
+                        isDraggingTask={activeItem?.type === "task"}
+                        selection={selection}
                       />
                     </SortableGroup>
                   )}
@@ -167,13 +176,11 @@ export function BoardContent({
         </DndContext>
       </div>
 
-      {search.trim() &&
-        !isFetching &&
-        groupsToRender.length === 0 && (
-          <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
-            No matching groups, tasks, file, date, timeline or person found.
-          </div>
-        )}
+      {search.trim() && !isFetching && groupsToRender.length === 0 && (
+        <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+          No matching groups, tasks, file, date, timeline or person found.
+        </div>
+      )}
 
       <Button
         type="button"
@@ -198,4 +205,3 @@ export function BoardContent({
     </>
   );
 }
-

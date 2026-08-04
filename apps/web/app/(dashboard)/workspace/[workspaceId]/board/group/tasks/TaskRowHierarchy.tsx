@@ -15,6 +15,7 @@ interface Props {
   columns: any[];
   color: string;
   isDraggingTask?: boolean;
+    selection: any;
 }
 
 export function TaskHierarchyRow({
@@ -22,16 +23,28 @@ export function TaskHierarchyRow({
   columns,
   color,
   isDraggingTask,
+  selection
 }: Props) {
   const subtasks = task.subtasks ?? [];
 
   const hasSubtasks = subtasks.length > 0;
   const [isExpanded, setIsExpanded] = useState(false);
+  const taskSelection = selection.getTaskSelectionState(task);
+
   return (
     <>
       {/* =========================================
           PARENT TASK
       ========================================== */}
+
+      {/* <SortableTaskRow
+        task={task}
+        columns={columns}
+        color={color}
+        onToggleSubtasks={() => setIsExpanded(!isExpanded)}
+        hasSubtasks={hasSubtasks}
+        expanded={false}
+      /> */}
 
       <SortableTaskRow
         task={task}
@@ -39,7 +52,10 @@ export function TaskHierarchyRow({
         color={color}
         onToggleSubtasks={() => setIsExpanded(!isExpanded)}
         hasSubtasks={hasSubtasks}
-        expanded={false}
+        expanded={isExpanded}
+        selected={taskSelection.selected}
+        indeterminate={taskSelection.indeterminate}
+        onSelect={() => selection.toggleTask(task)}
       />
 
       {/* =========================================
@@ -58,6 +74,7 @@ export function TaskHierarchyRow({
               parentTaskId={task.id}
               columns={columns}
               color={color}
+              selection={selection}
             />
           ))}
         </SortableContext>
