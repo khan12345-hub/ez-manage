@@ -1,34 +1,38 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { ActivityLogsService } from './activity-logs.service';
-import { CreateActivityLogDto } from './dto/create-activity-log.dto';
-import { UpdateActivityLogDto } from './dto/update-activity-log.dto';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 
-@Controller('activity-logs')
+import { ActivityLogsService } from './activity-logs.service';
+import { GetActivityLogsDto } from './dto/get-activity-log.dto';
+
+@Controller()
 export class ActivityLogsController {
   constructor(private readonly activityLogsService: ActivityLogsService) {}
 
-  @Post()
-  create(@Body() createActivityLogDto: CreateActivityLogDto) {
-    return this.activityLogsService.create(createActivityLogDto);
+  // @Get("boards/:boardId/activity")
+  // findByBoard(
+  //   @Param("boardId", ParseIntPipe) boardId: number,
+  //   @Query() query: GetActivityLogsDto,
+  // ) {
+  //   return this.activityLogsService.findByBoard(
+  //     boardId,
+  //     query.page,
+  //     query.limit,
+  //   );
+  // }
+
+  @Get('tasks/:taskId/activity')
+  findByTask(
+    @Param('taskId', ParseIntPipe) taskId: number,
+    @Query() query: GetActivityLogsDto,
+  ) {
+    return this.activityLogsService.findByTask(
+      taskId,
+      query.cursor,
+      query.limit,
+    );
   }
 
-  @Get()
-  findAll() {
-    return this.activityLogsService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.activityLogsService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateActivityLogDto: UpdateActivityLogDto) {
-    return this.activityLogsService.update(+id, updateActivityLogDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.activityLogsService.remove(+id);
+  @Get('activity/:id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.activityLogsService.findOne(id);
   }
 }

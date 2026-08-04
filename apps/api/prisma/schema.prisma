@@ -44,6 +44,9 @@ model User {
   
   notifications        Notification[]
 
+  activityLogs         ActivityLog[]      @relation("ActivityActor")
+  undoneActivities     ActivityLog[]      @relation("ActivityUndoneBy")
+
   @@map("users")
 }
 
@@ -157,6 +160,8 @@ model Board {
   groups            Group[]
   columns           BoardColumn[]
 
+  activities       ActivityLog[]
+
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@map("boards")
@@ -201,9 +206,11 @@ model Group {
   board        Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
   tasks        Task[]
 
+  activities  ActivityLog[]
+
   @@index([boardId])
   @@index([boardId, order])
-   @@unique([boardId, name])
+  @@unique([boardId, name])
   @@map("groups")
 
 }
@@ -288,6 +295,8 @@ model Task {
 
   // Task comments
   comments    TaskComment[]
+
+  activities  ActivityLog[]
 
   @@index([groupId])
   @@index([groupId, order])
@@ -428,30 +437,69 @@ createdAt DateTime @default(now())
   @@map("task_comment_mentions")
 
 }
-enum ActivityType {
-  TASK_CREATED
-  TASK_UPDATED
-  TASK_DELETED
-
-  TASK_ASSIGNED
-  TASK_UNASSIGNED
-
-  TASK_STATUS_CHANGED
-  TASK_MOVED
-
+enum ActivityEntityType {
+  BOARD
+  GROUP
+  TASK
+  COLUMN
+  TASK_CELL
+  FILE
+  COMMENT
+  REPLY
+  MEMBER
+}
+enum ActivityAction {
+  CREATED
+  UPDATED
+  DELETED
+  RESTORED
+  MOVED
+  REORDERED
+  ASSIGNED
+  UNASSIGNED
+  STATUS_CHANGED
+  FILE_ADDED
+  FILE_DELETED
   COMMENT_ADDED
   COMMENT_UPDATED
   COMMENT_DELETED
+  REPLY_ADDED
+  MEMBER_ADDED
+  MEMBER_REMOVED
+}
+model ActivityLog {
+  id          Int                @id @default(autoincrement())
 
-  FILE_UPLOADED
-  FILE_DELETED
+  boardId     Int               @map("board_id")
+  taskId      Int?              @map("task_id")
+  groupId     Int?              @map("group_id")
+  userId      Int               @map("user_id")
 
-  GROUP_CREATED
-  GROUP_UPDATED
-  GROUP_DELETED
+  entityType  ActivityEntityType @map("entity_type")
+  entityId    Int                @map("entity_id")
+  action      ActivityAction
 
-  BOARD_MEMBER_ADDED
-  BOARD_MEMBER_REMOVED
+  metadata    Json?
+
+  undoneAt    DateTime?          @map("undone_at")
+  undoneById  Int?               @map("undone_by_id")
+
+  createdAt   DateTime           @default(now()) @map("created_at")
+
+  board       Board              @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  task        Task?              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  group       Group?             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  user        User               @relation("ActivityActor", fields: [userId], references: [id])
+  undoneBy    User?              @relation("ActivityUndoneBy", fields: [undoneById], references: [id])
+
+  @@index([boardId, createdAt])
+  @@index([taskId, createdAt])
+  @@index([groupId, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+
+  @@map("activity_logs")
 }
 
 

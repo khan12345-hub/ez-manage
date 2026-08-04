@@ -171,7 +171,7 @@ export function BoardContent({
         !isFetching &&
         groupsToRender.length === 0 && (
           <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
-            No matching groups or tasks found.
+            No matching groups, tasks, file, date, timeline or person found.
           </div>
         )}
 

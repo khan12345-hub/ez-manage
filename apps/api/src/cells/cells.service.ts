@@ -9,10 +9,15 @@ import { PrismaService } from 'prisma/prisma.service';
 
 import { CreateCellDto } from './dto/create-cell.dto';
 import { UpdateCellDto } from './dto/update-cell.dto';
-import { BoardColumnType } from 'generated/prisma/enums';
+import {
+  ActivityAction,
+  ActivityEntityType,
+  BoardColumnType,
+} from 'generated/prisma/enums';
 import { LocalStorageService } from 'src/storage/local-storage.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskAssignedEvent } from 'src/notifications/events/task-assigned.event';
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
 
 @Injectable()
 export class CellsService {
@@ -107,6 +112,7 @@ export class CellsService {
     private readonly prisma: PrismaService,
     private readonly storageService: LocalStorageService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly activityLogsService: ActivityLogsService,
   ) {}
 
   async create(createCellDto: CreateCellDto, boardId: number, userId: number) {
@@ -267,29 +273,22 @@ export class CellsService {
     const cell = await this.prisma.taskCell.findFirst({
       where: {
         id: cellId,
-
         task: {
           group: {
             boardId,
           },
         },
       },
-
       select: {
         id: true,
-
         taskId: true,
-
         columnId: true,
-
         value: true,
-
         task: {
           select: {
             id: true,
-
             name: true,
-
+            groupId: true,
             group: {
               select: {
                 boardId: true,
@@ -297,12 +296,12 @@ export class CellsService {
             },
           },
         },
-
         column: {
           select: {
+            id:true,
             boardId: true,
-
             type: true,
+            name: true,
           },
         },
       },
@@ -312,7 +311,6 @@ export class CellsService {
       throw new NotFoundException('Cell not found for the specified board.');
     }
 
-    // Defense-in-depth check.
     if (
       cell.task.group.boardId !== boardId ||
       cell.column.boardId !== boardId
@@ -320,32 +318,46 @@ export class CellsService {
       throw new NotFoundException('Cell not found for the specified board.');
     }
 
-    /**
-     * Capture the previous assignee before
-     * updating the cell.
-     */
+    const previousValue = cell.value;
+
+    console.log({cell})
+
+    const columnType = cell.column.type;
+
     const previousAssigneeIds =
-      cell.column.type === BoardColumnType.PERSON
-        ? this.extractPersonIds(cell.value)
+      columnType === BoardColumnType.PERSON
+        ? this.extractPersonIds(previousValue)
         : [];
 
-    /**
-     * Update the cell.
-     */
     const updatedCell = await this.prisma.taskCell.update({
       where: {
         id: cellId,
       },
-
       data: {
         value: dto.value,
       },
     });
 
-    /**
-     * Handle task assignment notification.
-     */
-    if (cell.column.type === BoardColumnType.PERSON) {
+    const activityLog = await this.activityLogsService.log({
+      boardId,
+      taskId: cell.taskId,
+      groupId: cell.task.groupId,
+      userId,
+      entityType: ActivityEntityType.TASK_CELL,
+      entityId: cell.id,
+      action: ActivityAction.UPDATED,
+      metadata: {
+        columnId: cell.columnId,
+        columnType,
+        oldValue: previousValue,
+        newValue: dto.value,
+        taskName: cell.task.name,
+      },
+    });
+
+    console.log('[ActivityLog] Cell updated:', activityLog);
+
+    if (columnType === BoardColumnType.PERSON) {
       const newAssigneeIds = this.extractPersonIds(dto.value);
 
       console.log(
@@ -355,9 +367,6 @@ export class CellsService {
 
       console.log('[Notification Debug] New assignees:', newAssigneeIds);
 
-      /**
-       * Find users that are newly assigned.
-       */
       const newlyAssignedUsers = newAssigneeIds.filter(
         (id) => !previousAssigneeIds.includes(id) && id !== userId,
       );
@@ -370,13 +379,9 @@ export class CellsService {
       for (const recipientId of newlyAssignedUsers) {
         await this.handleTaskAssignment({
           recipientId,
-
           taskId: cell.task.id,
-
           boardId,
-
           taskName: cell.task.name,
-
           assignedById: userId,
         });
       }

@@ -11,15 +11,8 @@ import { CommentMentionedEvent } from './events/comment-mentioned.event';
 export class NotificationsListener {
 constructor(
 private readonly notificationsService: NotificationsService,
-
-
 private readonly notificationStreamService: NotificationStreamService,
-
-
 ) {
-console.log(
-'🔥 NotificationsListener INITIALIZED',
-);
 }
 
 /**

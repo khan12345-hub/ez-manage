@@ -29,9 +29,5 @@ import { NotificationStreamService } from './notification-stream.service';
   ],
 })
 export class NotificationsModule {
-  constructor() {
-    console.log(
-      '🔥🔥🔥 NotificationsModule INITIALIZED 🔥🔥🔥',
-    );
-  }
+  constructor() {}
 }

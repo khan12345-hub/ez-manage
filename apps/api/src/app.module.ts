@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-// import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -20,6 +19,7 @@ import { ImportsModule } from './imports/imports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { BullModule } from '@nestjs/bullmq';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 
 @Module({
   imports: [
@@ -44,6 +44,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     StatusOptionsModule,
     ImportsModule,
     NotificationsModule,
+    ActivityLogsModule 
   ],
   controllers: [AppController],
   providers: [
@@ -53,11 +54,10 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
       useClass: SessionAuthGuard,
     },
   ],
+  exports: [AppService],
 })
 export class AppModule {
   constructor() {
-    console.log(
-      '🔥🔥🔥🔥🔥 APP MODULE INITIALIZED 🔥🔥🔥🔥🔥',
-    );
+   
   }
 }

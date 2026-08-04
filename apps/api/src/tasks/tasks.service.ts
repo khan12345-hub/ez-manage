@@ -7,7 +7,9 @@ import { PrismaService } from 'prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ReorderTaskDto } from './dto/reorder-task.dto';
-import { ReorderSubtaskDto } from './dto/reorder-subtask.dto';
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
+import { ActivityAction, ActivityEntityType } from 'generated/prisma/client';
+
 type TaskPosition = {
   id: number;
   groupId: number;
@@ -16,7 +18,10 @@ type TaskPosition = {
 };
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activityLogsService: ActivityLogsService,
+  ) {}
 
   async create(createTaskDto: CreateTaskDto, userId: number, boardId: number) {
     const ORDER_GAP = 1000;
@@ -120,6 +125,27 @@ export class TasksService {
         include: {
           cells: true,
         },
+      });
+
+      const activityLog = await this.activityLogsService.log(
+        {
+          boardId,
+          groupId: task.groupId,
+          taskId: task.id,
+          userId,
+          entityType: ActivityEntityType.TASK,
+          entityId: task.id,
+          action: ActivityAction.CREATED,
+          metadata: {
+            taskName: task.name,
+            groupId: task.groupId,
+          },
+        },
+        tx,
+      );
+
+      console.log({
+        'Activity is being created': activityLog,
       });
 
       return task;
