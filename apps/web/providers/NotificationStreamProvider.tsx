@@ -4,7 +4,31 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { connectNotificationStream } from "@/services/notifications.sse";
-import { notificationKeys } from "@/services/notification.keys";
+
+interface Notification {
+  id: string;
+  recipientId: number;
+  type: string;
+  title: string;
+  message: string;
+  entityType?: string | null;
+  entityId?: number | null;
+  metadata?: Record<string, unknown> | null;
+  isRead: boolean;
+  readAt?: string | null;
+  createdAt: string;
+  eventKey?: string | null;
+}
+
+interface NotificationsResponse {
+  data: Notification[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 interface Props {
   userId: number;
@@ -23,81 +47,82 @@ export function NotificationStreamProvider({
     }
 
     console.log(
-      "[SSE] Connecting for user:",
+      "[SSE] Connecting notification stream for user:",
       userId,
     );
 
-    const disconnect =
-      connectNotificationStream(
-        (notification) => {
-          console.log(
-            "[SSE] Received:",
-            notification,
-          );
+    const disconnect = connectNotificationStream(
+      (notification: Notification) => {
+        console.log(
+          "[SSE] New notification received:",
+          notification,
+        );
 
-          // Get current unread count
-          const current =
-            queryClient.getQueryData<{
-              count: number;
-            }>(
-              notificationKeys.unreadCount,
+        /**
+         * Update unread count immediately.
+         */
+        queryClient.setQueryData<{ count: number }>(
+          ["notifications", "unread-count"],
+          (oldData) => {
+            console.log(
+              "[SSE] Previous unread count:",
+              oldData,
             );
 
-          console.log(
-            "[SSE] Current unread cache:",
-            current,
-          );
+            return {
+              count: (oldData?.count ?? 0) + 1,
+            };
+          },
+        );
 
-          // Update unread count immediately
-          queryClient.setQueryData<{
-            count: number;
-          }>(
-            notificationKeys.unreadCount,
-            {
-              count:
-                (current?.count ?? 0) + 1,
-            },
-          );
+        /**
+         * Update notification list immediately
+         * if it already exists in React Query cache.
+         */
+        queryClient.setQueryData<NotificationsResponse>(
+          ["notifications", "list"],
+          (oldData) => {
+            if (!oldData) {
+              return oldData;
+            }
 
-          console.log(
-            "[SSE] Updated unread cache:",
-            queryClient.getQueryData(
-              notificationKeys.unreadCount,
-            ),
-          );
+            /**
+             * Prevent duplicate notifications.
+             */
+            const alreadyExists = oldData.data.some(
+              (item) => item.id === notification.id,
+            );
 
-          // If notification dropdown is already loaded,
-          // add the new notification to the top.
-          queryClient.setQueryData(
-            notificationKeys.list,
-            (oldData: any) => {
-              if (!oldData) {
-                return oldData;
-              }
+            if (alreadyExists) {
+              return oldData;
+            }
 
-              return {
-                ...oldData,
-                data: [
-                  notification,
-                  ...(oldData.data ?? []),
-                ],
-              };
-            },
-          );
-        },
-      );
+            return {
+              ...oldData,
+
+              data: [
+                notification,
+                ...oldData.data,
+              ],
+
+              meta: {
+                ...oldData.meta,
+                total: oldData.meta.total + 1,
+              },
+            };
+          },
+        );
+      },
+    );
 
     return () => {
       console.log(
-        "[SSE] Disconnecting",
+        "[SSE] Disconnecting notification stream",
       );
 
       disconnect();
     };
-  }, [
-    userId,
-    queryClient,
-  ]);
+  }, [userId, queryClient]);
 
   return <>{children}</>;
 }

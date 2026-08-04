@@ -34,7 +34,7 @@ export function BoardToolbar({
   setSearch,
 }: Props) {
   return (
-    <div className="flex items-center justify-between px-6 py-4 fixed top-16 z-40 bg-white">
+    <div className="flex items-center justify-between px-6 py-4 fixed top-20 z-40 bg-white/30 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-lg">
       <div className="flex items-center gap-2">
         <Button>
           New task

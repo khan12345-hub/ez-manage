@@ -190,7 +190,12 @@ export class NotificationsService {
    * Get unread notification count.
    */
   async getUnreadCount(recipientId: number) {
-    const notifications = await this.prisma.notification.findMany();
+    return this.prisma.notification.count({
+      where: {
+        recipientId,
+        isRead: false,
+      },
+    });
   }
 
   /**
