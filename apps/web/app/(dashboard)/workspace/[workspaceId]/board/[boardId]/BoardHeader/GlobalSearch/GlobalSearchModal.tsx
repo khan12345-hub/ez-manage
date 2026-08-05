@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,9 @@ import { useDebounce } from "@/services/useDebounce";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { globalSearch } from "@/services/global-search.api";
-
-
+import { GroupTable } from "../../../group/GroupTable";
+import Link from "next/link";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 interface GlobalSearchModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,11 +42,13 @@ export function GlobalSearchModal({
     }
   }, [open]);
 
+  const [openAddColumn, setOpenAddColumn] = useState(false);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[1200px]! overflow-hidden rounded-2xl border-0 p-0 shadow-2xl"
+        className="max-w-9/10! overflow-hidden rounded-2xl border-0 p-0 shadow-2xl"
       >
         <DialogTitle className="sr-only">Global Search</DialogTitle>
 
@@ -63,190 +66,203 @@ export function GlobalSearchModal({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 border-b bg-gray-50 px-6 py-3">
-          <button className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-medium text-white">
-            All
-          </button>
+        <Tabs defaultValue="all" className="flex h-full flex-col">
+          <div className="border-b bg-muted/30 px-6 py-3">
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="tasks">Tasks</TabsTrigger>
+              <TabsTrigger value="people">People</TabsTrigger>
+              <TabsTrigger value="files">Files</TabsTrigger>
+            </TabsList>
+          </div>
 
-          <button className="rounded-full px-4 py-1.5 text-sm text-gray-600 transition hover:bg-gray-200">
-            Tasks
-          </button>
-
-          <button className="rounded-full px-4 py-1.5 text-sm text-gray-600 transition hover:bg-gray-200">
-            Boards
-          </button>
-
-          <button className="rounded-full px-4 py-1.5 text-sm text-gray-600 transition hover:bg-gray-200">
-            Groups
-          </button>
-
-          <button className="rounded-full px-4 py-1.5 text-sm text-gray-600 transition hover:bg-gray-200">
-            People
-          </button>
-
-          <button className="rounded-full px-4 py-1.5 text-sm text-gray-600 transition hover:bg-gray-200">
-            Files
-          </button>
-        </div>
-
-        <div className="h-[420px] overflow-y-auto">
-          {!query && (
-            <div className="flex h-full flex-col items-center justify-center px-8">
-              <Search className="mb-4 h-14 w-14 text-gray-300" />
-
-              <h3 className="text-lg font-semibold text-gray-900">
-                Search across EzManage
-              </h3>
-
-              <p className="mt-2 max-w-md text-center text-sm text-gray-500">
-                Search tasks, boards, groups, people, and files from anywhere
-                in your workspace.
-              </p>
-            </div>
-          )}
-
-          {query && isFetching && (
-            <div className="flex h-full items-center justify-center text-sm text-gray-500">
-              Searching...
-            </div>
-          )}
-
-          {query &&
-            !isFetching &&
-            data &&
-            data.tasks.length === 0 &&
-            data.boards.length === 0 &&
-            data.groups.length === 0 &&
-            data.users.length === 0 &&
-            data.files.length === 0 && (
-              <div className="flex h-full items-center justify-center text-sm text-gray-500">
-                No results found.
-              </div>
-            )}
-
-          {query && !isFetching && data && (
-            <div className="space-y-6 p-6">
-              {data.tasks.length > 0 && (
-                <div>
-                  <h4 className="mb-3 text-sm font-semibold text-gray-500">
-                    Tasks
-                  </h4>
-
-                  {data.tasks.map((task: any) => (
-                    <div
-                      key={task.id}
-                      className="cursor-pointer rounded-lg p-3 transition hover:bg-gray-100"
-                    >
-                      <div className="font-medium">{task.name}</div>
-
-                      <div className="text-sm text-gray-500">
-                        {task.group.board.name} • {task.group.name}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {data.boards.length > 0 && (
-                <div>
-                  <h4 className="mb-3 text-sm font-semibold text-gray-500">
-                    Boards
-                  </h4>
-
+          <div className="h-[420px] overflow-y-auto">
+            <TabsContent value="all" className="mt-0">
+              {query && !isFetching && data && (
+                <div className="space-y-8 p-6">
                   {data.boards.map((board: any) => (
-                    <div
-                      key={board.id}
-                      className="cursor-pointer rounded-lg p-3 transition hover:bg-gray-100"
-                    >
-                      {board.name}
+                    <div key={board.id} className="space-y-6">
+                      {board.groups.map((group: any) => (
+                        <div
+                          key={group.id}
+                          className="overflow-hidden rounded-xl border bg-background"
+                        >
+                          <div className="border-b bg-muted/30 px-6 py-3">
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="font-medium text-muted-foreground">
+                                Workspace
+                              </span>
+
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+
+                              <span className="font-medium">{board.name}</span>
+
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+
+                              <span
+                                className="font-semibold"
+                                style={{ color: group.color ?? undefined }}
+                              >
+                                {group.name}
+                              </span>
+                            </div>
+                          </div>
+
+                          <GroupTable
+                            group={group}
+                            columns={board.columns}
+                            showSelection={false}
+                            showHeaders
+                            showNewTaskRow={false}
+                            showAddColumn={false}
+                            setOpen={setOpenAddColumn}
+                          />
+                        </div>
+                      ))}
                     </div>
                   ))}
-                </div>
-              )}
 
-              {data.groups.length > 0 && (
-                <div>
-                  <h4 className="mb-3 text-sm font-semibold text-gray-500">
-                    Groups
-                  </h4>
-
-                  {data.groups.map((group: any) => (
-                    <div
-                      key={group.id}
-                      className="cursor-pointer rounded-lg p-3 transition hover:bg-gray-100"
-                    >
-                      <div>{group.name}</div>
-                      <div className="text-sm text-gray-500">
-                        {group.board.name}
+                  {data.users.length > 0 && (
+                    <div className="rounded-xl border">
+                      <div className="border-b px-6 py-3 font-semibold">
+                        People
                       </div>
+
+                      {data.users.map((user: any) => (
+                        <div
+                          key={user.id}
+                          className="flex cursor-pointer items-center gap-3 px-6 py-3 hover:bg-muted"
+                        >
+                          <img
+                            src={user.avatarUrl || "/avatar.png"}
+                            alt={`${user.firstName} ${user.lastName}`}
+                            className="h-9 w-9 rounded-full"
+                          />
+
+                          <div>
+                            <div className="font-medium">
+                              {user.firstName} {user.lastName}
+                            </div>
+
+                            <div className="text-sm text-muted-foreground">
+                              {user.email}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+
+                  {data.files.length > 0 && (
+                    <div className="rounded-xl border">
+                      <div className="border-b px-6 py-3 font-semibold">
+                        Files
+                      </div>
+
+                      {data.files.map((file: any) => (
+                        <div
+                          key={file.id}
+                          className="cursor-pointer px-6 py-3 hover:bg-muted"
+                        >
+                          {file.fileName}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
+            </TabsContent>
+            <TabsContent value="tasks" className="mt-0">
+              {data &&
+                data.boards.map((board: any) => (
+                  <div key={board.id} className="space-y-6">
+                    {board.groups.map((group: any) => (
+                      <div
+                        key={group.id}
+                        className="overflow-hidden rounded-xl border bg-background"
+                      >
+                        <div className="border-b bg-muted/30 px-6 py-3">
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="font-medium text-muted-foreground">
+                              Workspace
+                            </span>
 
-              {data.users.length > 0 && (
-                <div>
-                  <h4 className="mb-3 text-sm font-semibold text-gray-500">
-                    People
-                  </h4>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
 
+                            <span className="font-medium">{board.name}</span>
+
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+
+                            <span
+                              className="font-semibold"
+                              style={{ color: group.color ?? undefined }}
+                            >
+                              {group.name}
+                            </span>
+                          </div>
+                        </div>
+
+                        <GroupTable
+                          group={group}
+                          columns={board.columns}
+                          showSelection={false}
+                          showHeaders
+                          showNewTaskRow={false}
+                          showAddColumn={false}
+                          setOpen={setOpenAddColumn}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ))}
+            </TabsContent>
+            <TabsContent value="people" className="mt-0">
+              {data && data.users.length > 0 && (
+                <div className="rounded-xl border">
+                  <div className="border-b px-6 py-3 font-semibold">People</div>
                   {data.users.map((user: any) => (
                     <div
                       key={user.id}
-                      className="cursor-pointer rounded-lg p-3 transition hover:bg-gray-100"
+                      className="flex cursor-pointer items-center gap-3 px-6 py-3 hover:bg-muted"
                     >
+                      <img
+                        src={user.avatarUrl || "/avatar.png"}
+                        alt={`${user.firstName} ${user.lastName}`}
+                        className="h-9 w-9 rounded-full"
+                      />
+
                       <div>
-                        {user.firstName} {user.lastName}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {user.email}
+                        <div className="font-medium">
+                          {user.firstName} {user.lastName}
+                        </div>
+
+                        <div className="text-sm text-muted-foreground">
+                          {user.email}
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-
-              {data.files.length > 0 && (
-                <div>
-                  <h4 className="mb-3 text-sm font-semibold text-gray-500">
-                    Files
-                  </h4>
+            </TabsContent>
+            <TabsContent value="files" className="mt-0">
+              {data && data.files.length > 0 && (
+                <div className="rounded-xl border">
+                  <div className="border-b px-6 py-3 font-semibold">Files</div>
 
                   {data.files.map((file: any) => (
                     <div
                       key={file.id}
-                      className="cursor-pointer rounded-lg p-3 transition hover:bg-gray-100"
+                      className="cursor-pointer px-6 py-3 hover:bg-muted"
                     >
                       {file.fileName}
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between border-t bg-gray-50 px-6 py-3 text-xs text-gray-500">
-          <div className="flex items-center gap-4">
-            <span>
-              <kbd className="rounded border bg-white px-1.5 py-0.5">↑</kbd>{" "}
-              <kbd className="rounded border bg-white px-1.5 py-0.5">↓</kbd>{" "}
-              Navigate
-            </span>
-
-            <span>
-              <kbd className="rounded border bg-white px-1.5 py-0.5">
-                Enter
-              </kbd>{" "}
-              Select
-            </span>
+            </TabsContent>    
           </div>
-
-          <span>
-            <kbd className="rounded border bg-white px-1.5 py-0.5">Esc</kbd>{" "}
-            Close
-          </span>
-        </div>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

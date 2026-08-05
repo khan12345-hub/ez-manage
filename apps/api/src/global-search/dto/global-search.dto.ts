@@ -22,14 +22,18 @@ export class SearchDto {
   @Transform(({ value }) => value?.trim())
   q!: string;
 
+  @Transform(({ value }) => Number(value))
+  @IsInt()
+  workspaceId!: number;
+
   @IsOptional()
   @IsEnum(SearchType)
-  type: SearchType = SearchType.ALL;
+  type?: SearchType = SearchType.ALL;
 
   @IsOptional()
   @Transform(({ value }) => Number(value))
   @IsInt()
   @Min(1)
   @Max(50)
-  limit: number = 5;
+  limit?: number = 5;
 }

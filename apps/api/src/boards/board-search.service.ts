@@ -1,158 +1,181 @@
 import { Injectable } from '@nestjs/common';
 import { BoardColumnType } from 'generated/prisma/enums';
-
+import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class BoardSearchService {
-  /**
-   * Search a task and all of its subtasks recursively.
-   */
-  taskMatchesSearch(
-    task: any,
-    search: string,
-  ): boolean {
-    const normalizedSearch =
-      search.trim().toLowerCase();
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  taskMatchesSearch(task: any, search: string): boolean {
+    const normalizedSearch = search.trim().toLowerCase();
 
     if (!normalizedSearch) {
       return true;
     }
 
     // Search current task
-    if (
-      this.taskFieldsMatchSearch(
-        task,
-        normalizedSearch,
-      )
-    ) {
+    if (this.taskFieldsMatchSearch(task, normalizedSearch)) {
       return true;
     }
 
     // Search subtasks recursively
-    return (
-      task.subtasks ?? []
-    ).some((subtask: any) =>
-      this.taskMatchesSearch(
-        subtask,
-        normalizedSearch,
-      ),
+    return (task.subtasks ?? []).some((subtask: any) =>
+      this.taskMatchesSearch(subtask, normalizedSearch),
     );
   }
 
-  /**
-   * Search task fields.
-   *
-   * Supports:
-   * - Task name
-   * - Status
-   * - Person
-   * - Date
-   * - Timeline
-   * - Uploaded file name
-   */
-  private taskFieldsMatchSearch(
-    task: any,
-    search: string,
-  ): boolean {
+  async findBoardsWithTasks(boardIds: number[]) {
+  return this.prisma.board.findMany({
+    where: {
+      id: {
+        in: boardIds,
+      },
+    },
+
+    include: {
+      columns: {
+        include: {
+          statusOptions: {
+            where: {
+              isArchived: false,
+            },
+          },
+        },
+
+        orderBy: {
+          order: 'asc',
+        },
+      },
+
+      groups: {
+        orderBy: {
+          order: 'asc',
+        },
+
+        include: {
+          tasks: {
+            where: {
+              parentId: null,
+            },
+
+            orderBy: {
+              order: 'asc',
+            },
+
+            include: {
+              cells: {
+                include: {
+                  column: {
+                    include: {
+                      statusOptions: {
+                        where: {
+                          isArchived: false,
+                        },
+                      },
+                    },
+                  },
+
+                  files: {
+                    include: {
+                      file: true,
+                    },
+                  },
+                },
+              },
+
+              subtasks: {
+                orderBy: {
+                  order: 'asc',
+                },
+
+                include: {
+                  cells: {
+                    include: {
+                      column: {
+                        include: {
+                          statusOptions: {
+                            where: {
+                              isArchived: false,
+                            },
+                          },
+                        },
+                      },
+
+                      files: {
+                        include: {
+                          file: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+ 
+  private taskFieldsMatchSearch(task: any, search: string): boolean {
     /*
      * Task name
      */
-    const taskName =
-      task.name
-        ?.trim()
-        .toLowerCase();
+    const taskName = task.name?.trim().toLowerCase();
 
-    if (
-      taskName?.includes(search)
-    ) {
+    if (taskName?.includes(search)) {
       return true;
     }
 
     /*
      * Cells
      */
-    return (
-      task.cells ?? []
-    ).some((cell: any) =>
-      this.cellMatchesSearch(
-        cell,
-        search,
-      ),
+    return (task.cells ?? []).some((cell: any) =>
+      this.cellMatchesSearch(cell, search),
     );
   }
 
   /**
    * Search an individual cell.
    */
-  private cellMatchesSearch(
-    cell: any,
-    search: string,
-  ): boolean {
+  private cellMatchesSearch(cell: any, search: string): boolean {
     /*
      * Uploaded files
      */
-    if (
-      this.fileMatchesSearch(
-        cell,
-        search,
-      )
-    ) {
+    if (this.fileMatchesSearch(cell, search)) {
       return true;
     }
 
-    const columnType =
-      cell.column?.type;
+    const columnType = cell.column?.type;
 
     /*
      * Status
      */
-    if (
-      columnType ===
-      BoardColumnType.STATUS
-    ) {
-      return this.statusMatchesSearch(
-        cell,
-        search,
-      );
+    if (columnType === BoardColumnType.STATUS) {
+      return this.statusMatchesSearch(cell, search);
     }
 
     /*
      * Person
      */
-    if (
-      columnType ===
-      BoardColumnType.PERSON
-    ) {
-      return this.personCellMatchesSearch(
-        cell,
-        search,
-      );
+    if (columnType === BoardColumnType.PERSON) {
+      return this.personCellMatchesSearch(cell, search);
     }
 
     /*
      * Date
      */
-    if (
-      columnType ===
-      BoardColumnType.DATE
-    ) {
-      return this.dateCellMatchesSearch(
-        cell,
-        search,
-      );
+    if (columnType === BoardColumnType.DATE) {
+      return this.dateCellMatchesSearch(cell, search);
     }
 
     /*
      * Timeline
      */
-    if (
-      columnType ===
-      BoardColumnType.TIMELINE
-    ) {
-      return this.timelineCellMatchesSearch(
-        cell,
-        search,
-      );
+    if (columnType === BoardColumnType.TIMELINE) {
+      return this.timelineCellMatchesSearch(cell, search);
     }
 
     return false;
@@ -161,23 +184,13 @@ export class BoardSearchService {
   /**
    * Status search.
    */
-  private statusMatchesSearch(
-    cell: any,
-    search: string,
-  ): boolean {
-    const statusValue =
-      cell.value as {
-        label?: string;
-        color?: string;
-      } | null;
+  private statusMatchesSearch(cell: any, search: string): boolean {
+    const statusValue = cell.value as {
+      label?: string;
+      color?: string;
+    } | null;
 
-    return (
-      statusValue?.label
-        ?.trim()
-        .toLowerCase()
-        .includes(search) ??
-      false
-    );
+    return statusValue?.label?.trim().toLowerCase().includes(search) ?? false;
   }
 
   /**
@@ -189,81 +202,50 @@ export class BoardSearchService {
    * - Full name
    * - Email
    */
-  private personCellMatchesSearch(
-    cell: any,
-    search: string,
-  ): boolean {
-    const personValue =
-      cell.value as {
-        users?: {
-          id?: number;
-          role?: string;
-          email?: string;
-          firstName?: string;
-          lastName?: string;
-          avatarUrl?: string | null;
-        }[];
-      } | null;
+  private personCellMatchesSearch(cell: any, search: string): boolean {
+    const personValue = cell.value as {
+      users?: {
+        id?: number;
+        role?: string;
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        avatarUrl?: string | null;
+      }[];
+    } | null;
 
-    if (
-      !personValue?.users?.length
-    ) {
+    if (!personValue?.users?.length) {
       return false;
     }
 
-    return personValue.users.some(
-      (person) => {
-        const firstName =
-          person.firstName
-            ?.trim()
-            .toLowerCase() ?? '';
+    return personValue.users.some((person) => {
+      const firstName = person.firstName?.trim().toLowerCase() ?? '';
 
-        const lastName =
-          person.lastName
-            ?.trim()
-            .toLowerCase() ?? '';
+      const lastName = person.lastName?.trim().toLowerCase() ?? '';
 
-        const email =
-          person.email
-            ?.trim()
-            .toLowerCase() ?? '';
+      const email = person.email?.trim().toLowerCase() ?? '';
 
-        const fullName =
-          `${firstName} ${lastName}`.trim();
+      const fullName = `${firstName} ${lastName}`.trim();
 
-        return (
-          firstName.includes(search) ||
-          lastName.includes(search) ||
-          fullName.includes(search) ||
-          email.includes(search)
-        );
-      },
-    );
+      return (
+        firstName.includes(search) ||
+        lastName.includes(search) ||
+        fullName.includes(search) ||
+        email.includes(search)
+      );
+    });
   }
 
   /**
    * Uploaded file search.
    */
-  private fileMatchesSearch(
-    cell: any,
-    search: string,
-  ): boolean {
-    return (
-      cell.files ?? []
-    ).some((fileRelation: any) => {
-      const file =
-        fileRelation?.file ??
-        fileRelation;
+  private fileMatchesSearch(cell: any, search: string): boolean {
+    return (cell.files ?? []).some((fileRelation: any) => {
+      const file = fileRelation?.file ?? fileRelation;
 
-      const fileName =
-        file?.fileName
-          ?.trim()
-          .toLowerCase();
+      const fileName = file?.fileName?.trim().toLowerCase();
 
-      return (
-        fileName?.includes(search) ??
-        false
-      );
+      return fileName?.includes(search) ?? false;
     });
   }
 
@@ -276,14 +258,8 @@ export class BoardSearchService {
    *   date: "2025-09-17T00:00:00.000Z"
    * }
    */
-  private dateCellMatchesSearch(
-    cell: any,
-    search: string,
-  ): boolean {
-    return this.dateValueMatchesSearch(
-      cell.value?.date,
-      search,
-    );
+  private dateCellMatchesSearch(cell: any, search: string): boolean {
+    return this.dateValueMatchesSearch(cell.value?.date, search);
   }
 
   /**
@@ -294,110 +270,68 @@ export class BoardSearchService {
    * - start / end
    * - from / to
    */
-  private timelineCellMatchesSearch(
-    cell: any,
-    search: string,
-  ): boolean {
-    const timelineValue =
-      cell.value;
+  private timelineCellMatchesSearch(cell: any, search: string): boolean {
+    const timelineValue = cell.value;
 
     if (!timelineValue) {
       return false;
     }
 
     const startDate =
-      timelineValue.startDate ??
-      timelineValue.start ??
-      timelineValue.from;
+      timelineValue.startDate ?? timelineValue.start ?? timelineValue.from;
 
     const endDate =
-      timelineValue.endDate ??
-      timelineValue.end ??
-      timelineValue.to;
+      timelineValue.endDate ?? timelineValue.end ?? timelineValue.to;
 
     return (
-      this.dateValueMatchesSearch(
-        startDate,
-        search,
-      ) ||
-      this.dateValueMatchesSearch(
-        endDate,
-        search,
-      )
+      this.dateValueMatchesSearch(startDate, search) ||
+      this.dateValueMatchesSearch(endDate, search)
     );
   }
 
   /**
    * Generic date search.
    */
-  private dateValueMatchesSearch(
-    dateValue: any,
-    search: string,
-  ): boolean {
+  private dateValueMatchesSearch(dateValue: any, search: string): boolean {
     if (!dateValue) {
       return false;
     }
 
-    const normalizedSearch =
-      search
-        .trim()
-        .toLowerCase()
-        .replace(/,/g, '')
-        .replace(/\s+/g, ' ');
+    const normalizedSearch = search
+      .trim()
+      .toLowerCase()
+      .replace(/,/g, '')
+      .replace(/\s+/g, ' ');
 
-    const date =
-      new Date(dateValue);
+    const date = new Date(dateValue);
 
-    if (
-      Number.isNaN(
-        date.getTime(),
-      )
-    ) {
+    if (Number.isNaN(date.getTime())) {
       return false;
     }
 
-    const year =
-      date.getUTCFullYear();
+    const year = date.getUTCFullYear();
 
-    const month =
-      date.getUTCMonth() + 1;
+    const month = date.getUTCMonth() + 1;
 
-    const day =
-      date.getUTCDate();
+    const day = date.getUTCDate();
 
-    const paddedMonth =
-      String(month).padStart(
-        2,
-        '0',
-      );
+    const paddedMonth = String(month).padStart(2, '0');
 
-    const paddedDay =
-      String(day).padStart(
-        2,
-        '0',
-      );
+    const paddedDay = String(day).padStart(2, '0');
 
-    const monthName =
-      new Intl.DateTimeFormat(
-        'en-US',
-        {
-          month: 'long',
-          timeZone: 'UTC',
-        },
-      )
-        .format(date)
-        .toLowerCase();
+    const monthName = new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      timeZone: 'UTC',
+    })
+      .format(date)
+      .toLowerCase();
 
-    const shortMonthName =
-      new Intl.DateTimeFormat(
-        'en-US',
-        {
-          month: 'short',
-          timeZone: 'UTC',
-        },
-      )
-        .format(date)
-        .toLowerCase();
+    const shortMonthName = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      timeZone: 'UTC',
+    })
+      .format(date)
+      .toLowerCase();
 
     const dateFormats = [
       // 2025-07-01
@@ -458,23 +392,15 @@ export class BoardSearchService {
       String(day),
     ];
 
-    return dateFormats.some(
-      (value) => {
-        const normalizedValue =
-          value
-            .toLowerCase()
-            .replace(/,/g, '')
-            .replace(
-              /\s+/g,
-              ' ',
-            )
-            .trim();
+    return dateFormats.some((value) => {
+      const normalizedValue = value
+        .toLowerCase()
+        .replace(/,/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-        return normalizedValue.includes(
-          normalizedSearch,
-        );
-      },
-    );
+      return normalizedValue.includes(normalizedSearch);
+    });
   }
 
   /**
@@ -482,14 +408,8 @@ export class BoardSearchService {
    *
    * This also searches subtasks recursively.
    */
-  taskMatchesPerson(
-    task: any,
-    person: string,
-  ): boolean {
-    const normalizedPerson =
-      person
-        .trim()
-        .toLowerCase();
+  taskMatchesPerson(task: any, person: string): boolean {
+    const normalizedPerson = person.trim().toLowerCase();
 
     if (!normalizedPerson) {
       return true;
@@ -498,24 +418,13 @@ export class BoardSearchService {
     /*
      * Search current task
      */
-    const currentTaskMatches =
-      (
-        task.cells ?? []
-      ).some(
-        (cell: any) => {
-          if (
-            cell.column?.type !==
-            BoardColumnType.PERSON
-          ) {
-            return false;
-          }
+    const currentTaskMatches = (task.cells ?? []).some((cell: any) => {
+      if (cell.column?.type !== BoardColumnType.PERSON) {
+        return false;
+      }
 
-          return this.personCellMatchesSearch(
-            cell,
-            normalizedPerson,
-          );
-        },
-      );
+      return this.personCellMatchesSearch(cell, normalizedPerson);
+    });
 
     if (currentTaskMatches) {
       return true;
@@ -524,13 +433,8 @@ export class BoardSearchService {
     /*
      * Search subtasks
      */
-    return (
-      task.subtasks ?? []
-    ).some((subtask: any) =>
-      this.taskMatchesPerson(
-        subtask,
-        normalizedPerson,
-      ),
+    return (task.subtasks ?? []).some((subtask: any) =>
+      this.taskMatchesPerson(subtask, normalizedPerson),
     );
   }
 
@@ -547,37 +451,16 @@ export class BoardSearchService {
       person?: string;
     },
   ): any[] {
-    const search =
-      options.search
-        ?.trim()
-        .toLowerCase() ?? '';
+    const search = options.search?.trim().toLowerCase() ?? '';
 
-    const person =
-      options.person
-        ?.trim()
-        .toLowerCase() ?? '';
+    const person = options.person?.trim().toLowerCase() ?? '';
 
-    return tasks.filter(
-      (task) => {
-        const matchesSearch =
-          !search ||
-          this.taskMatchesSearch(
-            task,
-            search,
-          );
+    return tasks.filter((task) => {
+      const matchesSearch = !search || this.taskMatchesSearch(task, search);
 
-        const matchesPerson =
-          !person ||
-          this.taskMatchesPerson(
-            task,
-            person,
-          );
+      const matchesPerson = !person || this.taskMatchesPerson(task, person);
 
-        return (
-          matchesSearch &&
-          matchesPerson
-        );
-      },
-    );
+      return matchesSearch && matchesPerson;
+    });
   }
 }

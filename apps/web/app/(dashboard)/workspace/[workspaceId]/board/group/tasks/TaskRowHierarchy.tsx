@@ -15,7 +15,7 @@ interface Props {
   columns: any[];
   color: string;
   isDraggingTask?: boolean;
-    selection: any;
+  selection?: any;
 }
 
 export function TaskHierarchyRow({
@@ -23,29 +23,22 @@ export function TaskHierarchyRow({
   columns,
   color,
   isDraggingTask,
-  selection
+  selection,
 }: Props) {
   const subtasks = task.subtasks ?? [];
 
   const hasSubtasks = subtasks.length > 0;
   const [isExpanded, setIsExpanded] = useState(false);
-  const taskSelection = selection.getTaskSelectionState(task);
+
+  const taskSelection = selection
+    ? selection.getTaskSelectionState(task)
+    : {
+        selected: false,
+        indeterminate: false,
+      };
 
   return (
     <>
-      {/* =========================================
-          PARENT TASK
-      ========================================== */}
-
-      {/* <SortableTaskRow
-        task={task}
-        columns={columns}
-        color={color}
-        onToggleSubtasks={() => setIsExpanded(!isExpanded)}
-        hasSubtasks={hasSubtasks}
-        expanded={false}
-      /> */}
-
       <SortableTaskRow
         task={task}
         columns={columns}
@@ -53,14 +46,13 @@ export function TaskHierarchyRow({
         onToggleSubtasks={() => setIsExpanded(!isExpanded)}
         hasSubtasks={hasSubtasks}
         expanded={isExpanded}
+        // showSelection={!!selection}
         selected={taskSelection.selected}
         indeterminate={taskSelection.indeterminate}
-        onSelect={() => selection.toggleTask(task)}
+        onSelect={
+          selection ? () => selection.toggleTask(task) : undefined
+        }
       />
-
-      {/* =========================================
-          REAL SUBTASKS
-      ========================================== */}
 
       {hasSubtasks && isExpanded && !isDraggingTask && (
         <SortableContext
@@ -79,10 +71,6 @@ export function TaskHierarchyRow({
           ))}
         </SortableContext>
       )}
-
-      {/* =========================================
-          ADD SUBTASK
-      ========================================== */}
 
       {!isDraggingTask && isExpanded && (
         <SubtaskList task={task} columns={columns} color={color} />

@@ -11,6 +11,7 @@ import { getWorkspaceDetail } from "@/services/workspace.api";
 import { useAuth } from "@/providers/AuthProvider";
 import { AddBoardCard } from "../components/AddBoardCard";
 import { useInviteModalStore } from "@/store/invite-modal";
+import { FolderOpen } from "lucide-react";
 
 const DEFAULT_COVER =
   "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1600&q=80";
@@ -116,12 +117,29 @@ export default function WorkspacePage() {
   }, [workspaceDetail]);
 
   if (!canFetchWorkspace) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30 text-sm text-muted-foreground">
-        Invalid workspace.
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-6">
+      <div className="max-w-md text-center">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+          <FolderOpen className="h-8 w-8 text-muted-foreground" />
+        </div>
+
+        <h2 className="text-2xl font-semibold tracking-tight">
+          No workspace found
+        </h2>
+
+        <p className="mt-2 text-sm text-muted-foreground">
+          We couldn't find this workspace. It may have been deleted, you may
+          not have access to it, or you haven't created one yet.
+        </p>
+
+        <p className="mt-6 text-sm font-medium text-muted-foreground">
+          Create a workspace to get started.
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   if (isLoading) {
     return (

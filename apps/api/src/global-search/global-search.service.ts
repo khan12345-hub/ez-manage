@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { SearchDto } from './dto/global-search.dto';
+import { BoardSearchService } from 'src/boards/board-search.service';
 
 @Injectable()
 export class GlobalSearchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly boardSearchService: BoardSearchService,
+  ) {}
   private async getAccessibleBoardIds(userId: number) {
     const boards = await this.prisma.boardMember.findMany({
       where: {
@@ -17,31 +21,46 @@ export class GlobalSearchService {
 
     return boards.map((b) => b.boardId);
   }
-  private searchTasks(query: string, boardIds: number[], limit: number) {
-    return this.prisma.task.findMany({
-      where: {
-        name: {
-          contains: query,
-          mode: 'insensitive',
-        },
 
-        group: {
-          boardId: {
-            in: boardIds,
-          },
-        },
-      },
+  private async searchTasks(query: string, boardIds: number[], limit: number) {
+    const boards = await this.boardSearchService.findBoardsWithTasks(boardIds);
 
-      take: limit,
+    const matchedBoards: Array<(typeof boards)[number]> = [];
+    let count = 0;
 
-      include: {
-        group: {
-          include: {
-            board: true,
-          },
-        },
-      },
-    });
+    for (const board of boards) {
+      const matchedGroups: Array<(typeof board.groups)[number]> = [];
+
+      for (const group of board.groups) {
+        const matchedTasks = this.boardSearchService.filterTasks(group.tasks, {
+          search: query,
+        });
+
+        if (!matchedTasks.length) continue;
+
+        matchedGroups.push({
+          ...group,
+          tasks: matchedTasks,
+        });
+
+        count += matchedTasks.length;
+
+        if (count >= limit) break;
+      }
+
+      if (matchedGroups.length) {
+        matchedBoards.push({
+          ...board,
+          groups: matchedGroups,
+        });
+      }
+
+      if (count >= limit) break;
+    }
+
+    console.log({matchedBoards})
+    return matchedBoards;
+
   }
   private searchBoards(query: string, boardIds: number[], limit: number) {
     return this.prisma.board.findMany({
@@ -79,6 +98,7 @@ export class GlobalSearchService {
       take: limit,
     });
   }
+
   private async searchUsers(query: string, boardIds: number[], limit: number) {
     const workspaceIds = await this.prisma.board.findMany({
       where: {
@@ -201,7 +221,7 @@ export class GlobalSearchService {
     switch (dto.type) {
       case 'tasks':
         return {
-          tasks: await this.searchTasks(query, boardIds, limit),
+          boards: await this.searchTasks(query, boardIds, limit),
         };
 
       case 'boards':
