@@ -1,18 +1,50 @@
 "use client";
-import React from "react";
+
 import { Search } from "lucide-react";
-export function Searchbar() {
+
+type SearchbarProps = {
+  onOpen: () => void;
+};
+
+export function Searchbar({ onOpen }: SearchbarProps) {
   return (
-    <div className="relative w-full max-w-[500px]">
-      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-        <Search className="h-4.5 w-4.5 text-gray-400" />
-      </div>
-      <input
-        type="search"
-        placeholder="Search for anything..."
-        className="block w-full rounded-full border border-gray-200 bg-gray-50/50 py-4 pl-11! pr-14 text-[13px] text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 shadow-sm p-3!"
-      />
-      
-    </div>
+    <button
+      type="button"
+      onClick={onOpen}
+      className="
+        group
+        relative
+        flex
+        h-10
+        w-full
+        max-w-[500px]
+        items-center
+        rounded-full
+        border
+        border-gray-200
+        bg-gray-50/70
+        px-4
+        text-left
+        shadow-sm
+        transition-all
+        hover:border-gray-300
+        hover:bg-white
+        hover:shadow-md
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-500
+      "
+    >
+      <Search className="mr-3 h-4 w-4 text-gray-400 transition-colors group-hover:text-gray-600" />
+
+      <span className="flex-1 text-sm text-gray-500">
+        Search for anything...
+      </span>
+
+      <kbd className="hidden items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-500 shadow-sm sm:flex">
+        <span>Ctrl</span>
+        <span>K</span>
+      </kbd>
+    </button>
   );
 }

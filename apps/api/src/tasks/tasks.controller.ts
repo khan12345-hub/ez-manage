@@ -10,8 +10,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { TasksService } from './tasks.service';
-
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ReorderTaskDto } from './dto/reorder-task.dto';
@@ -30,16 +28,19 @@ import { TaskMutationService } from './task-mutation.service';
 import { TaskQueryService } from './task-search.service';
 import { TaskReorderService } from './task-reorder.service';
 import { TaskCreateService } from './task-create.service';
+import { BulkDeleteTasksDto } from './dto/bulk-delete-tasks.dto';
+import { TaskBulkActionsService } from './tasks-bulk-actions.service';
+import { BulkUpdateStatusDto } from './dto/bulk-update-task-cell.dto';
 
 @Controller('boards/:boardId/tasks')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
 export class TasksController {
   constructor(
-    private readonly tasksService: TasksService,
     private readonly taskCreateService: TaskCreateService,
     private readonly taskQueryService: TaskQueryService,
     private readonly taskReorderService: TaskReorderService,
     private readonly taskMutationService: TaskMutationService,
+    private readonly taskbulkActions: TaskBulkActionsService,
   ) {}
 
   @Post()
@@ -90,21 +91,23 @@ export class TasksController {
       dto.nextTaskId ?? null,
     );
   }
-  // @Patch('bulk/status')
-  // bulkUpdateStatus(
-  //   @Param('boardId', ParseIntPipe) boardId: number,
-  //   @Body() dto: BulkUpdateTaskCellDto,
-  //   @Req() req: any,
-  // ) {
-  //   return this.tasksService.bulkUpdateStatus(boardId, dto, req.user.id);
-  // }
 
-  // @Delete('bulk')
-  // bulkDelete(
-  //   @Param('boardId', ParseIntPipe) boardId: number,
-  //   @Body() dto: BulkDeleteTasksDto,
-  //   @Req() req: any,
-  // ) {
-  //   return this.tasksService.bulkDelete(boardId, dto, req.user.id);
-  // }
+  @Post('bulk/delete')
+  @RequireBoardPermission(BoardPermission.DELETE_TASK)
+  bulkDelete(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Body() dto: BulkDeleteTasksDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.taskbulkActions.bulkDelete(boardId, dto, user.id);
+  }
+
+  @Post('bulk/status')
+  bulkStatus(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Body() dto: BulkUpdateStatusDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.taskbulkActions.bulkUpdateStatus(boardId, dto, user.id);
+  }
 }

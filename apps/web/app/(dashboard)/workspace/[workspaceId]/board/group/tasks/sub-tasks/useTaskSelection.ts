@@ -136,6 +136,7 @@ export function useTaskSelection(groups: any[]) {
 
   return {
     selectedTaskIds,
+    setSelectedTaskIds,
     selectedCount: selectedTaskIds.size,
     visibleTaskIds,
 

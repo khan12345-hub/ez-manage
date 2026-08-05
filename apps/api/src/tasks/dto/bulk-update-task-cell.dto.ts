@@ -1,31 +1,20 @@
-import {
-  IsInt,
-  IsNotEmpty,
-  IsObject,
-  IsString,
-  ValidateNested,
-} from "class-validator";
+import { IsArray, ArrayNotEmpty, IsInt, IsObject } from "class-validator";
 import { Type } from "class-transformer";
 
-class BulkStatusValueDto {
-  @IsString()
-  @IsNotEmpty()
-  label!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  color!: string;
-}
-
-export class BulkUpdateTaskCellDto {
+export class BulkUpdateStatusDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @Type(() => Number)
   @IsInt({ each: true })
   taskIds!: number[];
 
+  @Type(() => Number)
   @IsInt()
   columnId!: number;
 
   @IsObject()
-  @ValidateNested()
-  @Type(() => BulkStatusValueDto)
-  value!: BulkStatusValueDto;
+  value!: {
+    label: string;
+    color: string;
+  };
 }

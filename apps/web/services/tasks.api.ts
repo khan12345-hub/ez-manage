@@ -161,3 +161,36 @@ export async function reorderSubtask(
 
   return response.data;
 }
+
+export async function bulkDeleteTasks(
+  boardId: number,
+  taskIds: number[],
+) {
+  const { data } = await api.post(
+    `/boards/${boardId}/tasks/bulk/delete`,
+    {
+      taskIds,
+    },
+  );
+
+  return data;
+}
+
+export async function bulkUpdateTaskStatus(
+  boardId: number,
+  payload: {
+    taskIds: number[];
+    columnId: number;
+    value: {
+      label: string;
+      color: string;
+    };
+  },
+) {
+  const { data } = await api.post(
+    `/boards/${boardId}/tasks/bulk/status`,
+    payload,
+  );
+
+  return data;
+}

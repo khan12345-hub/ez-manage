@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Search, User2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -9,7 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -28,13 +28,9 @@ export interface PersonValue {
 
 interface Props {
   value?: PersonValue | null;
-
   onChange: (value: PersonValue | null) => void;
-
   placeholder?: string;
-
   className?: string;
-
   type?: "default" | "filter";
 }
 
@@ -79,23 +75,45 @@ export default function PersonPicker({
     return `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`;
   }
 
+  function getAvatarUrl(user: BoardMember) {
+    if (!user.avatarUrl) return null;
+
+    if (user.avatarUrl.startsWith("http")) {
+      return user.avatarUrl;
+    }
+
+    return `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${user.avatarUrl}`;
+  }
+
+  function AvatarContent({
+    user,
+    size = "h-8 w-8",
+  }: {
+    user: BoardMember;
+    size?: string;
+  }) {
+    const avatarUrl = getAvatarUrl(user);
+
+    return (
+      <Avatar className={`${size} overflow-hidden`}>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={`${user.firstName} ${user.lastName}`}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <AvatarFallback className="text-sm">
+            {initials(user)}
+          </AvatarFallback>
+        )}
+      </Avatar>
+    );
+  }
+
   function isSelected(user: BoardMember) {
     return selectedUsers.some((u) => u.id === user.id);
   }
-
-  // function handleSelect(user: BoardMember) {
-  //   const exists = selectedUsers.some((u) => u.id === user.id);
-
-  //   if (exists) {
-  //     onChange({
-  //       users: selectedUsers.filter((u) => u.id !== user.id),
-  //     });
-  //   } else {
-  //     onChange({
-  //       users: [...selectedUsers, user],
-  //     });
-  //   }
-  // }
 
   function handleSelect(user: BoardMember) {
     const exists = selectedUsers.some(
@@ -103,31 +121,25 @@ export default function PersonPicker({
     );
 
     if (type === "filter") {
-      // If the same person is selected again,
-      // clear the filter
       if (exists) {
         onChange(null);
         return;
       }
 
-      // Filter allows only one person
       onChange({
         users: [user],
       });
 
       setOpen(false);
-
       return;
     }
 
-    // Existing multi-person behavior
     if (exists) {
       const newUsers = selectedUsers.filter(
         (selectedUser) => selectedUser.id !== user.id,
       );
 
       onChange(newUsers.length > 0 ? { users: newUsers } : null);
-
       return;
     }
 
@@ -150,7 +162,7 @@ export default function PersonPicker({
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "flex cursor-pointer w-full items-center gap-2 rounded-md bg-background hover:bg-accent transition-colors",
+            "flex w-full cursor-pointer items-center gap-2 rounded-md bg-background transition-colors hover:bg-accent",
             className,
           )}
         >
@@ -162,57 +174,49 @@ export default function PersonPicker({
               </span>
             </>
           ) : (
-            <>
-              <HoverCard openDelay={100}>
-                <HoverCardTrigger asChild>
-                  <div className="inline-flex cursor-pointer -space-x-2">
-                    {selectedUsers.slice(0, 3).map((user) => (
-                      <Avatar
-                        key={user.id}
-                        className="h-10 w-10 border-2 border-background"
-                      >
-                        <AvatarImage src={user.avatar ?? undefined} />
-                        <AvatarFallback>{initials(user)}</AvatarFallback>
-                      </Avatar>
-                    ))}
+            <HoverCard openDelay={100}>
+              <HoverCardTrigger asChild>
+                <div className="inline-flex cursor-pointer -space-x-2">
+                  {selectedUsers.slice(0, 3).map((user) => (
+                    <div
+                      key={user.id}
+                      className="rounded-full border-2 border-background"
+                    >
+                      <AvatarContent user={user} size="h-10 w-10" />
+                    </div>
+                  ))}
 
-                    {selectedUsers.length > 3 && (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium">
-                        +{selectedUsers.length - 3}
-                      </div>
-                    )}
-                  </div>
-                </HoverCardTrigger>
+                  {selectedUsers.length > 3 && (
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium">
+                      +{selectedUsers.length - 3}
+                    </div>
+                  )}
+                </div>
+              </HoverCardTrigger>
 
-                <HoverCardContent side="top" align="start" className="w-72 p-2">
-                  <div className="space-y-2">
-                    {selectedUsers.map((user) => (
-                      <div
-                        key={user.id}
-                        className="flex items-center gap-3 rounded-md p-2"
-                      >
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={user.avatar ?? undefined} />
-                          <AvatarFallback>{initials(user)}</AvatarFallback>
-                        </Avatar>
+              <HoverCardContent side="top" align="start" className="w-72 p-2">
+                <div className="space-y-2">
+                  {selectedUsers.length > 0 && selectedUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center gap-3 rounded-md p-2"
+                    >
+                      <AvatarContent user={user} />
 
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">
-                            {user.firstName} {user.lastName}
-                          </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">
+                          {user.firstName} {user.lastName}
+                        </div>
 
-                          <div className="truncate text-xs text-muted-foreground">
-                            {user.email}
-                          </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {user.email}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </HoverCardContent>
-              </HoverCard>
-
-              {/* <span className="text-sm">{selectedUsers.length} people 2</span> */}
-            </>
+                    </div>
+                  ))}
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           )}
         </button>
       </PopoverTrigger>
@@ -231,20 +235,18 @@ export default function PersonPicker({
             />
           </div>
         </div>
-        <div className="flex px-4 gap-2">
-          {type === "default" && <Button onClick={selectAll} variant={"outline"}>
-            
-            Select All
-          </Button>}
+
+        <div className="flex gap-2 px-4 py-2">
+          {type === "default" && (
+            <Button onClick={selectAll} variant="outline">
+              Select All
+            </Button>
+          )}
+
           {selectedUsers.length > 0 && (
-            <>
-              <Button
-                onClick={clearSelection}
-                variant="destructive"
-              >
-                {type === "filter" ? "Clear All" : "Unassign All"}
-              </Button>
-            </>
+            <Button onClick={clearSelection} variant="destructive">
+              {type === "filter" ? "Clear All" : "Unassign All"}
+            </Button>
           )}
         </div>
 
@@ -270,14 +272,9 @@ export default function PersonPicker({
               <button
                 key={user.id}
                 onClick={() => handleSelect(user)}
-                className="flex w-full items-center gap-3  text-left transition-colors hover:bg-accent mb-2"
+                className="mb-2 flex w-full items-center gap-3 text-left transition-colors hover:bg-accent"
               >
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatar ?? undefined} />
-                  <AvatarFallback className="text-xs">
-                    {initials(user)}
-                  </AvatarFallback>
-                </Avatar>
+                <AvatarContent user={user} />
 
                 <div className="flex-1 overflow-hidden">
                   <div className="truncate text-sm font-medium">
@@ -289,7 +286,9 @@ export default function PersonPicker({
                   </div>
                 </div>
 
-                {isSelected(user) && <Check className="h-4 w-4 text-primary" />}
+                {isSelected(user) && (
+                  <Check className="h-4 w-4 text-primary" />
+                )}
               </button>
             ))}
         </ScrollArea>

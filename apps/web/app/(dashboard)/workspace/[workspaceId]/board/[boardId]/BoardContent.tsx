@@ -6,7 +6,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
-
 import { TaskRow } from "../group/tasks/TaskRow";
 import { Group } from "../group/Group";
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,7 @@ import { SortableGroup } from "../group/SortableGroup";
 import { SortableGroupContainer } from "../group/SortableGroupContainer";
 import { BoardSkeleton } from "./BoardSkeleton";
 import { BulkActionToolbar } from "./BulkActionsToolbar";
+import { useTaskBulkActions } from "./useTaskBulkActions";
 
 interface BoardContentProps {
   board: any;
@@ -51,7 +51,10 @@ export function BoardContent({
   selection,
 }: BoardContentProps) {
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
-
+  const { bulkDelete, bulkUpdateStatus, isDeleting, isUpdating } =
+    useTaskBulkActions(board.id, () => {
+      selection.setSelectedTaskIds(new Set<number>());
+    });
   const hasDraft = useGroupStore((state) =>
     state.groups.some((group: any) => group.isNew),
   );
@@ -62,11 +65,25 @@ export function BoardContent({
       id: column.id,
       name: column.name,
       options: column.statusOptions ?? [],
-
     }));
 
-  console.log("STATUS COLUMNS:", statusColumns);
-  
+  const handleBulkDelete = () => {
+    bulkDelete([...selection.selectedTaskIds]);
+  };
+
+  const handleBulkStatus = (
+    columnId: number,
+    value: {
+      label: string;
+      color: string;
+    },
+  ) => {
+    bulkUpdateStatus({
+      taskIds: [...selection.selectedTaskIds],
+      columnId,
+      value,
+    });
+  };
 
   if (isLoading) {
     return <BoardSkeleton />;
@@ -87,17 +104,11 @@ export function BoardContent({
       <BulkActionToolbar
         selectedCount={selection.selectedCount}
         statusColumns={statusColumns}
-        onStatusChange={(columnId, statusId) => {
-          console.log({
-            taskIds: Array.from(selection.selectedTaskIds),
-            columnId,
-            statusId,
-          });
-        }}
-        onDelete={() => {
-          console.log(Array.from(selection.selectedTaskIds));
-        }}
-        onClear={selection.clearSelection}
+        onDelete={handleBulkDelete}
+        onStatusChange={handleBulkStatus}
+        onClear={() => selection.setSelectedTaskIds(new Set<number>())}
+        isDeleting={isDeleting}
+        isUpdating={isUpdating}
       />
       <div
         className={

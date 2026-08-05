@@ -20,6 +20,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { BullModule } from '@nestjs/bullmq';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
+import { GlobalSearchModule } from './global-search/global-search.module';
 
 @Module({
   imports: [
@@ -44,7 +45,8 @@ import { ActivityLogsModule } from './activity-logs/activity-logs.module';
     StatusOptionsModule,
     ImportsModule,
     NotificationsModule,
-    ActivityLogsModule 
+    ActivityLogsModule,
+    GlobalSearchModule, 
   ],
   controllers: [AppController],
   providers: [

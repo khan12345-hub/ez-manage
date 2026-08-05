@@ -118,7 +118,7 @@ export interface BoardMember {
   firstName: string;
   lastName: string;
   email: string;
-  avatar?: string | null;
+  avatarUrl?: string | null;
 }
 
 export async function getBoardMembers(

@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 interface StatusOption {
   id: string;
   label: string;
+  color: string;
 }
 
 interface StatusColumn {
@@ -29,7 +30,13 @@ interface BulkActionToolbarProps {
   selectedCount: number;
   statusColumns: StatusColumn[];
 
-  onStatusChange: (columnId: number, statusId: string) => void;
+  onStatusChange: (
+    columnId: number,
+    value: {
+      label: string;
+      color: string;
+    },
+  ) => void;
 
   onDelete: () => void;
   onClear: () => void;
@@ -48,7 +55,6 @@ export function BulkActionToolbar({
   isDeleting = false,
 }: BulkActionToolbarProps) {
   const [selectedColumnId, setSelectedColumnId] = useState("");
-
   const [selectedStatusId, setSelectedStatusId] = useState("");
 
   const selectedColumn = statusColumns.find(
@@ -68,13 +74,20 @@ export function BulkActionToolbar({
   };
 
   const handleStatusChange = (statusId: string) => {
-    if (!selectedColumn) {
-      return;
-    }
+    if (!selectedColumn) return;
 
     setSelectedStatusId(statusId);
 
-    onStatusChange(selectedColumn.id, statusId);
+    const option = selectedColumn.options.find(
+      (status) => status.id === statusId,
+    );
+
+    if (!option) return;
+
+    onStatusChange(selectedColumn.id, {
+      label: option.label,
+      color: option.color,
+    });
   };
 
   const isBusy = isUpdating || isDeleting;
@@ -102,87 +115,93 @@ export function BulkActionToolbar({
             duration: 0.22,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="fixed px-6 py-4 bottom-8 left-8 translate-x-1/2 z-40 overflow-hidden "
+          className="fixed bottom-8 left-1/2 z-40 -translate-x-1/2 px-6 py-4"
         >
-          {" "}
-          <div className="border-b bg-background/95 shadow-sm backdrop-blur-md rounded-2xl supports-[backdrop-filter]:bg-background/80">
-            {" "}
-            <div className="mx-auto flex min-h-14 max-w-full items-center justify-between gap-4 px-4 py-2">
-              <motion.div layout className="flex min-w-0 items-center gap-3">
-                <motion.div
-                  key={selectedCount}
-                  initial={{
-                    opacity: 0,
-                    y: 6,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  transition={{
-                    duration: 0.16,
-                  }}
-                  className="whitespace-nowrap text-sm font-medium"
-                >
-                  {selectedCount} {selectedCount === 1 ? "task" : "tasks"}{" "}
-                  selected
-                </motion.div>
-
-                <Separator orientation="vertical" className="h-6" />
-
-                <Select
-                  value={selectedColumnId}
-                  onValueChange={handleColumnChange}
-                  disabled={isBusy}
-                >
-                  <SelectTrigger className="h-9 w-[180px]">
-                    <SelectValue placeholder="Status column" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {statusColumns.map((column) => (
-                      <SelectItem key={column.id} value={String(column.id)}>
-                        {column.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={selectedStatusId}
-                  onValueChange={handleStatusChange}
-                  disabled={!selectedColumn || isBusy}
-                >
-                  <SelectTrigger className="h-9 w-[180px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {selectedColumn?.options.map((option) => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={onDelete}
-                  disabled={isBusy}
-                  className="h-9"
-                >
-                  {isDeleting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="mr-2 h-4 w-4" />
-                  )}
-
-                  {isDeleting ? "Deleting..." : "Delete"}
-                </Button>
+          <div className="overflow-hidden rounded-2xl border bg-background/95 shadow-lg backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
+            <div className="flex min-h-14 items-center gap-4 px-4 py-2">
+              <motion.div
+                key={selectedCount}
+                initial={{
+                  opacity: 0,
+                  y: 6,
+                }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                transition={{
+                  duration: 0.16,
+                }}
+                className="whitespace-nowrap text-sm font-medium"
+              >
+                {selectedCount} {selectedCount === 1 ? "task" : "tasks"}{" "}
+                selected
               </motion.div>
+
+              <Separator orientation="vertical" className="h-6" />
+
+              <Select
+                value={selectedColumnId}
+                onValueChange={handleColumnChange}
+                disabled={isBusy}
+              >
+                <SelectTrigger className="h-9 w-[180px]">
+                  <SelectValue placeholder="Status column" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {statusColumns.map((column) => (
+                    <SelectItem key={column.id} value={String(column.id)}>
+                      {column.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={selectedStatusId}
+                onValueChange={handleStatusChange}
+                disabled={!selectedColumn || isBusy}
+              >
+                <SelectTrigger className="h-9 w-[180px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {selectedColumn?.options.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{
+                            backgroundColor: option.color,
+                          }}
+                        />
+                        <span>{option.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={onDelete}
+                disabled={isBusy}
+                className="h-9"
+              >
+                {isDeleting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+
+                {isDeleting ? "Deleting..." : "Delete"}
+              </Button>
+
+              <Separator orientation="vertical" className="h-6" />
 
               <Button
                 type="button"
@@ -190,7 +209,6 @@ export function BulkActionToolbar({
                 size="icon"
                 onClick={onClear}
                 disabled={isBusy}
-                className="shrink-0"
                 aria-label="Clear selection"
               >
                 <X className="h-4 w-4" />

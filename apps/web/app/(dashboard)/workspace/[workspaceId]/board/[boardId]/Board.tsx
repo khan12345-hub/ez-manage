@@ -2,8 +2,6 @@ import { useTaskSelection } from "../group/tasks/sub-tasks/useTaskSelection";
 import { BoardContent } from "./BoardContent";
 import { BoardHeader } from "./BoardHeader/BoardHeader";
 import { useBoard } from "./hooks/useBoard.hooks";
-
-
 export function Board({
   board,
   search,
