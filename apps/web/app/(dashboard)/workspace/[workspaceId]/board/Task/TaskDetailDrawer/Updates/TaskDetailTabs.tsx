@@ -20,7 +20,7 @@ export function TaskDetailsTabs({ task }: TaskDetailsTabsProps) {
           <TabsList className="h-full rounded-none bg-transparent p-0">
             <TabsTrigger
               value="updates"
-              className="relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-primary"
+              className="cursor-pointer relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none! transition-colors hover:text-foreground data-[state=active]:border-primary"
             >
               <Home className="h-4 w-4" />
               Updates
@@ -28,7 +28,7 @@ export function TaskDetailsTabs({ task }: TaskDetailsTabsProps) {
 
             <TabsTrigger
               value="files"
-              className="relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-primary"
+              className="cursor-pointer relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none! transition-colors hover:text-foreground data-[state=active]:border-primary"
             >
               <File className="h-4 w-4" />
               Files
@@ -36,19 +36,12 @@ export function TaskDetailsTabs({ task }: TaskDetailsTabsProps) {
 
             <TabsTrigger
               value="activity"
-              className="relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-primary"
+              className="cursor-pointer relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none! transition-colors hover:text-foreground data-[state=active]:border-primary"
             >
               <History className="h-4 w-4" />
               Activity Log
             </TabsTrigger>
           </TabsList>
-
-          <button
-            type="button"
-            className="ml-2 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">

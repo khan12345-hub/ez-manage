@@ -91,12 +91,12 @@ export function FileItem({ file, onClick }: TaskFileItemProps) {
         flex
         w-full
         gap-3
+        rounded-xl 
         border
         p-4
         text-left
         transition-colors
         hover:bg-muted/40
-        border-primary rounded-xl bg-primary/10
       "
     >
       {/* File Preview */}

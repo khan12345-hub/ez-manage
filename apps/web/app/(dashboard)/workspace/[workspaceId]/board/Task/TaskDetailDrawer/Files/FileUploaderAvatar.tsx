@@ -14,7 +14,7 @@ export function FileUploaderAvatar({
   if (avatarUrl) {
     return (
       <img
-        src={avatarUrl}
+        src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL+avatarUrl}
         alt={name ?? "User"}
         className="h-8 w-8 shrink-0 rounded-full object-cover"
       />

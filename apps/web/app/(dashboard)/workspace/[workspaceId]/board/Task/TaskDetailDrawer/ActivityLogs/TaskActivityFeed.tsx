@@ -26,7 +26,7 @@ export function TaskActivityFeed({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
+      <div className="flex items-center justify-center py-8 ">
         <Loader2 className="h-5 w-5 animate-spin" />
       </div>
     );
@@ -49,7 +49,7 @@ export function TaskActivityFeed({
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full h-105">
       {data.pages.flatMap((page) => page.data).map((activity:any) => (
         <TaskActivityItem
           key={activity.id}

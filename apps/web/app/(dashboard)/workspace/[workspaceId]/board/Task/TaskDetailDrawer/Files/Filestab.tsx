@@ -2,23 +2,12 @@
 
 import { useState } from "react";
 import {
-  Loader2,
-  Columns3,
-  MessageCircle,
+  Loader2
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
-
-
-import FileThumbnail from "../../../Cells/File/Previews/FilePreviewItemThumbnail";
 import { api } from "@/lib/api";
-import { FileUploaderAvatar } from "./FileUploaderAvatar";
 import { FileItem, TaskFile } from "./FileItem";
 import { FilePreviewModal } from "../../../Cells/File/Previews/FilePreviewModal";
-
-/* =========================================================
-   Props
-========================================================= */
 
 interface FilesTabProps {
   taskId: number;

@@ -36,7 +36,7 @@ export function CommentItem({
   const formattedDate = comment.createdAt
     ? format(comment.createdAt, "do MMMM, yyyy EEEE 'at' h:mm a")
     : "";
-  console.log({ "COMMENT FILES": comment.files });
+  
   return (
     <div className="p-4">
       <div className="flex gap-3">

@@ -99,62 +99,72 @@ export class GlobalSearchService {
     });
   }
 
-  private async searchUsers(query: string, boardIds: number[], limit: number) {
-    const workspaceIds = await this.prisma.board.findMany({
-      where: {
-        id: {
-          in: boardIds,
-        },
+private async searchUsers(
+  query: string,
+  boardIds: number[],
+  limit: number,
+) {
+  const workspaceIds = await this.prisma.board.findMany({
+    where: {
+      id: {
+        in: boardIds,
       },
+    },
+    select: {
+      workspaceId: true,
+    },
+  });
 
-      select: {
-        workspaceId: true,
-      },
-    });
+  const parts = query
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
 
-    return this.prisma.user.findMany({
-      where: {
-        workspaceMemberships: {
-          some: {
-            workspaceId: {
-              in: workspaceIds.map((w) => w.workspaceId),
-            },
+  return this.prisma.user.findMany({
+    where: {
+      workspaceMemberships: {
+        some: {
+          workspaceId: {
+            in: workspaceIds.map((w) => w.workspaceId),
           },
         },
+      },
 
+      AND: parts.map((part) => ({
         OR: [
           {
             firstName: {
-              contains: query,
-              mode: 'insensitive',
+              contains: part,
+              mode: "insensitive",
             },
           },
           {
             lastName: {
-              contains: query,
-              mode: 'insensitive',
+              contains: part,
+              mode: "insensitive",
             },
           },
           {
             email: {
-              contains: query,
-              mode: 'insensitive',
+              contains: part,
+              mode: "insensitive",
             },
           },
         ],
-      },
+      })),
+    },
 
-      take: limit,
+    take: limit,
 
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        avatarUrl: true,
-      },
-    });
-  }
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      avatarUrl: true,
+    },
+  });
+}
   private searchFiles(query: string, boardIds: number[], limit: number) {
     return this.prisma.file.findMany({
       where: {

@@ -7,6 +7,9 @@ import { DeleteCommentModal } from "./DeleteCommentModal";
 import { CommentEditor } from "./CommentEditor";
 import { format } from "date-fns";
 import { Avatar } from "./CommentItem";
+import { FilePreviewModal } from "../../../../../Cells/File/Previews/FilePreviewModal";
+import { Button } from "@/components/ui/button";
+import { Paperclip } from "lucide-react";
 
 interface ReplyItemProps {
   reply: any;
@@ -17,17 +20,15 @@ interface ReplyItemProps {
 export function ReplyItem({ reply, onEdit, onDelete }: ReplyItemProps) {
   const [editing, setEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const [content, setContent] = useState(reply.content);
   const formattedDate = reply.createdAt
     ? format(reply.createdAt, "do MMMM, yyyy EEEE 'at' h:mm a")
     : "";
   return (
     <div className="flex gap-3 py-3">
-      
-      <Avatar
-        name={reply.user?.firstName}
-        avatarUrl={reply.user?.avatarUrl}
-      />
+      <Avatar name={reply.user?.firstName} avatarUrl={reply.user?.avatarUrl} />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -62,6 +63,25 @@ export function ReplyItem({ reply, onEdit, onDelete }: ReplyItemProps) {
             }}
           />
         )}
+
+        {reply.files?.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setPreviewOpen(true)}
+            >
+              <Paperclip className="mr-2 h-4 w-4" />
+              {reply.files.length}{" "}
+              {reply.files.length > 1 ? "files" : "file"}
+            </Button>
+          )}
+
+        <FilePreviewModal
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          files={reply.files}
+          commentId={reply.id}
+        />
       </div>
 
       <DeleteCommentModal
