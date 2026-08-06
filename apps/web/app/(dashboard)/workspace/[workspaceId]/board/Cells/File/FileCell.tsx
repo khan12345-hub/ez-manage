@@ -25,18 +25,18 @@ export function FileCell({ value }: FileCellProps) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   console.log({
-    "CELL FILES": value.files
+    "CELL FILES": value
   })
   return (
     <>
-      {value.files.length > 0 ? (
+      {value.length > 0 ? (
         <Button
           type="button"
           variant="ghost"
           onClick={() => setPreviewOpen(true)}
         >
           <Paperclip className="mr-2 h-4 w-4" />
-          {value.files.length} files
+          {value.length} files
         </Button>
       ) : (
         <Button
@@ -52,7 +52,7 @@ export function FileCell({ value }: FileCellProps) {
       <FilePreviewModal
         open={previewOpen}
         onOpenChange={setPreviewOpen}
-        files={value.files}
+        files={value}
         cellId={value.cellId}
         onUploadClick={() => setUploadOpen(true)}
         type="CELL"

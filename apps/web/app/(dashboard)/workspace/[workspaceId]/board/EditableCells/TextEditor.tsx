@@ -75,7 +75,7 @@ export function TextEditor({
         onBlur={() => save(textValue)}
         onKeyDown={handleKeyDown}
         className="h-full w-full truncate rounded-none border-none bg-transparent text-[16px]! shadow-none focus-visible:ring-0"
-        autoFocus
+        
       />
     );
   }

@@ -20,7 +20,12 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
     { task, columns, color, style, dragHandleProps, isDragging, selection },
     ref,
   ) => {
-    const taskSelection = selection.getTaskSelectionState(task);
+    const taskSelection = selection
+      ? selection.getTaskSelectionState(task)
+      : {
+          selected: false,
+          indeterminate: false,
+        };
     return (
       <tr
         ref={ref}
@@ -34,9 +39,7 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
           ${isDragging ? "opacity-50" : ""}
         `}
       >
-        {/* =====================================
-            GROUP COLOR / HIERARCHY INDICATOR
-        ====================================== */}
+        
         <td
           className="w-1.5 p-0 sticky left-0 z-20"
           style={{
@@ -44,9 +47,7 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
           }}
         />
 
-        {/* =====================================
-            CHECKBOX
-        ====================================== */}
+        
         <td className="w-10 px-2 sticky left-2 bg-white z-20">
           <div className="flex items-center justify-between">
             <button
@@ -82,49 +83,7 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
           </div>
         </td>
 
-        {/* =====================================
-            TASK NAME
-        ====================================== */}
-        {/* <td className="min-w-[260px] border-l">
-          <div className="relative flex min-h-[48px] items-center">
-            
-            <div
-              className="
-                absolute
-                bottom-0
-                left-7
-                top-0
-                w-px
-                bg-border
-              "
-            />
-
-            
-            <div
-              className="
-                absolute
-                left-7
-                top-1/2
-                h-px
-                w-5
-                bg-border
-              "
-            />
-
-            
-            
-
-            
-            <CornerDownRight className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
-
-            
-            
-          </div>
-        </td> */}
-
-        {/* =====================================
-            OTHER COLUMNS
-        ====================================== */}
+        
         {columns.map((column: any) => (
           <Cell
             isSubTask={true}

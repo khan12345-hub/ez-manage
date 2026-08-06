@@ -25,13 +25,13 @@ export function CheckboxEditor({
   };
 
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex items-center justify-center w-full">
       <Checkbox
         checked={checked}
         onCheckedChange={(value) => {
           handleChange(value === true);
         }}
-        className="cursor-pointer"
+        className="cursor-pointer rounded-full h-8 w-8"
       />
     </div>
   );

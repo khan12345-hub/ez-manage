@@ -16,6 +16,7 @@ interface Props {
   color: string;
   isDraggingTask?: boolean;
   selection?: any;
+  showSelection?: boolean;
 }
 
 export function TaskHierarchyRow({
@@ -24,6 +25,7 @@ export function TaskHierarchyRow({
   color,
   isDraggingTask,
   selection,
+  showSelection
 }: Props) {
   const subtasks = task.subtasks ?? [];
 
@@ -46,12 +48,13 @@ export function TaskHierarchyRow({
         onToggleSubtasks={() => setIsExpanded(!isExpanded)}
         hasSubtasks={hasSubtasks}
         expanded={isExpanded}
-        // showSelection={!!selection}
+        showSelection={!!selection}
         selected={taskSelection.selected}
         indeterminate={taskSelection.indeterminate}
         onSelect={
           selection ? () => selection.toggleTask(task) : undefined
         }
+        
       />
 
       {hasSubtasks && isExpanded && !isDraggingTask && (

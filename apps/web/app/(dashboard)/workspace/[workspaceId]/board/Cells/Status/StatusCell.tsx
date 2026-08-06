@@ -7,11 +7,13 @@ export function StatusCell({ cell }: Props) {
   if (!cell) return <>—</>;
   console.log("Status cell after", cell);
   return (
-    <div
-      style={{ backgroundColor: cell.color }}
-      className={`rounded text-center text-white`}
+    <button
+      className="absolute top-0 left-0 flex h-full w-full cursor-pointer items-center justify-center text-sm font-medium text-white"
+      style={{
+        background: cell?.color ?? cell?.color ?? "#c4c4c4",
+      }}
     >
-      {cell.label ?? "—"}
-    </div>
+      {cell?.label ?? cell?.label ?? "Not Started"}
+    </button>
   );
 }

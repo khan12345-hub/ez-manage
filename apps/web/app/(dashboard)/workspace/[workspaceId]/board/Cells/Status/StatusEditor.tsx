@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { ArrowLeft, Check, Pencil, Plus, Tag, Trash2 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 
 import {
   Popover,
@@ -15,12 +14,6 @@ import { cn } from "@/lib/utils";
 
 import { CellEditorProps } from "../../EditableCells/EditableCell";
 import { StatusColorPicker } from "./StatusColorPicker";
-
-import {
-  createStatusOption,
-  deleteStatusOption,
-  updateStatusOption,
-} from "@/services/status-options.api";
 import { useStatusEditor } from "./useStatusEditor";
 
 export interface StatusOption {
@@ -37,21 +30,21 @@ export interface StatusValue {
 }
 
 interface StatusEditorProps extends CellEditorProps<StatusValue | null> {
-  isDragging?: boolean;
-  statusOptions: StatusOption[];
-  columnId: number;
   usedStatusValues?: StatusValue[];
 }
 
 export function StatusEditor({
+  editing,
   value,
   setValue,
   save,
-  isDragging,
-  statusOptions,
-  columnId,
+  cancel,
+  column,
   usedStatusValues = [],
 }: StatusEditorProps) {
+  const statusOptions: StatusOption[] = column?.statusOptions ?? [];
+  const columnId = column?.id;
+
   const {
     mode,
     statuses,
@@ -59,6 +52,7 @@ export function StatusEditor({
     isSaving,
     setStatuses,
     setMode,
+    setOpen,
     selectStatus,
     updateLabel,
     updateColor,
@@ -77,7 +71,13 @@ export function StatusEditor({
 
   useEffect(() => {
     setStatuses(statusOptions);
-  }, [statusOptions]);
+  }, [statusOptions, setStatuses]);
+
+  useEffect(() => {
+    if (editing) {
+      setOpen(true);
+    }
+  }, [editing, setOpen]);
 
   const current =
     statuses.find(
@@ -85,17 +85,32 @@ export function StatusEditor({
         status.label === value?.label && status.color === value?.color,
     ) ?? null;
 
+  if (!editing) {
+    return (
+      <div
+        className="absolute top-0 left-0 flex h-full w-full cursor-pointer items-center justify-center text-sm font-medium text-white"
+        style={{
+          background: current?.color ?? value?.color ?? "#c4c4c4",
+        }}
+      >
+        {current?.label ?? value?.label ?? "Not Started"}
+      </div>
+    );
+  }
+
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        handleOpenChange(next);
+
+        if (!next) {
+          cancel();
+        }
+      }}
+    >
       <PopoverTrigger asChild>
-        <button
-          className="absolute top-0 left-0 flex h-full w-full cursor-pointer items-center justify-center text-sm font-medium text-white"
-          style={{
-            background: current?.color ?? value?.color ?? "#c4c4c4",
-          }}
-        >
-          {current?.label ?? value?.label ?? "Not Started"}
-        </button>
+        <div className="absolute inset-0" aria-hidden />
       </PopoverTrigger>
 
       <PopoverContent className="w-64 p-3" align="start">
@@ -193,11 +208,6 @@ export function StatusEditor({
                       !isUsed &&
                         "text-destructive hover:bg-destructive/10 hover:text-destructive",
                     )}
-                    title={
-                      isUsed
-                        ? "This label is being used by a task"
-                        : "Delete label"
-                    }
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

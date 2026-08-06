@@ -22,7 +22,7 @@ interface Props {
 
 export function PersonCell({ cell }: Props) {
   const users = cell ? (Array.isArray(cell) ? cell : [cell]) : [];
-  console.log({users})
+  
   if (users.length === 0) {
     return (
       <Avatar className="h-7 w-7 border-2 border-background">
@@ -37,12 +37,14 @@ export function PersonCell({ cell }: Props) {
     <HoverCard openDelay={100}>
       <HoverCardTrigger asChild>
         <div className="flex cursor-pointer -space-x-2">
-          {users.slice(0, 3).map((user) => {
+          {users && users[0].users.slice(0, 3).map((user:any) => {
             const avatarUrl = user.avatarUrl
               ? `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${user.avatarUrl}`
               : undefined;
-            console.log({avatarUrl})
-            return (
+console.log({
+  users,
+  ids: users.map((u) => u.id),
+});            return (
               <Avatar
                 key={user.id}
                 className="h-7 w-7 border-2 border-background overflow-hidden"

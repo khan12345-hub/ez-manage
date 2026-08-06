@@ -4,13 +4,13 @@ import { useInviteModalStore } from "@/store/invite-modal";
 import { ComponentType, useEffect, useRef, useState } from "react";
 
 export interface CellEditorProps<T> {
+  editing: boolean;
+
   inputRef: React.RefObject<any>;
 
   value: T;
 
-  setValue: React.Dispatch<
-    React.SetStateAction<T>
-  >;
+  setValue: React.Dispatch<React.SetStateAction<T>>;
 
   save: (value?: T) => void;
 
@@ -29,11 +29,12 @@ export interface CellEditorProps<T> {
   isDragging?: boolean;
 }
 
-interface EditableCellProps {
-  value: any;
-  render: (value: any) => React.ReactNode;
-  editor: ComponentType<CellEditorProps<any>>;
-  onSave: (value: any) => void;
+interface EditableCellProps<T = any> {
+  value: T;
+
+  component: ComponentType<CellEditorProps<T>>;
+
+  onSave: (value: T) => void;
 
   column?: any;
   task?: any;
@@ -45,41 +46,35 @@ interface EditableCellProps {
 
 export function EditableCell<T>({
   value,
-  render,
-  editor: Editor,
+  component: Component,
   onSave,
   editable = true,
   column,
   task,
   cell,
-}: EditableCellProps) {
+  isDragging,
+}: EditableCellProps<T>) {
   const [editing, setEditing] = useState(false);
   const [localValue, setLocalValue] = useState(value);
-  const [displayValue, setDisplayValue] = useState(value);
 
   const inputRef = useRef<any>(null);
+
   const { boardId } = useInviteModalStore();
 
   useEffect(() => {
-    setLocalValue((value ?? "") as T);
-    setDisplayValue((value ?? "") as T);
+    setLocalValue(value);
   }, [value]);
 
   useEffect(() => {
     if (!editing) return;
 
-    inputRef.current?.focus?.();
-    // inputRef.current?.select?.();
+    requestAnimationFrame(() => {
+      inputRef.current?.focus?.();
+      inputRef.current?.select?.();
+    });
   }, [editing]);
 
-  // const save = () => {
-  //   setDisplayValue(localValue);
-  //   onSave(localValue);
-  //   setEditing(false);
-  // };
-
   const save = (nextValue = localValue) => {
-    setDisplayValue(nextValue);
     onSave(nextValue);
     setEditing(false);
   };
@@ -89,9 +84,21 @@ export function EditableCell<T>({
     setEditing(false);
   };
 
-  if (editing || editable) {
-    return (
-      <Editor
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!editable || editing) return;
+
+    setEditing(true);
+  };
+
+  return (
+    <div
+      className="flex h-full w-full items-center px-2 hover:bg-muted/50"
+      onClick={handleClick}
+    >
+      <Component
+        editing={editing}
         inputRef={inputRef}
         value={localValue}
         setValue={setLocalValue}
@@ -102,21 +109,8 @@ export function EditableCell<T>({
         cell={cell}
         boardId={boardId}
         isPrimary={column?.isPrimary}
-        // isDragging={isDragging}
+        isDragging={isDragging}
       />
-    );
-  }
-  return (
-    <>
-      <div
-        className="flex h-full w-40 text-center items-center px-2 hover:bg-muted/50"
-        onClick={(e) => {
-          e.stopPropagation();
-          setEditing(true);
-        }}
-      >
-        {render(displayValue)}
-      </div>
-    </>
+    </div>
   );
 }

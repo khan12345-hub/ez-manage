@@ -14,6 +14,7 @@ interface Props {
   selected?: boolean;
   indeterminate?: boolean;
   onSelect?: () => void;
+  showSelection?: boolean;
 }
 
 export function SortableTaskRow({
@@ -25,6 +26,7 @@ export function SortableTaskRow({
   selected,
   indeterminate,
   onSelect,
+  showSelection
 }: Props) {
   const {
     attributes,
@@ -65,6 +67,7 @@ export function SortableTaskRow({
       selected={selected}
       indeterminate={indeterminate}
       onSelect={onSelect}
+      showSelection={showSelection}
     />
   );
 }

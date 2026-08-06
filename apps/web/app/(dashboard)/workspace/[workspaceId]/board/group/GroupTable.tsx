@@ -114,6 +114,7 @@ export function GroupTable({
                 color={group.color}
                 isDraggingTask={isDraggingTask}
                 selection={selection}
+                showSelection={showSelection}
               />
             ))}
 

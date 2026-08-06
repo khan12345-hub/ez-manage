@@ -28,6 +28,7 @@ interface Props {
   selected?: boolean;
   indeterminate?: boolean;
   onSelect?: () => void;
+  showSelection?: boolean;    
 }
 
 export const TaskRow = forwardRef<HTMLTableRowElement, Props>(
@@ -44,6 +45,7 @@ export const TaskRow = forwardRef<HTMLTableRowElement, Props>(
       selected,
       indeterminate,
       onSelect,
+      showSelection
     },
     ref,
   ) => {
@@ -57,12 +59,14 @@ export const TaskRow = forwardRef<HTMLTableRowElement, Props>(
         <td className="sticky bg-white left-1 z-20 min-w-[150px]">
           <div className="flex items-center gap-2 px-3">
             {/* Drag Handle */}
-            <button
-              {...dragHandleProps}
-              className="cursor-grab rounded p-1 hover:bg-muted active:cursor-grabbing"
-            >
-              <GripVertical className="h-4 w-4 text-muted-foreground" />
-            </button>
+            {showSelection && (
+              <button
+                {...dragHandleProps}
+                className="cursor-grab rounded p-1 hover:bg-muted active:cursor-grabbing"
+              >
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+              </button>
+            )}
 
             {/* Subtask Toggle */}
             <Button
@@ -80,11 +84,13 @@ export const TaskRow = forwardRef<HTMLTableRowElement, Props>(
 
             <TaskActions task={task} />
 
-            <Checkbox
-              checked={indeterminate ? "indeterminate" : selected}
-              onCheckedChange={onSelect}
-              aria-label={`Select ${task.name}`}
-            />
+            {showSelection && (
+              <Checkbox
+                checked={indeterminate ? "indeterminate" : selected}
+                onCheckedChange={onSelect}
+                aria-label={`Select ${task.name}`}
+              />
+            )}
           </div>
         </td>
 

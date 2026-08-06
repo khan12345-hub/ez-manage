@@ -37,7 +37,7 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
     return <td className="border px-3 py-2">—</td>;
   }
 
-  const Editor = config.editor;
+  const Component = config.component;
 
   const value = config.getValue(task, cell, column);
 
@@ -64,8 +64,7 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
         <div className={`min-w-0 flex-1`}>
           <EditableCell
             value={value}
-            render={config.render}
-            editor={Editor}
+            component={Component}
             cell={cell}
             column={column}
             isDragging={isDragging}

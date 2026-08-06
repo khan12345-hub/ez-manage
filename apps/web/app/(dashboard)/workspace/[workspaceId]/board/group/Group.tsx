@@ -125,75 +125,7 @@ export function Group({
         )}
 
         {!isDraggingGroup && (
-          // <div className="overflow-x-auto scrollbar-none ">
-          //   <table className="min-w-[1200px] border-collapse">
-          //     <thead>
-          //       <tr className="border">
-          //         <th
-          //           className="sticky left-0 w-1.5"
-          //           style={{
-          //             backgroundColor: group.color,
-          //           }}
-          //         />
-
-          //         <th className="sticky left-2 w-1.5 bg-white">
-          //           <Checkbox
-          //             checked={
-          //               groupSelection.indeterminate
-          //                 ? "indeterminate"
-          //                 : groupSelection.selected
-          //             }
-          //             onCheckedChange={() => selection.toggleGroup(group)}
-          //             aria-label={`Select all tasks in ${group.name}`}
-          //           />
-          //         </th>
-
-          //         <SortableContext
-          //           items={columns.map((column: any) => `column-${column.id}`)}
-          //           strategy={horizontalListSortingStrategy}
-          //         >
-          //           {columns.map((column: any) => (
-          //             <Headers key={column.id} column={column} />
-          //           ))}
-          //         </SortableContext>
-
-          //         <th
-          //           onClick={() => setOpen(true)}
-          //           className="flex w-44 cursor-pointer items-center gap-2 px-4 py-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          //         >
-          //           <Plus className="h-4 w-4" />
-          //           Add Column
-          //         </th>
-          //       </tr>
-          //     </thead>
-
-          //     <SortableContext
-          //       items={rootTasks.map((task: any) => `task-${task.id}`)}
-          //       strategy={verticalListSortingStrategy}
-          //     >
-          //       <tbody ref={setNodeRef}>
-          //         {group.tasks
-          //           .filter((task: any) => !task.parentId)
-          //           .map((task: any) => (
-          //             <TaskHierarchyRow
-          //               key={task.id}
-          //               task={task}
-          //               columns={columns}
-          //               color={group.color}
-          //               isDraggingTask={isDraggingTask}
-          //               selection={selection}
-          //             />
-          //           ))}
-
-          //         <NewTaskRow
-          //           columns={columns}
-          //           color={group.color}
-          //           groupId={group.id}
-          //         />
-          //       </tbody>
-          //     </SortableContext>
-          //   </table>
-          // </div>
+          
             <GroupTable
               group={group}
               columns={columns}

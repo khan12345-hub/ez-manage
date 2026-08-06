@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronRight, Search } from "lucide-react";
+import { Mail, Phone, Copy } from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,8 +11,8 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { globalSearch } from "@/services/global-search.api";
 import { GroupTable } from "../../../group/GroupTable";
-import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { toast } from "sonner";
 interface GlobalSearchModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,7 +33,7 @@ export function GlobalSearchModal({
   const { data, isFetching } = useQuery({
     queryKey: ["global-search", workspaceId, debounced],
     queryFn: () => globalSearch(workspaceId, debounced),
-    enabled: open && debounced.trim().length >= 2,
+    // enabled: open && debounced.trim().length >= 2,
     staleTime: 60 * 1000,
   });
 
@@ -43,7 +44,7 @@ export function GlobalSearchModal({
   }, [open]);
 
   const [openAddColumn, setOpenAddColumn] = useState(false);
-
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -76,16 +77,16 @@ export function GlobalSearchModal({
             </TabsList>
           </div>
 
-          <div className="h-[420px] overflow-y-auto">
-            <TabsContent value="all" className="mt-0">
+          <div className="h-105  overflow-y-auto">
+            <TabsContent value="all" className="mt-0 p-6">
               {query && !isFetching && data && (
-                <div className="space-y-8 p-6">
-                  {data.boards.map((board: any) => (
+                <div className="space-y-8 ">
+                  {data.tasks.map((board: any) => (
                     <div key={board.id} className="space-y-6">
                       {board.groups.map((group: any) => (
                         <div
                           key={group.id}
-                          className="overflow-hidden rounded-xl border bg-background"
+                          className="max-w-full overflow-x-auto scrollbar-none rounded-xl border bg-background"
                         >
                           <div className="border-b bg-muted/30 px-6 py-3">
                             <div className="flex items-center gap-2 text-sm">
@@ -172,9 +173,9 @@ export function GlobalSearchModal({
                 </div>
               )}
             </TabsContent>
-            <TabsContent value="tasks" className="mt-0">
+            <TabsContent value="tasks" className="mt-0 p-6">
               {data &&
-                data.boards.map((board: any) => (
+                data.tasks.map((board: any) => (
                   <div key={board.id} className="space-y-6">
                     {board.groups.map((group: any) => (
                       <div
@@ -216,36 +217,95 @@ export function GlobalSearchModal({
                   </div>
                 ))}
             </TabsContent>
-            <TabsContent value="people" className="mt-0">
+            <TabsContent value="people" className="mt-0 p-6">
               {data && data.users.length > 0 && (
                 <div className="rounded-xl border">
                   <div className="border-b px-6 py-3 font-semibold">People</div>
-                  {data.users.map((user: any) => (
-                    <div
-                      key={user.id}
-                      className="flex cursor-pointer items-center gap-3 px-6 py-3 hover:bg-muted"
-                    >
-                      <img
-                        src={user.avatarUrl || "/avatar.png"}
-                        alt={`${user.firstName} ${user.lastName}`}
-                        className="h-9 w-9 rounded-full"
-                      />
 
-                      <div>
-                        <div className="font-medium">
-                          {user.firstName} {user.lastName}
+                  <div className="grid gap-8 p-6 sm:grid-cols-3 lg:grid-cols-5">
+                    {data.users.map((user: any) => (
+                      <div
+                        key={user.id}
+                        className="relative mt-12 rounded-xl border bg-background px-5 pb-5 pt-14 text-center shadow-sm transition-all hover:shadow-md"
+                      >
+                        {/* Avatar */}
+                        <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2">
+                          {/* Blurred background */}
+                          <div className="absolute inset-0 scale-125 overflow-hidden rounded-full">
+                            <img
+                              src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL+user.avatarUrl}
+                              alt=""
+                              className="h-full w-full scale-105 object-cover blur-xl opacity-70"
+                            />
+                          </div>
+
+                          {/* Actual profile picture */}
+                          <img
+                            src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL+user.avatarUrl}
+                            alt={`${user.firstName} ${user.lastName}`}
+                            className="relative h-24 w-24 rounded-full border-4 border-background object-cover shadow-lg"
+                          />
                         </div>
 
-                        <div className="text-sm text-muted-foreground">
-                          {user.email}
+                        {/* Name */}
+                        <h3 className="text-lg font-semibold italic mt-4">
+                          {user.firstName} {user.lastName}
+                        </h3>
+
+                        {/* Optional join date */}
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {user.createdAt
+                            ? new Date(user.createdAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                },
+                              )
+                            : ""}
+                        </p>
+
+                        {/* Contact */}
+                        <div className="mt-6 space-y-3 text-sm">
+                          <div className="flex items-center gap-3 rounded-md border px-3 py-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full border">
+                              <Mail className="h-4 w-4" />
+                            </div>
+
+                            <span className="flex-1 truncate text-left">
+                              {user.email}
+                            </span>
+
+                            <button
+                              onClick={() =>
+                              {
+                                navigator.clipboard.writeText(user.email)
+                                toast.success("Email copied to clipboard")
+                              }
+                              }
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          {/* <div className="flex items-center gap-3 rounded-md border px-3 py-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full border">
+                              <Phone className="h-4 w-4" />
+                            </div>
+
+                            <span className="text-left">
+                              {user.phone || user.phoneNumber || "N/A"}
+                            </span>
+                          </div> */}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </TabsContent>
-            <TabsContent value="files" className="mt-0">
+            <TabsContent value="files" className="mt-0 p-6">
               {data && data.files.length > 0 && (
                 <div className="rounded-xl border">
                   <div className="border-b px-6 py-3 font-semibold">Files</div>
@@ -260,7 +320,7 @@ export function GlobalSearchModal({
                   ))}
                 </div>
               )}
-            </TabsContent>    
+            </TabsContent>
           </div>
         </Tabs>
       </DialogContent>
