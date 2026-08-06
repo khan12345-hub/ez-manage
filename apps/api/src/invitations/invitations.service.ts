@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { InvitationStatus, WorkspaceMemberRole } from '../../generated/prisma/client';
+import {
+  InvitationStatus,
+  WorkspaceMemberRole,
+} from '../../generated/prisma/client';
 
 import { InvitationsRepository } from './invitations.repository';
 import { UsersRepository } from '../users/users.repository';
@@ -16,6 +19,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import 'dotenv';
+import { invitationTemplate } from 'src/mail/templates/invitation';
 @Injectable()
 export class InvitationsService {
   constructor(
@@ -133,24 +137,13 @@ export class InvitationsService {
       throw new BadRequestException('A pending invitation already exists.');
     }
     const token = randomUUID();
-    const link = `${process.env.FRONTEND_URL}/setup-account?token=${token}`;
-
-    // console.log('Link for email', link);
-    // Verify the authenticated user exists
+    const inviteUrl = `${process.env.FRONTEND_URL}/invitations/${token}`;
+    const template = invitationTemplate(inviteUrl)
     await this.mailService.sendMail({
       to: dto.email,
-      subject: 'You have been invited to join EzManage',
-      html: `
-        <p>You have been invited to join EzManage.</p>
-        <p>
-          Click
-          <a href="${link}">
-            here
-          </a>
-          to accept the invitation.
-        </p>
-      `,
-      text: `You have been invited to join EzManage. Accept your invitation here: http://localhost:3000/invitations/${token}`,
+      subject: template.subject,
+      html: template.html,
+      text: template.text
     });
 
     const expiresAt = new Date();
@@ -261,7 +254,6 @@ export class InvitationsService {
           boardId,
           userId: id,
           role: invitation.role,
-
         })),
       });
     });

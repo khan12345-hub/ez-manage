@@ -29,7 +29,6 @@ export type ColumnType =
   | "STATUS"
   | "TEXT"
   | "PERSON"
-  | "DROPDOWN"
   | "DATE"
   | "NUMBER"
   | "FILE"
@@ -65,13 +64,6 @@ const COLUMN_TYPES: ColumnTypeItem[] = [
     category: "Essentials",
     icon: User,
     color: "bg-sky-500",
-  },
-  {
-    label: "Dropdown",
-    type: "DROPDOWN",
-    category: "Essentials",
-    icon: ChevronDown,
-    color: "bg-green-500",
   },
   {
     label: "Date",

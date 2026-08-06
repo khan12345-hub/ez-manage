@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import 'dotenv/config';
+import { notificationEmailTemplate } from './templates/comment-mention.template';
 
 @Injectable()
 export class MailService {
@@ -49,42 +50,20 @@ export class MailService {
   }) {
     const notificationUrl = this.getNotificationUrl(params.metadata);
 
+
+    const template = notificationEmailTemplate(
+      params.to,
+      params.subject,
+      params.title,
+      params.message,
+      notificationUrl,
+    );
     return this.sendMail({
-      to: params.to,
-      subject: params.subject,
+      to: template.to,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
 
-      html: `
-        <div style="
-          font-family: Arial, sans-serif;
-          max-width: 600px;
-          margin: auto;
-          padding: 20px;
-        ">
-          <h2>${params.title}</h2>
-
-          <p>
-            ${params.message}
-          </p>
-
-          <p>
-            <a
-              href="${notificationUrl}"
-              style="
-                display: inline-block;
-                padding: 10px 16px;
-                background: #000;
-                color: #fff;
-                text-decoration: none;
-                border-radius: 6px;
-              "
-            >
-              Open EzManage
-            </a>
-          </p>
-        </div>
-      `,
-
-      text: `${params.title}\n\n${params.message}\n\nOpen EzManage: ${notificationUrl}`,
     });
   }
 
