@@ -19,7 +19,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import 'dotenv';
-import { invitationTemplate } from 'src/mail/templates/invitation';
+import { invitationTemplate } from 'src/mail/templates/invitation.template';
 @Injectable()
 export class InvitationsService {
   constructor(

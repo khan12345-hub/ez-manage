@@ -14,8 +14,9 @@ import { useGroupStore } from "@/store/create-group-store";
 import { SortableGroup } from "../group/SortableGroup";
 import { SortableGroupContainer } from "../group/SortableGroupContainer";
 import { BoardSkeleton } from "./BoardSkeleton";
-import { BulkActionToolbar } from "./BulkActionsToolbar";
+import { BulkActionToolbar } from "./BulkActionsToolbar/BulkActionsToolbar";
 import { useTaskBulkActions } from "./useTaskBulkActions";
+import { bulkUpdateTasks } from "@/services/tasks.api";
 
 interface BoardContentProps {
   board: any;
@@ -51,34 +52,22 @@ export function BoardContent({
   selection,
 }: BoardContentProps) {
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
-  const { bulkDelete, bulkUpdateStatus, isDeleting, isUpdating } =
-    useTaskBulkActions(board.id, () => {
-      selection.setSelectedTaskIds(new Set<number>());
-    });
+  const { bulkDelete, bulkUpdate, isDeleting, isUpdating } = useTaskBulkActions(
+    board.id,
+    () => {
+      selection.setSelectedTaskIds(new Set());
+    },
+  );
   const hasDraft = useGroupStore((state) =>
     state.groups.some((group: any) => group.isNew),
   );
-
-  const statusColumns = (board.columns ?? [])
-    .filter((column: any) => column.type === "STATUS")
-    .map((column: any) => ({
-      id: column.id,
-      name: column.name,
-      options: column.statusOptions ?? [],
-    }));
 
   const handleBulkDelete = () => {
     bulkDelete([...selection.selectedTaskIds]);
   };
 
-  const handleBulkStatus = (
-    columnId: number,
-    value: {
-      label: string;
-      color: string;
-    },
-  ) => {
-    bulkUpdateStatus({
+  const handleBulkUpdate = (columnId: number, value: any) => {
+    bulkUpdate({
       taskIds: [...selection.selectedTaskIds],
       columnId,
       value,
@@ -103,10 +92,10 @@ export function BoardContent({
     <>
       <BulkActionToolbar
         selectedCount={selection.selectedCount}
-        statusColumns={statusColumns}
+        columns={board.columns}
         onDelete={handleBulkDelete}
-        onStatusChange={handleBulkStatus}
-        onClear={() => selection.setSelectedTaskIds(new Set<number>())}
+        onUpdate={handleBulkUpdate}
+        onClear={() => selection.setSelectedTaskIds(new Set())}
         isDeleting={isDeleting}
         isUpdating={isUpdating}
       />

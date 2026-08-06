@@ -30,7 +30,7 @@ import { TaskReorderService } from './task-reorder.service';
 import { TaskCreateService } from './task-create.service';
 import { BulkDeleteTasksDto } from './dto/bulk-delete-tasks.dto';
 import { TaskBulkActionsService } from './tasks-bulk-actions.service';
-import { BulkUpdateStatusDto } from './dto/bulk-update-task-cell.dto';
+import { BulkUpdateDto } from './dto/bulk-update-task.dto';
 
 @Controller('boards/:boardId/tasks')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -105,9 +105,10 @@ export class TasksController {
   @Post('bulk/status')
   bulkStatus(
     @Param('boardId', ParseIntPipe) boardId: number,
-    @Body() dto: BulkUpdateStatusDto,
+    @Body() dto: BulkUpdateDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.taskbulkActions.bulkUpdateStatus(boardId, dto, user.id);
+    console.log("reached");
+    return this.taskbulkActions.bulkUpdate(boardId, dto, user.id);
   }
 }

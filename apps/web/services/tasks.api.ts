@@ -176,19 +176,18 @@ export async function bulkDeleteTasks(
   return data;
 }
 
-export async function bulkUpdateTaskStatus(
+export interface BulkUpdateTaskPayload {
+  taskIds: number[];
+  columnId: number;
+  value: any;
+}
+
+export async function bulkUpdateTasks(
   boardId: number,
-  payload: {
-    taskIds: number[];
-    columnId: number;
-    value: {
-      label: string;
-      color: string;
-    };
-  },
+  payload: BulkUpdateTaskPayload,
 ) {
-  const { data } = await api.post(
-    `/boards/${boardId}/tasks/bulk/status`,
+  const { data } = await api.patch(
+    `/boards/${boardId}/tasks/bulk-update`,
     payload,
   );
 

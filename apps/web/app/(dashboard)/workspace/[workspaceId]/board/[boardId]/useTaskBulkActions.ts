@@ -1,15 +1,10 @@
-import { bulkDeleteTasks, bulkUpdateTaskStatus } from "@/services/tasks.api";
+import { bulkDeleteTasks, bulkUpdateTasks } from "@/services/tasks.api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-
-
-interface BulkStatusPayload {
+export interface BulkUpdateTaskPayload {
   taskIds: number[];
   columnId: number;
-  value: {
-    label: string;
-    color: string;
-  };
+  value: any;
 }
 
 export function useTaskBulkActions(
@@ -31,9 +26,9 @@ export function useTaskBulkActions(
     },
   });
 
-  const bulkStatusMutation = useMutation({
-    mutationFn: (payload: BulkStatusPayload) =>
-      bulkUpdateTaskStatus(boardId, payload),
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (payload: BulkUpdateTaskPayload) =>
+      bulkUpdateTasks(boardId, payload),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -46,9 +41,9 @@ export function useTaskBulkActions(
 
   return {
     bulkDelete: bulkDeleteMutation.mutate,
-    bulkUpdateStatus: bulkStatusMutation.mutate,
+    bulkUpdate: bulkUpdateMutation.mutate,
 
     isDeleting: bulkDeleteMutation.isPending,
-    isUpdating: bulkStatusMutation.isPending,
+    isUpdating: bulkUpdateMutation.isPending,
   };
 }
