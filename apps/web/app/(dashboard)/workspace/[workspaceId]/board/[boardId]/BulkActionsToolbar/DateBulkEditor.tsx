@@ -1,7 +1,9 @@
 "use client";
+
 import { useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -10,27 +12,37 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+export interface DateValue {
+  date: Date;
+}
+
 interface DateBulkEditorProps {
   column: {
     id: number;
     name: string;
   };
   disabled?: boolean;
-  onDateChange: (
-    columnId: number,
-    value: {
-      date: Date;
-    },
-  ) => void;
+  onChange?: (value: DateValue) => void;
 }
 
 export function DateBulkEditor({
-  column,
   disabled = false,
-  onDateChange,
+  onChange,
 }: DateBulkEditorProps) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState<Date>();
+
+  const handleSelect = (selected: Date | undefined) => {
+    if (!selected) return;
+
+    setDate(selected);
+
+    onChange?.({
+      date: selected,
+    });
+
+    setOpen(false);
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -51,17 +63,7 @@ export function DateBulkEditor({
           mode="single"
           autoFocus
           selected={date}
-          onSelect={(selected) => {
-            if (!selected) return;
-
-            setDate(selected);
-
-            onDateChange(column.id, {
-              date: selected,
-            });
-
-            setOpen(false);
-          }}
+          onSelect={handleSelect}
         />
       </PopoverContent>
     </Popover>

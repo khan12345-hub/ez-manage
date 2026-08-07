@@ -1,7 +1,9 @@
 import { useTaskSelection } from "../group/tasks/sub-tasks/useTaskSelection";
 import { BoardContent } from "./BoardContent";
 import { BoardHeader } from "./BoardHeader/BoardHeader";
+import { BulkActionToolbar } from "./BulkActionsToolbar/BulkActionsToolbar";
 import { useBoard } from "./hooks/useBoard.hooks";
+import { useTaskBulkActions } from "./useTaskBulkActions";
 export function Board({
   board,
   search,
@@ -27,6 +29,24 @@ export function Board({
 
   const selection = useTaskSelection(dragGroups);
 
+  const { bulkDelete, bulkUpdate, isDeleting, isUpdating } = useTaskBulkActions(
+    board.id,
+    () => {
+      selection.setSelectedTaskIds(new Set());
+    },
+  );
+
+  const handleBulkDelete = () => {
+    bulkDelete([...selection.selectedTaskIds]);
+  };
+
+  const handleBulkUpdate = (columnId: number, value: any) => {
+    bulkUpdate({
+      taskIds: [...selection.selectedTaskIds],
+      columnId,
+      value,
+    });
+  };
   return (
     <>
       <BoardHeader
@@ -54,7 +74,16 @@ export function Board({
         handleDragCancel={handleDragCancel}
         selection={selection}
       />
-      
+
+      <BulkActionToolbar
+        selectedCount={selection.selectedCount}
+        columns={board.columns}
+        onDelete={handleBulkDelete}
+        onUpdate={handleBulkUpdate}
+        onClear={() => selection.setSelectedTaskIds(new Set())}
+        isDeleting={isDeleting}
+        isUpdating={isUpdating}
+      />
     </>
   );
 }

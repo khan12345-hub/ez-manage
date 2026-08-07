@@ -49,8 +49,6 @@ export class MailService {
     metadata?: Record<string, any>;
   }) {
     const notificationUrl = this.getNotificationUrl(params.metadata);
-
-
     const template = notificationEmailTemplate(
       params.to,
       params.subject,

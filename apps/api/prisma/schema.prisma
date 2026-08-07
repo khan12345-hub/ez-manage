@@ -501,8 +501,6 @@ model ActivityLog {
 
   @@map("activity_logs")
 }
-
-
 enum UserStatus {
   ACTIVE
   INACTIVE
@@ -510,9 +508,6 @@ enum UserStatus {
 
   @@map("user_status")
 }
-
-
-
 enum InvitationStatus {
   PENDING
   ACCEPTED

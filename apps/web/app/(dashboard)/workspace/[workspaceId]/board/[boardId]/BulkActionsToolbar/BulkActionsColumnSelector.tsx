@@ -17,7 +17,14 @@ export type SupportedBulkColumnType =
 export interface BulkActionColumn {
   id: number;
   name: string;
-  type: SupportedBulkColumnType;
+  type: string;
+
+  // Keep additional properties from your actual board column
+  statusOptions: {
+    id: string;
+    label: string;
+    color: string;
+  }[];
 }
 
 interface BulkColumnSelectorProps {
@@ -27,18 +34,31 @@ interface BulkColumnSelectorProps {
   onChange: (column: BulkActionColumn) => void;
 }
 
+const SUPPORTED_COLUMN_TYPES: SupportedBulkColumnType[] = [
+  "STATUS",
+  "TIMELINE",
+  "DATE",
+  "CHECKBOX",
+];
+
 export function BulkColumnSelector({
   columns,
   value,
   disabled,
   onChange,
 }: BulkColumnSelectorProps) {
+  const supportedColumns = columns.filter((column) =>
+    SUPPORTED_COLUMN_TYPES.includes(
+      column.type as SupportedBulkColumnType,
+    ),
+  );
+
   return (
     <Select
       value={value}
       disabled={disabled}
       onValueChange={(columnId) => {
-        const column = columns.find(
+        const column = supportedColumns.find(
           (column) => String(column.id) === columnId,
         );
 
@@ -52,12 +72,15 @@ export function BulkColumnSelector({
       </SelectTrigger>
 
       <SelectContent>
-        {columns.map((column) => (
-          <SelectItem key={column.id} value={String(column.id)}>
-            <div className="flex items-center justify-between gap-3 w-full">
+        {supportedColumns.map((column) => (
+          <SelectItem
+            key={column.id}
+            value={String(column.id)}
+          >
+            <div className="flex w-full items-center justify-between gap-3">
               <span>{column.name}</span>
 
-              <span className="text-xs text-muted-foreground capitalize">
+              <span className="text-xs capitalize text-muted-foreground">
                 {column.type.toLowerCase()}
               </span>
             </div>

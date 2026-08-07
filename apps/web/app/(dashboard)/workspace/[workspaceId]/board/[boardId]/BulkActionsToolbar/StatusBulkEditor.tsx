@@ -19,32 +19,35 @@ export interface StatusOption {
 export interface StatusColumn {
   id: number;
   name: string;
-  statusOptions?: StatusOption[];
+  statusOptions: StatusOption[];
 }
 
 interface StatusBulkActionProps {
   column: StatusColumn;
   disabled?: boolean;
-  onUpdate: (columnId: number, value: any) => void;
+  onChange?: (value: {
+    label: string;
+    color: string;
+  }) => void;
 }
 
 export function StatusBulkAction({
   column,
   disabled = false,
-  onUpdate,
+  onChange,
 }: StatusBulkActionProps) {
   const [selectedStatusId, setSelectedStatusId] = useState("");
 
-  const options = column.statusOptions ?? [];
-
-  const handleStatusChange = (statusId: string) => {
+  const handleChange = (statusId: string) => {
     setSelectedStatusId(statusId);
 
-    const option = options.find((status) => status.id === statusId);
+    const option = column.statusOptions.find(
+      (status) => status.id === statusId,
+    );
 
     if (!option) return;
 
-    onUpdate(column.id, {
+    onChange?.({
       label: option.label,
       color: option.color,
     });
@@ -53,15 +56,15 @@ export function StatusBulkAction({
   return (
     <Select
       value={selectedStatusId}
-      onValueChange={handleStatusChange}
+      onValueChange={handleChange}
       disabled={disabled}
     >
-      <SelectTrigger className="w-[180px]">
-        <SelectValue placeholder={`Set ${column.name}`} />
+      <SelectTrigger className="h-9 w-[180px]">
+        <SelectValue placeholder="Status" />
       </SelectTrigger>
 
       <SelectContent>
-        {options.map((option) => (
+        {column.statusOptions.map((option) => (
           <SelectItem key={option.id} value={option.id}>
             <div className="flex items-center gap-2">
               <span
@@ -70,6 +73,7 @@ export function StatusBulkAction({
                   backgroundColor: option.color,
                 }}
               />
+
               <span>{option.label}</span>
             </div>
           </SelectItem>

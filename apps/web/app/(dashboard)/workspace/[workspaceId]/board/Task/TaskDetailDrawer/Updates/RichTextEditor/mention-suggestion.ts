@@ -57,7 +57,7 @@ export function createMentionSuggestion({
             email: user.email,
 
             avatar:
-              user.avatar ?? null,
+              user.avatarUrl ?? null,
           }));
       } catch (error) {
         console.error(

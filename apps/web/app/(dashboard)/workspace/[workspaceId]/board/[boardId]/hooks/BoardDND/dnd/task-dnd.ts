@@ -1,3 +1,4 @@
+
 import { arrayMove } from "@dnd-kit/sortable";
 
 import {
@@ -14,15 +15,19 @@ function reorderWithinGroup(
   groupId: number,
   activeIndex: number,
   overIndex: number
-) {
+): Group[] {
   const next = cloneGroups(groups);
 
   const group = findGroup(next, groupId);
 
-  if (!group) return groups;
+  if (!group) {
+    return groups;
+  }
+
+  const tasks = group.tasks ?? [];
 
   group.tasks = arrayMove(
-    group.tasks,
+    tasks,
     activeIndex,
     overIndex
   );
@@ -36,11 +41,14 @@ function moveBetweenGroups(
   destinationGroupId: number,
   sourceIndex: number,
   destinationIndex: number
-) {
+): Group[] {
   const next = cloneGroups(groups);
 
   const source = findGroup(next, sourceGroupId);
-  const destination = findGroup(next, destinationGroupId);
+  const destination = findGroup(
+    next,
+    destinationGroupId
+  );
 
   if (!source || !destination) {
     return groups;
@@ -61,11 +69,14 @@ function moveToEmptyGroup(
   sourceGroupId: number,
   destinationGroupId: number,
   sourceIndex: number
-) {
+): Group[] {
   const next = cloneGroups(groups);
 
   const source = findGroup(next, sourceGroupId);
-  const destination = findGroup(next, destinationGroupId);
+  const destination = findGroup(
+    next,
+    destinationGroupId
+  );
 
   if (!source || !destination) {
     return groups;
@@ -83,23 +94,19 @@ function moveToEmptyGroup(
 
 interface Props {
   groups: Group[];
-
   activeTaskId: number;
-
   overTaskId?: number;
-
   overGroupId?: number;
-
   overType: "task" | "group-drop";
 }
+
 export function handleTaskDragOver({
   groups,
   activeTaskId,
   overTaskId,
   overGroupId,
   overType,
-}: Props) {
-
+}: Props): Group[] {
   const active = findTaskLocation(
     groups,
     activeTaskId
@@ -112,10 +119,8 @@ export function handleTaskDragOver({
   /**
    * Dropped onto another task
    */
-
   if (overType === "task") {
-
-    if (!overTaskId) {
+    if (overTaskId === undefined) {
       return groups;
     }
 
@@ -131,11 +136,7 @@ export function handleTaskDragOver({
     /**
      * Same group
      */
-
-    if (
-      active.group.id === over.group.id
-    ) {
-
+    if (active.group.id === over.group.id) {
       if (
         active.taskIndex ===
         over.taskIndex
@@ -154,7 +155,6 @@ export function handleTaskDragOver({
     /**
      * Different groups
      */
-
     return moveBetweenGroups(
       groups,
       active.group.id,
@@ -167,10 +167,8 @@ export function handleTaskDragOver({
   /**
    * Dropped onto empty group
    */
-
   if (overType === "group-drop") {
-
-    if (!overGroupId) {
+    if (overGroupId === undefined) {
       return groups;
     }
 
@@ -184,3 +182,4 @@ export function handleTaskDragOver({
 
   return groups;
 }
+

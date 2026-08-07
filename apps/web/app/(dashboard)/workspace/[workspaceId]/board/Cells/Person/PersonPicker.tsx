@@ -202,7 +202,6 @@ export default function PersonPicker({
                       className="flex items-center gap-3 rounded-md p-2"
                     >
                       <AvatarContent user={user} />
-
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium">
                           {user.firstName} {user.lastName}

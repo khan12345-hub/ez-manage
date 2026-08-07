@@ -15,7 +15,6 @@ export function UpdatesTab({
     <div className="flex min-h-full flex-col">
       <CommentComposer
         taskId={task?.id}
-  
       />
 
       <CommentThread

@@ -56,8 +56,6 @@ export function TaskActivityFeed({
           activity={activity}
         />
       ))}
-
-      
     </div>
   );
 }

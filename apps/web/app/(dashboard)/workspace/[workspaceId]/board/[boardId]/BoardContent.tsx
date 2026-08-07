@@ -52,27 +52,12 @@ export function BoardContent({
   selection,
 }: BoardContentProps) {
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
-  const { bulkDelete, bulkUpdate, isDeleting, isUpdating } = useTaskBulkActions(
-    board.id,
-    () => {
-      selection.setSelectedTaskIds(new Set());
-    },
-  );
+
   const hasDraft = useGroupStore((state) =>
     state.groups.some((group: any) => group.isNew),
   );
 
-  const handleBulkDelete = () => {
-    bulkDelete([...selection.selectedTaskIds]);
-  };
 
-  const handleBulkUpdate = (columnId: number, value: any) => {
-    bulkUpdate({
-      taskIds: [...selection.selectedTaskIds],
-      columnId,
-      value,
-    });
-  };
 
   if (isLoading) {
     return <BoardSkeleton />;
@@ -90,15 +75,7 @@ export function BoardContent({
 
   return (
     <>
-      <BulkActionToolbar
-        selectedCount={selection.selectedCount}
-        columns={board.columns}
-        onDelete={handleBulkDelete}
-        onUpdate={handleBulkUpdate}
-        onClear={() => selection.setSelectedTaskIds(new Set())}
-        isDeleting={isDeleting}
-        isUpdating={isUpdating}
-      />
+      
       <div
         className={
           isFetching ? "opacity-60 transition-opacity" : "transition-opacity"

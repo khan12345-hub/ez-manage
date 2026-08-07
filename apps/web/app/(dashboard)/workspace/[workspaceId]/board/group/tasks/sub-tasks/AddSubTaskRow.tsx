@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { createTask } from "@/services/tasks.api";
 import { Input } from "@/components/ui/input";
+import { useParams } from "next/navigation";
 
 interface Props {
   groupId: number;
@@ -15,12 +16,7 @@ interface Props {
   color: string;
 }
 
-export function AddSubtaskRow({
-  groupId,
-  parentId,
-  columns,
-  color,
-}: Props) {
+export function AddSubtaskRow({ groupId, parentId, columns, color }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState("");
 
@@ -28,12 +24,19 @@ export function AddSubtaskRow({
 
   const queryClient = useQueryClient();
 
+  const params = useParams();
+
+  const boardId = Number(params.boardId);
+
   const createSubtaskMutation = useMutation({
     mutationFn: () =>
       createTask(
-        name.trim(),
-        groupId,
-        parentId,
+        {
+          name: name.trim(),
+          groupId,
+          parentId,
+        },
+        boardId,
       ),
 
     onSuccess: () => {
@@ -107,10 +110,7 @@ export function AddSubtaskRow({
         </td>
 
         {/* Name column */}
-        <td
-          colSpan={columns.length}
-          className="h-10"
-        >
+        <td colSpan={columns.length} className="h-10">
           <span className="text-sm text-muted-foreground group-hover/subtask-add:text-foreground">
             Add subitem
           </span>

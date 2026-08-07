@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
@@ -16,8 +16,8 @@ import {
 import { CellEditorProps } from "./EditableCell";
 
 export interface TimelineValue {
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: Date | string;
+  endDate?: Date | string;
 }
 
 export function TimelineEditor({
@@ -29,12 +29,41 @@ export function TimelineEditor({
 }: CellEditorProps<TimelineValue>) {
   const [open, setOpen] = useState(false);
 
-  const [range, setRange] = useState<DateRange | undefined>({
-    from: value?.startDate,
-    to: value?.endDate,
-  });
+  const [range, setRange] = useState<DateRange | undefined>(
+    () => ({
+      from: value?.startDate
+        ? new Date(value.startDate)
+        : undefined,
 
-  const handleSelect = (selectedRange: DateRange | undefined) => {
+      to: value?.endDate
+        ? new Date(value.endDate)
+        : undefined,
+    }),
+  );
+
+  /*
+   * Important:
+   * Update the local range whenever the cell value changes.
+   *
+   * This is especially important after a bulk update because
+   * the value coming from React Query/backend can change while
+   * this component remains mounted.
+   */
+  useEffect(() => {
+    setRange({
+      from: value?.startDate
+        ? new Date(value.startDate)
+        : undefined,
+
+      to: value?.endDate
+        ? new Date(value.endDate)
+        : undefined,
+    });
+  }, [value?.startDate, value?.endDate]);
+
+  const handleSelect = (
+    selectedRange: DateRange | undefined,
+  ) => {
     setRange(selectedRange);
 
     // Wait until both dates are selected
@@ -49,8 +78,6 @@ export function TimelineEditor({
 
     setValue(newValue);
     save(newValue);
-    // setOpen(false);
-
   };
 
   return (
@@ -59,15 +86,13 @@ export function TimelineEditor({
         <Button
           ref={inputRef}
           variant="outline"
-          className="w-full justify-start text-left font-normal cursor-pointer"
+          className="w-full cursor-pointer justify-start text-left font-normal"
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               cancel();
             }
           }}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-
           {range?.from ? (
             range.to ? (
               <>
@@ -83,7 +108,10 @@ export function TimelineEditor({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent
+        className="w-auto p-0"
+        align="start"
+      >
         <Calendar
           mode="range"
           selected={range}

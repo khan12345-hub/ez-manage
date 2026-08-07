@@ -102,7 +102,8 @@ export class TasksController {
     return this.taskbulkActions.bulkDelete(boardId, dto, user.id);
   }
 
-  @Post('bulk/status')
+  @Post('bulk/update')
+  @RequireBoardPermission(BoardPermission.EDIT)
   bulkStatus(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Body() dto: BulkUpdateDto,

@@ -11,11 +11,10 @@ import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface CommentComposerProps {
-  boardId: number;
   taskId: number;
 }
 
-export function CommentComposer({ boardId, taskId }: CommentComposerProps) {
+export function CommentComposer({ taskId }: CommentComposerProps) {
   const queryClient = useQueryClient();
 
   const [content, setContent] = useState("");

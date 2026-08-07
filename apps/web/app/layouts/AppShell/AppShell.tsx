@@ -39,8 +39,6 @@ export function AppShell({ children }: AppShellProps) {
         <SecondarySidebar
           isOpen={isSecondaryOpen}
           onToggle={() => setIsSecondaryOpen(!isSecondaryOpen)}
-          activeItem={activeItem}
-          onSelectItem={(item) => setActiveItem(item)}
         />
 
         {/* 3. Main Workspace Container (Navbar + Page) */}

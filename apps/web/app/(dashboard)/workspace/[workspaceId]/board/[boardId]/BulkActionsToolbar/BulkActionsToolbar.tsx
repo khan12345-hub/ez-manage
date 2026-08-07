@@ -1,21 +1,29 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Trash2, X } from "lucide-react";
+import { Loader2, Trash2, X, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { StatusBulkAction, StatusColumn } from "./StatusBulkEditor";
-import { useState } from "react";
+
+import {
+  StatusBulkAction,
+  StatusColumn,
+} from "./StatusBulkEditor";
+
 import {
   BulkActionColumn,
   BulkColumnSelector,
 } from "./BulkActionsColumnSelector";
+
 import { DateBulkEditor } from "./DateBulkEditor";
+import { TimelineBulkAction } from "./TimelineBulkEditor";
+import { CheckboxBulkAction } from "./CheckboxBulkEditor";
 
 interface BulkActionToolbarProps {
   selectedCount: number;
-  columns: any;
+  columns: BulkActionColumn[];
 
   onUpdate: (columnId: number, value: any) => void;
 
@@ -37,16 +45,40 @@ export function BulkActionToolbar({
 }: BulkActionToolbarProps) {
   const isBusy = isUpdating || isDeleting;
 
-  const statusColumns = (columns ?? [])
-    .filter((column: any) => column.type === "STATUS")
-    .map((column: any) => ({
-      id: column.id,
-      name: column.name,
-      options: column.statusOptions ?? [],
-    }));
-  const [selectedColumn, setSelectedColumn] = useState<BulkActionColumn | null>(
-    null,
-  );
+  const [selectedColumn, setSelectedColumn] =
+    useState<BulkActionColumn | null>(null);
+
+  const [pendingValue, setPendingValue] =
+    useState<any>(null);
+
+  useEffect(() => {
+    if (selectedCount === 0) {
+      setSelectedColumn(null);
+      setPendingValue(null);
+    }
+  }, [selectedCount]);
+
+  const handleColumnChange = (
+    column: BulkActionColumn,
+  ) => {
+    setSelectedColumn(column);
+
+    // Clear previous value when switching columns
+    setPendingValue(null);
+  };
+
+  const handleApply = () => {
+    if (!selectedColumn || pendingValue === null) {
+      return;
+    }
+
+    onUpdate(selectedColumn.id, pendingValue);
+  };
+
+  const canApply =
+    selectedColumn !== null &&
+    pendingValue !== null &&
+    !isBusy;
 
   return (
     <AnimatePresence>
@@ -74,49 +106,75 @@ export function BulkActionToolbar({
           className="fixed bottom-8 left-1/2 z-40 -translate-x-1/2 px-6 py-4"
         >
           <div className="flex items-center gap-4 rounded-2xl border bg-background/95 px-5 py-3 shadow-2xl backdrop-blur-xl">
-            <motion.div
-              key={selectedCount}
-              initial={{
-                opacity: 0,
-                y: 6,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              transition={{
-                duration: 0.16,
-              }}
-              className="whitespace-nowrap text-sm font-medium"
-            >
-              {selectedCount} {selectedCount === 1 ? "task" : "tasks"} selected
-            </motion.div>
-            <Separator orientation="vertical" className="h-6" />
+            <div className="whitespace-nowrap text-sm font-medium">
+              {selectedCount}{" "}
+              {selectedCount === 1 ? "task" : "tasks"} selected
+            </div>
+
+            <Separator
+              orientation="vertical"
+              className="h-6"
+            />
+
             <BulkColumnSelector
               columns={columns}
-              value={selectedColumn ? String(selectedColumn.id) : ""}
+              value={
+                selectedColumn
+                  ? String(selectedColumn.id)
+                  : ""
+              }
               disabled={isBusy}
-              onChange={setSelectedColumn}
+              onChange={handleColumnChange}
             />
 
             {selectedColumn?.type === "STATUS" && (
               <StatusBulkAction
                 column={selectedColumn}
-                onUpdate={onUpdate}
+                disabled={isBusy}
+                onChange={setPendingValue}
               />
             )}
 
-            {/* {selectedColumn?.type === "DATE" && (
-              <DateBulkEditor column={selectedColumn} />
-            )} */}
+            {selectedColumn?.type === "DATE" && (
+              <DateBulkEditor
+                column={selectedColumn}
+                disabled={isBusy}
+                onChange={setPendingValue}
+              />
+            )}
 
-            {/* {selectedColumn?.type === "TIMELINE" && (
-              <TimelineBulkAction column={selectedColumn} />
+            {selectedColumn?.type === "TIMELINE" && (
+              <TimelineBulkAction
+                column={selectedColumn}
+                disabled={isBusy}
+                onChange={setPendingValue}
+              />
             )}
 
             {selectedColumn?.type === "CHECKBOX" && (
-              <CheckboxBulkAction column={selectedColumn} />
-            )} */}
+              <CheckboxBulkAction
+                column={selectedColumn}
+                disabled={isBusy}
+                onChange={setPendingValue}
+              />
+            )}
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleApply}
+              disabled={!canApply}
+              className="h-9"
+            >
+              {isUpdating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 h-4 w-4" />
+              )}
+
+              {isUpdating ? "Applying..." : "Apply"}
+            </Button>
+
             <Button
               type="button"
               variant="destructive"
@@ -133,7 +191,12 @@ export function BulkActionToolbar({
 
               {isDeleting ? "Deleting..." : "Delete"}
             </Button>
-            <Separator orientation="vertical" className="h-6" />
+
+            <Separator
+              orientation="vertical"
+              className="h-6"
+            />
+
             <Button
               type="button"
               variant="ghost"

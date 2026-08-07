@@ -186,8 +186,8 @@ export async function bulkUpdateTasks(
   boardId: number,
   payload: BulkUpdateTaskPayload,
 ) {
-  const { data } = await api.patch(
-    `/boards/${boardId}/tasks/bulk-update`,
+  const { data } = await api.post(
+    `/boards/${boardId}/tasks/bulk/update`,
     payload,
   );
 
