@@ -131,7 +131,7 @@ export function Group({
               columns={columns}
               selection={selection}
               showSelection={false}
-              showNewTaskRow={false}
+              showNewTaskRow={true}
               showAddColumn={false}
               setOpen={setOpen}
             />

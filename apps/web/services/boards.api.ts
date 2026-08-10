@@ -196,3 +196,20 @@ export const importBoard = async ({
 
   return response.data;
 };
+
+export interface Group {
+  id: number;
+  name: string;
+  order: number;
+  boardId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getGroups(boardId: number): Promise<Group[]> {
+  const { data } = await api.get<Group[]>(
+    `/boards/${boardId}/groups`,
+  );
+
+  return data;
+}

@@ -57,7 +57,7 @@ export function GroupTable({
 
   return (
     <div className="overflow-x-auto scrollbar-none">
-      <table className="min-w-[1200px] border-collapse">
+      <table className="min-w-300 border-collapse">
         {showHeaders && (
           <thead>
             <tr className="border">

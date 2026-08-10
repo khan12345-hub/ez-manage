@@ -23,36 +23,7 @@ export default function BoardPage() {
 
   const [personFilter, setPersonFilter] = useState<PersonValue | null>(null);
 
-  /*
-
-* Get the selected person's name.
-*
-* PersonFilter is single-select, so we only
-* need the first selected user.
-*
-* Example:
-*
-* {
-* users: [
-* 
-  {
-  
-* 
-    firstName: "Manager",
-  
-* 
-    lastName: "Ezify"
-  
-* 
-  }
-  
-* ]
-* }
-*
-* becomes:
-*
-* "Manager Ezify"
-  */
+ 
   const selectedPersonSearch = personFilter?.users?.[0]
     ? `${personFilter.users[0].firstName ?? ""} ${
         personFilter.users[0].lastName ?? ""

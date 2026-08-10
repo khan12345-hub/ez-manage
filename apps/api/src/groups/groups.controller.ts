@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   Param,
   ParseIntPipe,
   Patch,
@@ -31,6 +32,14 @@ export class GroupsController {
   constructor(
     private readonly groupsService: GroupsService,
   ) {}
+
+  @Get()
+  @RequireBoardPermission(BoardPermission.VIEW)
+  findAll(
+    @Param("boardId", ParseIntPipe) boardId: number,
+  ) {
+    return this.groupsService.findAll(boardId);
+  }
 
   @Post()
   @RequireBoardPermission(BoardPermission.EDIT)

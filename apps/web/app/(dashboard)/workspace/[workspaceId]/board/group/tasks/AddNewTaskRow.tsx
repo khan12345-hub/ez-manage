@@ -4,10 +4,8 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-
 import { useInviteModalStore } from "@/store/invite-modal";
 import { createTask } from "@/services/tasks.api";
 
@@ -15,8 +13,6 @@ interface Props {
   columns: any[];
   color: string;
   groupId: number;
-
-  // If provided, this row creates a subtask
   parentId?: number;
 }
 
@@ -97,6 +93,7 @@ export function NewTaskRow({ columns, color, groupId, parentId }: Props) {
             onBlur={submit}
             disabled={createMutation.isPending}
             className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+            autoFocus
           />
         </div>
       </td>

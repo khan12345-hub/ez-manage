@@ -52,7 +52,7 @@ export function FileCell({ value }: FileCellProps) {
       <FilePreviewModal
         open={previewOpen}
         onOpenChange={setPreviewOpen}
-        files={value}
+        files={value.files}
         cellId={value.cellId}
         onUploadClick={() => setUploadOpen(true)}
         type="CELL"

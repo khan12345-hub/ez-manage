@@ -14,6 +14,7 @@ import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { updateGroup, deleteGroup } from "@/services/groups.api";
 import { useGroupStore } from "@/store/create-group-store";
 import { useInviteModalStore } from "@/store/invite-modal";
+import { STATUS_COLORS } from "@/constants/colors";
 
 interface Props {
   group: any;
@@ -54,10 +55,7 @@ export function GroupActions({ group }: Props) {
     }: {
       id: number;
       boardId: number;
-    }) =>
-      deleteGroup(id,
-        boardId
-      ),
+    }) => deleteGroup(id, boardId),
 
     onSuccess: (_, variables) => {
       removeLocal(variables.id);
@@ -72,9 +70,9 @@ export function GroupActions({ group }: Props) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          size="icon"
           variant="ghost"
-          className="h-7 w-7 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
+          size="icon"
+          className="h-8 w-8"
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
@@ -93,10 +91,13 @@ export function GroupActions({ group }: Props) {
         </DropdownMenuItem>
 
         <div className="space-y-2 px-3 py-2">
-          <p className="text-xs text-muted-foreground">Group Color</p>
+          <p className="text-xs text-muted-foreground">
+            Group Color
+          </p>
 
           <ColorPicker
             value={group.color}
+            colors={STATUS_COLORS}
             onChange={(color) => {
               updateLocal(group.id, { color });
 
@@ -110,7 +111,16 @@ export function GroupActions({ group }: Props) {
                 });
               }
             }}
-          />
+          >
+            <button
+              type="button"
+              className="h-8 w-8 rounded-md border transition hover:scale-105"
+              style={{
+                backgroundColor: group.color,
+              }}
+              aria-label="Change group color"
+            />
+          </ColorPicker>
         </div>
 
         <DropdownMenuItem
@@ -136,3 +146,4 @@ export function GroupActions({ group }: Props) {
     </DropdownMenu>
   );
 }
+

@@ -14,32 +14,30 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { FormBuilderState, FormField } from "./board-feature-form.types";
+
+import {
+  FormBuilderState,
+  FormField,
+} from "./board-feature-form.types";
+
 import { AddFieldMenu } from "./AddFieldMenu";
 import { FormFieldCard } from "./FormFieldCard";
-import { FormSettings } from "./FormSettings";
-
-
-
 
 interface FormBuilderProps {
-  boardId: number;
-  groups: {
-    id: number;
-    name: string;
-  }[];
+  board: any;
 }
 
-export function FormBuilder({
-  boardId,
-  groups,
-}: FormBuilderProps) {
-  const [form, setForm] = useState<FormBuilderState>({
+export function FormBuilder({ board }: FormBuilderProps) {
+  const [form, setForm] = useState<FormBuilderState>(() => ({
     name: "",
     description: "",
     groupId: null,
-    fields: [],
-  });
+
+    // Automatically add all existing board columns
+    fields: mapBoardColumnsToFields(
+      board?.columns ?? []
+    ),
+  }));
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -49,13 +47,28 @@ export function FormBuilder({
     })
   );
 
+  /**
+   * Add a NEW custom field.
+   *
+   * Existing board columns are already loaded
+   * into the form by default.
+   */
   function addField(type: FormField["type"]) {
     const field: FormField = {
       id: crypto.randomUUID(),
+
       label: getDefaultLabel(type),
+
       type,
+
       required: false,
+
       placeholder: "",
+
+      // Custom fields don't belong to an existing
+      // board column yet.
+      columnId: undefined,
+
       ...(type === "SELECT"
         ? {
             options: [
@@ -63,6 +76,7 @@ export function FormBuilder({
                 id: crypto.randomUUID(),
                 label: "Option 1",
                 value: "option-1",
+                color: "#6366f1",
               },
             ],
           }
@@ -78,6 +92,7 @@ export function FormBuilder({
   function updateField(updatedField: FormField) {
     setForm((current) => ({
       ...current,
+
       fields: current.fields.map((field) =>
         field.id === updatedField.id
           ? updatedField
@@ -89,6 +104,7 @@ export function FormBuilder({
   function deleteField(fieldId: string) {
     setForm((current) => ({
       ...current,
+
       fields: current.fields.filter(
         (field) => field.id !== fieldId
       ),
@@ -102,17 +118,22 @@ export function FormBuilder({
       return;
     }
 
-    setForm((current:any) => {
+    setForm((current) => {
       const oldIndex = current.fields.findIndex(
-        (field:any) => field.id === active.id
+        (field) => field.id === active.id
       );
 
       const newIndex = current.fields.findIndex(
-        (field:any) => field.id === over.id
+        (field) => field.id === over.id
       );
+
+      if (oldIndex === -1 || newIndex === -1) {
+        return current;
+      }
 
       return {
         ...current,
+
         fields: arrayMove(
           current.fields,
           oldIndex,
@@ -144,7 +165,7 @@ export function FormBuilder({
           <input
             value={form.name}
             onChange={(event) =>
-              setForm((current:any) => ({
+              setForm((current) => ({
                 ...current,
                 name: event.target.value,
               }))
@@ -162,7 +183,7 @@ export function FormBuilder({
           <textarea
             value={form.description}
             onChange={(event) =>
-              setForm((current:any) => ({
+              setForm((current) => ({
                 ...current,
                 description: event.target.value,
               }))
@@ -181,10 +202,12 @@ export function FormBuilder({
             </h2>
 
             <p className="text-sm text-muted-foreground">
-              Each field will become a column on this board.
+              Existing board columns are included by
+              default. Remove any fields you don't need.
             </p>
           </div>
 
+          {/* This now only adds NEW custom fields */}
           <AddFieldMenu onAdd={addField} />
         </div>
 
@@ -194,16 +217,20 @@ export function FormBuilder({
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={form.fields.map((field:any) => field.id)}
+            items={form.fields.map(
+              (field) => field.id
+            )}
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-3">
-              {form.fields.map((field:any) => (
+              {form.fields.map((field) => (
                 <FormFieldCard
                   key={field.id}
                   field={field}
                   onChange={updateField}
-                  onDelete={() => deleteField(field.id)}
+                  onDelete={() =>
+                    deleteField(field.id)
+                  }
                 />
               ))}
             </div>
@@ -222,19 +249,97 @@ export function FormBuilder({
           </div>
         )}
       </section>
-
-      <FormSettings
-        groups={groups}
-        groupId={form.groupId}
-        onGroupChange={(groupId) =>
-          setForm((current) => ({
-            ...current,
-            groupId,
-          }))
-        }
-      />
     </div>
   );
+}
+
+/**
+ * Convert all existing board columns into form fields.
+ */
+function mapBoardColumnsToFields(
+  columns: any[]
+): FormField[] {
+  return columns.map((column) => {
+    const type = mapColumnTypeToFormType(
+      column.type
+    );
+
+    const field: FormField = {
+      // Form field ID for DnD/UI
+      id: crypto.randomUUID(),
+
+      // Existing board column name
+      label: column.name,
+
+      // Board column type -> form type
+      type,
+
+      required: false,
+
+      placeholder: "",
+
+      // Keep reference to the board column
+      columnId: column.id,
+    };
+
+    /**
+     * STATUS column
+     *
+     * Map the existing board status options
+     * into the form field options.
+     */
+    if (column.type === "STATUS") {
+      field.options = (column.statusOptions ?? []).map(
+        (option: any) => ({
+          id: String(option.id),
+
+          label: option.label,
+
+          // Use existing value if available,
+          // otherwise generate one from the label.
+          value:
+            option.value ??
+            option.label
+              ?.toLowerCase()
+              .replace(/\s+/g, "-"),
+
+          // Preserve board option color
+          color: option.color ?? "#6366f1",
+        })
+      );
+    }
+
+    return field;
+  });
+}
+
+
+
+/**
+ * Board column type -> Form field type
+ */
+function mapColumnTypeToFormType(
+  columnType: string
+): FormField["type"] {
+  switch (columnType) {
+    case "TEXT":
+      return "TEXT";
+
+    case "NUMBER":
+      return "NUMBER";
+
+    case "DATE":
+      return "DATE";
+
+    case "STATUS":
+      return "SELECT";
+
+    case "CHECKBOX":
+      return "CHECKBOX";
+
+    default:
+      return "TEXT";
+  }
 }
 
 function getDefaultLabel(
@@ -263,3 +368,4 @@ function getDefaultLabel(
       return "Checkbox";
   }
 }
+

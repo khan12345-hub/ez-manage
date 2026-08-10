@@ -1,18 +1,14 @@
 "use client";
 
 import { Plus } from "lucide-react";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
 import { Button } from "@/components/ui/button";
 import { FormFieldType } from "./board-feature-form.types";
-
-
 
 interface AddFieldMenuProps {
   onAdd: (type: FormFieldType) => void;
@@ -22,12 +18,12 @@ const fields: {
   type: FormFieldType;
   label: string;
 }[] = [
-  { type: "TEXT", label: "Short Text" },
-  { type: "TEXTAREA", label: "Long Text" },
-  { type: "EMAIL", label: "Email" },
+  { type: "TEXT", label: "Text" },
+  // { type: "EMAIL", label: "Email" },
   { type: "NUMBER", label: "Number" },
   { type: "DATE", label: "Date" },
-  { type: "SELECT", label: "Dropdown" },
+  { type: "TIMELINE", label: "Timeline" },
+  { type: "SELECT", label: "Select" },
   { type: "CHECKBOX", label: "Checkbox" },
 ];
 

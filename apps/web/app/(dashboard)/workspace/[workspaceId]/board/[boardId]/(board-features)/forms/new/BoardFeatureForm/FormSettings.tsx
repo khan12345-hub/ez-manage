@@ -1,10 +1,6 @@
 interface FormSettingsProps {
-  groups: {
-    id: number;
-    name: string;
-  }[];
-
-  groupId: number | null;
+  board:any;
+  
 
   onGroupChange: (
     groupId: number
@@ -12,8 +8,7 @@ interface FormSettingsProps {
 }
 
 export function FormSettings({
-  groups,
-  groupId,
+  board,
   onGroupChange,
 }: FormSettingsProps) {
   return (

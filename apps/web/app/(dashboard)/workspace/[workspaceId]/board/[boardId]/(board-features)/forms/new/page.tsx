@@ -1,24 +1,39 @@
+"use client";
+
+import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+
+import { getBoardDetail } from "@/services/boards.api";
 import { FormBuilder } from "./BoardFeatureForm/FormBuilder";
 
+export default function NewFormPage() {
+  const params = useParams();
 
-interface PageProps {
-  params: Promise<{
-    boardId: string;
-  }>;
-}
+  const boardId = Number(params.boardId);
 
-export default async function NewFormPage({
-  params,
-}: PageProps) {
-  const { boardId } = await params;
+  const {
+    data: board,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["board", boardId],
+    queryFn: () => getBoardDetail(boardId),
+    enabled: Number.isFinite(boardId),
+    retry: 0,
+  });
 
-  // Replace this with your existing board/groups query.
-  const groups = [] as any[];
+  if (isLoading) {
+    return <div>Loading board...</div>;
+  }
+
+  if (isError || !board) {
+    return <div>Failed to load board.</div>;
+  }
 
   return (
     <FormBuilder
-      boardId={Number(boardId)}
-      groups={groups}
+      board={board}
     />
   );
 }
+

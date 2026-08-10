@@ -130,6 +130,7 @@ export default function FilePreviewItem({
     return null;
   }
 
+  
   return (
     <>
       {/* File Row */}
