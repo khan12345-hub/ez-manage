@@ -19,11 +19,10 @@ const fields: {
   label: string;
 }[] = [
   { type: "TEXT", label: "Text" },
-  // { type: "EMAIL", label: "Email" },
   { type: "NUMBER", label: "Number" },
   { type: "DATE", label: "Date" },
   { type: "TIMELINE", label: "Timeline" },
-  { type: "SELECT", label: "Select" },
+  { type: "STATUS", label: "Status" },
   { type: "CHECKBOX", label: "Checkbox" },
 ];
 

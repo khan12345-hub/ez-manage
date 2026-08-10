@@ -32,12 +32,14 @@ interface FilePreviewItemProps {
   file: FilePreviewItemType;
   cellId?: number;
   commentId?: number;
+  imageOnlyPreview?: boolean;
 }
 
 export default function FilePreviewItem({
   file,
   cellId,
   commentId,
+  imageOnlyPreview,
 }: FilePreviewItemProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -124,18 +126,15 @@ export default function FilePreviewItem({
 
   const canDelete = boardAccess || workspaceAccess || isFileUploader;
 
-  
   // Don't render anything after successful deletion
   if (deleted) {
     return null;
   }
 
-  
   return (
     <>
       {/* File Row */}
-      <div className="group flex items-center gap-3 rounded-md border p-3">
-        {/* Preview thumbnail */}
+      {imageOnlyPreview ? (
         <button
           type="button"
           onClick={() => setPreviewOpen(true)}
@@ -145,38 +144,58 @@ export default function FilePreviewItem({
             fileName={file.fileName}
             mimeType={file.mimeType}
             url={file.url}
+            
           />
+          
         </button>
-
-        {/* File information */}
-        <button
-          type="button"
-          onClick={() => setPreviewOpen(true)}
-          className="min-w-0 flex-1 text-left"
-        >
-          <p className="line-clamp-2 text-sm font-medium hover:underline">
-            {file.fileName}
-          </p>
-
-          <p className="text-xs text-muted-foreground">
-            {formatFileSize(file.fileSize)}
-          </p>
-        </button>
-
-        {/* Delete */}
-        {canDelete && (
-          <Button
+      ) : (
+        <div className="group flex items-center gap-3 rounded-md border p-3">
+          {/* Preview thumbnail */}
+          <button
             type="button"
-            variant="ghost"
-            size="icon"
-            disabled={deleteMutation.isPending}
-            onClick={() => setDeleteDialogOpen(true)}
-            className="text-muted-foreground hover:text-destructive"
+            onClick={() => setPreviewOpen(true)}
+            className="shrink-0"
           >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
+            <FileThumbnail
+              fileName={file.fileName}
+              mimeType={file.mimeType}
+              url={file.url}
+            />
+            
+          </button>
+
+          {/* File information */}
+          {
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className="min-w-0 flex-1 text-left"
+            >
+              <p className="line-clamp-2 text-sm font-medium hover:underline">
+                {file.fileName}
+              </p>
+
+              <p className="text-xs text-muted-foreground">
+                {formatFileSize(file.fileSize)}
+              </p>
+            </button>
+          }
+
+          {/* Delete */}
+          {canDelete && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={deleteMutation.isPending}
+              onClick={() => setDeleteDialogOpen(true)}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* File Preview */}
       <SingleFilePreviewModal

@@ -15,13 +15,13 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
-import {
-  FormBuilderState,
-  FormField,
-} from "./board-feature-form.types";
+import { FormBuilderState, FormField } from "./board-feature-form.types";
 
 import { AddFieldMenu } from "./AddFieldMenu";
 import { FormFieldCard } from "./FormFieldCard";
+import { useMutation } from "@tanstack/react-query";
+import { BoardColumnType, createColumn } from "@/services/columns.api";
+import { toast } from "sonner";
 
 interface FormBuilderProps {
   board: any;
@@ -34,9 +34,7 @@ export function FormBuilder({ board }: FormBuilderProps) {
     groupId: null,
 
     // Automatically add all existing board columns
-    fields: mapBoardColumnsToFields(
-      board?.columns ?? []
-    ),
+    fields: mapBoardColumnsToFields(board?.columns ?? []),
   }));
 
   const sensors = useSensors(
@@ -44,59 +42,87 @@ export function FormBuilder({ board }: FormBuilderProps) {
       activationConstraint: {
         distance: 5,
       },
-    })
+    }),
   );
 
-  /**
-   * Add a NEW custom field.
-   *
-   * Existing board columns are already loaded
-   * into the form by default.
-   */
-  function addField(type: FormField["type"]) {
-    const field: FormField = {
-      id: crypto.randomUUID(),
+  const createColumnMutation = useMutation({
+    mutationFn: ({ type }: { type: BoardColumnType; fieldId: string }) =>
+      createColumn(board.id || 0, type),
 
-      label: getDefaultLabel(type),
-
-      type,
-
-      required: false,
-
-      placeholder: "",
-
-      // Custom fields don't belong to an existing
-      // board column yet.
-      columnId: undefined,
-
-      ...(type === "SELECT"
-        ? {
-            options: [
-              {
-                id: crypto.randomUUID(),
-                label: "Option 1",
-                value: "option-1",
-                color: "#6366f1",
-              },
-            ],
+    onSuccess: (createdColumn, variables) => {
+      setForm((current) => ({
+        ...current,
+        fields: current.fields.map((field) => {
+          if (field.id !== variables.fieldId) {
+            return field;
           }
-        : {}),
-    };
 
-    setForm((current) => ({
-      ...current,
-      fields: [...current.fields, field],
-    }));
-  }
+          return {
+            ...field,
+            columnId: createdColumn.id,
+          };
+        }),
+      }));
+    },
+
+    onError: (_, variables) => {
+      setForm((current) => ({
+        ...current,
+        fields: current.fields.filter(
+          (field) => field.id !== variables.fieldId,
+        ),
+      }));
+
+      toast.error("Failed to create column");
+    },
+  });
+
+function addField(type: FormField["type"]) {
+  const field: FormField = {
+    id: crypto.randomUUID(),
+
+    name: getDefaultLabel(type),
+
+    type,
+
+    required: false,
+
+    placeholder: "",
+
+    columnId: undefined,
+
+    ...(type === "STATUS"
+      ? {
+          options: [
+            {
+              id: crypto.randomUUID(),
+              label: "Option 1",
+              value: "option-1",
+              color: "#6366f1",
+              isNew: true,
+            },
+          ],
+        }
+      : {}),
+  };
+
+  setForm((current) => ({
+    ...current,
+    fields: [...current.fields, field],
+  }));
+
+  createColumnMutation.mutate({
+    type,
+    fieldId: field.id,
+  });
+}
 
   function updateField(updatedField: FormField) {
     setForm((current) => ({
       ...current,
 
       fields: current.fields.map((field) =>
-        field.id === updatedField.id
-          ? updatedField
-          : field
+        field.id === updatedField.id ? updatedField : field,
       ),
     }));
   }
@@ -105,9 +131,7 @@ export function FormBuilder({ board }: FormBuilderProps) {
     setForm((current) => ({
       ...current,
 
-      fields: current.fields.filter(
-        (field) => field.id !== fieldId
-      ),
+      fields: current.fields.filter((field) => field.id !== fieldId),
     }));
   }
 
@@ -120,11 +144,11 @@ export function FormBuilder({ board }: FormBuilderProps) {
 
     setForm((current) => {
       const oldIndex = current.fields.findIndex(
-        (field) => field.id === active.id
+        (field) => field.id === active.id,
       );
 
       const newIndex = current.fields.findIndex(
-        (field) => field.id === over.id
+        (field) => field.id === over.id,
       );
 
       if (oldIndex === -1 || newIndex === -1) {
@@ -134,11 +158,7 @@ export function FormBuilder({ board }: FormBuilderProps) {
       return {
         ...current,
 
-        fields: arrayMove(
-          current.fields,
-          oldIndex,
-          newIndex
-        ),
+        fields: arrayMove(current.fields, oldIndex, newIndex),
       };
     });
   }
@@ -146,21 +166,16 @@ export function FormBuilder({ board }: FormBuilderProps) {
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
       <div>
-        <h1 className="text-2xl font-semibold">
-          Create Form
-        </h1>
+        <h1 className="text-2xl font-semibold">Create Form</h1>
 
         <p className="mt-1 text-sm text-muted-foreground">
-          Create a form that employees can use to submit
-          requests to this board.
+          Create a form that employees can use to submit requests to this board.
         </p>
       </div>
 
       <section className="space-y-4">
         <div>
-          <label className="text-sm font-medium">
-            Form title
-          </label>
+          <label className="text-sm font-medium">Form title</label>
 
           <input
             value={form.name}
@@ -176,9 +191,7 @@ export function FormBuilder({ board }: FormBuilderProps) {
         </div>
 
         <div>
-          <label className="text-sm font-medium">
-            Description
-          </label>
+          <label className="text-sm font-medium">Description</label>
 
           <textarea
             value={form.description}
@@ -197,13 +210,11 @@ export function FormBuilder({ board }: FormBuilderProps) {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-semibold">
-              Form fields
-            </h2>
+            <h2 className="font-semibold">Form fields</h2>
 
             <p className="text-sm text-muted-foreground">
-              Existing board columns are included by
-              default. Remove any fields you don't need.
+              Existing board columns are included by default. Remove any fields
+              you don't need.
             </p>
           </div>
 
@@ -217,9 +228,7 @@ export function FormBuilder({ board }: FormBuilderProps) {
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={form.fields.map(
-              (field) => field.id
-            )}
+            items={form.fields.map((field) => field.id)}
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-3">
@@ -228,9 +237,7 @@ export function FormBuilder({ board }: FormBuilderProps) {
                   key={field.id}
                   field={field}
                   onChange={updateField}
-                  onDelete={() =>
-                    deleteField(field.id)
-                  }
+                  onDelete={() => deleteField(field.id)}
                 />
               ))}
             </div>
@@ -256,71 +263,42 @@ export function FormBuilder({ board }: FormBuilderProps) {
 /**
  * Convert all existing board columns into form fields.
  */
-function mapBoardColumnsToFields(
-  columns: any[]
-): FormField[] {
+function mapBoardColumnsToFields(columns: any[]): FormField[] {
   return columns.map((column) => {
-    const type = mapColumnTypeToFormType(
-      column.type
-    );
+    const type = mapColumnTypeToFormType(column.type);
 
     const field: FormField = {
-      // Form field ID for DnD/UI
       id: crypto.randomUUID(),
 
-      // Existing board column name
-      label: column.name,
+      name: column.name,
 
-      // Board column type -> form type
       type,
 
       required: false,
 
       placeholder: "",
 
-      // Keep reference to the board column
       columnId: column.id,
     };
 
-    /**
-     * STATUS column
-     *
-     * Map the existing board status options
-     * into the form field options.
-     */
     if (column.type === "STATUS") {
-      field.options = (column.statusOptions ?? []).map(
-        (option: any) => ({
-          id: String(option.id),
-
-          label: option.label,
-
-          // Use existing value if available,
-          // otherwise generate one from the label.
-          value:
-            option.value ??
-            option.label
-              ?.toLowerCase()
-              .replace(/\s+/g, "-"),
-
-          // Preserve board option color
-          color: option.color ?? "#6366f1",
-        })
-      );
+      field.options = (column.statusOptions ?? []).map((option: any) => ({
+        id: String(option.id),
+        label: option.label,
+        value: option.value ?? option.label?.toLowerCase().replace(/\s+/g, "-"),
+        color: option.color ?? "#6366f1",
+        isNew: false,
+      }));
     }
 
     return field;
   });
 }
 
-
-
 /**
  * Board column type -> Form field type
  */
-function mapColumnTypeToFormType(
-  columnType: string
-): FormField["type"] {
+function mapColumnTypeToFormType(columnType: string): FormField["type"] {
   switch (columnType) {
     case "TEXT":
       return "TEXT";
@@ -332,7 +310,7 @@ function mapColumnTypeToFormType(
       return "DATE";
 
     case "STATUS":
-      return "SELECT";
+      return "STATUS";
 
     case "CHECKBOX":
       return "CHECKBOX";
@@ -342,18 +320,10 @@ function mapColumnTypeToFormType(
   }
 }
 
-function getDefaultLabel(
-  type: FormField["type"]
-) {
+function getDefaultLabel(type: FormField["type"]) {
   switch (type) {
     case "TEXT":
-      return "Short Text";
-
-    case "TEXTAREA":
-      return "Description";
-
-    case "EMAIL":
-      return "Email";
+      return "Text";
 
     case "NUMBER":
       return "Number";
@@ -361,11 +331,12 @@ function getDefaultLabel(
     case "DATE":
       return "Date";
 
-    case "SELECT":
-      return "Select";
-
     case "CHECKBOX":
       return "Checkbox";
+
+    case "STATUS":
+      return "Status";
+    default:
+      return "Label";
   }
 }
-

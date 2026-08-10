@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Loader2, Plus, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   createStatusOption,
-  deleteStatusOption,
   updateStatusOption,
 } from "@/services/status-options.api";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -19,10 +17,10 @@ export interface StatusOption {
   label: string;
   value: string;
   color: string;
+  isNew?: boolean;
 }
 
 interface StatusOptionEditorProps {
-  //   boardId: number;
   columnId: number;
   options: StatusOption[];
   disabled?: boolean;
@@ -30,22 +28,14 @@ interface StatusOptionEditorProps {
 }
 
 export function StatusOptionEditor({
-  //   boardId,
   columnId,
   options,
   disabled = false,
   onChange,
 }: StatusOptionEditorProps) {
-  const queryClient = useQueryClient();
-
   const [statuses, setStatuses] = useState<StatusOption[]>(options);
-
   const [isSaving, setIsSaving] = useState(false);
 
-  /**
-   * Keep local state in sync when the board
-   * data changes.
-   */
   useEffect(() => {
     setStatuses(options);
   }, [options]);
@@ -63,8 +53,22 @@ export function StatusOptionEditor({
     );
   }
 
+  function addOption() {
+    const id = crypto.randomUUID();
+
+    const newOption: StatusOption = {
+      id,
+      label: "New option",
+      value: `option-${Date.now()}`,
+      color: "gray",
+      isNew: true,
+    };
+
+    setStatuses((current) => [...current, newOption]);
+  }
+
   async function applyChanges() {
-    if (isSaving || disabled) {
+    if (isSaving || disabled || !columnId) {
       return;
     }
 
@@ -73,7 +77,28 @@ export function StatusOptionEditor({
     try {
       const savedStatuses = await Promise.all(
         statuses.map(async (status) => {
-          const saved = await updateStatusOption(columnId, Number(status.id), {
+          // New option -> CREATE
+          if (status.isNew) {
+            const saved = await createStatusOption(columnId, {
+              label: status.label.trim(),
+              color: status.color,
+            });
+
+            return {
+              ...saved,
+              id: String(saved.id),
+              isNew: false,
+            };
+          }
+
+          // Existing option -> UPDATE
+          const optionId = Number(status.id);
+
+          if (Number.isNaN(optionId)) {
+            throw new Error(`Invalid existing status option ID: ${status.id}`);
+          }
+
+          const saved = await updateStatusOption(columnId, optionId, {
             label: status.label.trim(),
             color: status.color,
           });
@@ -89,15 +114,12 @@ export function StatusOptionEditor({
       const normalizedStatuses = savedStatuses.map((status) => ({
         ...status,
         id: String(status.id),
+        isNew: false,
       }));
 
-      // Update FormBuilder state
-      onChange(normalizedStatuses);
+      setStatuses(normalizedStatuses);
 
-      // Refresh board
-      //   await queryClient.invalidateQueries({
-      //     queryKey: ["board", boardId],
-      //   });
+      onChange(normalizedStatuses);
     } catch (error) {
       console.error("Failed to update status options", error);
     } finally {
@@ -106,15 +128,30 @@ export function StatusOptionEditor({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <label className="text-sm font-medium">Status options</label>
+    <div className="space-y-4">
+      <div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium">Status options</h3>
 
-          {disabled && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Options are managed by the board column.
-            </p>
+            {disabled && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Options are managed by the board column.
+              </p>
+            )}
+          </div>
+
+          {!disabled && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addOption}
+              disabled={isSaving}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add option
+            </Button>
           )}
         </div>
       </div>
@@ -130,7 +167,6 @@ export function StatusOptionEditor({
               key={status.id}
               className="flex items-center gap-2 rounded-md border p-2"
             >
-
               <ColorPicker
                 colors={STATUS_COLORS}
                 value={status.color}
@@ -142,7 +178,7 @@ export function StatusOptionEditor({
               >
                 <button
                   type="button"
-                  className="h-8 w-8 rounded-md border transition hover:scale-105"
+                  className="h-8 w-8 rounded-md transition hover:scale-105"
                   style={{
                     backgroundColor: status.color,
                   }}
@@ -150,7 +186,6 @@ export function StatusOptionEditor({
                 />
               </ColorPicker>
 
-              {/* Label */}
               <Input
                 value={status.label}
                 disabled={disabled || isSaving}
@@ -163,25 +198,21 @@ export function StatusOptionEditor({
                 className="flex-1"
               />
 
-              {/* Value */}
-              <Input
-                value={status.value}
-                disabled
-                placeholder="Value"
-                className="flex-1"
-              />
+              {status.isNew && (
+                <span className="text-xs text-muted-foreground">New</span>
+              )}
             </div>
           ))
         )}
       </div>
 
-      {!disabled && statuses.length > 0 && (
+      {!disabled && (
         <div className="flex justify-end">
           <Button
             type="button"
             size="sm"
             onClick={applyChanges}
-            disabled={isSaving}
+            disabled={isSaving || statuses.length === 0}
           >
             {isSaving ? (
               <>

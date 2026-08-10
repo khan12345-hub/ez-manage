@@ -87,15 +87,6 @@ export function Group({
     console.log(event);
   }
 
-  /**
-   * Only render top-level tasks here.
-   *
-   * Subtasks should be rendered inside TaskHierarchyRow
-   * underneath their respective parent task.
-   *
-   * This prevents subtasks from appearing as independent
-   * top-level rows in the group.
-   */
   const rootTasks = (group.tasks ?? []).filter(
     (task: any) => !task.parentTaskId,
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVertical, Trash2 } from "lucide-react";
+import { Trash2, GripVertical } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -17,12 +17,11 @@ import {
 
 import { FormField, FormFieldOption } from "./board-feature-form.types";
 
-import { StatusColorPicker } from "../../../../../Cells/Status/StatusColorPicker";
 import { DatePicker } from "./DatePicker";
 import { TimelinePicker } from "./TimelinePicker";
-import { useState } from "react";
-import { DateRange } from "react-day-picker";
 import { StatusOptionEditor } from "./StatusOptionEditor";
+
+import { useColumnRename } from "../../../../../group/columns/useColumnRename.hooks";
 
 interface FormFieldCardProps {
   field: FormField;
@@ -39,8 +38,17 @@ export function FormFieldCard({
     useSortable({
       id: field.id,
     });
-  const [date, setDate] = useState<Date>();
-  const [timeline, setTimeline] = useState<DateRange>();
+
+  const { name, setName, save, handleKeyDown, isSaving } = useColumnRename({
+    columnId: field.columnId,
+    columnName: field.name,
+    onRenamed: (newName) => {
+      onChange({
+        ...field,
+        name: newName,
+      });
+    },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -69,6 +77,7 @@ export function FormFieldCard({
       label: `Option ${optionNumber}`,
       value: `option-${optionNumber}`,
       color: "#0086c9",
+      isNew: true,
     };
 
     onChange({
@@ -92,35 +101,52 @@ export function FormFieldCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex gap-3 rounded-lg border bg-card p-4"
+      className="flex items-start gap-3 rounded-lg border p-4"
     >
       {/* Drag handle */}
       <button
         type="button"
         {...attributes}
         {...listeners}
-        className="mt-2 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+        className="
+          mt-2
+          cursor-grab
+          text-muted-foreground
+          hover:text-foreground
+          active:cursor-grabbing
+        "
         aria-label="Drag field"
       >
         <GripVertical className="h-5 w-5" />
       </button>
 
       <div className="flex-1 space-y-4">
-        {/* Field label + type */}
+        {/* Column name + Field label + Type */}
         <div className="flex gap-3">
-          <Input
-            value={field.label}
-            onChange={(event) =>
-              onChange({
-                ...field,
-                label: event.target.value,
-              })
-            }
-            className="flex-1"
-            placeholder="Field label"
-          />
+          {field.columnId && (
+            <Input
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+              }}
+              onBlur={save}
+              onKeyDown={handleKeyDown}
+              disabled={isSaving}
+              placeholder="Column name"
+              className="
+      h-9
+      border-transparent
+      bg-muted/40
+      font-medium
+      shadow-none
+      focus-visible:ring-1
+    "
+            />
+          )}
 
-          <Select
+         
+
+          {/* <Select
             value={field.type}
             disabled={Boolean(field.columnId)}
             onValueChange={(value) =>
@@ -135,42 +161,19 @@ export function FormFieldCard({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="TEXT">Short Text</SelectItem>
-
               <SelectItem value="TEXTAREA">Long Text</SelectItem>
-
               <SelectItem value="EMAIL">Email</SelectItem>
-
               <SelectItem value="NUMBER">Number</SelectItem>
-
               <SelectItem value="DATE">Date</SelectItem>
-
               <SelectItem value="TIMELINE">Timeline</SelectItem>
-
               <SelectItem value="SELECT">Dropdown</SelectItem>
-
               <SelectItem value="CHECKBOX">Checkbox</SelectItem>
             </SelectContent>
-          </Select>
+          </Select> */}
         </div>
 
-        {/* Placeholder */}
-        {field.type !== "CHECKBOX" &&
-          field.type !== "DATE" &&
-          field.type !== "TIMELINE" &&
-          field.type !== "SELECT" && (
-            <Input
-              value={field.placeholder ?? ""}
-              onChange={(event) =>
-                onChange({
-                  ...field,
-                  placeholder: event.target.value,
-                })
-              }
-              placeholder="Placeholder (optional)"
-            />
-          )}
-
-        {/* Date picker */}
+        
+        {/* Date */}
         {field.type === "DATE" && (
           <DatePicker
             value={field.date}
@@ -183,8 +186,7 @@ export function FormFieldCard({
           />
         )}
 
-        {/* Timeline picker */}
-
+        {/* Timeline */}
         {field.type === "TIMELINE" && (
           <TimelinePicker
             value={field.timeline}
@@ -218,13 +220,11 @@ export function FormFieldCard({
           </label>
         </div>
 
-        {/* SELECT options */}
-        {field.type === "SELECT" && (
+        {/* STATUS options */}
+        {field.type === "STATUS" && field.columnId && (
           <StatusOptionEditor
-    
-          columnId={field.columnId ?? 1}
+            columnId={field.columnId}
             options={field.options ?? []}
-            // disabled={Boolean(field.columnId)}
             onChange={(options) =>
               onChange({
                 ...field,
@@ -241,7 +241,12 @@ export function FormFieldCard({
         variant="ghost"
         size="icon"
         onClick={onDelete}
-        className="mt-1 shrink-0 text-muted-foreground hover:text-destructive"
+        className="
+          mt-1
+          shrink-0
+          text-muted-foreground
+          hover:text-destructive
+        "
         aria-label="Delete field"
       >
         <Trash2 className="h-4 w-4" />

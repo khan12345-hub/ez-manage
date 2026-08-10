@@ -14,6 +14,7 @@ import { ReplyItem } from "./ReplyItem";
 import { CommentEditor } from "./CommentEditor";
 import { format } from "date-fns";
 import { FilePreviewModal } from "../../../../../Cells/File/Previews/FilePreviewModal";
+import FilePreviewItem from "../../../../../Cells/File/Previews/FilePreviewItem";
 
 interface CommentItemProps {
   comment: any;
@@ -36,7 +37,7 @@ export function CommentItem({
   const formattedDate = comment.createdAt
     ? format(comment.createdAt, "do MMMM, yyyy EEEE 'at' h:mm a")
     : "";
-  
+
   return (
     <div className="p-4">
       <div className="flex gap-3">
@@ -82,24 +83,18 @@ export function CommentItem({
             </div>
           )}
 
-          {comment.files?.length > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setPreviewOpen(true)}
-            >
-              <Paperclip className="mr-2 h-4 w-4" />
-              {comment.files.length}{" "}
-              {comment.files.length > 1 ? "files" : "file"}
-            </Button>
+          {comment.files.length > 0 && (
+            <div className="mt-2 grid grid-cols-6 gap-2">
+              {comment.files.map((file: any, index: number) => (
+                <FilePreviewItem
+                  key={`${file.id}-${file.storageKey}-${index}`}
+                  commentId={comment.id}
+                  file={file}
+                  imageOnlyPreview
+                />
+              ))}
+            </div>
           )}
-
-          <FilePreviewModal
-            open={previewOpen}
-            onOpenChange={setPreviewOpen}
-            files={comment.files}
-            commentId={comment.id}
-          />
 
           <button
             type="button"

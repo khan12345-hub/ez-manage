@@ -1,19 +1,22 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
-import { useInviteModalStore } from "@/store/invite-modal";
-import { updateColumn } from "@/services/columns.api";
-import { ColumnActions } from "./ColumnActions";
+"use client";
+
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
-import { useState } from "react";
+
+import { Input } from "@/components/ui/input";
+import { ColumnActions } from "./ColumnActions";
+
+import { useColumnRename } from "./useColumnRename.hooks";
 
 export const Headers = ({ column }: any) => {
-  const queryClient = useQueryClient();
-  const { boardId } = useInviteModalStore();
+  const { name, setName, save, handleKeyDown, isSaving } =
+    useColumnRename({
+      columnId: column.id,
+      columnName: column.name,
+    });
 
-  const [name, setName] = useState(column.name);
+  
 
   const {
     attributes,
@@ -31,55 +34,10 @@ export const Headers = ({ column }: any) => {
     disabled: column.isPrimary,
   });
 
-  const updateColumnMutation = useMutation({
-    mutationFn: async (name: string) => updateColumn(column.id, name),
-
-    onSuccess: () => {
-      toast.success("Column updated");
-
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
-    },
-
-    onError: () => {
-      toast.error("Failed to update column");
-
-      // Restore previous value if update fails
-      setName(column.name);
-    },
-  });
-
-  const handleSave = () => {
-    const trimmedName = name.trim();
-
-    // Restore empty input
-    if (!trimmedName) {
-      setName(column.name);
-      return;
-    }
-
-    // Don't send unnecessary requests
-    if (trimmedName === column.name) {
-      return;
-    }
-
-    updateColumnMutation.mutate(trimmedName);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.currentTarget.blur();
-    }
-
-    if (e.key === "Escape") {
-      setName(column.name);
-      e.currentTarget.blur();
-    }
-  };
-
   const style = {
-    transform: transform ? CSS.Transform.toString(transform) : undefined,
+    transform: transform
+      ? CSS.Transform.toString(transform)
+      : undefined,
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
@@ -89,34 +47,49 @@ export const Headers = ({ column }: any) => {
       ref={setNodeRef}
       style={style}
       className={`
+        group
         border-b border-l px-4 py-3 font-semibold
         ${
           column.isPrimary
-            ? "sticky left-[150px] z-30 bg-background min-w-[450px]"
+            ? "sticky left-[150px] z-30 min-w-[450px] bg-background"
             : "min-w-[180px]"
         }
       `}
     >
-      <div className="flex group justify-between items-center">
-        <div className="flex items-center gap-1.5 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
           {!column.isPrimary && (
             <button
               type="button"
               {...attributes}
               {...listeners}
-              className="cursor-grab p-1 rounded hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+              className="
+                cursor-grab rounded p-1
+                text-muted-foreground
+                opacity-0 transition-opacity
+                hover:bg-muted
+                group-hover:opacity-100
+              "
             >
-              <GripVertical className="h-3 w-3" />
+              <GripVertical className="h-4 w-4" />
             </button>
           )}
 
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onBlur={handleSave}
+            onBlur={save}
             onKeyDown={handleKeyDown}
-            disabled={updateColumnMutation.isPending}
-            className="h-8 border-transparent bg-transparent px-2 font-semibold shadow-none focus-visible:ring-1"
+            disabled={isSaving}
+            className="
+              h-8
+              border-transparent
+              bg-transparent
+              px-2
+              font-semibold
+              shadow-none
+              focus-visible:ring-1
+            "
           />
         </div>
 

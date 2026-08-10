@@ -10,8 +10,6 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
-
-import FileRow from "./FilePreviewItem";
 import FilePreviewItem from "./FilePreviewItem";
 
 interface FileItem {

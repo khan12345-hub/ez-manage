@@ -53,12 +53,11 @@ export default function FileThumbnail({
     md: 48,
   };
 
-
-  
   return (
     <div
       className={`${sizeClasses[size]} relative shrink-0 overflow-hidden rounded-md`}
     >
+      
       {isImage && fileUrl ? (
         <img
           src={fileUrl}
