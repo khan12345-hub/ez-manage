@@ -21,6 +21,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { GlobalSearchModule } from './global-search/global-search.module';
+import { BoardFormsModule } from './board-forms/board-forms.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { GlobalSearchModule } from './global-search/global-search.module';
     NotificationsModule,
     ActivityLogsModule,
     GlobalSearchModule, 
+    BoardFormsModule
   ],
   controllers: [AppController],
   providers: [

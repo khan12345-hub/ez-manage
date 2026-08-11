@@ -162,6 +162,8 @@ model Board {
 
   activities       ActivityLog[]
 
+  views BoardView[]
+
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@map("boards")
@@ -267,6 +269,8 @@ model BoardColumn {
   cells      TaskCell[]
 
   isPrimary Boolean @default(false)
+
+  formFields FormField[]
 
   @@index([boardId])
   @@map("board_columns")
@@ -569,4 +573,66 @@ model Notification {
   @@index([recipientId, isRead])
   @@index([recipientId, createdAt])
   @@index([entityType, entityId])
+}
+
+model BoardView {
+  id        Int      @id @default(autoincrement())
+  boardId   Int
+  name      String
+  type      BoardViewType
+  position  Float    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  form  Form?
+
+  @@index([boardId])
+}
+
+enum BoardViewType {
+  BOARD
+  FORM
+}
+
+model Form {
+  id        Int      @id @default(autoincrement())
+  viewId    Int      @unique
+  groupId   Int
+
+  title       String?
+  description String?
+  submitLabel String? @default("Submit")
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  view   BoardView   @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  fields FormField[]
+}
+
+model FormField {
+  id        Int   @id @default(autoincrement())
+  formId    Int
+  columnId  Int
+  position  Float @default(0)
+
+  label       String?
+  description String?
+
+  required Boolean @default(false)
+  hidden   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  form   Form        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  column BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, columnId])
+  @@index([formId])
+  @@index([columnId])
 }

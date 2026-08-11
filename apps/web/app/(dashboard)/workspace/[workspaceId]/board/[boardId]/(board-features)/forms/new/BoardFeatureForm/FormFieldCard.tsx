@@ -3,18 +3,9 @@
 import { Trash2, GripVertical } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
 import { FormField, FormFieldOption } from "./board-feature-form.types";
 
 import { DatePicker } from "./DatePicker";
@@ -144,8 +135,6 @@ export function FormFieldCard({
             />
           )}
 
-         
-
           {/* <Select
             value={field.type}
             disabled={Boolean(field.columnId)}
@@ -172,7 +161,6 @@ export function FormFieldCard({
           </Select> */}
         </div>
 
-        
         {/* Date */}
         {field.type === "DATE" && (
           <DatePicker
