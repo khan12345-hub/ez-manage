@@ -13,6 +13,7 @@ import { TimelinePicker } from "../TimelinePicker";
 import { StatusOptionEditor } from "../StatusOptionEditor";
 
 import { useColumnRename } from "../../../../../../group/columns/useColumnRename.hooks";
+import { useParams } from "next/navigation";
 
 interface FormFieldCardProps {
   field: FormField;
@@ -29,6 +30,10 @@ export function FormFieldCard({
     useSortable({
       id: field.id,
     });
+
+  const params = useParams();
+
+  const boardId = Number(params.boardId);
 
   const { name, setName, save, handleKeyDown, isSaving } = useColumnRename({
     columnId: field.columnId,
@@ -66,7 +71,6 @@ export function FormFieldCard({
     const newOption: FormFieldOption = {
       id: crypto.randomUUID(),
       label: `Option ${optionNumber}`,
-      value: `option-${optionNumber}`,
       color: "#0086c9",
       isNew: true,
     };
@@ -211,14 +215,15 @@ export function FormFieldCard({
         {/* STATUS options */}
         {field.type === "STATUS" && field.columnId && (
           <StatusOptionEditor
-            columnId={field.columnId}
+            boardId={boardId}
+            columnId={field.columnId!}
             options={field.options ?? []}
-            onChange={(options) =>
+            onChange={(options) => {
               onChange({
                 ...field,
                 options,
-              })
-            }
+              });
+            }}
           />
         )}
       </div>

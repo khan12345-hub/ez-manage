@@ -212,7 +212,6 @@ model Group {
 
   @@index([boardId])
   @@index([boardId, order])
-  @@unique([boardId, name])
   @@map("groups")
 
 }
@@ -578,6 +577,7 @@ model Notification {
 model BoardForm {
   id          Int      @id @default(autoincrement())
   boardId     Int      @unique
+  groupId     Int      @unique
 
   title       String?
   description String?

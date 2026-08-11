@@ -27,8 +27,8 @@ interface Props {
   search: string;
   setSearch: (value: string) => void;
 
-  onCreateTask?: () => void;
-  onCreateGroup?: () => void;
+  onCreateTask: () => void;
+  onCreateGroup: () => void;
 }
 
 export function BoardToolbar({

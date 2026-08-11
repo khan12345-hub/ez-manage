@@ -9,6 +9,13 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
+export class CreateBoardFormStatusOptionDto {
+  id?: number | string;
+  label!: string;
+  value!: string;
+  color!: string;
+}
+
 export class CreateBoardFormFieldDto {
   @IsInt()
   columnId!: number;
@@ -32,12 +39,16 @@ export class CreateBoardFormFieldDto {
   @IsOptional()
   @IsBoolean()
   hidden?: boolean;
+
+  @IsOptional()
+  statusOptions?: CreateBoardFormStatusOptionDto[];
+
 }
 
 export class CreateBoardFormDto {
   @IsInt()
   groupId!: number;
-  
+
   @IsOptional()
   @IsString()
   title?: string;

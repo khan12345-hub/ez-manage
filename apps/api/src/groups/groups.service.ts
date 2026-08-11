@@ -22,18 +22,18 @@ export class GroupsService {
     const ORDER_GAP = 1000;
 
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.group.findFirst({
-        where: {
-          boardId,
-          name: createGroupDto.name,
-        },
-      });
+      // const existing = await tx.group.findFirst({
+      //   where: {
+      //     boardId,
+      //     name: createGroupDto.name,
+      //   },
+      // });
 
-      if (existing) {
-        throw new ConflictException(
-          'Group with this name already exists.',
-        );
-      }
+      // if (existing) {
+      //   throw new ConflictException(
+      //     'Group with this name already exists.',
+      //   );
+      // }
 
       const lastGroup = await tx.group.findFirst({
         where: {

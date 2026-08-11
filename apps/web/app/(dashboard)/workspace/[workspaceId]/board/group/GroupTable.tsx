@@ -30,6 +30,7 @@ interface Props {
   showNewTaskRow?: boolean;
   showAddColumn?: boolean;
   setOpen: (open: boolean) => void;
+  newTaskFocusToken?: number;
 }
 
 export function GroupTable({
@@ -41,7 +42,8 @@ export function GroupTable({
   showSelection = true,
   showHeaders = true,
   showNewTaskRow = true,
-  setOpen
+  setOpen,
+  newTaskFocusToken = 0,
 }: Props) {
   const { setNodeRef } = useDroppable({
     id: `group-drop-${group.id}`,
@@ -123,6 +125,7 @@ export function GroupTable({
                 columns={columns}
                 color={group.color}
                 groupId={group.id}
+                focusToken={newTaskFocusToken}
               />
             )}
           </tbody>

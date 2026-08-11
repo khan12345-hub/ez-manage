@@ -74,12 +74,77 @@ export class BoardFormsService {
       );
     }
   }
+  private async validateStatusOptions(
+    boardId: number,
+    fields: CreateBoardFormFieldDto[],
+  ) {
+    const statusFields = fields.filter(
+      (field) => field.statusOptions && field.statusOptions.length > 0,
+    );
 
+    if (!statusFields.length) {
+      return;
+    }
+
+    const columnIds = statusFields.map((field) => field.columnId);
+
+    const columns = await this.prisma.boardColumn.findMany({
+      where: {
+        id: {
+          in: columnIds,
+        },
+        boardId,
+      },
+      include: {
+        statusOptions: true,
+      },
+    });
+
+    const columnsMap = new Map(columns.map((column) => [column.id, column]));
+
+    for (const field of statusFields) {
+      const column = columnsMap.get(field.columnId);
+
+      if (!column) {
+        throw new BadRequestException(
+          `Column ${field.columnId} does not belong to this board`,
+        );
+      }
+
+      const validOptionIds = new Set(
+        column.statusOptions.map((option) => option.id),
+      );
+
+      const invalidOptionIds = field
+        .statusOptions!.filter(
+          (option) =>
+            option.id !== undefined && !validOptionIds.has(Number(option.id)),
+        )
+        .map((option) => option.id);
+
+      if (invalidOptionIds.length > 0) {
+        throw new BadRequestException(
+          `The following status options do not belong to column ${field.columnId}: ${invalidOptionIds.join(
+            ', ',
+          )}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Create board form.
+   */
   async create(boardId: number, dto: CreateBoardFormDto) {
-    console.log({ boardId });
-    console.log({ dto });
+    console.log('CREATE BOARD FORM');
+    console.log('boardId:', boardId);
+    console.log('dto:', JSON.stringify(dto, null, 2));
+
     await this.validateBoard(boardId);
+
     await this.validateColumns(boardId, dto.fields);
+
+    await this.validateStatusOptions(boardId, dto.fields);
 
     const existingForm = await this.prisma.boardForm.findUnique({
       where: {
@@ -95,18 +160,29 @@ export class BoardFormsService {
       const form = await tx.boardForm.create({
         data: {
           boardId,
+
+          groupId: dto.groupId,
+
           title: dto.title,
+
           description: dto.description,
+
           submitLabel: dto.submitLabel ?? 'Submit',
+
           isActive: dto.isActive ?? true,
 
           fields: {
             create: dto.fields.map((field, index) => ({
               columnId: field.columnId,
+
               label: field.label,
+
               description: field.description,
+
               position: field.position ?? index,
+
               required: field.required ?? false,
+
               hidden: field.hidden ?? false,
             })),
           },
@@ -115,12 +191,18 @@ export class BoardFormsService {
         include: {
           fields: {
             include: {
-              column: true,
+              column: {
+                include: {
+                  statusOptions: true,
+                },
+              },
             },
+
             orderBy: {
               position: 'asc',
             },
           },
+
           board: true,
         },
       });
@@ -139,7 +221,11 @@ export class BoardFormsService {
       include: {
         fields: {
           include: {
-            column: true,
+            column: {
+              include: {
+                statusOptions: true,
+              },
+            },
           },
           orderBy: {
             position: 'asc',
@@ -150,7 +236,12 @@ export class BoardFormsService {
     });
   }
 
+  /**
+   * Update board form.
+   */
   async update(boardId: number, dto: UpdateBoardFormDto) {
+    await this.validateBoard(boardId);
+
     const form = await this.prisma.boardForm.findUnique({
       where: {
         boardId,
@@ -163,6 +254,8 @@ export class BoardFormsService {
 
     if (dto.fields) {
       await this.validateColumns(boardId, dto.fields);
+
+      await this.validateStatusOptions(boardId, dto.fields);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -170,7 +263,12 @@ export class BoardFormsService {
         where: {
           boardId,
         },
+
         data: {
+          ...(dto.groupId !== undefined && {
+            groupId: dto.groupId,
+          }),
+
           ...(dto.title !== undefined && {
             title: dto.title,
           }),
@@ -189,6 +287,14 @@ export class BoardFormsService {
         },
       });
 
+      /**
+       * Replace form fields when fields are
+       * supplied in the update payload.
+       *
+       * We DO NOT delete status options here
+       * because they belong to the board column,
+       * not the form field.
+       */
       if (dto.fields) {
         await tx.boardFormField.deleteMany({
           where: {
@@ -200,11 +306,17 @@ export class BoardFormsService {
           await tx.boardFormField.createMany({
             data: dto.fields.map((field, index) => ({
               formId: form.id,
+
               columnId: field.columnId,
+
               label: field.label,
+
               description: field.description,
+
               position: field.position ?? index,
+
               required: field.required ?? false,
+
               hidden: field.hidden ?? false,
             })),
           });
@@ -215,21 +327,31 @@ export class BoardFormsService {
         where: {
           id: form.id,
         },
+
         include: {
           fields: {
             include: {
-              column: true,
+              column: {
+                include: {
+                  statusOptions: true,
+                },
+              },
             },
+
             orderBy: {
               position: 'asc',
             },
           },
+
           board: true,
         },
       });
     });
   }
 
+  /**
+   * Delete board form.
+   */
   async delete(boardId: number) {
     const form = await this.prisma.boardForm.findUnique({
       where: {

@@ -31,6 +31,8 @@ interface Props {
   isDraggingGroup?: boolean;
   isDraggingTask?: boolean;
   selection: any;
+  newTaskFocusToken?: number;
+  newGroupFocusToken?: number;
 }
 
 export function Group({
@@ -40,6 +42,8 @@ export function Group({
   isDraggingGroup,
   isDraggingTask,
   selection,
+  newTaskFocusToken = 0,
+  newGroupFocusToken = 0,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -96,7 +100,7 @@ export function Group({
     <>
       <div className="overflow-hidden">
         {group.isNew || group.isEditing ? (
-          <GroupHeader group={group} />
+          <GroupHeader group={group} focusToken={newGroupFocusToken} />
         ) : (
           <div className="group flex items-center justify-start gap-2 py-3">
             <button
@@ -125,6 +129,7 @@ export function Group({
               showNewTaskRow={true}
               showAddColumn={false}
               setOpen={setOpen}
+              newTaskFocusToken={newTaskFocusToken}
             />
         )}
       </div>

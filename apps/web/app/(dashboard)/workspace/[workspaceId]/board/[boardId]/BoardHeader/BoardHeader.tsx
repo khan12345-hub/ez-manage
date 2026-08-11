@@ -11,6 +11,8 @@ interface Props {
   onPersonFilterChange: (value: PersonValue | null) => void;
   search: string;
   setSearch: (value: string) => void;
+  onCreateTask: () => void;
+  onCreateGroup: () => void;
 }
 
 export function BoardHeader({
@@ -20,6 +22,8 @@ export function BoardHeader({
   onPersonFilterChange,
   search,
   setSearch,
+  onCreateTask,
+  onCreateGroup,
 }: Props) {
   return (
     <BoardToolbar
@@ -29,6 +33,8 @@ export function BoardHeader({
       onPersonFilterChange={onPersonFilterChange}
       search={search}
       setSearch={setSearch}
+      onCreateTask={onCreateTask}
+      onCreateGroup={onCreateGroup}
     />
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -14,15 +14,33 @@ interface Props {
   color: string;
   groupId: number;
   parentId?: number;
+  focusToken?: number;
 }
 
-export function NewTaskRow({ columns, color, groupId, parentId }: Props) {
+export function NewTaskRow({
+  columns,
+  color,
+  groupId,
+  parentId,
+  focusToken = 0,
+}: Props) {
   const [name, setName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { boardId } = useInviteModalStore();
   const queryClient = useQueryClient();
 
   const isSubtask = !!parentId;
+
+  useEffect(() => {
+    if (!focusToken || !inputRef.current) return;
+
+    inputRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    inputRef.current.focus();
+  }, [focusToken]);
 
   const createMutation = useMutation({
     mutationFn: (name: string) =>
@@ -81,6 +99,7 @@ export function NewTaskRow({ columns, color, groupId, parentId }: Props) {
           <Plus className="h-4 w-4" />
 
           <Input
+            ref={inputRef}
             value={name}
             placeholder={isSubtask ? "Add subtask" : "Add task"}
             onChange={(e) => setName(e.target.value)}
@@ -93,7 +112,6 @@ export function NewTaskRow({ columns, color, groupId, parentId }: Props) {
             onBlur={submit}
             disabled={createMutation.isPending}
             className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-            autoFocus
           />
         </div>
       </td>

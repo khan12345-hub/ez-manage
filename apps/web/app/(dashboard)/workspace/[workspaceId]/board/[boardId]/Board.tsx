@@ -1,3 +1,7 @@
+import { useState } from "react";
+
+import { useGroupStore } from "@/store/create-group-store";
+
 import { useTaskSelection } from "../group/tasks/sub-tasks/useTaskSelection";
 import { BoardContent } from "./BoardContent";
 import { BoardHeader } from "./BoardHeader/BoardHeader";
@@ -14,6 +18,13 @@ export function Board({
   isFetching,
   isError,
 }: any) {
+  const addNewGroup = useGroupStore((state) => state.addNewGroup);
+  const hasDraftGroup = useGroupStore((state) =>
+    state.groups.some((group: any) => group.isNew),
+  );
+  const [newTaskFocusToken, setNewTaskFocusToken] = useState(0);
+  const [newGroupFocusToken, setNewGroupFocusToken] = useState(0);
+
   const {
     dragGroups,
     filteredColumns,
@@ -47,6 +58,19 @@ export function Board({
       value,
     });
   };
+
+  const handleCreateTask = () => {
+    setNewTaskFocusToken((token) => token + 1);
+  };
+
+  const handleCreateGroup = () => {
+    if (!hasDraftGroup) {
+      addNewGroup();
+    }
+
+    setNewGroupFocusToken((token) => token + 1);
+  };
+
   return (
     <>
       <BoardHeader
@@ -56,6 +80,8 @@ export function Board({
         onPersonFilterChange={setPersonFilter}
         search={search}
         setSearch={setSearch}
+        onCreateTask={handleCreateTask}
+        onCreateGroup={handleCreateGroup}
       />
 
       <BoardContent
@@ -73,6 +99,8 @@ export function Board({
         handleDragEnd={handleDragEnd}
         handleDragCancel={handleDragCancel}
         selection={selection}
+        newTaskFocusToken={newTaskFocusToken}
+        newGroupFocusToken={newGroupFocusToken}
       />
 
       <BulkActionToolbar

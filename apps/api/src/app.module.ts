@@ -22,6 +22,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { GlobalSearchModule } from './global-search/global-search.module';
 import { BoardFormsModule } from './board-forms/board-forms.module';
+import { PublicBoardFormsModule } from './public-board-forms/public-board-forms.module';
 
 @Module({
   imports: [
@@ -48,7 +49,8 @@ import { BoardFormsModule } from './board-forms/board-forms.module';
     NotificationsModule,
     ActivityLogsModule,
     GlobalSearchModule, 
-    BoardFormsModule
+    BoardFormsModule,
+    PublicBoardFormsModule
   ],
   controllers: [AppController],
   providers: [

@@ -1,3 +1,4 @@
+import { GROUP_COLORS } from "@/constants/colors";
 import { create } from "zustand";
 
 export interface Task {
@@ -43,7 +44,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
         {
           id: `temp-${Date.now()}`,
           name: "New Group",
-          color: "#3B82F6",
+          color: GROUP_COLORS[Math.floor(Math.random() * GROUP_COLORS.length)],
           tasks: [],
           isNew: true,
         },

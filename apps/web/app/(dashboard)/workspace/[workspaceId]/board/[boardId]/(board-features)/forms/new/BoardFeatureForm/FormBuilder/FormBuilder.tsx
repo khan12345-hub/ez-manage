@@ -20,10 +20,15 @@ interface FormBuilderProps {
   board: any;
 }
 
-export function FormBuilder({ board }: FormBuilderProps) {
+export function FormBuilder({
+  board,
+}: FormBuilderProps) {
   const boardId = board?.id;
 
-  const { data: existingForm, isLoading } = useQuery({
+  const {
+    data: existingForm,
+    isLoading,
+  } = useQuery({
     queryKey: ["board-form", boardId],
 
     queryFn: () => getBoardForm(boardId),
@@ -43,18 +48,26 @@ export function FormBuilder({ board }: FormBuilderProps) {
     removeField,
     reorderFields,
     setColumnId,
-  } = useFormBuilder(board, existingForm);
+  } = useFormBuilder(
+    board,
+    existingForm,
+  );
 
-  const { createColumnMutation, saveMutation } = useFormBuilderMutations(
+  const {
+    createColumnMutation,
+    saveMutation,
+  } = useFormBuilderMutations(
     boardId,
     existingForm,
   );
 
   /**
-   * Add field and create
-   * corresponding board column.
+   * Add a new form field and immediately
+   * create its corresponding board column.
    */
-  function handleAddField(type: FormField["type"]) {
+  function handleAddField(
+    type: FormField["type"],
+  ) {
     const field: FormField = {
       id: crypto.randomUUID(),
 
@@ -69,38 +82,75 @@ export function FormBuilder({ board }: FormBuilderProps) {
       columnId: undefined,
 
       position: form.fields.length,
+
+      /**
+       * STATUS fields always start with
+       * an options array.
+       */
+      ...(type === "STATUS"
+        ? {
+            options: [],
+          }
+        : {}),
     };
 
     addField(field);
 
-    createColumnMutation.mutate(
-      type,
-      {
-        onSuccess: (column) => {
-          setColumnId(field.id, column.id, column.name);
-        },
-
-        onError: () => {
-          removeField(field.id);
-
-          toast.error("Failed to create column");
-        },
+    createColumnMutation.mutate(type, {
+      onSuccess: (column) => {
+        setColumnId(
+          field.id,
+          column.id,
+          column.name,
+        );
       },
-    );
+
+      onError: () => {
+        removeField(field.id);
+
+        toast.error(
+          "Failed to create column",
+        );
+      },
+    });
   }
 
+  /**
+   * Validate the form and pass the complete
+   * FormBuilderState to the mutation.
+   *
+   * Payload transformation happens inside
+   * useFormBuilderMutations.
+   */
   function handleSave() {
     if (!form.groupId) {
-      toast.error("Please select a submission group");
+      toast.error(
+        "Please select a submission group",
+      );
 
       return;
     }
 
-    if (form.fields.some((field) => !field.columnId)) {
-      toast.error("Please wait for new columns to finish creating");
+    if (
+      form.fields.some(
+        (field) => !field.columnId,
+      )
+    ) {
+      toast.error(
+        "Please wait for new columns to finish creating",
+      );
 
       return;
     }
+
+    /**
+     * Useful debugging before the payload
+     * transformation happens.
+     */
+    console.log(
+      "FORM STATE BEFORE SAVE:",
+      JSON.stringify(form, null, 2),
+    );
 
     saveMutation.mutate({
       form,
@@ -111,7 +161,9 @@ export function FormBuilder({ board }: FormBuilderProps) {
     return (
       <div className="mx-auto max-w-4xl p-6">
         <div className="rounded-lg border p-8 text-center">
-          <p className="text-sm text-muted-foreground">Loading form...</p>
+          <p className="text-sm text-muted-foreground">
+            Loading form...
+          </p>
         </div>
       </div>
     );
@@ -119,7 +171,9 @@ export function FormBuilder({ board }: FormBuilderProps) {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
-      <FormBuilderHeader isEditing={Boolean(existingForm)} />
+      <FormBuilderHeader
+        isEditing={Boolean(existingForm)}
+      />
 
       <FormSettings
         name={form.name}
@@ -127,7 +181,9 @@ export function FormBuilder({ board }: FormBuilderProps) {
         groupId={form.groupId}
         groups={board?.groups ?? []}
         onNameChange={setName}
-        onDescriptionChange={setDescription}
+        onDescriptionChange={
+          setDescription
+        }
         onGroupChange={setGroupId}
       />
 
@@ -142,9 +198,13 @@ export function FormBuilder({ board }: FormBuilderProps) {
       <FormActions
         isEditing={Boolean(existingForm)}
         isSaving={saveMutation.isPending}
-        disabled={saveMutation.isPending || createColumnMutation.isPending}
+        disabled={
+          saveMutation.isPending ||
+          createColumnMutation.isPending
+        }
         onSave={handleSave}
       />
     </div>
   );
 }
+

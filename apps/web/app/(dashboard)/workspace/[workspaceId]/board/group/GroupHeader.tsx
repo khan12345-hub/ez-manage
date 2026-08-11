@@ -6,6 +6,7 @@ import { ColorPicker } from "@/components/ui/color-picker";
 
 import { useGroupStore } from "@/store/create-group-store";
 import { useInviteModalStore } from "@/store/invite-modal";
+import { STATUS_COLORS } from "@/constants/colors";
 
 import {
   createGroup,
@@ -14,9 +15,10 @@ import {
 
 interface Props {
   group: any;
+  focusToken?: number;
 }
 
-export function GroupHeader({ group }: Props) {
+export function GroupHeader({ group, focusToken = 0 }: Props) {
   const updateGroup = useGroupStore((s) => s.updateGroup);
   const removeGroup = useGroupStore((s) => s.removeGroup);
 
@@ -25,10 +27,15 @@ export function GroupHeader({ group }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (group.isNew) {
-      inputRef.current?.focus();
+    if (group.isNew && inputRef.current) {
+      inputRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      inputRef.current.focus();
+      inputRef.current.select();
     }
-  }, [group.isNew]);
+  }, [group.isNew, focusToken]);
 
   const createMutation = useMutation({
     mutationFn: ({
@@ -79,6 +86,7 @@ export function GroupHeader({ group }: Props) {
       <div className="flex items-center gap-3">
         <ColorPicker
           value={group.color}
+          colors={STATUS_COLORS}
           onChange={(color) => {
             // Update local state immediately
             updateGroup(group.id, { color });
@@ -94,7 +102,14 @@ export function GroupHeader({ group }: Props) {
               });
             }
           }}
-        />
+        >
+          <button
+            type="button"
+            className="h-8 w-8 rounded-md border transition hover:scale-105"
+            style={{ backgroundColor: group.color }}
+            aria-label="Change group color"
+          />
+        </ColorPicker>
 
         <Input
           ref={inputRef}
