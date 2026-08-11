@@ -1,26 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Plus, Save } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  createStatusOption,
-  updateStatusOption,
-} from "@/services/status-options.api";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { STATUS_COLORS } from "@/constants/colors";
+import { useStatusOptions } from "@/app/(dashboard)/workspace/[workspaceId]/board/Cells/Status/useStatusOption";
 
 export interface StatusOption {
   id: string;
   label: string;
   value: string;
   color: string;
-  isNew?: boolean;
 }
 
 interface StatusOptionEditorProps {
+  boardId?: number;
   columnId: number;
   options: StatusOption[];
   disabled?: boolean;
@@ -28,19 +25,35 @@ interface StatusOptionEditorProps {
 }
 
 export function StatusOptionEditor({
+  boardId,
   columnId,
   options,
   disabled = false,
   onChange,
 }: StatusOptionEditorProps) {
   const [statuses, setStatuses] = useState<StatusOption[]>(options);
-  const [isSaving, setIsSaving] = useState(false);
+  const [loadingOptionId, setLoadingOptionId] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+
+  const {
+    createStatusOption,
+    updateStatusOption,
+    deleteStatusOption,
+  } = useStatusOptions(boardId);
 
   useEffect(() => {
     setStatuses(options);
   }, [options]);
 
-  function updateLocalOption(optionId: string, updates: Partial<StatusOption>) {
+  const updateStatuses = (nextStatuses: StatusOption[]) => {
+    setStatuses(nextStatuses);
+    onChange(nextStatuses);
+  };
+
+  const updateLocalOption = (
+    optionId: string,
+    updates: Partial<StatusOption>,
+  ) => {
     setStatuses((current) =>
       current.map((status) =>
         status.id === optionId
@@ -51,79 +64,185 @@ export function StatusOptionEditor({
           : status,
       ),
     );
-  }
+  };
 
-  function addOption() {
-    const id = crypto.randomUUID();
-
-    const newOption: StatusOption = {
-      id,
-      label: "New option",
-      value: `option-${Date.now()}`,
-      color: "gray",
-      isNew: true,
-    };
-
-    setStatuses((current) => [...current, newOption]);
-  }
-
-  async function applyChanges() {
-    if (isSaving || disabled || !columnId) {
+  async function addOption() {
+    if (isAdding || disabled || !columnId) {
       return;
     }
 
-    setIsSaving(true);
+    setIsAdding(true);
 
     try {
-      const savedStatuses = await Promise.all(
-        statuses.map(async (status) => {
-          // New option -> CREATE
-          if (status.isNew) {
-            const saved = await createStatusOption(columnId, {
-              label: status.label.trim(),
-              color: status.color,
-            });
+      const randomColor =
+        STATUS_COLORS[Math.floor(Math.random() * STATUS_COLORS.length)] ??
+        "gray";
 
-            return {
-              ...saved,
-              id: String(saved.id),
-              isNew: false,
-            };
-          }
+      const saved = await createStatusOption({
+        columnId,
+        payload: {
+          label: "New option",
+          color: randomColor,
+        },
+      });
 
-          // Existing option -> UPDATE
-          const optionId = Number(status.id);
+      const newOption: StatusOption = {
+        id: String(saved.id),
+        label: saved.label,
+        value: saved.value,
+        color: saved.color,
+      };
 
-          if (Number.isNaN(optionId)) {
-            throw new Error(`Invalid existing status option ID: ${status.id}`);
-          }
+      setStatuses((current) => {
+        const updatedStatuses = [...current, newOption];
 
-          const saved = await updateStatusOption(columnId, optionId, {
-            label: status.label.trim(),
-            color: status.color,
-          });
+        onChange(updatedStatuses);
 
-          return {
-            ...saved,
-            id: String(saved.id),
-            isNew: false,
-          };
-        }),
-      );
-
-      const normalizedStatuses = savedStatuses.map((status) => ({
-        ...status,
-        id: String(status.id),
-        isNew: false,
-      }));
-
-      setStatuses(normalizedStatuses);
-
-      onChange(normalizedStatuses);
+        return updatedStatuses;
+      });
     } catch (error) {
-      console.error("Failed to update status options", error);
+      console.error("Failed to create status option", error);
     } finally {
-      setIsSaving(false);
+      setIsAdding(false);
+    }
+  }
+
+  async function removeOption(option: StatusOption) {
+    if (disabled || loadingOptionId !== null) {
+      return;
+    }
+
+    const optionId = Number(option.id);
+
+    if (Number.isNaN(optionId)) {
+      console.error(`Invalid status option ID: ${option.id}`);
+      return;
+    }
+
+    setLoadingOptionId(option.id);
+
+    try {
+      await deleteStatusOption({
+        columnId,
+        statusId: optionId,
+      });
+
+      setStatuses((current) => {
+        const updatedStatuses = current.filter(
+          (status) => status.id !== option.id,
+        );
+
+        onChange(updatedStatuses);
+
+        return updatedStatuses;
+      });
+    } catch (error) {
+      console.error("Failed to delete status option", error);
+    } finally {
+      setLoadingOptionId(null);
+    }
+  }
+
+  async function handleColorChange(
+    option: StatusOption,
+    color: string,
+  ) {
+    if (disabled || loadingOptionId !== null) {
+      return;
+    }
+
+    const optionId = Number(option.id);
+
+    if (Number.isNaN(optionId)) {
+      console.error(`Invalid status option ID: ${option.id}`);
+      return;
+    }
+
+    setLoadingOptionId(option.id);
+
+    try {
+      const saved = await updateStatusOption({
+        columnId,
+        statusId: optionId,
+        payload: {
+          label: option.label.trim(),
+          color,
+        },
+      });
+
+      const updatedOption: StatusOption = {
+        id: String(saved.id),
+        label: saved.label,
+        value: saved.value,
+        color: saved.color,
+      };
+
+      setStatuses((current) => {
+        const updatedStatuses = current.map((status) =>
+          status.id === option.id ? updatedOption : status,
+        );
+
+        onChange(updatedStatuses);
+
+        return updatedStatuses;
+      });
+    } catch (error) {
+      console.error("Failed to update status color", error);
+    } finally {
+      setLoadingOptionId(null);
+    }
+  }
+
+  async function handleLabelBlur(option: StatusOption) {
+    if (disabled || loadingOptionId !== null) {
+      return;
+    }
+
+    const label = option.label.trim();
+
+    if (!label) {
+      return;
+    }
+
+    const optionId = Number(option.id);
+
+    if (Number.isNaN(optionId)) {
+      console.error(`Invalid status option ID: ${option.id}`);
+      return;
+    }
+
+    setLoadingOptionId(option.id);
+
+    try {
+      const saved = await updateStatusOption({
+        columnId,
+        statusId: optionId,
+        payload: {
+          label,
+          color: option.color,
+        },
+      });
+
+      const updatedOption: StatusOption = {
+        id: String(saved.id),
+        label: saved.label,
+        value: saved.value,
+        color: saved.color,
+      };
+
+      setStatuses((current) => {
+        const updatedStatuses = current.map((status) =>
+          status.id === option.id ? updatedOption : status,
+        );
+
+        onChange(updatedStatuses);
+
+        return updatedStatuses;
+      });
+    } catch (error) {
+      console.error("Failed to update status label", error);
+    } finally {
+      setLoadingOptionId(null);
     }
   }
 
@@ -147,9 +266,14 @@ export function StatusOptionEditor({
               variant="outline"
               size="sm"
               onClick={addOption}
-              disabled={isSaving}
+              disabled={isAdding || loadingOptionId !== null}
             >
-              <Plus className="mr-2 h-4 w-4" />
+              {isAdding ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+
               Add option
             </Button>
           )}
@@ -162,72 +286,78 @@ export function StatusOptionEditor({
             No status options.
           </div>
         ) : (
-          statuses.map((status) => (
-            <div
-              key={status.id}
-              className="flex items-center gap-2 rounded-md border p-2"
-            >
-              <ColorPicker
-                colors={STATUS_COLORS}
-                value={status.color}
-                onChange={(color) =>
-                  updateLocalOption(status.id, {
-                    color,
-                  })
-                }
+          statuses.map((status) => {
+            const isLoading = loadingOptionId === status.id;
+
+            return (
+              <div
+                key={status.id}
+                className="flex items-center gap-2 rounded-md border p-2"
               >
-                <button
-                  type="button"
-                  className="h-8 w-8 rounded-md transition hover:scale-105"
-                  style={{
-                    backgroundColor: status.color,
-                  }}
-                  aria-label="Change status color"
+                <ColorPicker
+                  colors={STATUS_COLORS}
+                  value={status.color}
+                  onChange={(color) =>
+                    handleColorChange(status, color)
+                  }
+                >
+                  <button
+                    type="button"
+                    className="h-8 w-8 rounded-md transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{
+                      backgroundColor: status.color,
+                    }}
+                    aria-label="Change status color"
+                    disabled={
+                      disabled ||
+                      isLoading ||
+                      loadingOptionId !== null
+                    }
+                  />
+                </ColorPicker>
+
+                <Input
+                  value={status.label}
+                  disabled={
+                    disabled ||
+                    isLoading ||
+                    loadingOptionId !== null
+                  }
+                  onChange={(event) =>
+                    updateLocalOption(status.id, {
+                      label: event.target.value,
+                    })
+                  }
+                  onBlur={() => handleLabelBlur(status)}
+                  placeholder="Option label"
+                  className="flex-1"
                 />
-              </ColorPicker>
 
-              <Input
-                value={status.label}
-                disabled={disabled || isSaving}
-                onChange={(event) =>
-                  updateLocalOption(status.id, {
-                    label: event.target.value,
-                  })
-                }
-                placeholder="Option label"
-                className="flex-1"
-              />
+                {isLoading && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
 
-              {status.isNew && (
-                <span className="text-xs text-muted-foreground">New</span>
-              )}
-            </div>
-          ))
+                {!disabled && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => removeOption(status)}
+                    disabled={
+                      isLoading ||
+                      loadingOptionId !== null
+                    }
+                    aria-label={`Remove ${status.label}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
-
-      {!disabled && (
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            size="sm"
-            onClick={applyChanges}
-            disabled={isSaving || statuses.length === 0}
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Apply changes
-              </>
-            )}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

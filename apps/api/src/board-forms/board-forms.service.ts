@@ -2,110 +2,102 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-} from "@nestjs/common";
-import { CreateBoardFormDto } from "./dto/create-board-form.dto";
-import { UpdateBoardFormDto } from "./dto/update-board-form.dto";
-import { SubmitBoardFormDto } from "./dto/submit-board-form.dto";
-import { PrismaService } from "prisma/prisma.service";
+} from '@nestjs/common';
+
+import {
+  CreateBoardFormDto,
+  CreateBoardFormFieldDto,
+} from './dto/create-board-form.dto';
+
+import { UpdateBoardFormDto } from './dto/update-board-form.dto';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class BoardFormsService {
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Get form by view.
-   */
-  async getByView(
-    boardId: number,
-    viewId: number,
-  ) {
-    const view = await this.prisma.boardView.findFirst({
+  private async validateBoard(boardId: number) {
+    const board = await this.prisma.board.findUnique({
       where: {
-        id: viewId,
-        boardId,
+        id: boardId,
       },
     });
 
-    if (!view) {
-      throw new NotFoundException("Board view not found");
+    if (!board) {
+      throw new NotFoundException('Board not found');
     }
 
-    const form = await this.prisma.form.findUnique({
-      where: {
-        viewId,
-      },
-      include: {
-        fields: {
-          include: {
-            column: true,
-          },
-          orderBy: {
-            position: "asc",
-          },
-        },
-      },
-    });
-
-    if (!form) {
-      throw new NotFoundException(
-        "Form not found for this view",
-      );
-    }
-
-    return form;
+    return board;
   }
 
-  /**
-   * Create a form for a board view.
-   */
-  async create(
+  private async validateColumns(
     boardId: number,
-    viewId: number,
-    dto: CreateBoardFormDto,
+    fields: CreateBoardFormFieldDto[],
   ) {
-    const view = await this.prisma.boardView.findFirst({
+    const columnIds = fields.map((field) => field.columnId);
+
+    if (!columnIds.length) {
+      return;
+    }
+
+    const uniqueColumnIds = [...new Set(columnIds)];
+
+    const columns = await this.prisma.boardColumn.findMany({
       where: {
-        id: viewId,
+        id: {
+          in: uniqueColumnIds,
+        },
         boardId,
+      },
+      select: {
+        id: true,
       },
     });
 
-    if (!view) {
-      throw new NotFoundException("Board view not found");
-    }
+    const validColumnIds = new Set(columns.map((column) => column.id));
 
-    if (view.type !== "FORM") {
+    const invalidColumnIds = uniqueColumnIds.filter(
+      (columnId) => !validColumnIds.has(columnId),
+    );
+
+    if (invalidColumnIds.length > 0) {
       throw new BadRequestException(
-        "A form can only be created for a FORM view",
+        `The following columns do not belong to this board: ${invalidColumnIds.join(
+          ', ',
+        )}`,
       );
     }
 
-    const existingForm = await this.prisma.form.findUnique({
+    if (uniqueColumnIds.length !== columnIds.length) {
+      throw new BadRequestException(
+        'A column cannot be added to the form more than once',
+      );
+    }
+  }
+
+  async create(boardId: number, dto: CreateBoardFormDto) {
+    console.log({ boardId });
+    console.log({ dto });
+    await this.validateBoard(boardId);
+    await this.validateColumns(boardId, dto.fields);
+
+    const existingForm = await this.prisma.boardForm.findUnique({
       where: {
-        viewId,
+        boardId,
       },
     });
 
     if (existingForm) {
-      throw new BadRequestException(
-        "This view already has a form",
-      );
+      throw new BadRequestException('This board already has a form');
     }
 
-    await this.validateColumns(
-      boardId,
-      dto.fields.map((field) => field.columnId),
-    );
-
     return this.prisma.$transaction(async (tx) => {
-      const form = await tx.form.create({
+      const form = await tx.boardForm.create({
         data: {
-          viewId,
+          boardId,
           title: dto.title,
           description: dto.description,
-          submitLabel: dto.submitLabel,
+          submitLabel: dto.submitLabel ?? 'Submit',
           isActive: dto.isActive ?? true,
 
           fields: {
@@ -126,9 +118,10 @@ export class BoardFormsService {
               column: true,
             },
             orderBy: {
-              position: "asc",
+              position: 'asc',
             },
           },
+          board: true,
         },
       });
 
@@ -136,38 +129,46 @@ export class BoardFormsService {
     });
   }
 
-  /**
-   * Update an existing form.
-   */
-  async update(
-    boardId: number,
-    viewId: number,
-    dto: UpdateBoardFormDto,
-  ) {
-    const form = await this.prisma.form.findFirst({
+  async findByBoardId(boardId: number) {
+    await this.validateBoard(boardId);
+
+    return this.prisma.boardForm.findUnique({
       where: {
-        viewId,
-        view: {
-          boardId,
+        boardId,
+      },
+      include: {
+        fields: {
+          include: {
+            column: true,
+          },
+          orderBy: {
+            position: 'asc',
+          },
         },
+        board: true,
+      },
+    });
+  }
+
+  async update(boardId: number, dto: UpdateBoardFormDto) {
+    const form = await this.prisma.boardForm.findUnique({
+      where: {
+        boardId,
       },
     });
 
     if (!form) {
-      throw new NotFoundException("Form not found");
+      throw new NotFoundException('Form not found');
     }
 
     if (dto.fields) {
-      await this.validateColumns(
-        boardId,
-        dto.fields.map((field) => field.columnId),
-      );
+      await this.validateColumns(boardId, dto.fields);
     }
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.form.update({
+      await tx.boardForm.update({
         where: {
-          id: form.id,
+          boardId,
         },
         data: {
           ...(dto.title !== undefined && {
@@ -188,30 +189,29 @@ export class BoardFormsService {
         },
       });
 
-      /**
-       * Replace fields only when fields were provided.
-       */
       if (dto.fields) {
-        await tx.formField.deleteMany({
+        await tx.boardFormField.deleteMany({
           where: {
             formId: form.id,
           },
         });
 
-        await tx.formField.createMany({
-          data: dto.fields.map((field, index) => ({
-            formId: form.id,
-            columnId: field.columnId,
-            label: field.label,
-            description: field.description,
-            position: field.position ?? index,
-            required: field.required ?? false,
-            hidden: field.hidden ?? false,
-          })),
-        });
+        if (dto.fields.length > 0) {
+          await tx.boardFormField.createMany({
+            data: dto.fields.map((field, index) => ({
+              formId: form.id,
+              columnId: field.columnId,
+              label: field.label,
+              description: field.description,
+              position: field.position ?? index,
+              required: field.required ?? false,
+              hidden: field.hidden ?? false,
+            })),
+          });
+        }
       }
 
-      return tx.form.findUnique({
+      return tx.boardForm.findUnique({
         where: {
           id: form.id,
         },
@@ -221,77 +221,34 @@ export class BoardFormsService {
               column: true,
             },
             orderBy: {
-              position: "asc",
+              position: 'asc',
             },
           },
+          board: true,
         },
       });
     });
   }
 
-  /**
-   * Delete a form.
-   */
-  async remove(
-    boardId: number,
-    viewId: number,
-  ) {
-    const form = await this.prisma.form.findFirst({
+  async delete(boardId: number) {
+    const form = await this.prisma.boardForm.findUnique({
       where: {
-        viewId,
-        view: {
-          boardId,
-        },
+        boardId,
       },
     });
 
     if (!form) {
-      throw new NotFoundException("Form not found");
+      throw new NotFoundException('Form not found');
     }
 
-    await this.prisma.form.delete({
+    await this.prisma.boardForm.delete({
       where: {
         id: form.id,
       },
     });
 
     return {
-      message: "Form deleted successfully",
+      message: 'Form deleted successfully',
     };
-  }
-
-  /**
-   * Validate that all columns belong to the board.
-   */
-  private async validateColumns(
-    boardId: number,
-    columnIds: number[],
-  ) {
-    const uniqueColumnIds = [
-      ...new Set(columnIds),
-    ];
-
-    if (!uniqueColumnIds.length) {
-      return;
-    }
-
-    const columns =
-      await this.prisma.boardColumn.findMany({
-        where: {
-          boardId,
-          id: {
-            in: uniqueColumnIds,
-          },
-        },
-        select: {
-          id: true,
-        },
-      });
-
-    if (columns.length !== uniqueColumnIds.length) {
-      throw new BadRequestException(
-        "One or more columns do not belong to this board",
-      );
-    }
   }
 }

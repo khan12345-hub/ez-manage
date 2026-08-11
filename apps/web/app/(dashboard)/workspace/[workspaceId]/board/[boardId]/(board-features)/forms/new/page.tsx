@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import { getBoardDetail } from "@/services/boards.api";
-import { FormBuilder } from "./BoardFeatureForm/FormBuilder";
+import { FormBuilder } from "./BoardFeatureForm/FormBuilder/FormBuilder";
 
 export default function NewFormPage() {
   const params = useParams();

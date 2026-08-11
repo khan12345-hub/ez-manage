@@ -1,36 +1,31 @@
 import { api } from "@/lib/api";
 
-
 export interface BoardFormField {
   id?: number;
   columnId: number;
-  label?: string;
+  label: string;
   description?: string;
   position: number;
   required: boolean;
   hidden: boolean;
-
-  column?: {
-    id: number;
-    name: string;
-    type: string;
-  };
+  column?: any;
 }
 
 export interface BoardForm {
   id: number;
-  viewId: number;
+  boardId: number;
   groupId: number;
-  title: string | null;
-  description: string | null;
-  submitLabel: string | null;
+
+  title?: string;
+  description?: string;
+
+  submitLabel: string;
   isActive: boolean;
+
   fields: BoardFormField[];
 
-  group?: {
-    id: number;
-    name: string;
-  };
+  group?: any;
+  board?: any;
 }
 
 export interface CreateBoardFormPayload {
@@ -42,50 +37,55 @@ export interface CreateBoardFormPayload {
   fields: BoardFormField[];
 }
 
-export async function getBoardForm(
-  boardId: number,
-  viewId: number,
-) {
-  const { data } = await api.get<BoardForm>(
-    `/boards/${boardId}/views/${viewId}/form`,
-  );
-
-  return data;
+export interface UpdateBoardFormPayload {
+  groupId?: number;
+  title?: string;
+  description?: string;
+  submitLabel?: string;
+  isActive?: boolean;
+  fields?: BoardFormField[];
 }
 
-export async function createBoardForm(
+export const createBoardForm = async (
   boardId: number,
-  viewId: number,
   payload: CreateBoardFormPayload,
-) {
+) => {
   const { data } = await api.post<BoardForm>(
-    `/boards/${boardId}/views/${viewId}/form`,
+    `/boards/${boardId}/form`,
     payload,
   );
 
   return data;
-}
+};
 
-export async function updateBoardForm(
+export const getBoardForm = async (
   boardId: number,
-  viewId: number,
-  payload: Partial<CreateBoardFormPayload>,
-) {
+) => {
+  const { data } = await api.get<BoardForm>(
+    `/boards/${boardId}/form`,
+  );
+
+  return data;
+};
+
+export const updateBoardForm = async (
+  boardId: number,
+  payload: UpdateBoardFormPayload,
+) => {
   const { data } = await api.patch<BoardForm>(
-    `/boards/${boardId}/views/${viewId}/form`,
+    `/boards/${boardId}/form`,
     payload,
   );
 
   return data;
-}
+};
 
-export async function deleteBoardForm(
+export const deleteBoardForm = async (
   boardId: number,
-  viewId: number,
-) {
+) => {
   const { data } = await api.delete(
-    `/boards/${boardId}/views/${viewId}/form`,
+    `/boards/${boardId}/form`,
   );
 
   return data;
-}
+};

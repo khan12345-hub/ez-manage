@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField, FormFieldOption } from "./board-feature-form.types";
 
-import { DatePicker } from "./DatePicker";
-import { TimelinePicker } from "./TimelinePicker";
-import { StatusOptionEditor } from "./StatusOptionEditor";
+import { DatePicker } from "../DatePicker";
+import { TimelinePicker } from "../TimelinePicker";
+import { StatusOptionEditor } from "../StatusOptionEditor";
 
-import { useColumnRename } from "../../../../../group/columns/useColumnRename.hooks";
+import { useColumnRename } from "../../../../../../group/columns/useColumnRename.hooks";
 
 interface FormFieldCardProps {
   field: FormField;

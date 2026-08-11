@@ -57,21 +57,21 @@ export class StatusOptionsService {
       );
     }
 
-    const existingStatus = await this.prisma.statusOption.findFirst({
-      where: {
-        columnId,
-        label: dto.label.trim(),
-      },
-      select: {
-        id: true,
-      },
-    });
+    // const existingStatus = await this.prisma.statusOption.findFirst({
+    //   where: {
+    //     columnId,
+    //     label: dto.label.trim(),
+    //   },
+    //   select: {
+    //     id: true,
+    //   },
+    // });
 
-    if (existingStatus) {
-      throw new ConflictException(
-        'A status with this label already exists in this column.',
-      );
-    }
+    // if (existingStatus) {
+    //   throw new ConflictException(
+    //     'A status with this label already exists in this column.',
+    //   );
+    // }
 
     return this.prisma.statusOption.create({
       data: {
@@ -95,26 +95,26 @@ export class StatusOptionsService {
       throw new NotFoundException('Status option not found for this column.');
     }
 
-    if (dto.label !== undefined) {
-      const existingStatus = await this.prisma.statusOption.findFirst({
-        where: {
-          columnId,
-          label: dto.label.trim(),
-          NOT: {
-            id: statusId,
-          },
-        },
-        select: {
-          id: true,
-        },
-      });
+    // if (dto.label !== undefined) {
+    //   const existingStatus = await this.prisma.statusOption.findFirst({
+    //     where: {
+    //       columnId,
+    //       label: dto.label.trim(),
+    //       NOT: {
+    //         id: statusId,
+    //       },
+    //     },
+    //     select: {
+    //       id: true,
+    //     },
+    //   });
 
-      if (existingStatus) {
-        throw new ConflictException(
-          'A status with this label already exists in this column.',
-        );
-      }
-    }
+    //   if (existingStatus) {
+    //     throw new ConflictException(
+    //       'A status with this label already exists in this column.',
+    //     );
+    //   }
+    // }
 
     const newLabel =
       dto.label !== undefined ? dto.label.trim() : statusOption.label;
