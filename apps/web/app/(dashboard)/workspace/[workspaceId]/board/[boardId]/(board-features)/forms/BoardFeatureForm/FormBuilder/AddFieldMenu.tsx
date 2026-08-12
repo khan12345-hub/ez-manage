@@ -14,7 +14,7 @@ interface AddFieldMenuProps {
   onAdd: (type: FormFieldType) => void;
 }
 
-const fields: {
+export const ALLOWED_FORM_FIELDS: {
   type: FormFieldType;
   label: string;
 }[] = [
@@ -39,7 +39,7 @@ export function AddFieldMenu({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">
-        {fields.map((field) => (
+        {ALLOWED_FORM_FIELDS.map((field) => (
           <DropdownMenuItem
             key={field.type}
             onClick={() => onAdd(field.type)}

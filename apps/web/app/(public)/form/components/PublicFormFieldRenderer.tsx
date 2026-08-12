@@ -33,11 +33,7 @@ const KNOWN_TYPES = [
   "CHECKBOX",
 ] as const;
 
-/**
- * Routes a single PublicBoardFormField to the correct input component
- * based on its column type. Wraps every variant in FormFieldWrapper
- * to keep label/description/error consistent.
- */
+
 export function PublicFormFieldRenderer({
   field,
   value,

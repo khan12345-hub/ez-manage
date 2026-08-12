@@ -23,6 +23,7 @@ import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { GlobalSearchModule } from './global-search/global-search.module';
 import { BoardFormsModule } from './board-forms/board-forms.module';
 import { PublicBoardFormsModule } from './public-board-forms/public-board-forms.module';
+import { BoardTemplatesModule } from './board-templates/board-templates.module';
 
 @Module({
   imports: [
@@ -48,10 +49,11 @@ import { PublicBoardFormsModule } from './public-board-forms/public-board-forms.
     ImportsModule,
     NotificationsModule,
     ActivityLogsModule,
-    GlobalSearchModule, 
+    GlobalSearchModule,
     BoardFormsModule,
-    PublicBoardFormsModule
-  ],
+    PublicBoardFormsModule,
+    BoardTemplatesModule,
+    ],
   controllers: [AppController],
   providers: [
     AppService,
@@ -63,7 +65,5 @@ import { PublicBoardFormsModule } from './public-board-forms/public-board-forms.
   exports: [AppService],
 })
 export class AppModule {
-  constructor() {
-   
-  }
+  constructor() {}
 }

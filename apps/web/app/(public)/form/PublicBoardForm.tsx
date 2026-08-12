@@ -16,6 +16,8 @@ import {
 } from "@/services/board-form.api";
 
 import { PublicFormFieldRenderer } from "./components/PublicFormFieldRenderer";
+import { GuestFooter } from "@/app/(auth)/GuestFooter";
+import { GuestHeader } from "@/app/(auth)/GuestHeader";
 
 interface PublicBoardFormProps {
   boardId: number;
@@ -173,40 +175,42 @@ export function PublicBoardForm({ boardId }: PublicBoardFormProps) {
 
   /* ── Main form ── */
   return (
-    <div className="mx-auto max-w-2xl space-y-8 p-6">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">
-          {form.title || "Submit Form"}
-        </h1>
+    <>
+      <GuestHeader />
+      <div className="mx-auto max-w-2xl space-y-8 p-6 min-h-[85vh]">
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-2xl font-semibold">
+            {form.title || "Submit Form"}
+          </h1>
 
-        {form.description && (
-          <p className="text-sm text-muted-foreground">{form.description}</p>
-        )}
-      </div>
-
-      {/* Fields */}
-      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-        {visibleFields.map((field) => (
-          <PublicFormFieldRenderer
-            key={field.id}
-            field={field}
-            value={values[field.id]}
-            error={errors[field.id]}
-            disabled={isSubmitting}
-            onChange={(val) => setFieldValue(field.id, val)}
-          />
-        ))}
-
-        {/* Submit */}
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting && (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          {form.description && (
+            <p className="text-sm text-muted-foreground">{form.description}</p>
           )}
+        </div>
 
-          {form.submitLabel || "Submit"}
-        </Button>
-      </form>
-    </div>
+        {/* Fields */}
+        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+          {visibleFields.map((field) => (
+            <PublicFormFieldRenderer
+              key={field.id}
+              field={field}
+              value={values[field.id]}
+              error={errors[field.id]}
+              disabled={isSubmitting}
+              onChange={(val) => setFieldValue(field.id, val)}
+            />
+          ))}
+
+          {/* Submit */}
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+
+            {form.submitLabel || "Submit"}
+          </Button>
+        </form>
+      </div>
+      <GuestFooter />
+    </>
   );
 }

@@ -14,9 +14,7 @@ import { useGroupStore } from "@/store/create-group-store";
 import { SortableGroup } from "../group/SortableGroup";
 import { SortableGroupContainer } from "../group/SortableGroupContainer";
 import { BoardSkeleton } from "./BoardSkeleton";
-import { BulkActionToolbar } from "./BulkActionsToolbar/BulkActionsToolbar";
-import { useTaskBulkActions } from "./useTaskBulkActions";
-import { bulkUpdateTasks } from "@/services/tasks.api";
+
 
 interface BoardContentProps {
   board: any;

@@ -73,6 +73,7 @@ export function Board({
 
   return (
     <>
+    
       <BoardHeader
         boardId={board?.id}
         onHideColumns={filters.openHideColumnModal}

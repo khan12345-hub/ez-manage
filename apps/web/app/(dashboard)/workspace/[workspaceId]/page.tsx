@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import { WorkspaceCover } from "../components/workspace-cover";
 import { WorkspaceHeader } from "../components/workspace-header";
 import { BoardTable } from "../components/table/table";
+import { AddBoardCard } from "../components/AddBoardCard";
+
 import { getWorkspaceDetail } from "@/services/workspace.api";
 import { useAuth } from "@/providers/AuthProvider";
-import { AddBoardCard } from "../components/AddBoardCard";
 import { useInviteModalStore } from "@/store/invite-modal";
+
 import { FolderOpen } from "lucide-react";
 
 const DEFAULT_COVER =
@@ -31,14 +33,19 @@ function formatUpdatedAt(value: string) {
 }
 
 export default function WorkspacePage() {
-  const params = useParams<{ id: string }>();
-  const workspaceId = Number(params.id);
-  const canFetchWorkspace = Number.isFinite(workspaceId) && workspaceId > 0;
+  const params = useParams<{ workspaceId: string }>();
+
+  const workspaceId = Number(params.workspaceId);
+
+  const canFetchWorkspace =
+    Number.isInteger(workspaceId) && workspaceId > 0;
+
   const { user } = useAuth();
-  const [updatedWorkspace, setUpdatedWorkspace] = useState<any>(null);
-  const [isRenaming, setIsRenaming] = useState(false);
-  const { setWorkspace, setWorkspaceRole, workspaceRole } =
-    useInviteModalStore();
+
+  const {
+    setWorkspace,
+    setWorkspaceRole,
+  } = useInviteModalStore();
 
   const {
     data: workspaceDetail,
@@ -51,33 +58,55 @@ export default function WorkspacePage() {
     retry: false,
   });
 
+  /**
+   * Store workspace ID for the existing invite modal/store.
+   */
   useEffect(() => {
-    if (!workspaceDetail || !user.id) {
+    if (!canFetchWorkspace) return;
+
+    setWorkspace(workspaceId);
+  }, [workspaceId, canFetchWorkspace, setWorkspace]);
+
+  /**
+   * Determine current user's workspace role.
+   */
+  useEffect(() => {
+    if (!workspaceDetail || !user?.id) {
       setWorkspaceRole("");
       return;
     }
 
-    const member = workspaceDetail.members.find(
+    const member = workspaceDetail.members?.find(
       (member) => member.userId === user.id,
     );
 
     setWorkspaceRole(member?.role ?? "");
-  }, [workspaceDetail, user.id]);
+  }, [workspaceDetail, user?.id, setWorkspaceRole]);
 
-  useEffect(() => {
-    setWorkspace(workspaceId);
-  }, [workspaceId]);
-
+  /**
+   * Determine whether current user is workspace owner.
+   */
   const isOwner = useMemo(() => {
-    if (!workspaceDetail || !user) return false;
-    const ownerMember = workspaceDetail.members?.find(
-      (member: any) => member.userId === user.id && member.role === "OWNER",
-    );
-    return !!ownerMember;
-  }, [workspaceDetail, user]);
+    if (!workspaceDetail || !user?.id) {
+      return false;
+    }
 
+    return Boolean(
+      workspaceDetail.members?.some(
+        (member) =>
+          member.userId === user.id &&
+          member.role === "OWNER",
+      ),
+    );
+  }, [workspaceDetail, user?.id]);
+
+  /**
+   * Workspace UI model.
+   */
   const workspace = useMemo(() => {
-    if (!workspaceDetail) return null;
+    if (!workspaceDetail) {
+      return null;
+    }
 
     return {
       id: workspaceDetail.id,
@@ -87,60 +116,81 @@ export default function WorkspacePage() {
         "Manage your workspace boards and members.",
       cover: DEFAULT_COVER,
       avatar: workspaceDetail.name.charAt(0).toUpperCase(),
-      members: workspaceDetail._count?.members
-        ? workspaceDetail.members.length
-        : 0,
-      boards: workspaceDetail._count?.boards
-        ? workspaceDetail.boards.length
-        : 0,
+
+      members:
+        workspaceDetail._count?.members ??
+        workspaceDetail.members?.length ??
+        0,
+
+      boards:
+        workspaceDetail._count?.boards ??
+        workspaceDetail.boards?.length ??
+        0,
+
       visibility: workspaceDetail.visibility,
       createdById: workspaceDetail.createdById,
+
       _count: workspaceDetail._count,
+
       isOwner,
     };
   }, [workspaceDetail, isOwner]);
 
+  /**
+   * Boards displayed in the workspace.
+   */
   const boards = useMemo(() => {
     return (
-      workspaceDetail?.boards.map((board) => ({
+      workspaceDetail?.boards?.map((board) => ({
         id: board.id,
         name: board.name,
+
         owner: board.createdBy
           ? `${board.createdBy.firstName} ${board.createdBy.lastName}`
           : "Unknown",
+
         visibility: board.visibility,
+
         members: board._count?.members ?? 0,
+
         tasks: 0,
+
         updatedAt: formatUpdatedAt(board.updatedAt),
       })) ?? []
     );
   }, [workspaceDetail]);
 
+  /**
+   * Invalid workspace route.
+   */
   if (!canFetchWorkspace) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-6">
-      <div className="max-w-md text-center">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-          <FolderOpen className="h-8 w-8 text-muted-foreground" />
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 px-6">
+        <div className="max-w-md text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+            <FolderOpen className="h-8 w-8 text-muted-foreground" />
+          </div>
+
+          <h2 className="text-2xl font-semibold tracking-tight">
+            No workspace found
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            We couldn't find this workspace. It may have been deleted,
+            you may not have access to it, or you haven't created one yet.
+          </p>
+
+          <p className="mt-6 text-sm font-medium text-muted-foreground">
+            Create a workspace to get started.
+          </p>
         </div>
-
-        <h2 className="text-2xl font-semibold tracking-tight">
-          No workspace found
-        </h2>
-
-        <p className="mt-2 text-sm text-muted-foreground">
-          We couldn't find this workspace. It may have been deleted, you may
-          not have access to it, or you haven't created one yet.
-        </p>
-
-        <p className="mt-6 text-sm font-medium text-muted-foreground">
-          Create a workspace to get started.
-        </p>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
+  /**
+   * Workspace loading state.
+   */
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/30 text-sm text-muted-foreground">
@@ -149,7 +199,10 @@ export default function WorkspacePage() {
     );
   }
 
-  if (isError || !workspace || !workspaceDetail) {
+  /**
+   * Workspace error state.
+   */
+  if (isError || !workspaceDetail || !workspace) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/30 text-sm text-muted-foreground">
         Workspace not found.
@@ -164,22 +217,15 @@ export default function WorkspacePage() {
       <div className="mx-auto max-w-7xl px-8 pb-10">
         <WorkspaceHeader
           workspace={workspace}
-          onWorkspaceUpdate={setUpdatedWorkspace}
         />
 
-        {/* <WorkspaceTabs workspace={workspace} /> */}
-
-        {/* <div className="mt-8">
-          <WorkspaceToolbar />
-        </div> */}
-
-        {boards.length > 0 ? (
-          <div className="mt-6">
+        <div className="mt-6">
+          {boards.length > 0 ? (
             <BoardTable boards={boards} />
-          </div>
-        ) : (
-          <AddBoardCard workspaceId={workspace.id} />
-        )}
+          ) : (
+            <AddBoardCard workspaceId={workspace.id} />
+          )}
+        </div>
       </div>
     </div>
   );

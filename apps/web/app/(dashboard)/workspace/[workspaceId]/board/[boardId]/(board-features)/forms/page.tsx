@@ -31,9 +31,6 @@ export default function NewFormPage() {
   }
 
   return (
-    <FormBuilder
-      board={board}
-    />
+      <FormBuilder board={board} />
   );
 }
-

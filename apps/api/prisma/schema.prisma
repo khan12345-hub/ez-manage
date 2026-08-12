@@ -164,6 +164,9 @@ model Board {
 
   form        BoardForm?
 
+  templateId Int?
+  template   BoardTemplate? @relation(fields: [templateId], references: [id])
+
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@map("boards")
@@ -614,4 +617,45 @@ model BoardFormField {
   @@unique([formId, columnId])
   @@index([formId])
   @@index([columnId])
+}
+
+model BoardTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  boards      Board[] 
+
+  groups BoardTemplateGroup[]
+
+  
+}
+
+model BoardTemplateGroup {
+  id         Int      @id @default(autoincrement())
+  templateId Int
+  name       String
+  color      String
+  position   Int
+
+  template BoardTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  columns BoardTemplateColumn[]
+
+  @@index([templateId])
+}
+
+model BoardTemplateColumn {
+  id        Int      @id @default(autoincrement())
+  groupId   Int
+  name      String
+  type      BoardColumnType
+  position  Int
+  isPrimary Boolean  @default(false)
+  options   Json?
+
+  group BoardTemplateGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
 }

@@ -300,6 +300,8 @@ export class BoardsService {
       },
 
       include: {
+        form: true,
+
         columns: {
           orderBy: {
             order: 'asc',
@@ -454,9 +456,8 @@ export class BoardsService {
     }
 
     const searchTerm = search?.trim() ?? '';
-
     const personTerm = person?.trim() ?? '';
-
+    console.log({board})
     const groups = board.groups
       .map((group) => {
         const tasks = this.boardSearchService.filterTasks(group.tasks, {
@@ -482,7 +483,6 @@ export class BoardsService {
 
             cells: task.cells.map((cell) => ({
               ...cell,
-
               files: cell.files.map(({ file }) => file),
             })),
 
@@ -491,7 +491,6 @@ export class BoardsService {
 
               cells: subtask.cells.map((cell) => ({
                 ...cell,
-
                 files: cell.files.map(({ file }) => file),
               })),
             })),
@@ -500,10 +499,28 @@ export class BoardsService {
       })
       .filter((group): group is NonNullable<typeof group> => Boolean(group));
 
+    const views = [
+      {
+        id: 'main',
+        name: 'Main table',
+        type: 'table',
+      },
+
+      ...(board.form
+        ? [
+            {
+              // id: board.boardForm.id,
+              // name: board.boardForm.title || 'Form',
+              type: 'form',
+            },
+          ]
+        : []),
+    ];
+
     return {
       ...board,
-
       groups,
+      views,
     };
   }
 
@@ -686,6 +703,4 @@ export class BoardsService {
       role: member.role,
     }));
   }
-
-
 }

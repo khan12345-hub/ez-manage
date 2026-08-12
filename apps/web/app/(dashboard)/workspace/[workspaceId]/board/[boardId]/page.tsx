@@ -10,6 +10,9 @@ import { useGroupStore } from "@/store/create-group-store";
 import { TaskDetailsSheet } from "../Task/TaskDetailDrawer/Updates/TaskDetailsDrawer";
 import { Board } from "./Board";
 import { PersonValue } from "../Cells/Person/PersonPicker";
+import { BoardViewsTabs } from "./BoardViewsTabs";
+import { FormBuilder } from "./(board-features)/forms/BoardFeatureForm/FormBuilder/FormBuilder";
+import { BoardHeader } from "./BoardHeader";
 
 export default function BoardPage() {
   const { setGroups } = useGroupStore();
@@ -23,7 +26,6 @@ export default function BoardPage() {
 
   const [personFilter, setPersonFilter] = useState<PersonValue | null>(null);
 
- 
   const selectedPersonSearch = personFilter?.users?.[0]
     ? `${personFilter.users[0].firstName ?? ""} ${
         personFilter.users[0].lastName ?? ""
@@ -94,19 +96,25 @@ export default function BoardPage() {
 
   return (
     <>
-      {" "}
+      {board && 
       <div className="bg-background p-6">
-        <Board
-          board={board ?? []}
-          search={search}
-          setSearch={setSearch}
-          isLoading={isLoading}
-          isFetching={isFetching}
-          isError={isError}
-          personFilter={personFilter}
-          setPersonFilter={setPersonFilter}
-        />{" "}
-      </div>
+        <BoardHeader boardName={board.name}/>
+        <BoardViewsTabs
+          board={board}
+          formContent={<FormBuilder board={board} />}
+        >
+          <Board
+            board={board ?? []}
+            search={search}
+            setSearch={setSearch}
+            isLoading={isLoading}
+            isFetching={isFetching}
+            isError={isError}
+            personFilter={personFilter}
+            setPersonFilter={setPersonFilter}
+          />
+        </BoardViewsTabs>
+      </div>}
       <TaskDetailsSheet />
     </>
   );

@@ -8,12 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField, FormFieldOption } from "./board-feature-form.types";
 
-import { DatePicker } from "../DatePicker";
-import { TimelinePicker } from "../TimelinePicker";
-import { StatusOptionEditor } from "../StatusOptionEditor";
+// import { DatePicker } from "../../../DatePicker";
+// import { TimelinePicker } from "../../../TimelinePicker";
+// import { StatusOptionEditor } from "../../../StatusOptionEditor";
+// import { useColumnRename } from "../../../../../../group/columns/useColumnRename.hooks";
 
-import { useColumnRename } from "../../../../../../group/columns/useColumnRename.hooks";
 import { useParams } from "next/navigation";
+import { useColumnRename } from "../../../../../group/columns/useColumnRename.hooks";
+import { StatusOptionEditor } from "../../StatusOptionEditor";
 
 interface FormFieldCardProps {
   field: FormField;
@@ -166,7 +168,7 @@ export function FormFieldCard({
         </div>
 
         {/* Date */}
-        {field.type === "DATE" && (
+        {/* {field.type === "DATE" && (
           <DatePicker
             value={field.date}
             onChange={(date) =>
@@ -178,7 +180,7 @@ export function FormFieldCard({
           />
         )}
 
-        {/* Timeline */}
+        
         {field.type === "TIMELINE" && (
           <TimelinePicker
             value={field.timeline}
@@ -189,7 +191,7 @@ export function FormFieldCard({
               })
             }
           />
-        )}
+        )} */}
 
         {/* Required */}
         <div className="flex items-center gap-2">
