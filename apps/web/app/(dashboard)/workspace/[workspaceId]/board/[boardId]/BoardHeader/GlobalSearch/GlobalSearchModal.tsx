@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight, Search } from "lucide-react";
-import { Mail, Phone, Copy } from "lucide-react";
+import { Mail, Copy } from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -29,11 +29,12 @@ export function GlobalSearchModal({
   const params = useParams();
 
   const workspaceId = Number(params.workspaceId);
+  const hasWorkspace = Number.isFinite(workspaceId) && workspaceId > 0;
 
   const { data, isFetching } = useQuery({
     queryKey: ["global-search", workspaceId, debounced],
     queryFn: () => globalSearch(workspaceId, debounced),
-    // enabled: open && debounced.trim().length >= 2,
+    enabled: open && hasWorkspace && debounced.trim().length >= 2,
     staleTime: 60 * 1000,
   });
 
@@ -44,7 +45,7 @@ export function GlobalSearchModal({
   }, [open]);
 
   const [openAddColumn, setOpenAddColumn] = useState(false);
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -79,6 +80,224 @@ export function GlobalSearchModal({
 
           <div className="h-105  overflow-y-auto">
             <TabsContent value="all" className="mt-0 p-6">
+              {!hasWorkspace ? (
+                <div className="flex h-80 flex-col items-center justify-center text-center">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <Search className="h-5 w-5 text-muted-foreground" />
+                  </div>
+
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Please select a workspace first
+                  </h3>
+
+                  <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                    Select a workspace before searching for tasks, people,
+                    boards, or files.
+                  </p>
+                </div>
+              ) : !query.trim() ? (
+                <div className="flex h-80 flex-col items-center justify-center text-center">
+                  <Search className="mb-3 h-8 w-8 text-muted-foreground" />
+
+                  <h3 className="text-sm font-semibold">
+                    Search your workspace
+                  </h3>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Search for tasks, people, boards, and files.
+                  </p>
+                </div>
+              ) : isFetching ? (
+                <div className="flex h-80 items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Searching...</p>
+                </div>
+              ) : data ? (
+                <div className="space-y-8">
+                  {data.tasks.map((board: any) => (
+                    <div key={board.id} className="space-y-6">
+                      {board.groups.map((group: any) => (
+                        <div
+                          key={group.id}
+                          className="max-w-full overflow-x-auto scrollbar-none rounded-xl border bg-background"
+                        >
+                          <div className="border-b bg-muted/30 px-6 py-3">
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="font-medium text-muted-foreground">
+                                Workspace
+                              </span>
+
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+
+                              <span className="font-medium">{board.name}</span>
+
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+
+                              <span
+                                className="font-semibold"
+                                style={{
+                                  color: group.color ?? undefined,
+                                }}
+                              >
+                                {group.name}
+                              </span>
+                            </div>
+                          </div>
+
+                          <GroupTable
+                            group={group}
+                            columns={board.columns}
+                            showSelection={false}
+                            showHeaders
+                            showNewTaskRow={false}
+                            showAddColumn={false}
+                            setOpen={setOpenAddColumn}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+
+                  {data.users.length > 0 && (
+                    <div className="rounded-xl border">
+                      <div className="border-b px-6 py-3 font-semibold">
+                        People
+                      </div>
+
+                      {data && data.users.length > 0 && (
+                        <div className="rounded-xl border">
+                          <div className="border-b px-6 py-3 font-semibold">
+                            People
+                          </div>
+
+                          <div className="grid gap-8 p-6 sm:grid-cols-3 lg:grid-cols-5">
+                            {data.users.map((user: any) => (
+                              <div
+                                key={user.id}
+                                className="relative mt-12 rounded-xl border bg-background px-5 pb-5 pt-14 text-center shadow-sm transition-all hover:shadow-md"
+                              >
+                                {/* Avatar */}
+                                <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2">
+                                  {/* Blurred background */}
+                                  <div className="absolute inset-0 scale-125 overflow-hidden rounded-full">
+                                    <img
+                                      src={
+                                        process.env
+                                          .NEXT_PUBLIC_BACKEND_BASE_URL +
+                                        user.avatarUrl
+                                      }
+                                      alt=""
+                                      className="h-full w-full scale-105 object-cover blur-xl opacity-70"
+                                    />
+                                  </div>
+
+                                  {/* Actual profile picture */}
+                                  <img
+                                    src={
+                                      process.env.NEXT_PUBLIC_BACKEND_BASE_URL +
+                                      user.avatarUrl
+                                    }
+                                    alt={`${user.firstName} ${user.lastName}`}
+                                    className="relative h-24 w-24 rounded-full border-4 border-background object-cover shadow-lg"
+                                  />
+                                </div>
+
+                                {/* Name */}
+                                <h3 className="text-lg font-semibold italic mt-4">
+                                  {user.firstName} {user.lastName}
+                                </h3>
+
+                                {/* Optional join date */}
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  {user.createdAt
+                                    ? new Date(
+                                        user.createdAt,
+                                      ).toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                      })
+                                    : ""}
+                                </p>
+
+                                {/* Contact */}
+                                <div className="mt-6 space-y-3 text-sm">
+                                  <div className="flex items-center gap-3 rounded-md border px-3 py-2">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-full border">
+                                      <Mail className="h-4 w-4" />
+                                    </div>
+
+                                    <span className="flex-1 truncate text-left">
+                                      {user.email}
+                                    </span>
+
+                                    <button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(
+                                          user.email,
+                                        );
+                                        toast.success(
+                                          "Email copied to clipboard",
+                                        );
+                                      }}
+                                      className="text-muted-foreground hover:text-foreground"
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </button>
+                                  </div>
+
+                                  
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {data.files.length > 0 && (
+                    <div className="rounded-xl border">
+                      <div className="border-b px-6 py-3 font-semibold">
+                        Files
+                      </div>
+
+                      {data && data.files.length > 0 && (
+                        <div className="rounded-xl border">
+                          <div className="border-b px-6 py-3 font-semibold">
+                            Files
+                          </div>
+
+                          {data.files.map((file: any) => (
+                            <div
+                              key={file.id}
+                              className="cursor-pointer px-6 py-3 hover:bg-muted"
+                            >
+                              {file.fileName}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!data.tasks.length &&
+                    !data.users.length &&
+                    !data.files.length && (
+                      <div className="flex h-80 flex-col items-center justify-center text-center">
+                        <Search className="mb-3 h-8 w-8 text-muted-foreground" />
+
+                        <h3 className="text-sm font-semibold">
+                          No results found
+                        </h3>
+
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Try searching with a different keyword.
+                        </p>
+                      </div>
+                    )}
+                </div>
+              ) : null}
+            </TabsContent>
+            {/* <TabsContent value="all" className="mt-0 p-6">
               {query && !isFetching && data && (
                 <div className="space-y-8 ">
                   {data.tasks.map((board: any) => (
@@ -172,7 +391,7 @@ export function GlobalSearchModal({
                   )}
                 </div>
               )}
-            </TabsContent>
+            </TabsContent> */}
             <TabsContent value="tasks" className="mt-0 p-6">
               {data &&
                 data.tasks.map((board: any) => (
@@ -233,7 +452,10 @@ export function GlobalSearchModal({
                           {/* Blurred background */}
                           <div className="absolute inset-0 scale-125 overflow-hidden rounded-full">
                             <img
-                              src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL+user.avatarUrl}
+                              src={
+                                process.env.NEXT_PUBLIC_BACKEND_BASE_URL +
+                                user.avatarUrl
+                              }
                               alt=""
                               className="h-full w-full scale-105 object-cover blur-xl opacity-70"
                             />
@@ -241,7 +463,10 @@ export function GlobalSearchModal({
 
                           {/* Actual profile picture */}
                           <img
-                            src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL+user.avatarUrl}
+                            src={
+                              process.env.NEXT_PUBLIC_BACKEND_BASE_URL +
+                              user.avatarUrl
+                            }
                             alt={`${user.firstName} ${user.lastName}`}
                             className="relative h-24 w-24 rounded-full border-4 border-background object-cover shadow-lg"
                           />
@@ -277,12 +502,10 @@ export function GlobalSearchModal({
                             </span>
 
                             <button
-                              onClick={() =>
-                              {
-                                navigator.clipboard.writeText(user.email)
-                                toast.success("Email copied to clipboard")
-                              }
-                              }
+                              onClick={() => {
+                                navigator.clipboard.writeText(user.email);
+                                toast.success("Email copied to clipboard");
+                              }}
                               className="text-muted-foreground hover:text-foreground"
                             >
                               <Copy className="h-4 w-4" />

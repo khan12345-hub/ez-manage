@@ -8,12 +8,9 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-
 import { useBoardTemplates } from "./board-template/useBoardTemplate";
 import { CreateBoardTemplateDialog } from "./board-template/CreateBoardTemplateModal";
 import { BoardTemplate } from "./board-template/template.types";
-
 import { BoardTemplateCard } from "./SystemSettingsBoardTemplatesCard";
 import { SettingsStatCard } from "./SettingsStatsCard";
 
@@ -124,7 +121,7 @@ export function BoardTemplates() {
         </div>
 
         {/* Search */}
-        {templates.length > 0 && (
+        {/* {templates.length > 0 && (
           <div className="mt-8">
             <div className="relative max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -139,7 +136,7 @@ export function BoardTemplates() {
               />
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Empty State */}
         {templates.length === 0 && (

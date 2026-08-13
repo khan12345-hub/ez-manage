@@ -93,6 +93,7 @@ export type CreateBoardDto = {
   name: string;
   workspaceId: number;
   visibility?: "PUBLIC" | "PRIVATE";
+  templateId?: number;
 };
 
 export async function createBoard(data: CreateBoardDto) {

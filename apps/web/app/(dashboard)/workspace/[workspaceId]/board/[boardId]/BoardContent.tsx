@@ -152,6 +152,7 @@ export function BoardContent({
                         newGroupFocusToken={
                           group.isNew ? newGroupFocusToken : 0
                         }
+                        members={board.members}
                       />
                     </SortableGroup>
                   )}

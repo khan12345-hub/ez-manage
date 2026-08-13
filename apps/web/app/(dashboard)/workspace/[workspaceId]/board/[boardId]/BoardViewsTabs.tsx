@@ -22,32 +22,33 @@ export function BoardViewsTabs({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-1 border-b">
-        <Button
-          variant="ghost"
-          className={
-            activeView === "table"
-              ? "rounded-none border!  border-primary! border-b-2!"
-              : "rounded-none"
-          }
-          onClick={() => setActiveView("table")}
-        >
-          <Table2 className="mr-2 h-4 w-4" />
-          Main table
-        </Button>
+        <div className="flex items-center border-b">
+          <button
+            type="button"
+            className={`cursor-pointer relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              activeView === "table"
+                ? "text-primary after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setActiveView("table")}
+          >
+            <Table2 className="h-4 w-4" />
+            Main table
+          </button>
 
-          <Button
-            variant="ghost"
-            className={
+          <button
+            type="button"
+            className={`cursor-pointer relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               activeView === "form"
-                ? "rounded-none border-b-2 border-primary"
-                : "rounded-none"
-            }
+                ? "text-primary after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
             onClick={() => setActiveView("form")}
           >
-            <FileText className="mr-2 h-4 w-4" />
+            <FileText className="h-4 w-4" />
             Form
-          </Button>
-        
+          </button>
+        </div>
       </div>
 
       {activeView === "table" ? children : formContent}

@@ -9,7 +9,7 @@ import { ColumnActions } from "./ColumnActions";
 
 import { useColumnRename } from "./useColumnRename.hooks";
 
-export const Headers = ({ column }: any) => {
+export const Headers = ({ column, members }: any) => {
   const { name, setName, save, handleKeyDown, isSaving } =
     useColumnRename({
       columnId: column.id,
@@ -93,7 +93,7 @@ export const Headers = ({ column }: any) => {
           />
         </div>
 
-        <ColumnActions column={column} />
+        <ColumnActions members={members}  column={column} />
       </div>
     </th>
   );

@@ -1,18 +1,29 @@
 "use client";
 
-
 import { PersonValue } from "../../Cells/Person/PersonPicker";
 import { BoardToolbar } from "./BoardToolbar";
+import { GroupSortOption } from "../BoardHeader/Filters/GroupSort";
 
 interface Props {
   boardId?: number;
+
   onHideColumns: () => void;
+
   personFilter: PersonValue | null;
-  onPersonFilterChange: (value: PersonValue | null) => void;
+  onPersonFilterChange: (
+    value: PersonValue | null,
+  ) => void;
+
   search: string;
   setSearch: (value: string) => void;
+
   onCreateTask: () => void;
   onCreateGroup: () => void;
+
+  groupSort: GroupSortOption;
+  onGroupSortChange: (
+    value: GroupSortOption,
+  ) => void;
 }
 
 export function BoardHeader({
@@ -24,6 +35,8 @@ export function BoardHeader({
   setSearch,
   onCreateTask,
   onCreateGroup,
+  groupSort,
+  onGroupSortChange,
 }: Props) {
   return (
     <BoardToolbar
@@ -35,6 +48,8 @@ export function BoardHeader({
       setSearch={setSearch}
       onCreateTask={onCreateTask}
       onCreateGroup={onCreateGroup}
+      groupSort={groupSort}
+      onGroupSortChange={onGroupSortChange}
     />
   );
 }

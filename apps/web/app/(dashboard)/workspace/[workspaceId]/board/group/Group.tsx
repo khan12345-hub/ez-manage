@@ -33,6 +33,17 @@ interface Props {
   selection: any;
   newTaskFocusToken?: number;
   newGroupFocusToken?: number;
+  members: Array<{
+    id: number;
+    role: string;
+    user: {
+      id: number;
+      firstName: string;
+      lastName: string;
+      avatarUrl: string | null;
+    };
+    userId:number;
+  }>
 }
 
 export function Group({
@@ -44,6 +55,7 @@ export function Group({
   selection,
   newTaskFocusToken = 0,
   newGroupFocusToken = 0,
+  members
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -130,6 +142,7 @@ export function Group({
               showAddColumn={false}
               setOpen={setOpen}
               newTaskFocusToken={newTaskFocusToken}
+              members={members}
             />
         )}
       </div>

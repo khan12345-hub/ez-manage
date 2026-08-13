@@ -110,7 +110,14 @@ export function StatusEditor({
       }}
     >
       <PopoverTrigger asChild>
-        <div className="absolute inset-0" aria-hidden />
+        <div
+          className="absolute inset-0 flex cursor-pointer items-center justify-center text-sm font-medium text-white"
+          style={{
+            backgroundColor: current?.color ?? value?.color ?? "#c4c4c4",
+          }}
+        >
+          {current?.label ?? value?.label ?? "Not Started"}
+        </div>
       </PopoverTrigger>
 
       <PopoverContent className="w-64 p-3" align="start">
@@ -125,7 +132,7 @@ export function StatusEditor({
                   key={status.id}
                   type="button"
                   onClick={() => selectStatus(status)}
-                  className="relative flex h-10 w-full items-center justify-center rounded text-sm font-medium text-white transition hover:opacity-90"
+                  className="cursor-pointer relative flex h-10 w-full items-center justify-center rounded text-sm font-medium text-white transition hover:opacity-90"
                   style={{
                     background: status.color,
                   }}
@@ -182,7 +189,7 @@ export function StatusEditor({
                   >
                     <button
                       type="button"
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-white transition hover:scale-105"
+                      className="cursor-pointer flex h-7 w-7 shrink-0 items-center justify-center rounded text-white transition hover:scale-105"
                       style={{
                         backgroundColor: status.color,
                       }}

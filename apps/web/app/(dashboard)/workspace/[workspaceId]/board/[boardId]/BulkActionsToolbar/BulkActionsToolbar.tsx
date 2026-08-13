@@ -9,7 +9,6 @@ import { Separator } from "@/components/ui/separator";
 
 import {
   StatusBulkAction,
-  StatusColumn,
 } from "./StatusBulkEditor";
 
 import {

@@ -31,6 +31,17 @@ interface Props {
   showAddColumn?: boolean;
   setOpen: (open: boolean) => void;
   newTaskFocusToken?: number;
+  members?: Array<{
+    id: number;
+    role: string;
+    user: {
+      id: number;
+      firstName: string;
+      lastName: string;
+      avatarUrl: string | null;
+    };
+    userId:number;
+  }>
 }
 
 export function GroupTable({
@@ -44,6 +55,7 @@ export function GroupTable({
   showNewTaskRow = true,
   setOpen,
   newTaskFocusToken = 0,
+  members
 }: Props) {
   const { setNodeRef } = useDroppable({
     id: `group-drop-${group.id}`,
@@ -70,7 +82,7 @@ export function GroupTable({
                 }}
               />
 
-              <th className="sticky left-2 bg-white">
+              <th className="sticky left-30 bg-white">
                 {!!selection && (
                   <Checkbox
                     checked={
@@ -88,7 +100,7 @@ export function GroupTable({
                 strategy={horizontalListSortingStrategy}
               >
                 {columns.map((column: any) => (
-                  <Headers key={column.id} column={column} />
+                  <Headers key={column.id} column={column} members={members}/>
                 ))}
               </SortableContext>
 

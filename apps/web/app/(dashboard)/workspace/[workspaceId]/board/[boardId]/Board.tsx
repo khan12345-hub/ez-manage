@@ -1,13 +1,22 @@
-import { useState } from "react";
+"use client";
+
+import { useEffect, useState } from "react";
 
 import { useGroupStore } from "@/store/create-group-store";
 
 import { useTaskSelection } from "../group/tasks/sub-tasks/useTaskSelection";
 import { BoardContent } from "./BoardContent";
 import { BoardHeader } from "./BoardHeader/BoardHeader";
-import { BulkActionToolbar } from "./BulkActionsToolbar/BulkActionsToolbar";
+
 import { useBoard } from "./hooks/useBoard.hooks";
 import { useTaskBulkActions } from "./useTaskBulkActions";
+
+import {
+  GroupSortOption,
+  sortGroups,
+} from "./BoardHeader/Filters/GroupSort";
+import { BulkActionToolbar } from "./BulkActionsToolbar/BulkActionsToolbar";
+
 export function Board({
   board,
   search,
@@ -19,11 +28,18 @@ export function Board({
   isError,
 }: any) {
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
+
   const hasDraftGroup = useGroupStore((state) =>
     state.groups.some((group: any) => group.isNew),
   );
+
   const [newTaskFocusToken, setNewTaskFocusToken] = useState(0);
   const [newGroupFocusToken, setNewGroupFocusToken] = useState(0);
+
+  const [groupSort, setGroupSort] =
+    useState<GroupSortOption>("default");
+
+  const [sortedGroups, setSortedGroups] = useState<any[]>([]);
 
   const {
     dragGroups,
@@ -38,20 +54,45 @@ export function Board({
     board,
   });
 
-  const selection = useTaskSelection(dragGroups);
+  /**
+   * Keep sorted groups synchronized with the groups
+   * coming from useBoard.
+   */
+  useEffect(() => {
+    setSortedGroups(
+      sortGroups(dragGroups ?? [], groupSort),
+    );
+  }, [dragGroups, groupSort]);
 
-  const { bulkDelete, bulkUpdate, isDeleting, isUpdating } = useTaskBulkActions(
-    board.id,
-    () => {
-      selection.setSelectedTaskIds(new Set());
-    },
-  );
+  const selection = useTaskSelection(sortedGroups);
+
+  const {
+    bulkDelete,
+    bulkUpdate,
+    isDeleting,
+    isUpdating,
+  } = useTaskBulkActions(board.id, () => {
+    selection.setSelectedTaskIds(new Set());
+  });
+
+  const handleGroupSortChange = (
+    value: GroupSortOption,
+  ) => {
+    setGroupSort(value);
+
+    setSortedGroups(
+      sortGroups(dragGroups ?? [], value),
+    );
+  };
 
   const handleBulkDelete = () => {
     bulkDelete([...selection.selectedTaskIds]);
   };
 
-  const handleBulkUpdate = (columnId: number, value: any) => {
+  const handleBulkUpdate = (
+    columnId: number,
+    value: any,
+  ) => {
     bulkUpdate({
       taskIds: [...selection.selectedTaskIds],
       columnId,
@@ -73,7 +114,6 @@ export function Board({
 
   return (
     <>
-    
       <BoardHeader
         boardId={board?.id}
         onHideColumns={filters.openHideColumnModal}
@@ -83,6 +123,8 @@ export function Board({
         setSearch={setSearch}
         onCreateTask={handleCreateTask}
         onCreateGroup={handleCreateGroup}
+        groupSort={groupSort}
+        onGroupSortChange={handleGroupSortChange}
       />
 
       <BoardContent
@@ -91,7 +133,7 @@ export function Board({
         isLoading={isLoading}
         isFetching={isFetching}
         isError={isError}
-        dragGroups={dragGroups}
+        dragGroups={sortedGroups}
         filteredColumns={filteredColumns}
         activeItem={activeItem}
         filters={filters}
@@ -109,7 +151,9 @@ export function Board({
         columns={board.columns}
         onDelete={handleBulkDelete}
         onUpdate={handleBulkUpdate}
-        onClear={() => selection.setSelectedTaskIds(new Set())}
+        onClear={() =>
+          selection.setSelectedTaskIds(new Set())
+        }
         isDeleting={isDeleting}
         isUpdating={isUpdating}
       />

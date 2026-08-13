@@ -16,3 +16,4 @@ export const updateCell = async (
 
   return data;
 };
+

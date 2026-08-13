@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 
 import { createBoard, importBoard } from "@/services/boards.api";
 import { CreateBoardForm } from "./CreateBoardForm";
-
 import { BoardTemplateSelector } from "./BoardTemplateSelector";
 import { useBoardTemplates } from "@/app/(dashboard)/system-settings/board-template/useBoardTemplate";
 
@@ -16,6 +15,11 @@ interface CreateBoardModalProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceId: number;
+}
+
+interface CreateBoardFormValues {
+  name: string;
+  visibility: "PUBLIC" | "PRIVATE";
 }
 
 export function CreateBoardModal({
@@ -34,6 +38,10 @@ export function CreateBoardModal({
     data: templates = [],
     isLoading: templatesLoading,
   } = useBoardTemplates();
+
+  const selectedTemplate = templates.find(
+    (template:any) => template.id === templateId,
+  );
 
   const createBoardMutation = useMutation({
     mutationFn: (values: {
@@ -63,7 +71,9 @@ export function CreateBoardModal({
         error?.response?.data?.message ||
         "Failed to create board. Please try again.";
 
-      toast.error(Array.isArray(message) ? message.join(", ") : message);
+      toast.error(
+        Array.isArray(message) ? message.join(", ") : message,
+      );
     },
   });
 
@@ -72,12 +82,20 @@ export function CreateBoardModal({
       name: string;
       visibility: "PUBLIC" | "PRIVATE";
       file: File;
-    }) => importBoard({ ...values, workspaceId }),
+    }) =>
+      importBoard({
+        ...values,
+        workspaceId,
+      }),
 
     onSuccess: (board) => {
       queryClient.invalidateQueries({
         queryKey: ["boards", workspaceId],
       });
+
+      toast.success(`Board "${board.name}" imported.`);
+
+      router.push(`/workspace/${workspaceId}/board/${board.id}`);
 
       onClose();
     },
@@ -87,7 +105,9 @@ export function CreateBoardModal({
         error?.response?.data?.message ||
         "Failed to import board. Please try again.";
 
-      toast.error(Array.isArray(message) ? message.join(", ") : message);
+      toast.error(
+        Array.isArray(message) ? message.join(", ") : message,
+      );
     },
   });
 
@@ -99,10 +119,7 @@ export function CreateBoardModal({
     }
   }, [isOpen]);
 
-  const handleSubmit = (values: {
-    name: string;
-    visibility: "PUBLIC" | "PRIVATE";
-  }) => {
+  const handleSubmit = (values: CreateBoardFormValues) => {
     if (excelFile) {
       importBoardMutation.mutate({
         ...values,
@@ -114,12 +131,26 @@ export function CreateBoardModal({
 
     createBoardMutation.mutate({
       ...values,
-      ...(templateId !== null ? { templateId } : {}),
+      ...(templateId !== null
+        ? {
+            templateId,
+          }
+        : {}),
     });
   };
 
+  const handleTemplateContinue = () => {
+    if (templateId === null) {
+      toast.error("Please select a template.");
+      return;
+    }
+
+    setShowTemplates(false);
+  };
+
   const isSubmitting =
-    createBoardMutation.isPending || importBoardMutation.isPending;
+    createBoardMutation.isPending ||
+    importBoardMutation.isPending;
 
   if (!isOpen) {
     return null;
@@ -156,13 +187,40 @@ export function CreateBoardModal({
             </h2>
 
             <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-              Add a new board to organize tasks and collaborate with your team.
+              Add a new board to organize tasks and collaborate with your
+              team.
             </p>
           </div>
         </div>
 
         {!showTemplates ? (
           <>
+            {selectedTemplate && (
+              <div className="mb-4 flex items-center justify-between rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2.5 dark:border-cyan-900 dark:bg-cyan-950/30">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-cyan-600 dark:text-cyan-400">
+                    Using template
+                  </p>
+
+                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                    {selectedTemplate.name}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTemplateId(null);
+                    setShowTemplates(true);
+                  }}
+                  disabled={isSubmitting}
+                  className="shrink-0 text-xs font-medium text-cyan-600 hover:underline dark:text-cyan-400"
+                >
+                  Change
+                </button>
+              </div>
+            )}
+
             <CreateBoardForm
               isSubmitting={isSubmitting}
               onSubmit={handleSubmit}
@@ -170,17 +228,19 @@ export function CreateBoardModal({
               onClose={onClose}
             />
 
-            <div className="mt-4 border-t pt-4 dark:border-zinc-800">
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => setShowTemplates(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-cyan-300 px-4 py-2.5 text-sm font-medium text-cyan-600 transition-colors hover:bg-cyan-50 disabled:pointer-events-none disabled:opacity-50 dark:border-cyan-800 dark:text-cyan-400 dark:hover:bg-cyan-950/30"
-              >
-                <Kanban className="h-4 w-4" />
-                Use template
-              </button>
-            </div>
+            {!selectedTemplate && !excelFile && (
+              <div className="mt-4 border-t pt-4 dark:border-zinc-800">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => setShowTemplates(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-cyan-300 px-4 py-2.5 text-sm font-medium text-cyan-600 transition-colors hover:bg-cyan-50 disabled:pointer-events-none disabled:opacity-50 dark:border-cyan-800 dark:text-cyan-400 dark:hover:bg-cyan-950/30"
+                >
+                  <Kanban className="h-4 w-4" />
+                  Use template
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div>
@@ -204,7 +264,9 @@ export function CreateBoardModal({
             <div className="mt-4 flex items-center justify-between border-t pt-4 dark:border-zinc-800">
               <button
                 type="button"
-                onClick={() => setShowTemplates(false)}
+                onClick={() => {
+                  setShowTemplates(false);
+                }}
                 disabled={isSubmitting}
                 className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
@@ -213,10 +275,9 @@ export function CreateBoardModal({
 
               <button
                 type="button"
-                onClick={() => {
-                  setShowTemplates(false);
-                }}
-                className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cyan-700"
+                onClick={handleTemplateContinue}
+                disabled={isSubmitting || templateId === null}
+                className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cyan-700 disabled:pointer-events-none disabled:opacity-50"
               >
                 Continue
               </button>
