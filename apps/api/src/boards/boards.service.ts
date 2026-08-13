@@ -80,71 +80,165 @@ export class BoardsService {
         },
       });
 
-      const columns = await tx.boardColumn.createManyAndReturn({
-        data: DEFAULT_COLUMNS.map((column, index) => ({
-          boardId: board.id,
-          name: column.name,
-          type: column.type,
-          isPrimary: column.isPrimary,
-          order: (index + 1) * 1000,
-        })),
-      });
-
-      const statusColumn = columns.find(
-        (column) => column.type === BoardColumnType.STATUS,
-      );
-
-      if (!statusColumn) {
-        throw new InternalServerErrorException(
-          'Default status column was not created.',
-        );
-      }
-
-      const statusOptions = await tx.statusOption.createManyAndReturn({
-        data: DEFAULT_STATUS_OPTIONS.map((status) => ({
-          columnId: statusColumn.id,
-          label: status.label,
-          color: status.color,
-          order: status.order,
-        })),
-      });
-
-      for (const groupTemplate of DEFAULT_GROUPS) {
-        const group = await tx.group.create({
-          data: {
-            boardId: board.id,
-            name: groupTemplate.name,
-            color: groupTemplate.color,
-            order: groupTemplate.order * 1000,
-            createdById: userId,
+      if (createBoardDto.templateId) {
+        const template = await tx.boardTemplate.findUnique({
+          where: {
+            id: createBoardDto.templateId,
+          },
+          include: {
+            groups: {
+              orderBy: {
+                position: 'asc',
+              },
+              include: {
+                columns: {
+                  orderBy: {
+                    position: 'asc',
+                  },
+                },
+              },
+            },
           },
         });
 
-        const tasks = await tx.task.createManyAndReturn({
-          data: groupTemplate.tasks.map((task, index) => ({
-            groupId: group.id,
-            name: task.title,
-            order: (index + 1) * 1000,
-            createdById: userId,
+        if (!template) {
+          throw new NotFoundException('Board template not found.');
+        }
+
+        const templateColumns = template.groups.flatMap(
+          (group) => group.columns,
+        );
+
+        const uniqueColumns = Array.from(
+          new Map(
+            templateColumns.map((column) => [column.id, column]),
+          ).values(),
+        );
+
+        const columns = await tx.boardColumn.createManyAndReturn({
+          data: uniqueColumns.map((column) => ({
+            boardId: board.id,
+            name: column.name,
+            type: column.isPrimary ? BoardColumnType.TEXT : column.type,
+            isPrimary: column.isPrimary,
+            order: column.position,
           })),
         });
 
-        await tx.taskCell.createMany({
-          data: tasks.flatMap((task, index) =>
-            columns
-              .filter((column) => !column.isPrimary)
-              .map((column) => ({
-                taskId: task.id,
-                columnId: column.id,
-                value: getDefaultCellValue(
-                  column.type,
-                  groupTemplate.tasks[index],
-                  user,
-                  statusOptions,
-                ),
-              })),
-          ),
+        const columnMap = new Map(
+          columns.map((column) => [column.name, column]),
+        );
+
+        for (const templateColumn of uniqueColumns) {
+          const boardColumn = columnMap.get(templateColumn.name);
+
+          if (!boardColumn) {
+            continue;
+          }
+
+          if (
+            templateColumn.type === BoardColumnType.STATUS &&
+            templateColumn.options
+          ) {
+            const options = templateColumn.options as {
+              options?: Array<{
+                label: string;
+                color: string;
+                order: number;
+              }>;
+            };
+
+            if (options.options?.length) {
+              await tx.statusOption.createMany({
+                data: options.options.map((option) => ({
+                  columnId: boardColumn.id,
+                  label: option.label,
+                  color: option.color,
+                  order: option.order,
+                })),
+              });
+            }
+          }
+        }
+
+        for (const templateGroup of template.groups) {
+          await tx.group.create({
+            data: {
+              boardId: board.id,
+              name: templateGroup.name,
+              color: templateGroup.color,
+              order: templateGroup.position,
+              createdById: userId,
+            },
+          });
+        }
+      } else {
+        const columns = await tx.boardColumn.createManyAndReturn({
+          data: DEFAULT_COLUMNS.map((column, index) => ({
+            boardId: board.id,
+            name: column.name,
+            type: column.type,
+            isPrimary: column.isPrimary,
+            order: (index + 1) * 1000,
+          })),
         });
+
+        const statusColumn = columns.find(
+          (column) => column.type === BoardColumnType.STATUS,
+        );
+
+        if (!statusColumn) {
+          throw new InternalServerErrorException(
+            'Default status column was not created.',
+          );
+        }
+
+        const statusOptions = await tx.statusOption.createManyAndReturn({
+          data: DEFAULT_STATUS_OPTIONS.map((status) => ({
+            columnId: statusColumn.id,
+            label: status.label,
+            color: status.color,
+            order: status.order,
+          })),
+        });
+
+        for (const groupTemplate of DEFAULT_GROUPS) {
+          const group = await tx.group.create({
+            data: {
+              boardId: board.id,
+              name: groupTemplate.name,
+              color: groupTemplate.color,
+              order: groupTemplate.order * 1000,
+              createdById: userId,
+            },
+          });
+
+          const tasks = await tx.task.createManyAndReturn({
+            data: groupTemplate.tasks.map((task, index) => ({
+              groupId: group.id,
+              name: task.title,
+              order: (index + 1) * 1000,
+              createdById: userId,
+            })),
+          });
+
+          await tx.taskCell.createMany({
+            data: tasks.flatMap((task, index) =>
+              columns
+                .filter((column) => !column.isPrimary)
+                .map((column) => ({
+                  taskId: task.id,
+                  columnId: column.id,
+                  value: getDefaultCellValue(
+                    column.type,
+                    groupTemplate.tasks[index],
+                    user,
+                    statusOptions,
+                  ),
+                })),
+            ),
+          });
+        }
       }
 
       return tx.board.findUniqueOrThrow({
@@ -317,6 +411,14 @@ export class BoardsService {
                 order: 'asc',
               },
             },
+
+            permissions: {
+              select: {
+                userId: true,
+                canEdit: true,
+                columnId: true,
+              },
+            },
           },
         },
 
@@ -374,6 +476,19 @@ export class BoardsService {
                             order: 'asc',
                           },
                         },
+
+                        permissions: {
+                          include: {
+                            user: {
+                              select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                avatarUrl: true,
+                              },
+                            },
+                          },
+                        },
                       },
                     },
 
@@ -421,6 +536,19 @@ export class BoardsService {
                                 order: 'asc',
                               },
                             },
+
+                            permissions: {
+                              include: {
+                                user: {
+                                  select: {
+                                    id: true,
+                                    firstName: true,
+                                    lastName: true,
+                                    avatarUrl: true,
+                                  },
+                                },
+                              },
+                            },
                           },
                         },
 
@@ -457,7 +585,7 @@ export class BoardsService {
 
     const searchTerm = search?.trim() ?? '';
     const personTerm = person?.trim() ?? '';
-    console.log({board})
+
     const groups = board.groups
       .map((group) => {
         const tasks = this.boardSearchService.filterTasks(group.tasks, {
@@ -483,6 +611,7 @@ export class BoardsService {
 
             cells: task.cells.map((cell) => ({
               ...cell,
+
               files: cell.files.map(({ file }) => file),
             })),
 
@@ -491,6 +620,7 @@ export class BoardsService {
 
               cells: subtask.cells.map((cell) => ({
                 ...cell,
+
                 files: cell.files.map(({ file }) => file),
               })),
             })),
@@ -509,8 +639,6 @@ export class BoardsService {
       ...(board.form
         ? [
             {
-              // id: board.boardForm.id,
-              // name: board.boardForm.title || 'Form',
               type: 'form',
             },
           ]

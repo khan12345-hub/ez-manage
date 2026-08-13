@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -25,6 +26,9 @@ import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
 import { BoardPermission } from '@repo/shared';
 import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
 import { BoardImportService } from './board-import.service';
+import { UpdateColumnPermissionDto } from './dto/update-column-permission.dto';
+import { ColumnsAccessService } from './update-column-access.service';
+import { UpdateColumnAccessDto } from './dto/update-column-access.dto';
 
 @Controller('boards')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -32,6 +36,7 @@ export class BoardsController {
   constructor(
     private readonly boardsService: BoardsService,
     private readonly boardImportService: BoardImportService,
+    private readonly columnAccessService: ColumnsAccessService,
   ) {}
 
   @Post()
@@ -110,4 +115,34 @@ export class BoardsController {
 
   //   return this.boardImportService.importExcelBoard(user.id, dto);
   // }
+
+    @Put(':boardId/columns/:columnId/permissions')
+  async updateColumnPermission(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+    @Body() dto: UpdateColumnPermissionDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.columnAccessService.updateColumnPermission(
+      boardId,
+      columnId,
+      dto,
+      user.id,
+    );
+  }
+
+  @Put(':boardId/columns/:columnId/access')
+  async updateColumnAccess(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+    @Body() dto: UpdateColumnAccessDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.columnAccessService.updateColumnAccess(
+      boardId,
+      columnId,
+      dto,
+      user.id,
+    );
+  }
 }

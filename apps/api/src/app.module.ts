@@ -53,6 +53,7 @@ import { BoardTemplatesModule } from './board-templates/board-templates.module';
     BoardFormsModule,
     PublicBoardFormsModule,
     BoardTemplatesModule,
+    
     ],
   controllers: [AppController],
   providers: [

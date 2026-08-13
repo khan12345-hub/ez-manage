@@ -137,7 +137,7 @@ export class InvitationsService {
       throw new BadRequestException('A pending invitation already exists.');
     }
     const token = randomUUID();
-    const inviteUrl = `${process.env.FRONTEND_URL}/invitations/${token}`;
+    const inviteUrl = `${process.env.FRONTEND_URL}/setup-account?token=${token}`;
     const template = invitationTemplate(inviteUrl)
     await this.mailService.sendMail({
       to: dto.email,

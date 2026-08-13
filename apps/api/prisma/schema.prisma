@@ -47,6 +47,8 @@ model User {
   activityLogs         ActivityLog[]      @relation("ActivityActor")
   undoneActivities     ActivityLog[]      @relation("ActivityUndoneBy")
 
+  boardColumnPermissions BoardColumnPermission[]
+
   @@map("users")
 }
 
@@ -273,6 +275,10 @@ model BoardColumn {
   isPrimary Boolean @default(false)
 
   boardFormFields BoardFormField[]
+
+  permissions BoardColumnPermission[]
+
+  accessControlEnabled Boolean         @default(false)
 
   @@index([boardId])
   @@map("board_columns")
@@ -626,7 +632,6 @@ model BoardTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   boards      Board[] 
-
   groups BoardTemplateGroup[]
 
   
@@ -658,4 +663,20 @@ model BoardTemplateColumn {
   group BoardTemplateGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@index([groupId])
+}
+
+model BoardColumnPermission {
+  id        Int @id @default(autoincrement())
+  columnId  Int
+  userId    Int
+  canEdit   Boolean @default(true)
+
+  column    BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([columnId, userId])
+  @@index([userId])
 }

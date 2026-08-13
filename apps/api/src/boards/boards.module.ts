@@ -5,9 +5,10 @@ import { WorkspaceAccessService } from 'src/workspace/workspace-access.service';
 import { BoardAccessService } from './board-access.service';
 import { BoardSearchService } from './board-search.service';
 import { BoardImportService } from './board-import.service';
+import { ColumnsAccessService } from './update-column-access.service';
 
 @Module({
   controllers: [BoardsController],
-  providers: [BoardsService, WorkspaceAccessService, BoardAccessService, BoardSearchService, BoardImportService],
+  providers: [BoardsService, WorkspaceAccessService, BoardAccessService, BoardSearchService, BoardImportService, ColumnsAccessService],
 })
 export class BoardsModule {}

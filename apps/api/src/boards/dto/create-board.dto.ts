@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MaxLength, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, MaxLength, IsEnum, IsOptional, IsInt } from 'class-validator';
 import { BoardVisibility } from '../../../generated/prisma/client';
 
 export class CreateBoardDto {
@@ -13,4 +13,8 @@ export class CreateBoardDto {
   @IsOptional()
   @IsEnum(BoardVisibility)
   visibility?: BoardVisibility;
+
+  @IsOptional()
+  @IsInt()
+  templateId?: number;
 }

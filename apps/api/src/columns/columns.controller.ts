@@ -6,16 +6,25 @@ import {
   Patch,
   Param,
   Delete,
+  Put,
+  Req,
   ParseIntPipe,
 } from '@nestjs/common';
+import { Request } from 'express';
+
 import { ColumnsService } from './columns.service';
+
 import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
 import { ReorderColumnDto } from './dto/reorder-column.dto';
 
+
 @Controller('columns')
 export class ColumnsController {
-  constructor(private readonly columnsService: ColumnsService) {}
+  constructor(
+    private readonly columnsService: ColumnsService,
+    
+  ) {}
 
   @Post()
   create(@Body() createColumnDto: CreateColumnDto) {
@@ -28,8 +37,8 @@ export class ColumnsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.columnsService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.columnsService.findOne(id);
   }
 
   @Patch('reorder')
@@ -46,4 +55,6 @@ export class ColumnsController {
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.columnsService.remove(id);
   }
+
+
 }

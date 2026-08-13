@@ -298,10 +298,21 @@ export class CellsService {
         },
         column: {
           select: {
-            id:true,
+            id: true,
             boardId: true,
             type: true,
             name: true,
+            accessControlEnabled: true,
+            permissions: {
+              where: {
+                userId,
+                canEdit: true,
+              },
+              select: {
+                id: true,
+                canEdit: true,
+              },
+            },
           },
         },
       },
@@ -318,9 +329,19 @@ export class CellsService {
       throw new NotFoundException('Cell not found for the specified board.');
     }
 
+    if (cell.column.accessControlEnabled) {
+      const hasPermission = cell.column.permissions.length > 0;
+
+      if (!hasPermission) {
+        throw new ForbiddenException(
+          `You do not have permission to edit the "${cell.column.name}" column.`,
+        );
+      }
+    }
+
     const previousValue = cell.value;
 
-    console.log({cell})
+    console.log({ cell });
 
     const columnType = cell.column.type;
 
