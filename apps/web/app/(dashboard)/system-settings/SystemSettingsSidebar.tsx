@@ -67,7 +67,7 @@ export function SettingsSidebar() {
 
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground group-data-[state=active]:text-primary">
-                  {item.label}
+                  {item.label} 2
                 </p>
 
                 <p className="truncate text-xs text-muted-foreground">

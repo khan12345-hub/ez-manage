@@ -9,6 +9,9 @@ import { useRouter } from "next/navigation";
 import { createBoard, importBoard } from "@/services/boards.api";
 import { CreateBoardForm } from "./CreateBoardForm";
 
+import { BoardTemplateSelector } from "./BoardTemplateSelector";
+import { useBoardTemplates } from "@/app/(dashboard)/system-settings/board-template/useBoardTemplate";
+
 interface CreateBoardModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,9 +27,20 @@ export function CreateBoardModal({
   const router = useRouter();
 
   const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templateId, setTemplateId] = useState<number | null>(null);
+
+  const {
+    data: templates = [],
+    isLoading: templatesLoading,
+  } = useBoardTemplates();
 
   const createBoardMutation = useMutation({
-    mutationFn: (values: { name: string; visibility: "PUBLIC" | "PRIVATE" }) =>
+    mutationFn: (values: {
+      name: string;
+      visibility: "PUBLIC" | "PRIVATE";
+      templateId?: number;
+    }) =>
       createBoard({
         ...values,
         workspaceId,
@@ -58,16 +72,12 @@ export function CreateBoardModal({
       name: string;
       visibility: "PUBLIC" | "PRIVATE";
       file: File;
-    }) => importBoard({...values, workspaceId}),
+    }) => importBoard({ ...values, workspaceId }),
 
     onSuccess: (board) => {
       queryClient.invalidateQueries({
         queryKey: ["boards", workspaceId],
       });
-
-      // toast.success(`Board "${board.name}" imported successfully.`);
-
-      // router.push(`/workspace/${workspaceId}/board/${board.id}`);
 
       onClose();
     },
@@ -84,6 +94,8 @@ export function CreateBoardModal({
   useEffect(() => {
     if (!isOpen) {
       setExcelFile(null);
+      setTemplateId(null);
+      setShowTemplates(false);
     }
   }, [isOpen]);
 
@@ -91,7 +103,6 @@ export function CreateBoardModal({
     name: string;
     visibility: "PUBLIC" | "PRIVATE";
   }) => {
-    console.log(values);
     if (excelFile) {
       importBoardMutation.mutate({
         ...values,
@@ -101,7 +112,10 @@ export function CreateBoardModal({
       return;
     }
 
-    createBoardMutation.mutate(values);
+    createBoardMutation.mutate({
+      ...values,
+      ...(templateId !== null ? { templateId } : {}),
+    });
   };
 
   const isSubmitting =
@@ -147,12 +161,68 @@ export function CreateBoardModal({
           </div>
         </div>
 
-        <CreateBoardForm
-          isSubmitting={isSubmitting}
-          onSubmit={handleSubmit}
-          onFileChange={setExcelFile}
-          onClose={onClose}
-        />
+        {!showTemplates ? (
+          <>
+            <CreateBoardForm
+              isSubmitting={isSubmitting}
+              onSubmit={handleSubmit}
+              onFileChange={setExcelFile}
+              onClose={onClose}
+            />
+
+            <div className="mt-4 border-t pt-4 dark:border-zinc-800">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setShowTemplates(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-cyan-300 px-4 py-2.5 text-sm font-medium text-cyan-600 transition-colors hover:bg-cyan-50 disabled:pointer-events-none disabled:opacity-50 dark:border-cyan-800 dark:text-cyan-400 dark:hover:bg-cyan-950/30"
+              >
+                <Kanban className="h-4 w-4" />
+                Use template
+              </button>
+            </div>
+          </>
+        ) : (
+          <div>
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                Choose a board template
+              </h3>
+
+              <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
+                Start your board with a predefined structure.
+              </p>
+            </div>
+
+            <BoardTemplateSelector
+              templates={templates}
+              selectedTemplateId={templateId}
+              onSelect={setTemplateId}
+              isLoading={templatesLoading}
+            />
+
+            <div className="mt-4 flex items-center justify-between border-t pt-4 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setShowTemplates(false)}
+                disabled={isSubmitting}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Back
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTemplates(false);
+                }}
+                className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cyan-700"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

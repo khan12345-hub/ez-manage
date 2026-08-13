@@ -15,10 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import {
-  TemplateColumn,
-  TemplateStatusOption,
-} from "./template.types";
+import { TemplateColumn, TemplateStatusOption } from "./template.types";
 
 const COLUMN_TYPES = [
   { value: "TEXT", label: "Text" },
@@ -34,9 +31,7 @@ const COLUMN_TYPES = [
 interface TemplateColumnRowProps {
   column: TemplateColumn;
 
-  onChange: (
-    changes: Partial<TemplateColumn>,
-  ) => void;
+  onChange: (changes: Partial<TemplateColumn>) => void;
 
   onDelete: () => void;
 }
@@ -46,33 +41,24 @@ export function TemplateColumnRow({
   onChange,
   onDelete,
 }: TemplateColumnRowProps) {
-  const statusOptions =
-    column.options?.statusOptions ?? [];
+  const statusOptions = column.options?.statusOptions ?? [];
 
-  function updateStatusOptions(
-    options: TemplateStatusOption[],
-  ) {
+  function updateStatusOptions(options: TemplateStatusOption[]) {
     onChange({
       options: {
         ...(column.options ?? {}),
-        statusOptions: options.map(
-          (option, index) => ({
-            ...option,
-            order: (index + 1) * 1000,
-          }),
-        ),
+        statusOptions: options.map((option, index) => ({
+          ...option,
+          order: (index + 1) * 1000,
+        })),
       },
     });
   }
 
   function addStatusOption() {
-    const optionNumber =
-      statusOptions.length + 1;
+    const optionNumber = statusOptions.length + 1;
     const color =
-      STATUS_COLORS[
-        statusOptions.length %
-          STATUS_COLORS.length
-      ] ?? "gray";
+      STATUS_COLORS[statusOptions.length % STATUS_COLORS.length] ?? "gray";
 
     updateStatusOptions([
       ...statusOptions,
@@ -80,9 +66,7 @@ export function TemplateColumnRow({
         id: crypto.randomUUID(),
         label: `Option ${optionNumber}`,
         color,
-        order:
-          (statusOptions.length + 1) *
-          1000,
+        order: (statusOptions.length + 1) * 1000,
       },
     ]);
   }
@@ -103,13 +87,9 @@ export function TemplateColumnRow({
     );
   }
 
-  function removeStatusOption(
-    optionId: string,
-  ) {
+  function removeStatusOption(optionId: string) {
     updateStatusOptions(
-      statusOptions.filter(
-        (option) => option.id !== optionId,
-      ),
+      statusOptions.filter((option) => option.id !== optionId),
     );
   }
 
@@ -127,40 +107,38 @@ export function TemplateColumnRow({
           className="h-8 flex-1 border-0 px-1 shadow-none focus-visible:ring-0"
         />
 
-        <Select
-          value={column.type}
-          onValueChange={(value) =>
-            onChange({
-              type: value,
-            })
-          }
-        >
-          <SelectTrigger className="h-8 w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-
-          <SelectContent>
-            {COLUMN_TYPES.map((type) => (
-              <SelectItem
-                key={type.value}
-                value={type.value}
-              >
-                {type.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         {!column.isPrimary && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={onDelete}
-          >
-            <Trash2 className="h-4 w-4 text-muted-foreground" />
-          </Button>
+          <>
+            <Select
+              value={column.type}
+              onValueChange={(value) =>
+                onChange({
+                  type: value,
+                })
+              }
+            >
+              <SelectTrigger className="h-8 w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+
+              <SelectContent>
+                {COLUMN_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </>
         )}
       </div>
 
@@ -189,26 +167,17 @@ export function TemplateColumnRow({
             </div>
           ) : (
             statusOptions.map((status) => (
-              <div
-                key={status.id}
-                className="flex items-center gap-2"
-              >
+              <div key={status.id} className="flex items-center gap-2">
                 <ColorPicker
                   colors={STATUS_COLORS}
                   value={status.color}
-                  onChange={(color) =>
-                    updateStatusOption(
-                      status.id,
-                      { color },
-                    )
-                  }
+                  onChange={(color) => updateStatusOption(status.id, { color })}
                 >
                   <button
                     type="button"
                     className="h-8 w-8 shrink-0 rounded-md transition hover:scale-105"
                     style={{
-                      backgroundColor:
-                        status.color,
+                      backgroundColor: status.color,
                     }}
                     aria-label="Change status color"
                   />
@@ -217,13 +186,9 @@ export function TemplateColumnRow({
                 <Input
                   value={status.label}
                   onChange={(event) =>
-                    updateStatusOption(
-                      status.id,
-                      {
-                        label:
-                          event.target.value,
-                      },
-                    )
+                    updateStatusOption(status.id, {
+                      label: event.target.value,
+                    })
                   }
                   placeholder="Option label"
                   className="h-8 flex-1"
@@ -234,11 +199,7 @@ export function TemplateColumnRow({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() =>
-                    removeStatusOption(
-                      status.id,
-                    )
-                  }
+                  onClick={() => removeStatusOption(status.id)}
                   aria-label={`Remove ${status.label}`}
                 >
                   <Trash2 className="h-4 w-4" />

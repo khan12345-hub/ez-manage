@@ -79,6 +79,7 @@ export function TemplateGroups({
           <TemplateGroupCard
             key={group.id}
             group={group}
+            
             canDelete={groups.length > 1}
             onChange={(changes) =>
               onGroupChange(

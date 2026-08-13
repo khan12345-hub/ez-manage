@@ -1,5 +1,4 @@
 "use client";
-
 import { BoardTemplates } from "./SystemSettingsBoardTemplates";
 import { SettingsPlaceholder } from "./SystemSettingsPlaceholder";
 import { SettingsSidebar } from "./SystemSettingsSidebar";
@@ -15,11 +14,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="border-b bg-background">
         <div className="mx-auto max-w-7xl px-6 py-6">
-          <div className="text-sm text-muted-foreground">
-            Settings 
-            
-            <span className="text-foreground">System</span>
-          </div>
+          
 
           <div className="mt-4">
             <h1 className="text-2xl font-semibold tracking-tight">
