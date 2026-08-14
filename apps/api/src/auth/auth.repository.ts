@@ -15,7 +15,7 @@ export class AuthRepository {
         lastName: true,
         email: true,
         password: true,
-        systemRole:true,
+        systemRole: true,
         status: true,
       },
     });
@@ -29,10 +29,27 @@ export class AuthRepository {
         firstName: true,
         lastName: true,
         email: true,
-        systemRole:true,
+        systemRole: true,
         status: true,
         password: true,
-        avatarUrl:true,
+        avatarUrl: true,
+        workspaceMemberships: {
+          select: {
+            role: true,
+            workspace: true,
+          },
+        },
+        boardMemberships: {
+          select: {
+            role: true,
+            board: {
+              select: {
+                name:true,
+                workspace: true,
+              },
+            },
+          },
+        },
       },
     });
   }

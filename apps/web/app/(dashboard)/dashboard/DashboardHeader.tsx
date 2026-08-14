@@ -35,50 +35,7 @@ export function DashboardHeader() {
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          className="rounded-xl"
-          aria-label="Search"
-        >
-          <Search className="size-4" />
-        </Button>
-
-        <Button
-          variant="outline"
-          size="icon"
-          className="rounded-xl"
-          aria-label="Notifications"
-        >
-          <Bell className="size-4" />
-        </Button>
-
-        <Button className="gap-2 rounded-xl">
-          <Plus className="size-4" />
-          Create
-        </Button>
-
-        <div className="ml-2 flex items-center gap-3">
-          <Avatar className="size-9">
-            {user?.avatarUrl && (
-              <AvatarImage src={user.avatarUrl} alt={fullName} />
-            )}
-
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
-
-          <div className="hidden min-w-0 lg:block">
-            <p className="max-w-[160px] truncate text-sm font-medium">
-              {fullName}
-            </p>
-
-            <p className="max-w-[160px] truncate text-xs text-muted-foreground">
-              {user?.email}
-            </p>
-          </div>
-        </div>
-      </div>
+    
     </div>
   );
 }

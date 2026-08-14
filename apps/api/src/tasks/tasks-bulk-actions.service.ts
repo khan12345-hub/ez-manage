@@ -1,13 +1,16 @@
 import { PrismaService } from 'prisma/prisma.service';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ActivityAction, ActivityEntityType } from 'generated/prisma/client';
 import { BulkDeleteTasksDto } from './dto/bulk-delete-tasks.dto';
 import { BulkUpdateDto } from './dto/bulk-update-task.dto';
-
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
 
 @Injectable()
 export class TaskBulkActionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activityLogsService: ActivityLogsService,
+  ) {}
 
   async bulkDelete(boardId: number, dto: BulkDeleteTasksDto, userId: number) {
     const tasks = await this.prisma.task.findMany({
@@ -61,12 +64,7 @@ export class TaskBulkActionsService {
     };
   }
 
-  async bulkUpdate(
-    boardId: number,
-    dto: BulkUpdateDto,
-    userId: number,
-  ) {
-    
+  async bulkUpdate(boardId: number, dto: BulkUpdateDto, userId: number) {
     const tasks = await this.prisma.task.findMany({
       where: {
         id: {
@@ -76,10 +74,19 @@ export class TaskBulkActionsService {
           boardId,
         },
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        groupId: true,
         cells: {
           where: {
             columnId: dto.columnId,
+          },
+          select: {
+            id: true,
+            taskId: true,
+            columnId: true,
+            value: true,
           },
         },
       },
@@ -94,6 +101,17 @@ export class TaskBulkActionsService {
         id: true,
         name: true,
         type: true,
+        accessControlEnabled: true,
+        permissions: {
+          where: {
+            userId,
+            canEdit: true,
+          },
+          select: {
+            id: true,
+            canEdit: true,
+          },
+        },
       },
     });
 
@@ -101,39 +119,70 @@ export class TaskBulkActionsService {
       throw new NotFoundException('Column not found.');
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    // Check column permission
+    if (column.accessControlEnabled) {
+      const hasPermission = column.permissions.length > 0;
+
+      if (!hasPermission) {
+        throw new ForbiddenException(
+          `You do not have permission to edit the "${column.name}" column.`,
+        );
+      }
+    }
+
+    const updatedCount = await this.prisma.$transaction(async (tx) => {
+      let count = 0;
+
       for (const task of tasks) {
         const cell = task.cells[0];
+
         const previousValue = cell?.value ?? null;
 
+        let updatedCell;
+
         if (cell) {
-          await tx.taskCell.update({
+          // Update existing cell
+          updatedCell = await tx.taskCell.update({
             where: {
               id: cell.id,
             },
             data: {
               value: dto.value,
             },
+            select: {
+              id: true,
+              taskId: true,
+              columnId: true,
+              value: true,
+            },
           });
         } else {
-          await tx.taskCell.create({
+          // Create cell if it doesn't exist
+          updatedCell = await tx.taskCell.create({
             data: {
               taskId: task.id,
               columnId: dto.columnId,
               value: dto.value,
             },
+            select: {
+              id: true,
+              taskId: true,
+              columnId: true,
+              value: true,
+            },
           });
         }
 
-        await tx.activityLog.create({
-          data: {
+        // Track bulk update exactly like a normal cell update
+        await this.activityLogsService.log(
+          {
             boardId,
-            groupId: task.groupId,
             taskId: task.id,
-            entityType: ActivityEntityType.TASK,
-            entityId: task.id,
-            action: ActivityAction.UPDATED,
+            groupId: task.groupId,
             userId,
+            entityType: ActivityEntityType.TASK_CELL,
+            entityId: updatedCell.id,
+            action: ActivityAction.UPDATED,
             metadata: {
               columnId: column.id,
               columnName: column.name,
@@ -143,13 +192,18 @@ export class TaskBulkActionsService {
               taskName: task.name,
             },
           },
-        });
+          tx,
+        );
+
+        count++;
       }
+
+      return count;
     });
 
     return {
       success: true,
-      updated: tasks.length,
+      updated: updatedCount,
     };
   }
 }

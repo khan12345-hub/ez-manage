@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/providers/AuthProvider";
 import { ArrowUpRight, FolderKanban } from "lucide-react";
 
 const workspaces = [
@@ -24,6 +25,7 @@ const workspaces = [
 ];
 
 export function WorkspaceCards() {
+  const { user } = useAuth();
   return (
     <section>
       <div className="mb-4">
@@ -34,47 +36,29 @@ export function WorkspaceCards() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {workspaces.map((workspace) => (
+        {user && user.workspaceMemberships.map((workspaceMembership:any) => (
           <button
-            key={workspace.name}
+            key={workspaceMembership.workspace.name}
             className="group rounded-2xl border bg-background p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div
-                  className={`flex size-11 items-center justify-center rounded-xl ${workspace.color}`}
+                  className={`flex size-11 items-center justify-center rounded-xl bg-primary`}
                 >
                   <FolderKanban className="size-5 text-white" />
                 </div>
 
                 <div>
-                  <h3 className="font-semibold">{workspace.name}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Workspace
-                  </p>
+                  <h3 className="font-semibold">{workspaceMembership.workspace.name}</h3>
+                  <p className="text-xs text-muted-foreground">Workspace</p>
                 </div>
               </div>
 
               <ArrowUpRight className="size-4 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
             </div>
 
-            <div className="mt-6 flex gap-6">
-              <div>
-                <p className="text-lg font-semibold">
-                  {workspace.boards}
-                </p>
-                <p className="text-xs text-muted-foreground">Boards</p>
-              </div>
-
-              <div>
-                <p className="text-lg font-semibold">
-                  {workspace.tasks}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Active tasks
-                </p>
-              </div>
-            </div>
+            
           </button>
         ))}
       </div>
