@@ -1,121 +1,190 @@
-"use client";
+// "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+// import { Trash2 } from "lucide-react";
 
-import type { AutomationStep } from "./automation.types";
+// import type { AutomationStep } from "./automation.types";
 
-type AutomationTriggerRowProps = {
-  step: AutomationStep;
-  onUpdate: (
-    id: string,
-    key: keyof AutomationStep,
-    value: string,
-  ) => void;
-  onRemove: (id: string) => void;
-  onAdd: () => void;
-};
+// import type {
+//   AutomationStatusColumn,
+//   AutomationTriggerType,
+// } from "./automation.trigger";
 
-export default function AutomationTriggerRow({
-  step,
-  onUpdate,
-  onRemove,
-  onAdd,
-}: AutomationTriggerRowProps) {
-  return (
-    <div className="group flex items-center gap-2 text-[25px] leading-[34px] text-slate-700">
-      <span>When</span>
+// import {
+//   AUTOMATION_TRIGGER_TYPES,
+// } from "./automation.trigger";
 
-      <select
-        value={step.field || ""}
-        onChange={(event) =>
-          onUpdate(
-            step.id,
-            "field",
-            event.target.value,
-          )
-        }
-        className="
-          h-[38px]
-          appearance-none
-          border-0
-          border-b
-          border-slate-400
-          bg-transparent
-          px-0
-          text-[25px]
-          text-slate-400
-          outline-none
-          focus:border-blue-500
-        "
-      >
-        <option value="">status</option>
-        <option value="status">status</option>
-        <option value="item-created">
-          item is created
-        </option>
-        <option value="date">date</option>
-      </select>
+// import AutomationTriggerPicker from "./AutomationTriggerPicker";
+// import AutomationStatusColumnPicker from "./AutomationStatusColumnPicker";
+// import AutomationStatusOptionPicker from "./AutomationStatusOptionPicker";
 
-      {step.field === "status" && (
-        <>
-          <span>changes to</span>
+// type AutomationTriggerRowProps = {
+//   step: AutomationStep;
 
-          <select
-            value={step.value || ""}
-            onChange={(event) =>
-              onUpdate(
-                step.id,
-                "value",
-                event.target.value,
-              )
-            }
-            className="
-              h-[38px]
-              appearance-none
-              border-0
-              border-b
-              border-slate-400
-              bg-transparent
-              px-0
-              text-[25px]
-              text-slate-400
-              outline-none
-              focus:border-blue-500
-            "
-          >
-            <option value="">something</option>
-            <option value="working">
-              Working on it
-            </option>
-            <option value="done">Done</option>
-            <option value="stuck">Stuck</option>
-          </select>
-        </>
-      )}
+//   statusColumns: AutomationStatusColumn[];
 
-      <div
-        className="
-          ml-auto
-          hidden
-          items-center
-          gap-4
-          group-hover:flex
-        "
-      >
-        <button
-          onClick={onAdd}
-          className="text-slate-500 hover:text-blue-600"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+//   onUpdate: (
+//     id: string,
+//     key: keyof AutomationStep,
+//     value: string,
+//   ) => void;
 
-        <button
-          onClick={() => onRemove(step.id)}
-          className="text-slate-500 hover:text-red-500"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
+//   onRemove: (
+//     id: string,
+//   ) => void;
+
+//   onAdd: () => void;
+
+//   onChangeTrigger: (
+//     trigger: AutomationTriggerType,
+//   ) => void;
+// };
+
+// export default function AutomationTriggerRow({
+//   step,
+//   statusColumns,
+//   onUpdate,
+//   onRemove,
+//   onChangeTrigger,
+// }: AutomationTriggerRowProps) {
+//   const selectedColumn =
+//     statusColumns.find(
+//       (column) =>
+//         String(column.id) ===
+//         String(step.columnId),
+//     );
+
+//   return (
+//     <div
+//       className="
+//         group
+//         flex
+//         items-center
+//         gap-2
+//         text-[25px]
+//         leading-[34px]
+//         text-slate-700
+//       "
+//     >
+//       <span>When</span>
+
+//       {step.field === "status" ? (
+//         <AutomationStatusColumnPicker
+//           columns={statusColumns}
+//           value={step.columnId}
+//           placeholder="status"
+//           onSelect={(columnId) => {
+//             onUpdate(
+//               step.id,
+//               "field",
+//               "status",
+//             );
+
+//             onUpdate(
+//               step.id,
+//               "columnId",
+//               String(columnId),
+//             );
+
+//             /*
+//              * Reset the selected option
+//              * whenever the status column
+//              * changes.
+//              */
+//             onUpdate(
+//               step.id,
+//               "value",
+//               "",
+//             );
+
+//             onChangeTrigger(
+//               "status",
+//             );
+//           }}
+//         />
+//       ) : (
+//         <AutomationTriggerPicker
+//           value={step.field}
+//           onSelect={(trigger) => {
+//             onUpdate(
+//               step.id,
+//               "field",
+//               trigger,
+//             );
+
+//             onUpdate(
+//               step.id,
+//               "columnId",
+//               "",
+//             );
+
+//             onUpdate(
+//               step.id,
+//               "value",
+//               "",
+//             );
+
+//             onChangeTrigger(
+//               trigger,
+//             );
+//           }}
+//         />
+//       )}
+
+//       {step.field === "status" && (
+//         <>
+//           <span>changes to</span>
+
+//           <AutomationStatusOptionPicker
+//             options={
+//               selectedColumn?.options ??
+//               []
+//             }
+//             value={step.value}
+//             disabled={!selectedColumn}
+//             placeholder="something"
+//             onSelect={(optionId) => {
+//               onUpdate(
+//                 step.id,
+//                 "value",
+//                 String(optionId),
+//               );
+
+//               console.log(
+//                 "Selected status:",
+//                 {
+//                   statusColumnId:
+//                     step.columnId,
+//                   selectedOption:
+//                     optionId,
+//                 },
+//               );
+//             }}
+//           />
+//         </>
+//       )}
+
+//       <div
+//         className="
+//           ml-auto
+//           hidden
+//           items-center
+//           group-hover:flex
+//         "
+//       >
+//         <button
+//           type="button"
+//           onClick={() =>
+//             onRemove(step.id)
+//           }
+//           className="
+//             text-slate-500
+//             transition-colors
+//             hover:text-red-500
+//           "
+//         >
+//           <Trash2 className="h-4 w-4" />
+//         </button>
+//       </div>
+//     </div>
+//   );
+// }

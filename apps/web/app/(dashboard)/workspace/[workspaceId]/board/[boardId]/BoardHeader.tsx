@@ -16,18 +16,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState } from "react";
-import AutomationModal from "./Automation/AutomationModal";
+// import AutomationModal from "./Automation/AutomationModal";
+// import { AutomationGroup } from "./Automation/AutomationBuilder";
 
 interface BoardHeaderProps {
   boardName: string;
+  columns: any;
   memberCount?: number;
   onInvite?: () => void;
   onCopyLink?: () => void;
   onBoardMenu?: () => void;
+  // groups: AutomationGroup[];
 }
 
 export function BoardHeader({
   boardName,
+  columns,
+  // groups,
   memberCount = 2,
   onInvite,
   onCopyLink,
@@ -79,17 +84,19 @@ export function BoardHeader({
           variant="ghost"
           size="sm"
           className="h-9 gap-2 px-3 font-normal"
-          onClick={() => setOpen(true)}
+          // onClick={() => setOpen(true)}
         >
           <Bot className="h-4 w-4" />
           <span>Automate</span>
         </Button>
 
-        <AutomationModal
+        {/* <AutomationModal
           open={open}
           onOpenChange={setOpen}
           boardName={boardName}
-        />
+          columns={columns}
+          groups={groups}
+        /> */}
 
         {/* Agents */}
         {/* <div className="relative">

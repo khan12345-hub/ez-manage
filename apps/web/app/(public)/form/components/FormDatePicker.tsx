@@ -65,11 +65,7 @@ export function FormDatePicker({
         >
           <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
 
-          {selected ? (
-            format(selected, "PPP")
-          ) : (
-            <span>{placeholder}</span>
-          )}
+          {selected ? format(selected, "PPP") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
 
@@ -78,9 +74,11 @@ export function FormDatePicker({
           mode="single"
           selected={selected}
           onSelect={handleSelect}
-          fromDate={fromDate}
-          toDate={toDate}
-          initialFocus
+          disabled={(date) => {
+            if (fromDate && date < fromDate) return true;
+            if (toDate && date > toDate) return true;
+            return false;
+          }}
         />
       </PopoverContent>
     </Popover>

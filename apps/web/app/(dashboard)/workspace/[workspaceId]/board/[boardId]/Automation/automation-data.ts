@@ -58,7 +58,7 @@ export const automationTemplates = [
     icon: UserPlus,
   },
   {
-    id: "status-notify",
+    id: "status-move",
     title: "When status changes to something notify someone",
     icon: Bell,
   },

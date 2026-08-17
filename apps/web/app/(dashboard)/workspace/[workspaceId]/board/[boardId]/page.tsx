@@ -96,25 +96,28 @@ export default function BoardPage() {
 
   return (
     <>
-      {board && 
-      <div className="bg-background p-6">
-        <BoardHeader boardName={board.name}/>
-        <BoardViewsTabs
-          board={board}
-          formContent={<FormBuilder board={board} />}
-        >
-          <Board
-            board={board ?? []}
-            search={search}
-            setSearch={setSearch}
-            isLoading={isLoading}
-            isFetching={isFetching}
-            isError={isError}
-            personFilter={personFilter}
-            setPersonFilter={setPersonFilter}
-          />
-        </BoardViewsTabs>
-      </div>}
+      {board && (
+        <div className="bg-background p-6">
+          <BoardHeader 
+          // groups={board.groups} 
+          boardName={board.name} columns={board.columns} />
+          <BoardViewsTabs
+            board={board}
+            formContent={<FormBuilder board={board} />}
+          >
+            <Board
+              board={board ?? []}
+              search={search}
+              setSearch={setSearch}
+              isLoading={isLoading}
+              isFetching={isFetching}
+              isError={isError}
+              personFilter={personFilter}
+              setPersonFilter={setPersonFilter}
+            />
+          </BoardViewsTabs>
+        </div>
+      )}
       <TaskDetailsSheet />
     </>
   );

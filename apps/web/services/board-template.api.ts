@@ -1,8 +1,7 @@
+import { CreateTemplatePayload } from "@/app/(dashboard)/system-settings/board-template/template.types";
 import { api } from "@/lib/api";
 
-import {
-  CreateTemplatePayload,
-} from "@/app/(dashboard)/workspace/[workspaceId]/settings/board-template/template.types";
+
 
 export async function getBoardTemplates() {
   const { data } = await api.get("/board-templates");

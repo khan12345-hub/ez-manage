@@ -5,80 +5,52 @@ import {
   BoardForm,
 } from "./board-feature-form.types";
 
-export function createInitialForm(
-  columns: any[],
-): FormBuilderState {
+export function createInitialForm(columns: any[]): FormBuilderState {
   return {
     name: "",
     description: "",
     groupId: null,
-    fields:
-      mapBoardColumnsToFields(columns),
+    fields: mapBoardColumnsToFields(columns),
   };
 }
 
-export function mapBoardColumnsToFields(
-  columns: any[],
-): FormField[] {
-  return columns.map(
-    (column, index) => {
-      const field: FormField = {
-        id: crypto.randomUUID(),
+export function mapBoardColumnsToFields(columns: any[]): FormField[] {
+  return columns.map((column, index) => {
+    const field: FormField = {
+      id: crypto.randomUUID(),
 
-        name: column.name,
+      name: column.name,
 
-        type: mapColumnTypeToFormType(
-          column.type,
-        ),
+      type: mapColumnTypeToFormType(column.type),
 
-        required: false,
+      required: false,
 
-        placeholder: "",
+      placeholder: "",
 
-        columnId: column.id,
+      columnId: column.id,
 
-        position: index,
-      };
+      position: index,
+    };
 
-      if (
-        column.type === "STATUS"
-      ) {
-        field.options = (
-          column.statusOptions ?? []
-        ).map(
-          (option: any) => ({
-            id: String(
-              option.id,
-            ),
+    if (column.type === "STATUS") {
+      field.options = (column.statusOptions ?? []).map((option: any) => ({
+        id: String(option.id),
 
-            label: option.label,
+        label: option.label,
 
-            value:
-              option.value ??
-              option.label
-                ?.toLowerCase()
-                .replace(
-                  /\s+/g,
-                  "-",
-                ),
+        value: option.value ?? option.label?.toLowerCase().replace(/\s+/g, "-"),
 
-            color:
-              option.color ??
-              "#6366f1",
+        color: option.color ?? "#6366f1",
 
-            isNew: false,
-          }),
-        );
-      }
+        isNew: false,
+      }));
+    }
 
-      return field;
-    },
-  );
+    return field;
+  });
 }
 
-export function mapColumnTypeToFormType(
-  type: string,
-): FormFieldType {
+export function mapColumnTypeToFormType(type: string): FormFieldType {
   switch (type) {
     case "TEXT":
       return "TEXT";
@@ -100,9 +72,7 @@ export function mapColumnTypeToFormType(
   }
 }
 
-export function getDefaultLabel(
-  type: FormFieldType,
-): string {
+export function getDefaultLabel(type: FormFieldType): string {
   switch (type) {
     case "TEXT":
       return "Text";
@@ -124,104 +94,69 @@ export function getDefaultLabel(
   }
 }
 
-export function mapExistingFormToState(
-  form: BoardForm,
-): FormBuilderState {
+export function mapExistingFormToState(form: BoardForm): FormBuilderState {
   return {
     name: form.title ?? "",
 
-    description:
-      form.description ?? "",
+    description: form.description ?? "",
 
     groupId: form.groupId,
 
     fields: [...form.fields]
-      .sort(
-        (a, b) =>
-          a.position - b.position,
-      )
-      .map(
-        (field) => ({
-          id: String(field.id),
+      .sort((a, b) => a.position - b.position)
+      .map((field) => ({
+        id: String(field.id),
 
-          name:
-            field.label ??
-            field.column?.name ??
-            "",
+        name: field.label ?? field.column?.name ?? "",
 
-          type:
-            mapColumnTypeToFormType(
-              field.column?.type ??
-                "TEXT",
-            ),
+        type: mapColumnTypeToFormType(field.column?.type ?? "TEXT"),
 
-          required:
-            field.required,
+        required: field.required,
 
-          hidden:
-            field.hidden,
+        hidden: field.hidden,
 
-          placeholder: "",
+        placeholder: "",
 
-          columnId:
-            field.columnId,
+        columnId: field.columnId,
 
-          description:
-            field.description ??
-            "",
+        description: field.description ?? "",
 
-          position:
-            field.position,
+        position: field.position,
 
-          options:
-            field.column
-              ?.statusOptions,
-        }),
-      ),
+        options: field.column?.statusOptions?.map((option) => ({
+          id: String(option.id),
+          label: option.label,
+          color: option.color ?? "#6366f1",
+          isNew: false,
+        })),
+      })),
   };
 }
 
-export function buildFormPayload(
-  form: FormBuilderState,
-) {
+export function buildFormPayload(form: FormBuilderState) {
   return {
     groupId: form.groupId!,
 
-    title:
-      form.name.trim() ||
-      undefined,
+    title: form.name.trim() || undefined,
 
-    description:
-      form.description.trim() ||
-      undefined,
+    description: form.description.trim() || undefined,
 
     submitLabel: "Submit",
 
     isActive: true,
 
-    fields: form.fields.map(
-      (field, index) => ({
-        columnId:
-          field.columnId!,
+    fields: form.fields.map((field, index) => ({
+      columnId: field.columnId!,
 
-        label:
-          field.name.trim() ||
-          undefined,
+      label: field.name.trim() || undefined,
 
-        description:
-          field.description
-            ?.trim() ||
-          undefined,
+      description: field.description?.trim() || undefined,
 
-        position: index,
+      position: index,
 
-        required:
-          field.required,
+      required: field.required,
 
-        hidden:
-          field.hidden ?? false,
-      }),
-    ),
+      hidden: field.hidden ?? false,
+    })),
   };
 }
-
