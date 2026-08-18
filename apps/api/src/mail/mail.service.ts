@@ -61,12 +61,11 @@ export class MailService {
       subject: template.subject,
       html: template.html,
       text: template.text,
-
     });
   }
 
   private getNotificationUrl(metadata?: Record<string, any>): string {
-    const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
     if (metadata?.boardId) {
       return `${baseUrl}/boards/${metadata.boardId}`;

@@ -12,6 +12,7 @@ export function Searchbar({ onOpen }: SearchbarProps) {
       type="button"
       onClick={onOpen}
       className="
+        cursor-pointer
         group
         relative
         flex
@@ -41,10 +42,10 @@ export function Searchbar({ onOpen }: SearchbarProps) {
         Search for anything...
       </span>
 
-      <kbd className="hidden items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-500 shadow-sm sm:flex">
+      {/* <kbd className="hidden items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-500 shadow-sm sm:flex">
         <span>Ctrl</span>
         <span>K</span>
-      </kbd>
+      </kbd> */}
     </button>
   );
 }

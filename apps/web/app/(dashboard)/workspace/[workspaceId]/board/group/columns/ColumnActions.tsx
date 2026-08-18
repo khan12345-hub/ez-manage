@@ -19,10 +19,7 @@ import {
 import { toast } from "sonner";
 import { useState } from "react";
 
-import {
-  deleteColumn,
-  updateColumnAccess,
-} from "@/services/columns.api";
+import { deleteColumn, updateColumnAccess } from "@/services/columns.api";
 
 import { ColumnAccessDialog } from "./ColumnAccessModal";
 import { useAuth } from "@/providers/AuthProvider";
@@ -52,10 +49,7 @@ interface Props {
   members: BoardMember[];
 }
 
-export function ColumnActions({
-  column,
-  members,
-}: Props) {
+export function ColumnActions({ column, members }: Props) {
   const queryClient = useQueryClient();
   const params = useParams();
   const { user } = useAuth();
@@ -82,17 +76,11 @@ export function ColumnActions({
 
   const accessMutation = useMutation({
     mutationFn: (enabled: boolean) =>
-      updateColumnAccess(
-        boardId,
-        column.id,
-        enabled,
-      ),
+      updateColumnAccess(boardId, column.id, enabled),
 
     onSuccess: (_, enabled) => {
       toast.success(
-        enabled
-          ? "Column protection enabled"
-          : "Column protection disabled",
+        enabled ? "Column protection enabled" : "Column protection disabled",
       );
 
       queryClient.invalidateQueries({
@@ -105,40 +93,32 @@ export function ColumnActions({
     },
   });
 
-  const isProtected = Boolean(
-    column.accessControlEnabled,
-  );
+  const isProtected = Boolean(column.accessControlEnabled);
 
   /**
    * SUPER_ADMIN can manage column protection.
    */
-  const isSuperAdmin =
-    user?.systemRole === "SUPER_ADMIN";
+  const isSuperAdmin = user?.systemRole === "SUPER_ADMIN";
 
   /**
    * Board OWNER can manage column protection.
    */
-  const isBoardOwner = members.some(
-    (member) =>
-      member.role === "OWNER" &&
-      member.user.id === user?.id,
+  const isBoardOwner = (members ?? []).some(
+    (member) => member.role === "OWNER" && member.user.id === user?.id,
   );
 
   /**
    * Only SUPER_ADMIN and board OWNER can
    * manage column protection.
    */
-  const canManageColumnProtection =
-    isSuperAdmin || isBoardOwner;
+  const canManageColumnProtection = isSuperAdmin || isBoardOwner;
 
   /**
    * Check explicit column edit permission.
    */
   const hasColumnEditAccess =
     column.permissions?.some(
-      (permission) =>
-        permission.userId === user?.id &&
-        permission.canEdit,
+      (permission) => permission.userId === user?.id && permission.canEdit,
     ) ?? false;
 
   /**
@@ -150,23 +130,18 @@ export function ColumnActions({
    * - User has explicit column edit access
    */
   const canDeleteColumn =
-    !isProtected ||
-    isSuperAdmin ||
-    isBoardOwner ||
-    hasColumnEditAccess;
+    !isProtected || isSuperAdmin || isBoardOwner || hasColumnEditAccess;
 
   /**
    * Primary columns cannot be deleted.
    */
-  const canShowDelete =
-    canDeleteColumn && !column.isPrimary;
+  const canShowDelete = canDeleteColumn && !column.isPrimary;
 
   /**
    * Show the three-dot menu only when there
    * is at least one actual action available.
    */
-  const hasActions =
-    canManageColumnProtection || canShowDelete;
+  const hasActions = canManageColumnProtection || canShowDelete;
 
   if (!hasActions) {
     return null;
@@ -185,22 +160,16 @@ export function ColumnActions({
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent
-          align="end"
-          className="w-52"
-        >
+        <DropdownMenuContent align="end" className="w-52">
           {/* Protection controls */}
           {canManageColumnProtection && (
             <>
               <DropdownMenuItem
                 disabled={
-                  column.isPrimary ||
-                  accessMutation.isPending ||
-                  isProtected
+                  column.isPrimary || accessMutation.isPending || isProtected
                 }
-                onClick={() =>
-                  accessMutation.mutate(true)
-                }
+                onClick={() => accessMutation.mutate(true)}
+                className="cursor-pointer"
               >
                 <ShieldCheck className="mr-2 h-4 w-4" />
                 Enable protection
@@ -208,13 +177,11 @@ export function ColumnActions({
 
               <DropdownMenuItem
                 disabled={
-                  column.isPrimary ||
-                  accessMutation.isPending ||
-                  !isProtected
+                  column.isPrimary || accessMutation.isPending || !isProtected
                 }
-                onClick={() =>
-                  accessMutation.mutate(false)
-                }
+                onClick={() => accessMutation.mutate(false)}
+                className="cursor-pointer"
+
               >
                 <ShieldOff className="mr-2 h-4 w-4" />
                 Disable protection
@@ -227,6 +194,8 @@ export function ColumnActions({
                     event.preventDefault();
                     setAccessOpen(true);
                   }}
+                className="cursor-pointer"
+
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Manage access
@@ -238,12 +207,10 @@ export function ColumnActions({
           {/* Delete */}
           {canShowDelete && (
             <DropdownMenuItem
-              disabled={
-                deleteMutation.isPending ||
-                accessMutation.isPending
-              }
-              className="text-destructive focus:text-destructive"
+              disabled={deleteMutation.isPending || accessMutation.isPending}
+              className="cursor-pointer text-destructive focus:text-destructive"
               onClick={() => deleteMutation.mutate()}
+              
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete

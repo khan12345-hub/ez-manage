@@ -165,7 +165,7 @@ export function ColumnAccessDialog({
 
         <div className="border-t" />
 
-        <div className="max-h-72 overflow-y-auto p-2">
+        {filteredMembers && <div className="max-h-72 overflow-y-auto p-2">
           {filteredMembers.length === 0 ? (
             <div className="px-3 py-8 text-center text-sm text-muted-foreground">
               No people found
@@ -216,7 +216,7 @@ export function ColumnAccessDialog({
               );
             })
           )}
-        </div>
+        </div>}
       </DialogContent>
     </Dialog>
   );

@@ -88,6 +88,7 @@ export function FileItem({ file, onClick }: TaskFileItemProps) {
       type="button"
       onClick={onClick}
       className="
+        cursor-pointer
         flex
         w-full
         gap-3

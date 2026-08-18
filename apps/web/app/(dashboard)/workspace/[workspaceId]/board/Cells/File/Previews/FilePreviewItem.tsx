@@ -138,7 +138,7 @@ export default function FilePreviewItem({
         <button
           type="button"
           onClick={() => setPreviewOpen(true)}
-          className="shrink-0"
+          className="cursor-pointer shrink-0"
         >
           <FileThumbnail
             fileName={file.fileName}

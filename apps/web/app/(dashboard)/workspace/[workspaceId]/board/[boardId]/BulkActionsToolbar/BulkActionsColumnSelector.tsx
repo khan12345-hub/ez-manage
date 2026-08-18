@@ -66,8 +66,9 @@ export function BulkColumnSelector({
 
         onChange(column);
       }}
+      
     >
-      <SelectTrigger className="h-9 w-[200px]">
+      <SelectTrigger className="h-9 w-[200px] cursor-pointer">
         <SelectValue placeholder="Select column" />
       </SelectTrigger>
 

@@ -157,26 +157,22 @@ export function GlobalSearchModal({
                     </div>
                   ))}
 
-                  {data.users.length > 0 && (
+                  {data.users.length > 0 && data && data.users.length > 0 && (
                     <div className="rounded-xl border">
                       <div className="border-b px-6 py-3 font-semibold">
                         People
                       </div>
 
-                      {data && data.users.length > 0 && (
-                        <div className="rounded-xl border">
-                          <div className="border-b px-6 py-3 font-semibold">
-                            People
-                          </div>
-
-                          <div className="grid gap-8 p-6 sm:grid-cols-3 lg:grid-cols-5">
-                            {data.users.map((user: any) => (
-                              <div
-                                key={user.id}
-                                className="relative mt-12 rounded-xl border bg-background px-5 pb-5 pt-14 text-center shadow-sm transition-all hover:shadow-md"
-                              >
-                                {/* Avatar */}
-                                <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2">
+                      <div className="grid gap-8 p-6 sm:grid-cols-3 lg:grid-cols-5">
+                        {data.users.map((user: any) => (
+                          <div
+                            key={user.id}
+                            className="relative mt-12 rounded-xl border bg-background px-5 pb-5 pt-14 text-center shadow-sm transition-all hover:shadow-md"
+                          >
+                            {/* Avatar */}
+                            <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2">
+                              {user.avatarUrl ? (
+                                <>
                                   {/* Blurred background */}
                                   <div className="absolute inset-0 scale-125 overflow-hidden rounded-full">
                                     <img
@@ -185,7 +181,7 @@ export function GlobalSearchModal({
                                           .NEXT_PUBLIC_BACKEND_BASE_URL +
                                         user.avatarUrl
                                       }
-                                      alt=""
+                                      alt={`${user.firstName} ${user.lastName}`}
                                       className="h-full w-full scale-105 object-cover blur-xl opacity-70"
                                     />
                                   </div>
@@ -199,58 +195,58 @@ export function GlobalSearchModal({
                                     alt={`${user.firstName} ${user.lastName}`}
                                     className="relative h-24 w-24 rounded-full border-4 border-background object-cover shadow-lg"
                                   />
+                                </>
+                              ) : (
+                                /* Initials */
+                                <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-4 border-background bg-primary text-2xl font-semibold text-primary-foreground shadow-lg">
+                                  {`${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase()}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Name */}
+                            <h3 className="text-lg font-semibold italic mt-4">
+                              {user.firstName} {user.lastName}
+                            </h3>
+
+                            {/* Optional join date */}
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {user.createdAt
+                                ? new Date(user.createdAt).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                    },
+                                  )
+                                : ""}
+                            </p>
+
+                            {/* Contact */}
+                            <div className="mt-6 space-y-3 text-sm">
+                              <div className="flex items-center gap-3 rounded-md border px-3 py-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full border">
+                                  <Mail className="h-4 w-4" />
                                 </div>
 
-                                {/* Name */}
-                                <h3 className="text-lg font-semibold italic mt-4">
-                                  {user.firstName} {user.lastName}
-                                </h3>
+                                <span className="flex-1 truncate text-left">
+                                  {user.email}
+                                </span>
 
-                                {/* Optional join date */}
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                  {user.createdAt
-                                    ? new Date(
-                                        user.createdAt,
-                                      ).toLocaleDateString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                      })
-                                    : ""}
-                                </p>
-
-                                {/* Contact */}
-                                <div className="mt-6 space-y-3 text-sm">
-                                  <div className="flex items-center gap-3 rounded-md border px-3 py-2">
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-full border">
-                                      <Mail className="h-4 w-4" />
-                                    </div>
-
-                                    <span className="flex-1 truncate text-left">
-                                      {user.email}
-                                    </span>
-
-                                    <button
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(
-                                          user.email,
-                                        );
-                                        toast.success(
-                                          "Email copied to clipboard",
-                                        );
-                                      }}
-                                      className="text-muted-foreground hover:text-foreground"
-                                    >
-                                      <Copy className="h-4 w-4" />
-                                    </button>
-                                  </div>
-
-                                  
-                                </div>
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(user.email);
+                                    toast.success("Email copied to clipboard");
+                                  }}
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </button>
                               </div>
-                            ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        ))}
+                      </div>
                     </div>
                   )}
 

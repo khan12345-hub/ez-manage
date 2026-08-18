@@ -59,7 +59,7 @@ export default function SetupAccountPage() {
     mutationFn: (data: SetupAccountPayload) => setUpAccount(data),
     onSuccess: () => {
       toast.success(`Account Setup Completed!`);
-      router.replace("/dashboard")
+      router.push("/dashboard")
     },
     onError: (error: any) => {
       const errorMsg =

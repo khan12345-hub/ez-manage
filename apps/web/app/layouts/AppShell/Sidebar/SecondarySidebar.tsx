@@ -279,7 +279,7 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
                         <button
                           type="button"
                           onClick={() => handleBoardChange(item)}
-                          className="flex-1 truncate text-left"
+                          className="cursor-pointer flex-1 truncate text-left"
                         >
                           {item.name}
                         </button>

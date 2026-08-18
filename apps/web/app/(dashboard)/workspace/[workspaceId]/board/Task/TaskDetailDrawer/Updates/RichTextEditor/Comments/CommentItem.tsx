@@ -99,7 +99,7 @@ export function CommentItem({
           <button
             type="button"
             onClick={() => setShowReply((v) => !v)}
-            className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            className="mt-3 cursor-pointer flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <Reply className="h-3.5 w-3.5" />
             {showReply ? "Cancel" : "Reply"}

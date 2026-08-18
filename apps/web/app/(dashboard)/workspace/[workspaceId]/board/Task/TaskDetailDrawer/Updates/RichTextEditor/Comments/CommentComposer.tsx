@@ -1,11 +1,8 @@
 "use client";
 
 import { useState } from "react";
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-
 import { createTaskComment } from "@/services/comments.api";
-
 import { RichTextEditor } from "../RichTextEditor";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +16,7 @@ export function CommentComposer({ taskId }: CommentComposerProps) {
 
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [editorKey, setEditorKey] = useState(0);
 
   const createCommentMutation = useMutation({
     mutationFn: () =>
@@ -30,6 +28,9 @@ export function CommentComposer({ taskId }: CommentComposerProps) {
     onSuccess: () => {
       setContent("");
       setFiles([]);
+
+      // Force RichTextEditor to reset its internal state
+      setEditorKey((prev) => prev + 1);
 
       queryClient.invalidateQueries({
         queryKey: ["task-comments", taskId],
@@ -50,6 +51,7 @@ export function CommentComposer({ taskId }: CommentComposerProps) {
   return (
     <div className="space-y-3 px-4">
       <RichTextEditor
+        key={editorKey}
         value={content}
         onChange={setContent}
         onFilesChange={setFiles}

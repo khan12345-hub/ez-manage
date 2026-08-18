@@ -173,6 +173,7 @@ export function Notifications() {
             : "Notifications"
         }
         className="
+          cursor-pointer
           relative
           rounded-full
           p-1.5
