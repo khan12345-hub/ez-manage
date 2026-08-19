@@ -68,4 +68,5 @@ export const AUTOMATION_ACTIONS = [
     icon: Mail,
     category: "Featured",
   },
+  
 ] as const satisfies readonly AutomationAction[];

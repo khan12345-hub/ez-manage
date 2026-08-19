@@ -52,21 +52,21 @@ export const automationCategories = [
 ];
 
 export const automationTemplates = [
-  {
-    id: "assign-creator",
-    title: "When an item is created assign creator as person",
-    icon: UserPlus,
-  },
+  // {
+  //   id: "assign-creator",
+  //   title: "When an item is created assign creator as person",
+  //   icon: UserPlus,
+  // },
   {
     id: "status-move",
     title: "When status changes to something notify someone",
     icon: Bell,
   },
-  {
-    id: "date-notify",
-    title: "When date arrives notify someone",
-    icon: CalendarDays,
-  },
+  // {
+  //   id: "date-notify",
+  //   title: "When date arrives notify someone",
+  //   icon: CalendarDays,
+  // },
 ];
 
 export const statusOptions = [

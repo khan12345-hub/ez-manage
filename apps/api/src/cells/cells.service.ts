@@ -18,6 +18,7 @@ import { LocalStorageService } from 'src/storage/local-storage.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskAssignedEvent } from 'src/notifications/events/task-assigned.event';
 import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
+import { AutomationEngineService } from 'src/automations/automation-engine.service';
 
 @Injectable()
 export class CellsService {
@@ -113,6 +114,7 @@ export class CellsService {
     private readonly storageService: LocalStorageService,
     private readonly eventEmitter: EventEmitter2,
     private readonly activityLogsService: ActivityLogsService,
+    private readonly automationEngineService: AutomationEngineService,
   ) {}
 
   async create(createCellDto: CreateCellDto, boardId: number, userId: number) {
@@ -377,6 +379,16 @@ export class CellsService {
     });
 
     console.log('[ActivityLog] Cell updated:', activityLog);
+
+    //
+    if (columnType === BoardColumnType.STATUS && previousValue !== dto.value) {
+      await this.automationEngineService.handleStatusChanged(
+        cell.taskId,
+        boardId,
+        cell.columnId,
+        Number(dto.value),
+      );
+    }
 
     if (columnType === BoardColumnType.PERSON) {
       const newAssigneeIds = this.extractPersonIds(dto.value);

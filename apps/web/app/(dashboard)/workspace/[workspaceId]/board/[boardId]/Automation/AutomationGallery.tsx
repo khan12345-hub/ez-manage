@@ -169,7 +169,7 @@ export default function AutomationGallery({
 
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
               {/* Create from scratch */}
-              <button
+              {/* <button
                 onClick={onCreateFromScratch}
                 className="
                   group
@@ -198,7 +198,7 @@ export default function AutomationGallery({
                   <Sparkles className="h-3.5 w-3.5 text-purple-500" />
                   or create with AI
                 </div>
-              </button>
+              </button> */}
 
               {filteredTemplates.map((template) => {
                 const Icon = template.icon;

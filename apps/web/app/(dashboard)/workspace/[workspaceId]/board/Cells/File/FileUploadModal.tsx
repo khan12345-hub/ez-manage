@@ -136,7 +136,10 @@ export function FileUploadModal({
                     {file.type.startsWith("image/") ? (
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border">
                         <Image
-                          src={URL.createObjectURL(file)}
+                          src={
+                            process.env.NEXT_PUBLIC_BACKEND_BASE_URL +
+                            URL.createObjectURL(file)
+                          }
                           alt={file.name}
                           width={48}
                           height={48}

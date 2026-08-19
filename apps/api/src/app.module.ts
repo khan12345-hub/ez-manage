@@ -24,6 +24,7 @@ import { GlobalSearchModule } from './global-search/global-search.module';
 import { BoardFormsModule } from './board-forms/board-forms.module';
 import { PublicBoardFormsModule } from './public-board-forms/public-board-forms.module';
 import { BoardTemplatesModule } from './board-templates/board-templates.module';
+import { AutomationsModule } from './automations/automations.module';
 
 @Module({
   imports: [
@@ -53,7 +54,7 @@ import { BoardTemplatesModule } from './board-templates/board-templates.module';
     BoardFormsModule,
     PublicBoardFormsModule,
     BoardTemplatesModule,
-    
+    AutomationsModule
     ],
   controllers: [AppController],
   providers: [

@@ -29,6 +29,7 @@ import {
 } from "@/services/board-access-management.api";
 
 import { ManageBoardAccessModal } from "./ManageBoardAccessModal";
+import AutomationModal from "./Automation/AutomationModal";
 
 interface BoardHeaderProps {
   boardId: number;
@@ -36,12 +37,14 @@ interface BoardHeaderProps {
   columns: any;
   memberCount?: number;
   boardAccess?: any;
+  groups?:any;
 }
 
 export function BoardHeader({
   boardId,
   boardName,
   columns,
+  groups,
   memberCount = 0,
   boardAccess,
 }: BoardHeaderProps) {
@@ -113,6 +116,8 @@ export function BoardHeader({
     },
   });
 
+   const [open, setOpen] = useState(false);
+
   return (
     <>
       <header className="flex h-16 w-full items-center justify-between bg-background px-6">
@@ -129,12 +134,13 @@ export function BoardHeader({
         </button>
 
         {/* Actions */}
-        {/* <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             className="h-9 gap-2 px-3 font-normal"
+            onClick={()=>setOpen(!open)}
           >
             <Bot className="h-4 w-4" />
             Automate
@@ -166,7 +172,7 @@ export function BoardHeader({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div> */}
+        </div>
       </header>
 
       <ManageBoardAccessModal
@@ -203,6 +209,13 @@ export function BoardHeader({
           removeMutation.isPending
         }
       />
+      <AutomationModal
+          open={open}
+          onOpenChange={setOpen}
+          boardName={boardName}
+          columns={columns}
+          groups={groups}
+        />
     </>
   );
 }

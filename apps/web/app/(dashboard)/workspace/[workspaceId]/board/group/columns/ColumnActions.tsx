@@ -51,8 +51,8 @@ interface Props {
 
 export function ColumnActions({ column, members }: Props) {
   const queryClient = useQueryClient();
-  const params = useParams();
   const { user } = useAuth();
+  const params = useParams();
 
   const boardId = Number(params.boardId);
 

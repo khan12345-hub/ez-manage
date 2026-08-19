@@ -1,303 +1,232 @@
-// "use client";
+"use client";
 
-// import { Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import type { AutomationStep } from "./automation.types";
+import type { AutomationActionType } from "./automation.actions";
+import AutomationActionPicker from "./AutomationActionPicker";
+import AutomationGroupPicker from "./AutomationGroupPicker";
 
-// import type {
-//   AutomationStep,
-// } from "./automation.types";
+import type { AutomationGroup } from "./AutomationGroupPicker";
 
-// import type {
-//   AutomationActionType,
-// } from "./automation.actions";
+type Props = {
+  step: AutomationStep;
 
-// import {
-//   AUTOMATION_ACTIONS,
-//   getActionLabel,
-// } from "./automation.actions";
+  hasTrigger: boolean;
 
-// import AutomationActionPicker from "./AutomationActionPicker";
-// import AutomationGroupPicker from "./AutomationGroupPicker";
+  isPlaceholder?: boolean;
 
-// import type {
-//   AutomationGroup,
-// } from "./AutomationGroupPicker";
+  groups: AutomationGroup[];
 
-// type Props = {
-//   step: AutomationStep;
+  onUpdate: (id: string, key: keyof AutomationStep, value: string) => void;
 
-//   hasTrigger: boolean;
+  onRemove: (id: string) => void;
 
-//   isPlaceholder?: boolean;
+  onAdd: (action: AutomationActionType) => void;
+};
 
-//   groups: AutomationGroup[];
+export default function AutomationActionRow({
+  step,
+  hasTrigger,
+  isPlaceholder = false,
+  groups,
+  onUpdate,
+  onRemove,
+  onAdd,
+}: Props) {
+ function getActionLabel(field: string): string {
+    const labels: Record<string, string> = {
+      name: "Task name",
+      description: "Description",
+      status: "Status",
+      priority: "Priority",
+      assignee: "Assignee",
+      dueDate: "Due date",
+      startDate: "Start date",
+      timeline: "Timeline",
+      group: "Group",
+      board: "Board",
+      person: "Person",
+      email: "Email",
+      comment: "Comment",
+      label: "Label",
+    };
 
-//   onUpdate: (
-//     id: string,
-//     key: keyof AutomationStep,
-//     value: string,
-//   ) => void;
+    return (
+      labels[field] ??
+      field
+        .replace(/([A-Z])/g, " $1")
+        .replace(/^./, (char) => char.toUpperCase())
+    );
+  }
+  if (isPlaceholder) {
+    return (
+      <div
+        className="
+          flex
+          items-center
+          gap-2
+          text-[25px]
+          leading-[34px]
+          text-slate-700
+        "
+      >
+        <span>and then</span>
 
-//   onRemove: (
-//     id: string,
-//   ) => void;
+        <AutomationActionPicker
+          disabled={!hasTrigger}
+          placeholder="do this"
+          onSelect={onAdd}
+        />
+      </div>
+    );
+  }
 
-//   onAdd: (
-//     action: AutomationActionType,
-//   ) => void;
-// };
+  const hasAction = Boolean(step.field);
 
-// export default function AutomationActionRow({
-//   step,
-//   hasTrigger,
-//   isPlaceholder = false,
-//   groups,
-//   onUpdate,
-//   onRemove,
-//   onAdd,
-// }: Props) {
-//   if (isPlaceholder) {
-//     return (
-//       <div
-//         className="
-//           flex
-//           items-center
-//           gap-2
-//           text-[25px]
-//           leading-[34px]
-//           text-slate-700
-//         "
-//       >
-//         <span>
-//           and then
-//         </span>
+  return (
+    <div
+      className="
+        group
+        flex
+        items-center
+        gap-2
+        text-[25px]
+        leading-[34px]
+        text-slate-700
+      "
+    >
+      <span>Then</span>
 
-//         <AutomationActionPicker
-//           disabled={!hasTrigger}
-//           placeholder="do this"
-//           onSelect={onAdd}
-//         />
-//       </div>
-//     );
-//   }
+      {/* Move action */}
 
-//   const hasAction =
-//     Boolean(step.field);
+      {step.field === "move" ? (
+        <AutomationGroupPicker
+          groups={groups}
+          value={step.value}
+          placeholder="move item to group"
+          disabled={!hasTrigger}
+          onSelect={(groupId) => {
+            onUpdate(step.id, "value", String(groupId));
 
-//   return (
-//     <div
-//       className="
-//         group
-//         flex
-//         items-center
-//         gap-2
-//         text-[25px]
-//         leading-[34px]
-//         text-slate-700
-//       "
-//     >
-//       <span>Then</span>
+            console.log("Selected group:", {
+              groupId,
+            });
+          }}
+        />
+      ) : (
+        /* Normal action */
 
-//       {/* Move action */}
+        <AutomationActionPicker
+          disabled={!hasTrigger}
+          placeholder={getActionLabel(step.field)}
+          onSelect={(action) => {
+            onUpdate(step.id, "field", action);
 
-//       {step.field === "move" ? (
-//         <AutomationGroupPicker
-//           groups={groups}
-//           value={step.value}
-//           placeholder="move item to group"
-//           disabled={!hasTrigger}
-//           onSelect={(groupId) => {
-//             onUpdate(
-//               step.id,
-//               "value",
-//               String(groupId),
-//             );
+            onUpdate(step.id, "value", "");
+          }}
+        />
+      )}
 
-//             console.log(
-//               "Selected group:",
-//               {
-//                 groupId,
-//               },
-//             );
-//           }}
-//         />
-//       ) : (
-//         /* Normal action */
+      {/* Action value */}
 
-//         <AutomationActionPicker
-//           disabled={!hasTrigger}
-//           placeholder={getActionLabel(
-//             step.field,
-//           )}
-//           onSelect={(action) => {
-//             onUpdate(
-//               step.id,
-//               "field",
-//               action,
-//             );
+      {step.field !== "move" && <ActionValue step={step} onUpdate={onUpdate} />}
 
-//             onUpdate(
-//               step.id,
-//               "value",
-//               "",
-//             );
-//           }}
-//         />
-//       )}
+      {/* Delete */}
 
-//       {/* Action value */}
+      {hasAction && (
+        <div
+          className="
+            ml-auto
+            hidden
+            items-center
+            group-hover:flex
+          "
+        >
+          <button
+            type="button"
+            onClick={() => onRemove(step.id)}
+            className="
+              text-slate-500
+              hover:text-red-500
+            "
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
-//       {step.field !== "move" && (
-//         <ActionValue
-//           step={step}
-//           onUpdate={onUpdate}
-//         />
-//       )}
+function ActionValue({
+  step,
+  onUpdate,
+}: {
+  step: AutomationStep;
 
-//       {/* Delete */}
+  onUpdate: (id: string, key: keyof AutomationStep, value: string) => void;
+}) {
+  switch (step.field) {
+    case "notify":
+      return (
+        <select
+          value={step.value}
+          onChange={(event) => onUpdate(step.id, "value", event.target.value)}
+          className={valueClassName}
+        >
+          <option value="">someone</option>
 
-//       {hasAction && (
-//         <div
-//           className="
-//             ml-auto
-//             hidden
-//             items-center
-//             group-hover:flex
-//           "
-//         >
-//           <button
-//             type="button"
-//             onClick={() =>
-//               onRemove(step.id)
-//             }
-//             className="
-//               text-slate-500
-//               hover:text-red-500
-//             "
-//           >
-//             <Trash2 className="h-4 w-4" />
-//           </button>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
+          <option value="creator">the item creator</option>
 
-// function ActionValue({
-//   step,
-//   onUpdate,
-// }: {
-//   step: AutomationStep;
+          <option value="assignee">the assignee</option>
 
-//   onUpdate: (
-//     id: string,
-//     key: keyof AutomationStep,
-//     value: string,
-//   ) => void;
-// }) {
-//   switch (step.field) {
-//     case "notify":
-//       return (
-//         <select
-//           value={step.value}
-//           onChange={(event) =>
-//             onUpdate(
-//               step.id,
-//               "value",
-//               event.target.value,
-//             )
-//           }
-//           className={valueClassName}
-//         >
-//           <option value="">
-//             someone
-//           </option>
+          <option value="board-members">board members</option>
+        </select>
+      );
 
-//           <option value="creator">
-//             the item creator
-//           </option>
+    case "change-status":
+      return <ValueButton>{step.value || "something"}</ValueButton>;
 
-//           <option value="assignee">
-//             the assignee
-//           </option>
+    case "assign":
+      return <ValueButton>{step.value || "someone"}</ValueButton>;
 
-//           <option value="board-members">
-//             board members
-//           </option>
-//         </select>
-//       );
+    case "create-subitem":
+      return <ValueButton>{step.value || "something"}</ValueButton>;
 
-//     case "change-status":
-//       return (
-//         <ValueButton>
-//           {step.value ||
-//             "something"}
-//         </ValueButton>
-//       );
+    case "set-date":
+      return <ValueButton>{step.value || "a date"}</ValueButton>;
 
-//     case "assign":
-//       return (
-//         <ValueButton>
-//           {step.value ||
-//             "someone"}
-//         </ValueButton>
-//       );
+    case "send-email":
+      return <ValueButton>{step.value || "someone"}</ValueButton>;
 
-//     case "create-subitem":
-//       return (
-//         <ValueButton>
-//           {step.value ||
-//             "something"}
-//         </ValueButton>
-//       );
+    default:
+      return null;
+  }
+}
 
-//     case "set-date":
-//       return (
-//         <ValueButton>
-//           {step.value ||
-//             "a date"}
-//         </ValueButton>
-//       );
+function ValueButton({ children }: { children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      className={`
+        ${valueClassName}
+        hover:border-blue-500
+        hover:text-blue-500
+      `}
+    >
+      {children}
+    </button>
+  );
+}
 
-//     case "send-email":
-//       return (
-//         <ValueButton>
-//           {step.value ||
-//             "someone"}
-//         </ValueButton>
-//       );
-
-//     default:
-//       return null;
-//   }
-// }
-
-// function ValueButton({
-//   children,
-// }: {
-//   children: React.ReactNode;
-// }) {
-//   return (
-//     <button
-//       type="button"
-//       className={`
-//         ${valueClassName}
-//         hover:border-blue-500
-//         hover:text-blue-500
-//       `}
-//     >
-//       {children}
-//     </button>
-//   );
-// }
-
-// const valueClassName = `
-//   h-[38px]
-//   border-0
-//   border-b
-//   border-slate-400
-//   bg-transparent
-//   px-0
-//   text-[25px]
-//   text-slate-400
-//   outline-none
-// `;
+const valueClassName = `
+  h-[38px]
+  border-0
+  border-b
+  border-slate-400
+  bg-transparent
+  px-0
+  text-[25px]
+  text-slate-400
+  outline-none
+`;

@@ -169,6 +169,8 @@ model Board {
   templateId Int?
   template   BoardTemplate? @relation(fields: [templateId], references: [id])
 
+  automations AutomationRule[]
+
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@map("boards")
@@ -215,6 +217,8 @@ model Group {
 
   activities  ActivityLog[]
 
+  automationTargets AutomationRule[] @relation("AutomationTargetGroup")
+
   @@index([boardId])
   @@index([boardId, order])
   @@map("groups")
@@ -247,6 +251,8 @@ model StatusOption {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
+  automationTriggers AutomationRule[] @relation("AutomationTriggerStatus")
+
   @@index([columnId])
   @@index([columnId, order])
 }
@@ -277,6 +283,8 @@ model BoardColumn {
   boardFormFields BoardFormField[]
 
   permissions BoardColumnPermission[]
+
+  automationTriggers AutomationRule[] @relation("AutomationTriggerColumn")
 
   accessControlEnabled Boolean         @default(false)
 
@@ -679,4 +687,43 @@ model BoardColumnPermission {
 
   @@unique([columnId, userId])
   @@index([userId])
+}
+enum AutomationTriggerType {
+  STATUS_CHANGED
+}
+
+enum AutomationActionType {
+  MOVE_TO_GROUP
+}
+
+model AutomationRule {
+  id        Int      @id @default(autoincrement())
+
+  name      String
+  isActive  Boolean  @default(true)
+
+  boardId   Int
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  triggerType AutomationTriggerType
+  actionType  AutomationActionType
+
+  // STATUS_CHANGED trigger
+  triggerColumnId Int?
+  triggerColumn   BoardColumn? @relation("AutomationTriggerColumn",fields: [triggerColumnId],references: [id],onDelete: Cascade)
+
+  triggerStatusId Int?
+  triggerStatus   StatusOption? @relation("AutomationTriggerStatus", fields: [triggerStatusId], references: [id], onDelete: Cascade)
+
+  // MOVE_TO_GROUP action
+  targetGroupId Int?
+  targetGroup   Group? @relation("AutomationTargetGroup",fields: [targetGroupId],references: [id],onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([boardId])
+  @@index([triggerColumnId])
+  @@index([triggerStatusId])
+  @@index([targetGroupId])
 }

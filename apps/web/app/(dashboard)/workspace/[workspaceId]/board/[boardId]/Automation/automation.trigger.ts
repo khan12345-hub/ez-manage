@@ -14,7 +14,7 @@ export type AutomationStatusColumn = {
 
   name: string;
 
-  options: AutomationStatusOption[];
+  statusOptions: AutomationStatusOption[];
 };
 
 export const AUTOMATION_TRIGGER_TYPES = [
