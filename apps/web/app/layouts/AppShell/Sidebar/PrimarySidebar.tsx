@@ -82,11 +82,7 @@ export function PrimarySidebar({
           })}
         </nav>
       </div>
-      {user && user?.systemRole === "SUPER_ADMIN" &&
-        <Link href="/system-settings">
-          <Cog color="gray" />
-        </Link>
-      }
+      
     </div>
   );
 }

@@ -16,36 +16,36 @@ import {
 } from "@/components/ui/tabs";
 
 const navigation = [
-  {
-    id: "general",
-    label: "General",
-    description: "System preferences",
-    icon: Settings,
-  },
+  // {
+  //   id: "general",
+  //   label: "General",
+  //   description: "System preferences",
+  //   icon: Settings,
+  // },
   {
     id: "templates",
     label: "Board Templates",
     description: "Reusable board structures",
     icon: LayoutTemplate,
   },
-  {
-    id: "users",
-    label: "Users & Permissions",
-    description: "Manage access",
-    icon: Users,
-  },
-  {
-    id: "notifications",
-    label: "Notifications",
-    description: "Email and alerts",
-    icon: Bell,
-  },
-  {
-    id: "security",
-    label: "Security",
-    description: "Security preferences",
-    icon: Shield,
-  },
+  // {
+  //   id: "users",
+  //   label: "Users & Permissions",
+  //   description: "Manage access",
+  //   icon: Users,
+  // },
+  // {
+  //   id: "notifications",
+  //   label: "Notifications",
+  //   description: "Email and alerts",
+  //   icon: Bell,
+  // },
+  // {
+  //   id: "security",
+  //   label: "Security",
+  //   description: "Security preferences",
+  //   icon: Shield,
+  // },
 ] as const;
 
 export function SettingsSidebar() {

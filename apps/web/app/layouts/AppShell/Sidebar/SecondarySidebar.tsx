@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Kanban,
   Building2,
+  Cog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -33,6 +34,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Link from "next/link";
+import { useAuth } from "@/providers/AuthProvider";
 
 interface SecondarySidebarProps {
   isOpen: boolean;
@@ -142,7 +145,6 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
     setWorkspace(selectedWorkspace);
     setWorkspaceID(selectedWorkspace.id);
 
-
     try {
       const workspaceBoards = await getBoards(selectedWorkspace.id);
 
@@ -174,6 +176,8 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
     router.push(`/workspace/${workspaceId}/board/${board.id}`);
   };
 
+  const { user } = useAuth();
+
   return (
     <div className="relative flex h-full select-none flex-col border-r border-gray-200 bg-white">
       <div
@@ -191,8 +195,6 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
             {workspace?.id && (
               <ManageWorkspaceDropDown workspaceId={workspace.id} />
             )}
-
-           
 
             <button
               // onClick={onToggle}
@@ -326,6 +328,12 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
           onClose={() => setIsCreateBoardOpen(false)}
           workspaceId={workspace.id}
         />
+      )}
+      {user && user?.systemRole === "SUPER_ADMIN" && (
+        <Link href="/system-settings" className="flex gap-2 items-center text-gray-600! mb-4 px-4">
+          <Cog strokeWidth={1} size={28} />
+          System Settings
+        </Link>
       )}
     </div>
   );
