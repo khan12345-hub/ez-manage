@@ -196,12 +196,12 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
               <ManageWorkspaceDropDown workspaceId={workspace.id} />
             )}
 
-            <button
-              // onClick={onToggle}
+            {/* <button
+               onClick={onToggle}
               className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-800"
             >
               <ChevronLeft className="h-4.5 w-4.5" />
-            </button>
+            </button> */}
           </div>
         </div>
 
