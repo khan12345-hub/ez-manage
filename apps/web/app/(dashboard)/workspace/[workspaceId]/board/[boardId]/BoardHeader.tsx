@@ -120,7 +120,7 @@ export function BoardHeader({
 
   return (
     <>
-      <header className="flex h-16 w-full items-center justify-between bg-background px-6">
+      <header className="flex h-16 w-full items-center justify-between bg-background">
         {/* Board name */}
         <button
           type="button"

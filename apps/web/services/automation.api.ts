@@ -74,3 +74,30 @@ export async function toggleAutomation(
 
   return response.data;
 }
+
+export async function updateAutomation(
+  boardId: number,
+  automationId: number,
+  data: {
+    name: string;
+
+    trigger: {
+      type: string;
+      columnId: number;
+      statusId: number;
+    };
+
+    action: {
+      type: string;
+      groupId: number;
+    };
+  },
+) {
+  const response =
+    await api.patch(
+      `/boards/${boardId}/automations/${automationId}`,
+      data,
+    );
+
+  return response.data;
+}

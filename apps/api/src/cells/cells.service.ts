@@ -265,7 +265,21 @@ export class CellsService {
 
     return cell;
   }
+  private extractStatusId(value: unknown): number | null {
+    if (!value) {
+      return null;
+    }
 
+    if (typeof value === 'object' && value !== null && 'id' in value) {
+      const id = (value as { id: unknown }).id;
+
+      const parsedId = Number(id);
+
+      return Number.isNaN(parsedId) ? null : parsedId;
+    }
+
+    return null;
+  }
   async updateCell(
     cellId: number,
     dto: UpdateCellDto,
@@ -381,13 +395,48 @@ export class CellsService {
     console.log('[ActivityLog] Cell updated:', activityLog);
 
     //
-    if (columnType === BoardColumnType.STATUS && previousValue !== dto.value) {
-      await this.automationEngineService.handleStatusChanged(
-        cell.taskId,
-        boardId,
-        cell.columnId,
-        Number(dto.value),
-      );
+    if (
+      columnType === BoardColumnType.STATUS &&
+      JSON.stringify(previousValue) !== JSON.stringify(dto.value)
+    ) {
+      const newStatusValue = dto.value as {
+        label?: string;
+        color?: string;
+      };
+
+      const statusOption = await this.prisma.statusOption.findFirst({
+        where: {
+          columnId: cell.columnId,
+          label: newStatusValue.label,
+          color: newStatusValue.color,
+          isArchived: false,
+        },
+        select: {
+          id: true,
+          label: true,
+          color: true,
+        },
+      });
+
+      console.log('[Automation] Resolved status:', {
+        columnId: cell.columnId,
+        value: newStatusValue,
+        statusOption,
+      });
+
+      if (!statusOption) {
+        console.warn('[Automation] Status option not found', {
+          columnId: cell.columnId,
+          value: newStatusValue,
+        });
+      } else {
+        await this.automationEngineService.handleStatusChanged(
+          cell.taskId,
+          boardId,
+          cell.columnId,
+          statusOption.id,
+        );
+      }
     }
 
     if (columnType === BoardColumnType.PERSON) {

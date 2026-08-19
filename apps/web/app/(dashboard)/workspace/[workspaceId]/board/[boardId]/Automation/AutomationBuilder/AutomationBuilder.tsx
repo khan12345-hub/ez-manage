@@ -1,8 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowLeft } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
+import { useParams } from "next/navigation";
 
 import type { AutomationStep } from "../automation.types";
 
@@ -17,8 +16,8 @@ import type {
 } from "../automation.trigger";
 
 import type { AutomationGroup } from "../AutomationGroupPicker";
+
 import AutomationCreateButton from "./AutomationCreateButton";
-import { useParams } from "next/navigation";
 
 type Props = {
   boardName: string;
@@ -29,19 +28,29 @@ type Props = {
 
   groups: AutomationGroup[];
 
+  automationId?: number;
+
   onBack: () => void;
 
-  onClose: () => void;
+  onClose?: () => void;
 
-  onUpdateStep: (id: string, key: keyof AutomationStep, value: string) => void;
+  onUpdateStep: (
+    id: string,
+    key: keyof AutomationStep,
+    value: string,
+  ) => void;
 
   onRemoveStep: (id: string) => void;
 
   onAddTrigger: () => void;
 
-  onChangeTrigger: (trigger: AutomationTriggerType) => void;
+  onChangeTrigger: (
+    trigger: AutomationTriggerType,
+  ) => void;
 
-  onAddAction: (action: AutomationActionType) => void;
+  onAddAction: (
+    action: AutomationActionType,
+  ) => void;
 };
 
 export default function AutomationBuilder({
@@ -54,50 +63,21 @@ export default function AutomationBuilder({
   onAddAction,
   statusColumns,
   groups,
+  automationId,
 }: Props) {
-  /*
-   * There is ONLY ONE trigger
-   * and ONE action.
-   */
-  const trigger = steps.find((step) => step.type === "trigger");
+  const trigger = steps.find(
+    (step) => step.type === "trigger",
+  );
 
-  const action = steps.find((step) => step.type === "action");
+  const action = steps.find(
+    (step) => step.type === "action",
+  );
 
   const hasTrigger = Boolean(trigger?.field);
-
   const hasAction = Boolean(action?.field);
 
   const params = useParams();
-
   const boardId = Number(params.boardId);
-  const handleCreateAutomation = () => {
-    if (!trigger || !action) {
-      return;
-    }
-
-    console.log("=== CREATE AUTOMATION ===");
-
-    console.log("Trigger:", {
-      type: trigger.field,
-
-      statusColumnId: trigger.columnId,
-
-      selectedOption: trigger.value,
-    });
-
-    console.log("Action:", {
-      type: action.field,
-
-      selectedGroupId: action.field === "move" ? action.value : undefined,
-
-      value: action.value,
-    });
-
-    console.log("Full automation:", {
-      trigger,
-      action,
-    });
-  };
 
   return (
     <div className="flex h-full flex-col bg-white">
@@ -126,6 +106,7 @@ export default function AutomationBuilder({
           "
         >
           <ArrowLeft className="h-4 w-4" />
+
           Back
         </button>
       </div>
@@ -142,9 +123,7 @@ export default function AutomationBuilder({
             py-[58px]
           "
         >
-          {/* ------------------------------------------------------------ */}
-          {/* Trigger                                                      */}
-          {/* ------------------------------------------------------------ */}
+          {/* Trigger */}
 
           <div className="space-y-4">
             {trigger ? (
@@ -173,18 +152,10 @@ export default function AutomationBuilder({
             )}
           </div>
 
-          {/* ------------------------------------------------------------ */}
-          {/* Connector                                                    */}
-          {/* ------------------------------------------------------------ */}
+          {/* Connector */}
 
           {hasTrigger && (
-            <div
-              className="
-                relative
-                ml-1.5
-                h-[52px]
-              "
-            >
+            <div className="relative ml-1.5 h-[52px]">
               <div
                 className="
                   absolute
@@ -210,9 +181,7 @@ export default function AutomationBuilder({
             </div>
           )}
 
-          {/* ------------------------------------------------------------ */}
-          {/* Action                                                       */}
-          {/* ------------------------------------------------------------ */}
+          {/* Action */}
 
           <div className="space-y-4">
             {action ? (
@@ -242,36 +211,14 @@ export default function AutomationBuilder({
             )}
           </div>
 
-          {/* ------------------------------------------------------------ */}
-          {/* Create                                                        */}
-          {/* ------------------------------------------------------------ */}
+          {/* Save */}
 
           <div className="mt-10 flex items-center gap-3">
-            {/* <Button
-              disabled={
-                !hasTrigger ||
-                !hasAction
-              }
-              onClick={
-                handleCreateAutomation
-              }
-              className="
-                ml-1
-                h-[34px]
-                rounded-md
-                bg-blue-600
-                px-4
-                text-[13px]
-                hover:bg-blue-700
-              "
-            >
-              Create automation
-            </Button> */}
-
             <AutomationCreateButton
               boardId={boardId}
               trigger={trigger}
               action={action}
+              automationId={automationId}
               onSuccess={onBack}
             />
           </div>

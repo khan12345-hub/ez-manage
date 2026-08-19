@@ -9,8 +9,6 @@ import type {
   AutomationTriggerType,
 } from "./automation.trigger";
 
-
-
 import AutomationTriggerPicker from "./AutomationTriggerPicker";
 import AutomationStatusColumnPicker from "./AutomationStatusColumnPicker";
 import AutomationStatusOptionPicker from "./AutomationStatusOptionPicker";
@@ -26,9 +24,7 @@ type AutomationTriggerRowProps = {
     value: string,
   ) => void;
 
-  onRemove: (
-    id: string,
-  ) => void;
+  onRemove: (id: string) => void;
 
   onAdd: () => void;
 
@@ -44,12 +40,17 @@ export default function AutomationTriggerRow({
   onRemove,
   onChangeTrigger,
 }: AutomationTriggerRowProps) {
-  const selectedColumn =
-    statusColumns.find(
-      (column) =>
-        String(column.id) ===
-        String(step.columnId),
-    );
+  /*
+   * Find the currently selected status column.
+   *
+   * String conversion is intentional because
+   * AutomationStep stores IDs as strings while
+   * Prisma IDs are numbers.
+   */
+  const selectedColumn = statusColumns.find(
+    (column) =>
+      String(column.id) === String(step.columnId),
+  );
 
   return (
     <div
@@ -66,39 +67,64 @@ export default function AutomationTriggerRow({
       <span>When</span>
 
       {step.field === "status" ? (
-        <AutomationStatusColumnPicker
-          columns={statusColumns}
-          value={step.columnId}
-          placeholder="status"
-          onSelect={(columnId) => {
-            onUpdate(
-              step.id,
-              "field",
-              "status",
-            );
+        <>
+          {/* Status column */}
+          <AutomationStatusColumnPicker
+            columns={statusColumns}
+            value={step.columnId ?? ""}
+            placeholder="status"
+            onSelect={(columnId) => {
+              /*
+               * Set trigger type.
+               */
+              onUpdate(
+                step.id,
+                "field",
+                "status",
+              );
 
-            onUpdate(
-              step.id,
-              "columnId",
-              String(columnId),
-            );
+              /*
+               * Set selected status column.
+               */
+              onUpdate(
+                step.id,
+                "columnId",
+                String(columnId),
+              );
 
-            /*
-             * Reset the selected option
-             * whenever the status column
-             * changes.
-             */
-            onUpdate(
-              step.id,
-              "value",
-              "",
-            );
+              /*
+               * Changing the column invalidates
+               * the previously selected status.
+               */
+              onUpdate(
+                step.id,
+                "value",
+                "",
+              );
 
-            onChangeTrigger(
-              "status",
-            );
-          }}
-        />
+              onChangeTrigger("status");
+            }}
+          />
+
+          <span>changes to</span>
+
+          {/* Status option */}
+          <AutomationStatusOptionPicker
+            options={
+              selectedColumn?.statusOptions ?? []
+            }
+            value={step.value ?? ""}
+            disabled={!selectedColumn}
+            placeholder="something"
+            onSelect={(optionId) => {
+              onUpdate(
+                step.id,
+                "value",
+                String(optionId),
+              );
+            }}
+          />
+        </>
       ) : (
         <AutomationTriggerPicker
           value={step.field}
@@ -109,6 +135,10 @@ export default function AutomationTriggerRow({
               trigger,
             );
 
+            /*
+             * Clear status-specific values when
+             * changing to another trigger type.
+             */
             onUpdate(
               step.id,
               "columnId",
@@ -121,46 +151,12 @@ export default function AutomationTriggerRow({
               "",
             );
 
-            onChangeTrigger(
-              trigger,
-            );
+            onChangeTrigger(trigger);
           }}
         />
       )}
 
-      {step.field === "status" && (
-        <>
-          <span>changes to</span>
-
-          <AutomationStatusOptionPicker
-            options={
-              selectedColumn?.statusOptions ??
-              []
-            }
-            value={step.value}
-            disabled={!selectedColumn}
-            placeholder="something"
-            onSelect={(optionId) => {
-              onUpdate(
-                step.id,
-                "value",
-                String(optionId),
-              );
-
-              console.log(
-                "Selected status:",
-                {
-                  statusColumnId:
-                    step.columnId,
-                  selectedOption:
-                    optionId,
-                },
-              );
-            }}
-          />
-        </>
-      )}
-
+      {/* Delete */}
       <div
         className="
           ml-auto
@@ -179,6 +175,7 @@ export default function AutomationTriggerRow({
             transition-colors
             hover:text-red-500
           "
+          aria-label="Remove trigger"
         >
           <Trash2 className="h-4 w-4" />
         </button>

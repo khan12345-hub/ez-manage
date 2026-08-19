@@ -1,4 +1,5 @@
 import { ComponentType } from "react";
+import { QueryClient } from "@tanstack/react-query";
 
 import { CellEditorProps } from "../EditableCells/EditableCell";
 
@@ -13,11 +14,16 @@ import { FileCell } from "./File/FileCell";
 
 import { updateTask } from "@/services/tasks.api";
 import { updateCell } from "@/services/cells.api";
+import { toast } from "sonner";
 
 export interface CellConfig<T = any> {
   component: ComponentType<CellEditorProps<T>>;
 
-  getValue: (task: any, cell: any, column: any) => T;
+  getValue: (
+    task: any,
+    cell: any,
+    column: any,
+  ) => T;
 
   save: (args: {
     task: any;
@@ -25,6 +31,7 @@ export interface CellConfig<T = any> {
     column: any;
     value: T;
     boardId?: number;
+    queryClient?: QueryClient;
   }) => Promise<any>;
 }
 
@@ -33,78 +40,137 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     component: TextEditor,
 
     getValue: (task, cell, column) =>
-      column.isPrimary ? task.name ?? "" : cell?.value?.text ?? "",
+      column.isPrimary
+        ? task.name ?? ""
+        : cell?.value?.text ?? "",
 
-    save: ({ task, cell, column, value, boardId }) => {
+    save: ({
+      task,
+      cell,
+      column,
+      value,
+      boardId,
+    }) => {
       if (column.isPrimary) {
-        return updateTask(boardId!, task.id, {
-          name: value,
-        });
+        return updateTask(
+          boardId!,
+          task.id,
+          {
+            name: value,
+          },
+        );
       }
 
       if (!cell?.id) {
         return Promise.resolve(null);
       }
 
-      return updateCell(boardId, cell.id, {
-        value: {
-          text: value,
+      return updateCell(
+        boardId,
+        cell.id,
+        {
+          value: {
+            text: value,
+          },
         },
-      });
+      );
     },
   },
 
   NUMBER: {
     component: NumberEditor,
 
-    getValue: (_, cell) => cell?.value?.text ?? "",
+    getValue: (_, cell) =>
+      cell?.value?.text ?? "",
 
-    save: ({ cell, value, boardId }) => {
+    save: ({
+      cell,
+      value,
+      boardId,
+    }) => {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
 
-      return updateCell(boardId, cell.id, {
-        value: {
-          text: value,
+      return updateCell(
+        boardId,
+        cell.id,
+        {
+          value: {
+            text: value,
+          },
         },
-      });
+      );
     },
   },
 
   PERSON: {
     component: PersonEditor,
 
-    getValue: (_, cell) => cell?.value,
+    getValue: (_, cell) =>
+      cell?.value,
 
-    save: ({ cell, value, boardId }) => {
+    save: ({
+      cell,
+      value,
+      boardId,
+    }) => {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
 
-      return updateCell(boardId, cell.id, {
-        value: {
-          users: value.users,
+      return updateCell(
+        boardId,
+        cell.id,
+        {
+          value: {
+            users: value.users,
+          },
         },
-      });
+      );
     },
   },
 
   STATUS: {
     component: StatusEditor,
 
-    getValue: (_, cell) => cell?.value,
+    getValue: (_, cell) =>
+      cell?.value,
 
-    save: ({ cell, value, boardId }) => {
+    save: ({
+      cell,
+      value,
+      boardId,
+      queryClient,
+    }) => {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
 
-      return updateCell(boardId, cell.id, {
-        value: {
-          label: value.label,
-          color: value.color,
+      return updateCell(
+        boardId,
+        cell.id,
+        {
+          value: {
+            label: value.label,
+            color: value.color,
+          },
         },
+      ).then((result) => {
+        /*
+         * The backend automation may have
+         * changed task.groupId.
+         *
+         * Refetch the board so the task
+         * immediately appears in its new group.
+         */
+        queryClient?.invalidateQueries({
+          queryKey: ["board", boardId],
+        });
+
+        // toast.success("Automation moved an item")
+
+        return result;
       });
     },
   },
@@ -112,55 +178,86 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   DATE: {
     component: DateEditor,
 
-    getValue: (_, cell) => cell?.value,
+    getValue: (_, cell) =>
+      cell?.value,
 
-    save: ({ cell, value, boardId }) => {
+    save: ({
+      cell,
+      value,
+      boardId,
+    }) => {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
 
-      return updateCell(boardId, cell.id, {
-        value: {
-          date: value.date,
+      return updateCell(
+        boardId,
+        cell.id,
+        {
+          value: {
+            date: value.date,
+          },
         },
-      });
+      );
     },
   },
 
   TIMELINE: {
     component: TimelineEditor,
 
-    getValue: (_, cell) => cell?.value,
+    getValue: (_, cell) =>
+      cell?.value,
 
-    save: ({ cell, value, boardId }) => {
+    save: ({
+      cell,
+      value,
+      boardId,
+    }) => {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
 
-      return updateCell(boardId, cell.id, {
-        value: {
-          startDate: new Date(value.startDate),
-          endDate: new Date(value.endDate),
+      return updateCell(
+        boardId,
+        cell.id,
+        {
+          value: {
+            startDate: new Date(
+              value.startDate,
+            ),
+            endDate: new Date(
+              value.endDate,
+            ),
+          },
         },
-      });
+      );
     },
   },
 
   CHECKBOX: {
     component: CheckboxEditor,
 
-    getValue: (_, cell) => cell?.value?.checked ?? false,
+    getValue: (_, cell) =>
+      cell?.value?.checked ?? false,
 
-    save: ({ cell, value, boardId }) => {
+    save: ({
+      cell,
+      value,
+      boardId,
+    }) => {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
 
-      return updateCell(boardId, cell.id, {
-        value: {
-          checked: value,
+      return updateCell(
+        boardId,
+        cell.id,
+        {
+          value: {
+            checked: value,
+          },
         },
-      });
+      );
     },
   },
 
@@ -172,6 +269,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       files: cell?.files ?? [],
     }),
 
-    save: async () => Promise.resolve(null),
+    save: async () =>
+      Promise.resolve(null),
   },
 };

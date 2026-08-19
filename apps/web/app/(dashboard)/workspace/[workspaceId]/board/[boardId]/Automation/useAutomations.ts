@@ -9,9 +9,53 @@ import {
   deleteAutomation,
   getBoardAutomations,
   toggleAutomation,
+  updateAutomation,
   type CreateAutomationPayload,
 } from "@/services/automation.api";
+export function useUpdateAutomation(
+  boardId: number,
+) {
+  const queryClient =
+    useQueryClient();
 
+  return useMutation({
+    mutationFn: ({
+      automationId,
+      data,
+    }: {
+      automationId: number;
+
+      data: {
+        name: string;
+
+        trigger: {
+          type: string;
+          columnId: number;
+          statusId: number;
+        };
+
+        action: {
+          type: string;
+          groupId: number;
+        };
+      };
+    }) =>
+      updateAutomation(
+        boardId,
+        automationId,
+        data,
+      ),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [
+          "automations",
+          boardId,
+        ],
+      });
+    },
+  });
+}
 export const automationKeys = {
   all: ["automations"] as const,
 

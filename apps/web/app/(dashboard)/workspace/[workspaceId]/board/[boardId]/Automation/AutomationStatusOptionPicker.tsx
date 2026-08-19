@@ -1,122 +1,70 @@
 "use client";
 
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-import type {
-  AutomationStatusOption,
-} from "./automation.trigger";
+type StatusOption = {
+  id: number;
+  label: string;
+  color: string;
+};
 
 type Props = {
-  options: AutomationStatusOption[];
-
+  options: StatusOption[];
   value?: string;
-
-  placeholder: string;
-
   disabled?: boolean;
-
-  onSelect: (
-    id: string | number,
-  ) => void;
+  placeholder?: string;
+  onSelect: (optionId: number) => void;
 };
 
 export default function AutomationStatusOptionPicker({
   options,
   value,
-  placeholder,
   disabled = false,
+  placeholder = "something",
   onSelect,
 }: Props) {
-  const selected =
-    options.find(
-      (option) =>
-        String(option.id) ===
-        String(value),
-    );
+  const selectedValue =
+    value !== undefined && value !== ""
+      ? String(value)
+      : undefined;
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          disabled={disabled}
-          className={`
-            h-[38px]
-            border-0
-            border-b
-            bg-transparent
-            px-0
-            text-[25px]
-            outline-none
+    <Select
+      value={selectedValue}
+      disabled={disabled}
+      onValueChange={(nextValue) => {
+        onSelect(Number(nextValue));
+      }}
+    >
+      <SelectTrigger className="h-auto w-auto min-w-[150px] border-0 bg-transparent px-1 py-0 text-[25px] shadow-none focus:ring-0">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
 
-            ${
-              disabled
-                ? `
-                  cursor-not-allowed
-                  border-slate-300
-                  text-slate-300
-                `
-                : `
-                  border-slate-400
-                  text-slate-400
-                  hover:border-blue-500
-                  hover:text-blue-500
-                `
-            }
-          `}
-        >
-          {selected?.label ??
-            placeholder}
-        </button>
-      </PopoverTrigger>
-
-      <PopoverContent
-        align="start"
-        className="w-[240px] p-1"
-      >
-        {options.length === 0 ? (
-          <div
-            className="
-              px-3
-              py-4
-              text-sm
-              text-slate-400
-            "
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem
+            key={option.id}
+            value={String(option.id)}
           >
-            No status options
-            available
-          </div>
-        ) : (
-          options.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() =>
-                onSelect(
-                  option.id,
-                )
-              }
-              className="
-                flex
-                w-full
-                rounded-md
-                px-3
-                py-2
-                text-left
-                text-sm
-                text-slate-700
-                hover:bg-slate-100
-              "
-            >
+            <div className="flex items-center gap-2">
+              <span
+                className="h-3 w-3 rounded-sm"
+                style={{
+                  backgroundColor: option.color,
+                }}
+              />
+
               {option.label}
-            </button>
-          ))
-        )}
-      </PopoverContent>
-    </Popover>
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

@@ -9,36 +9,82 @@ import { PrismaService } from 'prisma/prisma.service';
 export class AutomationEngineService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async handleStatusChanged(
-    taskId: number,
-    boardId: number,
-    columnId: number,
-    newStatusId: number,
-  ) {
-    const automations = await this.prisma.automationRule.findMany({
+async handleStatusChanged(
+  taskId: number,
+  boardId: number,
+  columnId: number,
+  statusId: number,
+) {
+  console.log("[Automation] Checking automation rules:", {
+    taskId,
+    boardId,
+    columnId,
+    statusId,
+  });
+
+  const automations =
+    await this.prisma.automationRule.findMany({
       where: {
         boardId,
+
         isActive: true,
-        triggerType: AutomationTriggerType.STATUS_CHANGED,
+
+        triggerType:
+          AutomationTriggerType.STATUS_CHANGED,
+
         triggerColumnId: columnId,
-        triggerStatusId: newStatusId,
-        actionType: AutomationActionType.MOVE_TO_GROUP,
+
+        triggerStatusId: statusId,
+
+        actionType:
+          AutomationActionType.MOVE_TO_GROUP,
       },
     });
 
-    for (const automation of automations) {
-      if (!automation.targetGroupId) {
-        continue;
-      }
+  console.log(
+    "[Automation] Matching rules:",
+    automations,
+  );
 
+  for (const automation of automations) {
+    if (!automation.targetGroupId) {
+      console.warn(
+        "[Automation] Automation has no target group:",
+        automation.id,
+      );
+
+      continue;
+    }
+
+    console.log(
+      "[Automation] Moving task:",
+      {
+        taskId,
+        automationId: automation.id,
+        targetGroupId:
+          automation.targetGroupId,
+      },
+    );
+
+    const updatedTask =
       await this.prisma.task.update({
         where: {
           id: taskId,
         },
         data: {
-          groupId: automation.targetGroupId,
+          groupId:
+            automation.targetGroupId,
         },
       });
-    }
+
+    console.log(
+      "[Automation] Task moved successfully:",
+      {
+        taskId: updatedTask.id,
+        newGroupId:
+          updatedTask.groupId,
+      },
+    );
   }
+}
 }
