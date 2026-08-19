@@ -91,6 +91,7 @@ export function GroupTable({
                         : groupSelection?.selected
                     }
                     onCheckedChange={() => selection.toggleGroup(group)}
+                    
                   />
                 )}
               </th>

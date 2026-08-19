@@ -29,6 +29,11 @@ import { BoardImportService } from './board-import.service';
 import { UpdateColumnPermissionDto } from './dto/update-column-permission.dto';
 import { ColumnsAccessService } from './update-column-access.service';
 import { UpdateColumnAccessDto } from './dto/update-column-access.dto';
+import {
+  UpdateBoardMemberRoleDto,
+  UpdateBoardVisibilityDto,
+} from './dto/update-board-access-management.dto';
+import { BoardAccessManagementService } from './board-access-management.service';
 
 @Controller('boards')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -37,6 +42,7 @@ export class BoardsController {
     private readonly boardsService: BoardsService,
     private readonly boardImportService: BoardImportService,
     private readonly columnAccessService: ColumnsAccessService,
+    private readonly boardAccessManagementService: BoardAccessManagementService,
   ) {}
 
   @Post()
@@ -104,19 +110,7 @@ export class BoardsController {
     return this.boardsService.remove(id, user.id);
   }
 
-  // @Post('import/excel')
-  // async importExcelBoard(
-  //   @Body()
-  //   dto: ImportExcelBoardDto,
-  //   @CurrentUser()
-  //   user: SessionUser,
-  // ) {
-  //   const userId = 'CURRENT_USER_ID';
-
-  //   return this.boardImportService.importExcelBoard(user.id, dto);
-  // }
-
-    @Put(':boardId/columns/:columnId/permissions')
+  @Put(':boardId/columns/:columnId/permissions')
   async updateColumnPermission(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Param('columnId', ParseIntPipe) columnId: number,
@@ -127,6 +121,47 @@ export class BoardsController {
       boardId,
       columnId,
       dto,
+      user.id,
+    );
+  }
+
+  @Patch(':boardId/access/visibility')
+  async updateVisibility(
+    @Param('boardId') boardId: number,
+    @Body() dto: UpdateBoardVisibilityDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.boardAccessManagementService.updateVisibility(
+      boardId,
+      user.id,
+      dto.visibility,
+    );
+  }
+
+  @Patch(':boardId/access/members/:memberId/role')
+  async updateMemberRole(
+    @Param('boardId') boardId: number,
+    @Param('memberId') memberId: number,
+    @Body() dto: UpdateBoardMemberRoleDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.boardAccessManagementService.updateMemberRole(
+      boardId,
+      memberId,
+      user.id,
+      dto.role,
+    );
+  }
+
+  @Delete(':boardId/access/members/:memberId')
+  async removeMember(
+    @Param('boardId') boardId: number,
+    @Param('memberId') memberId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.boardAccessManagementService.removeMember(
+      boardId,
+      memberId,
       user.id,
     );
   }

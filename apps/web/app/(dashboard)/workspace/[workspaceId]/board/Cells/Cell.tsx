@@ -34,7 +34,7 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
   const config = CELL_CONFIG[column.type as keyof typeof CELL_CONFIG];
 
   if (!config) {
-    return <td className="border px-3 py-2">—</td>;
+    return <td className="border px-3 py-0">—</td>;
   }
 
   const Component = config.component;
@@ -45,7 +45,7 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
   return (
     <td
       className={cn(
-        "border relative px-3 py-2",
+        "border relative px-3 py-0.5",
         isPrimary && "sticky left-36 bg-background z-20 min-w-[300px]",
       )}
     >

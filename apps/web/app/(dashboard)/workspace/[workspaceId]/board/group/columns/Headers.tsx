@@ -51,7 +51,7 @@ export const Headers = ({ column, members }: any) => {
         border-b border-l px-4 py-3 font-semibold
         ${
           column.isPrimary
-            ? "sticky left-[150px] z-30 min-w-[450px] bg-background"
+            ? "sticky left-[150px] z-30 min-w-[300px] bg-background"
             : "min-w-[180px]"
         }
       `}

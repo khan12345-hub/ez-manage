@@ -53,7 +53,7 @@ export function WorkspaceSwitcher({
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild >
-        <button className="flex h-10 w-55 items-center justify-between rounded-xs border bg-background px-3 text-sm hover:bg-accent">
+        <button className="cursor-pointer outline-none flex h-10 w-55 items-center justify-between rounded-xs border bg-background px-3 text-sm hover:bg-accent">
           <span className="truncate">
             {workspace?.name ?? "Select workspace"}
           </span>

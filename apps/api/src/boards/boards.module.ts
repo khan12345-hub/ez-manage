@@ -6,9 +6,10 @@ import { BoardAccessService } from './board-access.service';
 import { BoardSearchService } from './board-search.service';
 import { BoardImportService } from './board-import.service';
 import { ColumnsAccessService } from './update-column-access.service';
+import { BoardAccessManagementService } from './board-access-management.service';
 
 @Module({
   controllers: [BoardsController],
-  providers: [BoardsService, WorkspaceAccessService, BoardAccessService, BoardSearchService, BoardImportService, ColumnsAccessService],
+  providers: [BoardsService, WorkspaceAccessService, BoardAccessService, BoardSearchService, BoardImportService, ColumnsAccessService, BoardAccessManagementService],
 })
 export class BoardsModule {}

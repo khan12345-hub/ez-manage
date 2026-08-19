@@ -179,7 +179,7 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
       <div
         className={cn(
           "flex h-full flex-col overflow-hidden bg-gray-50/50 transition-all duration-300 ease-in-out",
-          isOpen ? "w-[270px]" : "w-0",
+          isOpen ? "max-w-[270px]" : "w-0",
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-gray-200 px-5">
@@ -195,7 +195,7 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
            
 
             <button
-              onClick={onToggle}
+              // onClick={onToggle}
               className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-800"
             >
               <ChevronLeft className="h-4.5 w-4.5" />

@@ -87,11 +87,11 @@ export function BoardToolbar({
           />
         )}
 
-        <Button variant="ghost">
+        {/* <Button variant="ghost">
           <Funnel className="mr-2 h-4 w-4" />
           Filter
           <ChevronDown className="ml-2 h-4 w-4" />
-        </Button>
+        </Button> */}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -143,17 +143,17 @@ export function BoardToolbar({
           Hide
         </Button>
 
-        <Button variant="ghost">
+        {/* <Button variant="ghost">
           <Rows3 className="mr-2 h-4 w-4" />
           Group by
-        </Button>
+        </Button> */}
 
-        <Button
+        {/* <Button
           variant="ghost"
           size="icon"
         >
           <MoreHorizontal className="h-4 w-4" />
-        </Button>
+        </Button> */}
       </div>
     </div>
   );

@@ -131,7 +131,7 @@ export function BoardContent({
             items={groupsToRender.map((group: any) => `group-${group.id}`)}
             strategy={verticalListSortingStrategy}
           >
-            <div className="mb-4 space-y-6 mt-20">
+            <div className="mb-4 space-y-6 mt-10">
               {groupsToRender.map((group: any) => (
                 <SortableGroupContainer key={group.id} groupId={group.id}>
                   {({ attributes, listeners }: any) => (

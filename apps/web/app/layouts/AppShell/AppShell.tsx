@@ -22,7 +22,7 @@ export function AppShell({ children }: AppShellProps) {
       {user && (
         <NotificationStreamProvider userId={user?.id}>
           {/* 1. Primary Sidebar (narrow left) */}
-          <PrimarySidebar
+          {/* <PrimarySidebar
             activeTab={activeTab}
             onTabChange={(tab) => {
               setActiveTab(tab);
@@ -33,7 +33,7 @@ export function AppShell({ children }: AppShellProps) {
               setIsSecondaryOpen(false);
             }
           }}
-        />
+        /> */}
 
         {/* 2. Secondary Sidebar (collapsible workspace panel) */}
         <SecondarySidebar

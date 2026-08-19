@@ -100,6 +100,7 @@ export default function BoardPage() {
         <div className="bg-background p-6">
           <BoardHeader 
           // groups={board.groups} 
+          boardId={board.id}
           boardName={board.name} columns={board.columns} />
           <BoardViewsTabs
             board={board}
