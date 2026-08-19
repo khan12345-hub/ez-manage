@@ -95,7 +95,7 @@ export default function PersonPicker({
     const avatarUrl = getAvatarUrl(user);
 
     return (
-      <Avatar className={`${size} overflow-hidden`}>
+      <Avatar className={`${size} overflow-hidden h-7 w-7`}>
         {avatarUrl ? (
           <img
             src={avatarUrl}
@@ -103,7 +103,7 @@ export default function PersonPicker({
             className="h-full w-full object-cover"
           />
         ) : (
-          <AvatarFallback className="text-sm">
+          <AvatarFallback className="text-xs">
             {initials(user)}
           </AvatarFallback>
         )}

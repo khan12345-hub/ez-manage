@@ -45,7 +45,7 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
   return (
     <td
       className={cn(
-        "border relative px-3 py-0.5",
+        "border relative px-3 py-1",
         isPrimary && "sticky left-36 bg-background z-20 min-w-[300px]",
       )}
     >
@@ -104,10 +104,11 @@ export function Cell({ column, task, isDragging, isSubTask }: CellProps) {
             aria-label="Open task details"
           >
             <MessageCircleMore
-              className={`h-8 w-8 ${totalComments > 0 && "text-primary"}`}
+              strokeWidth={1.5}
+              className={`h-6 w-6 ${totalComments > 0 && "text-primary"}`}
             />
             {totalComments > 0 && (
-              <Badge className="absolute left-4 top-4 h-4.5 w-4.5 leading-0.5">
+              <Badge className="absolute text-[9px]! left-4 top-4 h-4 w-4 leading-0.25">
                 {totalComments}
               </Badge>
             )}

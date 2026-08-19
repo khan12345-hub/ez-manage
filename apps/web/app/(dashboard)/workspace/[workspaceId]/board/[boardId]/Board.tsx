@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
+import { createTask } from "@/services/tasks.api";
 import { useGroupStore } from "@/store/create-group-store";
 
 import { useTaskSelection } from "../group/tasks/sub-tasks/useTaskSelection";
 import { BoardContent } from "./BoardContent";
 import { BoardHeader } from "./BoardHeader/BoardHeader";
-
 import { useBoard } from "./hooks/useBoard.hooks";
 import { useTaskBulkActions } from "./useTaskBulkActions";
 
@@ -15,6 +17,7 @@ import {
   GroupSortOption,
   sortGroups,
 } from "./BoardHeader/Filters/GroupSort";
+
 import { BulkActionToolbar } from "./BulkActionsToolbar/BulkActionsToolbar";
 
 export function Board({
@@ -27,13 +30,14 @@ export function Board({
   isFetching,
   isError,
 }: any) {
+  const queryClient = useQueryClient();
+
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
 
   const hasDraftGroup = useGroupStore((state) =>
     state.groups.some((group: any) => group.isNew),
   );
 
-  const [newTaskFocusToken, setNewTaskFocusToken] = useState(0);
   const [newGroupFocusToken, setNewGroupFocusToken] = useState(0);
 
   const [groupSort, setGroupSort] =
@@ -66,6 +70,33 @@ export function Board({
 
   const selection = useTaskSelection(sortedGroups);
 
+  /**
+   * Create task
+   */
+  const createMutation = useMutation({
+    mutationFn: (groupId: number) =>
+      createTask(
+        {
+          name: "new task",
+          groupId,
+          parentId: null,
+        },
+        board.id,
+      ),
+
+    onSuccess: () => {
+      toast.success("Task created");
+
+      queryClient.invalidateQueries({
+        queryKey: ["board", board.id],
+      });
+    },
+
+    onError: () => {
+      toast.error("Failed to create task");
+    },
+  });
+
   const {
     bulkDelete,
     bulkUpdate,
@@ -85,6 +116,28 @@ export function Board({
     );
   };
 
+  /**
+   * Create a new task in the first group.
+   */
+  const handleCreateTask = () => {
+    const groupId = sortedGroups?.[0]?.id;
+
+    if (!groupId) {
+      toast.error("No group available to create task");
+      return;
+    }
+
+    createMutation.mutate(groupId);
+  };
+
+  const handleCreateGroup = () => {
+    if (!hasDraftGroup) {
+      addNewGroup();
+    }
+
+    setNewGroupFocusToken((token) => token + 1);
+  };
+
   const handleBulkDelete = () => {
     bulkDelete([...selection.selectedTaskIds]);
   };
@@ -98,18 +151,6 @@ export function Board({
       columnId,
       value,
     });
-  };
-
-  const handleCreateTask = () => {
-    setNewTaskFocusToken((token) => token + 1);
-  };
-
-  const handleCreateGroup = () => {
-    if (!hasDraftGroup) {
-      addNewGroup();
-    }
-
-    setNewGroupFocusToken((token) => token + 1);
   };
 
   return (
@@ -142,7 +183,6 @@ export function Board({
         handleDragEnd={handleDragEnd}
         handleDragCancel={handleDragCancel}
         selection={selection}
-        newTaskFocusToken={newTaskFocusToken}
         newGroupFocusToken={newGroupFocusToken}
       />
 

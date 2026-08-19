@@ -31,7 +31,6 @@ interface BoardContentProps {
   handleDragEnd: (event: any) => void;
   handleDragCancel: () => void;
   selection: any;
-  newTaskFocusToken: number;
   newGroupFocusToken: number;
 }
 
@@ -50,7 +49,6 @@ export function BoardContent({
   handleDragEnd,
   handleDragCancel,
   selection,
-  newTaskFocusToken,
   newGroupFocusToken,
 }: BoardContentProps) {
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
@@ -146,9 +144,6 @@ export function BoardContent({
                         isDraggingGroup={activeItem?.type === "group"}
                         isDraggingTask={activeItem?.type === "task"}
                         selection={selection}
-                        newTaskFocusToken={
-                          group.id === firstGroupId ? newTaskFocusToken : 0
-                        }
                         newGroupFocusToken={
                           group.isNew ? newGroupFocusToken : 0
                         }

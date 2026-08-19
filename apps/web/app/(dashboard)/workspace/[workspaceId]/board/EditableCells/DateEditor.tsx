@@ -32,7 +32,7 @@ export function DateEditor({
       <PopoverTrigger asChild>
         <Button
           ref={inputRef}
-          variant="outline"
+          variant="ghost"
           className="w-full justify-start text-left font-normal cursor-pointer"
           onKeyDown={(e) => {
             if (e.key === "Escape") cancel();
