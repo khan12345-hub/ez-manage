@@ -1,15 +1,25 @@
 import { PrismaService } from 'prisma/prisma.service';
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ActivityAction, ActivityEntityType } from 'generated/prisma/client';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  ActivityAction,
+  ActivityEntityType,
+  BoardColumnType,
+} from 'generated/prisma/client';
 import { BulkDeleteTasksDto } from './dto/bulk-delete-tasks.dto';
 import { BulkUpdateDto } from './dto/bulk-update-task.dto';
 import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
+import { AutomationEngineService } from 'src/automations/automation-engine.service';
 
 @Injectable()
 export class TaskBulkActionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activityLogsService: ActivityLogsService,
+    private readonly automationEngineService: AutomationEngineService,
   ) {}
 
   async bulkDelete(boardId: number, dto: BulkDeleteTasksDto, userId: number) {
@@ -130,6 +140,17 @@ export class TaskBulkActionsService {
       }
     }
 
+    /**
+     * Keep track of status changes.
+     *
+     * We execute automations AFTER the transaction succeeds.
+     */
+    const statusChanges: {
+      taskId: number;
+      previousValue: unknown;
+      newValue: unknown;
+    }[] = [];
+
     const updatedCount = await this.prisma.$transaction(async (tx) => {
       let count = 0;
 
@@ -173,7 +194,7 @@ export class TaskBulkActionsService {
           });
         }
 
-        // Track bulk update exactly like a normal cell update
+        // Track activity
         await this.activityLogsService.log(
           {
             boardId,
@@ -195,11 +216,76 @@ export class TaskBulkActionsService {
           tx,
         );
 
+        /**
+         * Track status changes for automation.
+         *
+         * Do not trigger automation if the value didn't actually change.
+         */
+        if (
+          column.type === BoardColumnType.STATUS &&
+          JSON.stringify(previousValue) !== JSON.stringify(dto.value)
+        ) {
+          statusChanges.push({
+            taskId: task.id,
+            previousValue,
+            newValue: dto.value,
+          });
+        }
+
         count++;
       }
 
       return count;
     });
+
+    /**
+     * Execute automations AFTER the transaction has committed.
+     *
+     * This prevents the automation from running if the bulk update
+     * transaction fails.
+     */
+    if (column.type === BoardColumnType.STATUS && statusChanges.length > 0) {
+      const newStatusValue = dto.value as {
+        label?: string;
+        color?: string;
+      };
+
+      const statusOption = await this.prisma.statusOption.findFirst({
+        where: {
+          columnId: column.id,
+          label: newStatusValue.label,
+          color: newStatusValue.color,
+          isArchived: false,
+        },
+        select: {
+          id: true,
+          label: true,
+          color: true,
+        },
+      });
+
+      console.log('[Bulk Automation] Resolved status:', {
+        columnId: column.id,
+        value: newStatusValue,
+        statusOption,
+      });
+
+      if (!statusOption) {
+        console.warn('[Bulk Automation] Status option not found', {
+          columnId: column.id,
+          value: newStatusValue,
+        });
+      } else {
+        for (const change of statusChanges) {
+          await this.automationEngineService.handleStatusChanged(
+            change.taskId,
+            boardId,
+            column.id,
+            statusOption.id,
+          );
+        }
+      }
+    }
 
     return {
       success: true,

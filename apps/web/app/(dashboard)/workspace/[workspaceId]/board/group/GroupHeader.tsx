@@ -63,22 +63,19 @@ export function GroupHeader({ group, focusToken = 0 }: Props) {
   const updateMutation = useMutation({
     mutationFn: ({
       boardId,
-      id,
-      data,
+      groupId,
+      name,
+      color,
     }: {
       boardId: number;
-      id: number;
-      data: {
-        name?: string;
-        color?: string;
-      };
-    }) => updateGroupApi(boardId, id, data),
-
-    onSuccess: (_, variables) => {
-      updateGroup(variables.id, {
-        isEditing: false,
-      });
-    },
+      groupId: number;
+      name?: string;
+      color?: string;
+    }) =>
+      updateGroupApi(boardId, groupId, {
+        ...(name !== undefined && { name }),
+        ...(color !== undefined && { color }),
+      }),
   });
 
   return (
@@ -95,10 +92,9 @@ export function GroupHeader({ group, focusToken = 0 }: Props) {
             if (!group.isNew && boardId) {
               updateMutation.mutate({
                 boardId,
-                id: group.id,
-                data: {
-                  color,
-                },
+                groupId: group.id,
+                color,
+                
               });
             }
           }}
@@ -155,10 +151,8 @@ export function GroupHeader({ group, focusToken = 0 }: Props) {
             // Update existing group
             updateMutation.mutate({
               boardId,
-              id: group.id,
-              data: {
-                name,
-              },
+              groupId: group.id,
+              name,
             });
           }}
         />

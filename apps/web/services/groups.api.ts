@@ -85,6 +85,7 @@ export const updateGroup = async (
   groupId: number,
   dto: UpdateGroupDto,
 ) => {
+  console.log({dto})
   const { data } = await api.patch<GroupResponse>(
     `/boards/${boardId}/groups/${groupId}`,
     dto,

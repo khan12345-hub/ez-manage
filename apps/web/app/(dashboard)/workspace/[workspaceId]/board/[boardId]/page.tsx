@@ -98,10 +98,7 @@ export default function BoardPage() {
     <>
       {board && (
         <div className="bg-background p-6">
-          <BoardHeader 
-          groups={board.groups} 
-          boardId={board.id}
-          boardName={board.name} columns={board.columns} />
+          <BoardHeader board={board} />
           <BoardViewsTabs
             board={board}
             formContent={<FormBuilder board={board} />}

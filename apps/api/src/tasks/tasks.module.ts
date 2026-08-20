@@ -8,6 +8,7 @@ import { TaskReorderService } from './task-reorder.service';
 import { TaskQueryService } from './task-search.service';
 import { TaskMutationService } from './task-mutation.service';
 import { TaskBulkActionsService } from './tasks-bulk-actions.service';
+import { AutomationEngineService } from 'src/automations/automation-engine.service';
 
 @Module({
   controllers: [TasksController],
@@ -20,6 +21,7 @@ import { TaskBulkActionsService } from './tasks-bulk-actions.service';
     PrismaService,
     BoardAccessService,
     ActivityLogsService,
+    AutomationEngineService
   ],
 })
 export class TasksModule {}

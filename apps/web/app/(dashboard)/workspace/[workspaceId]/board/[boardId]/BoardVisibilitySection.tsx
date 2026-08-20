@@ -88,7 +88,7 @@ function VisibilityOption({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
+      className={`cursor-pointer outline-none flex items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
         active
           ? "border-primary bg-primary/5"
           : "hover:bg-muted/50"

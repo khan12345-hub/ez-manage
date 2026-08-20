@@ -4,9 +4,10 @@ export type AutomationTriggerType =
   | "date";
 
 export type AutomationStatusOption = {
-  id: string | number;
-
+  id: number;
   label: string;
+  color: string;
+
 };
 
 export type AutomationStatusColumn = {

@@ -1,17 +1,9 @@
 "use client";
 
-import {
-  Bot,
-  ChevronDown,
-  MoreHorizontal,
-  Users,
-} from "lucide-react";
+import { Bot, ChevronDown, MoreHorizontal, Users } from "lucide-react";
 import { useState } from "react";
 
-import {
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 
@@ -32,43 +24,27 @@ import { ManageBoardAccessModal } from "./ManageBoardAccessModal";
 import AutomationModal from "./Automation/AutomationModal";
 
 interface BoardHeaderProps {
-  boardId: number;
-  boardName: string;
-  columns: any;
-  memberCount?: number;
-  boardAccess?: any;
-  groups?:any;
+  board: any;
 }
 
 export function BoardHeader({
-  boardId,
-  boardName,
-  columns,
-  groups,
-  memberCount = 0,
-  boardAccess,
+  board
 }: BoardHeaderProps) {
   const queryClient = useQueryClient();
 
-  const [manageAccessOpen, setManageAccessOpen] =
-    useState(false);
+  const [manageAccessOpen, setManageAccessOpen] = useState(false);
 
   const visibilityMutation = useMutation({
-    mutationFn: (
-      visibility: "PRIVATE" | "PUBLIC",
-    ) =>
-      updateBoardVisibility(
-        boardId,
-        visibility,
-      ),
+    mutationFn: (visibility: "PRIVATE" | "PUBLIC") =>
+      updateBoardVisibility(board.id, visibility),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["boards", boardId, "access"],
+        queryKey: ["boards", board.id, "access"],
       });
 
       queryClient.invalidateQueries({
-        queryKey: ["boards", boardId],
+        queryKey: ["boards", board.id],
       });
     },
   });
@@ -80,54 +56,42 @@ export function BoardHeader({
     }: {
       memberId: number;
       role: "MEMBER" | "ADMIN";
-    }) =>
-      updateBoardMemberRole(
-        boardId,
-        memberId,
-        role,
-      ),
+    }) => updateBoardMemberRole(board.id, memberId, role),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["boards", boardId, "access"],
+        queryKey: ["boards", board.id, "access"],
       });
 
       queryClient.invalidateQueries({
-        queryKey: ["boards", boardId],
+        queryKey: ["boards", board.id],
       });
     },
   });
 
   const removeMutation = useMutation({
-    mutationFn: (memberId: number) =>
-      removeBoardMember(
-        boardId,
-        memberId,
-      ),
+    mutationFn: (memberId: number) => removeBoardMember(board.id, memberId),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["boards", boardId, "access"],
+        queryKey: ["boards", board.id, "access"],
       });
 
       queryClient.invalidateQueries({
-        queryKey: ["boards", boardId],
+        queryKey: ["boards", board.id],
       });
     },
   });
 
-   const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
   return (
     <>
       <header className="flex h-16 w-full items-center justify-between bg-background">
         {/* Board name */}
-        <button
-          type="button"
-          className="flex items-center gap-1.5 text-left"
-        >
+        <button type="button" className="flex items-center gap-1.5 text-left">
           <span className="text-2xl font-semibold capitalize tracking-[-0.02em]">
-            {boardName}
+            {board.name}
           </span>
 
           <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -140,7 +104,7 @@ export function BoardHeader({
             variant="ghost"
             size="sm"
             className="h-9 gap-2 px-3 font-normal"
-            onClick={()=>setOpen(!open)}
+            onClick={() => setOpen(!open)}
           >
             <Bot className="h-4 w-4" />
             Automate
@@ -158,15 +122,8 @@ export function BoardHeader({
               </Button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent
-              align="end"
-              className="w-48"
-            >
-              <DropdownMenuItem
-                onClick={() =>
-                  setManageAccessOpen(true)
-                }
-              >
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => setManageAccessOpen(true)}>
                 <Users className="mr-2 h-4 w-4" />
                 Manage access
               </DropdownMenuItem>
@@ -178,17 +135,11 @@ export function BoardHeader({
       <ManageBoardAccessModal
         open={manageAccessOpen}
         onOpenChange={setManageAccessOpen}
-        boardName={boardName}
-        visibility={
-          boardAccess?.visibility ?? "PRIVATE"
-        }
-        members={
-          boardAccess?.members ?? []
-        }
+        boardName={board.name}
+        visibility={board?.visibility ?? "PRIVATE"}
+        members={board?.members ?? []}
         onVisibilityChange={(visibility) =>
-          visibilityMutation.mutate(
-            visibility,
-          )
+          visibilityMutation.mutate(visibility)
         }
         onRoleChange={(memberId, role) =>
           roleMutation.mutate({
@@ -196,26 +147,18 @@ export function BoardHeader({
             role,
           })
         }
-        onRemoveMember={(memberId) =>
-          removeMutation.mutate(memberId)
-        }
-        isVisibilityUpdating={
-          visibilityMutation.isPending
-        }
-        isRoleUpdating={
-          roleMutation.isPending
-        }
-        isRemovingMember={
-          removeMutation.isPending
-        }
+        onRemoveMember={(memberId) => removeMutation.mutate(memberId)}
+        isVisibilityUpdating={visibilityMutation.isPending}
+        isRoleUpdating={roleMutation.isPending}
+        isRemovingMember={removeMutation.isPending}
       />
       <AutomationModal
-          open={open}
-          onOpenChange={setOpen}
-          boardName={boardName}
-          columns={columns}
-          groups={groups}
-        />
+        open={open}
+        onOpenChange={setOpen}
+        boardName={board.name}
+        columns={board.columns}
+        groups={board.groups}
+      />
     </>
   );
 }
