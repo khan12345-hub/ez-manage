@@ -4,23 +4,20 @@ import { Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { BoardTemplate } from "./board-template/template.types";
 
 interface BoardTemplateCardProps {
   template: BoardTemplate;
   onEdit: (template: BoardTemplate) => void;
+  onDelete: (templateId: number) => void;
 }
 
 export function BoardTemplateCard({
   template,
   onEdit,
+  onDelete,
 }: BoardTemplateCardProps) {
   const firstGroupColor = template.groups?.[0]?.color || "#06b6d4";
 
@@ -59,9 +56,7 @@ export function BoardTemplateCard({
           </span>
         </div>
 
-        <CardTitle className="text-base">
-          {template.name}
-        </CardTitle>
+        <CardTitle className="text-base">{template.name}</CardTitle>
 
         {template.description && (
           <p className="line-clamp-2 text-sm text-muted-foreground">
@@ -70,11 +65,9 @@ export function BoardTemplateCard({
         )}
       </CardHeader>
 
-      <CardContent className="relative">
+      <CardContent className="relative ">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            {template.groups?.length ?? 0} groups
-          </span>
+          <span>{template.groups?.length ?? 0} groups</span>
 
           {template.groups?.length ? (
             <div className="flex items-center gap-1">
@@ -97,14 +90,14 @@ export function BoardTemplateCard({
           ) : null}
         </div>
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-8 flex gap-2 justify-end">
           <Button
             variant="outline"
             size="sm"
             className="bg-background/70 backdrop-blur-sm"
             onClick={() => onEdit(template)}
           >
-            <Pencil className="mr-2 h-4 w-4" />
+            <Pencil className="mr-1 h-4 w-4" />
             Edit
           </Button>
 
@@ -112,8 +105,9 @@ export function BoardTemplateCard({
             variant="outline"
             size="sm"
             className="bg-background/70 backdrop-blur-sm"
+            onClick={() => onDelete(template.id)}
           >
-            <Trash2 className="mr-2 h-4 w-4" />
+            <Trash2 className="mr-1 h-4 w-4" />
             Delete
           </Button>
         </div>

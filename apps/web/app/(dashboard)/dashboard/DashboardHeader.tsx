@@ -1,9 +1,4 @@
 "use client";
-
-import { Bell, Plus, Search } from "lucide-react";
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/AuthProvider";
 
 export function DashboardHeader() {
@@ -27,7 +22,7 @@ export function DashboardHeader() {
         </p>
 
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-          Good afternoon, {user?.firstName || "there"}
+          Welcome, {user?.firstName || ""}
         </h1>
 
         <p className="mt-1 text-sm text-muted-foreground">

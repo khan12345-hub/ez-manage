@@ -28,6 +28,8 @@ export const BOARD_ROLE_PERMISSIONS: Record<
     BoardPermission.CREATE_COLUMN,
     BoardPermission.UPDATE_COLUMN,
     BoardPermission.DELETE_COLUMN,
+    BoardPermission.MANAGE_MEMBERS,
+    
   ],
 
   [BoardMemberRole.MEMBER]: [

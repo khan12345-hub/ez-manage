@@ -12,38 +12,39 @@ import { UpdateColumnPermissionDto } from './dto/update-column-permission.dto';
 export class ColumnsAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async updateColumnAccess(
-    boardId: number,
-    columnId: number,
-    dto: UpdateColumnAccessDto,
-    userId: number,
-  ) {
-    const owner = await this.prisma.boardMember.findFirst({
-      where: {
-        boardId,
-        userId,
-        role: BoardMemberRole.OWNER,
-      },
-    });
+async updateColumnAccess(
+  boardId: number,
+  columnId: number,
+  dto: UpdateColumnAccessDto,
+  userId: number,
+) {
+  const owner = await this.prisma.boardMember.findFirst({
+    where: {
+      boardId,
+      userId,
+      role: BoardMemberRole.OWNER,
+    },
+  });
 
-    if (!owner) {
-      throw new ForbiddenException(
-        'Only the board owner can manage column permissions.',
-      );
-    }
+  if (!owner) {
+    throw new ForbiddenException(
+      "Only the board owner can manage column permissions.",
+    );
+  }
 
-    const column = await this.prisma.boardColumn.findFirst({
-      where: {
-        id: columnId,
-        boardId,
-      },
-    });
+  const column = await this.prisma.boardColumn.findFirst({
+    where: {
+      id: columnId,
+      boardId,
+    },
+  });
 
-    if (!column) {
-      throw new NotFoundException('Column not found for this board.');
-    }
+  if (!column) {
+    throw new NotFoundException("Column not found for this board.");
+  }
 
-    return this.prisma.boardColumn.update({
+  return this.prisma.$transaction(async (tx) => {
+    const updatedColumn = await tx.boardColumn.update({
       where: {
         id: columnId,
       },
@@ -51,7 +52,31 @@ export class ColumnsAccessService {
         accessControlEnabled: dto.enabled,
       },
     });
-  }
+
+    // When protection is enabled, automatically give
+    // the person enabling it access to the column.
+    if (dto.enabled) {
+      await tx.boardColumnPermission.upsert({
+        where: {
+          columnId_userId: {
+            columnId,
+            userId,
+          },
+        },
+        create: {
+          columnId,
+          userId,
+          canEdit: true,
+        },
+        update: {
+          canEdit: true,
+        },
+      });
+    }
+
+    return updatedColumn;
+  });
+}
   async updateColumnPermission(
     boardId: number,
     columnId: number,

@@ -2,7 +2,7 @@ import { ProfileSettings } from "./ProfileSettings";
 export default function SettingsPage() {
 
   return (
-    <div className="w-full max-w-3xl p-4">
+    <div className="w-full p-4">
       <div className="mb-8">
         <h1 className="text-4xl font-semibold">
           Settings
@@ -15,7 +15,6 @@ export default function SettingsPage() {
 
       <div className="flex flex-col gap-8">
         <ProfileSettings />
-
       </div>
     </div>
   );

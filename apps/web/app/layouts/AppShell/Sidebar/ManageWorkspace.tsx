@@ -16,7 +16,7 @@ export function ManageWorkspaceDropDown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-800">
+        <button className="cursor-pointer outline-none rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-800">
           <MoreHorizontal className="h-4.5 w-4.5" />
         </button>
       </DropdownMenuTrigger>

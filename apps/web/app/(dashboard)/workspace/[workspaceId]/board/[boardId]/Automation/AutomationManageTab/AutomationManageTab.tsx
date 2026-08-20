@@ -75,7 +75,7 @@ export default function AutomationManageTab({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full flex-1 flex-col">
       {/* Toolbar */}
       <div className="flex h-[58px] shrink-0 items-center justify-between border-b px-7">
         <div>

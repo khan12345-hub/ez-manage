@@ -41,7 +41,7 @@ export default function AutomationCreateTab({
     );
 
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className="flex h-full flex-1">
       {/* Sidebar */}
       <aside className="w-[252px] shrink-0 border-r bg-slate-50/80 px-3 py-5">
         <div className="mb-3 px-3 text-[15px] font-semibold">

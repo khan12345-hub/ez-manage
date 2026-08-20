@@ -1,11 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  LayoutTemplate,
-  Plus,
-  Search,
-} from "lucide-react";
+import { LayoutTemplate, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useBoardTemplates } from "./board-template/useBoardTemplate";
@@ -13,36 +9,35 @@ import { CreateBoardTemplateDialog } from "./board-template/CreateBoardTemplateM
 import { BoardTemplate } from "./board-template/template.types";
 import { BoardTemplateCard } from "./SystemSettingsBoardTemplatesCard";
 import { SettingsStatCard } from "./SettingsStatsCard";
+import { useDeleteBoardTemplateMutation } from "./board-template/useBoardTemplateMutations";
 
 export function BoardTemplates() {
-  const [createDialogOpen, setCreateDialogOpen] =
-    useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const [selectedTemplate, setSelectedTemplate] =
     useState<BoardTemplate | null>(null);
 
   const [search, setSearch] = useState("");
 
-  const {
-    data: templates = [],
-    isLoading,
-  } = useBoardTemplates();
+  const { data: templates = [], isLoading } = useBoardTemplates();
+
+  const deleteTemplateMutation = useDeleteBoardTemplateMutation();
+
+  const handleDeleteTemplate = (templateId: number) => {
+    deleteTemplateMutation.mutate(templateId);
+  };
 
   function handleCreateTemplate() {
     setSelectedTemplate(null);
     setCreateDialogOpen(true);
   }
 
-  function handleEditTemplate(
-    template: BoardTemplate,
-  ) {
+  function handleEditTemplate(template: BoardTemplate) {
     setSelectedTemplate(template);
     setCreateDialogOpen(true);
   }
 
-  function handleDialogOpenChange(
-    open: boolean,
-  ) {
+  function handleDialogOpenChange(open: boolean) {
     setCreateDialogOpen(open);
 
     if (!open) {
@@ -52,12 +47,8 @@ export function BoardTemplates() {
 
   const filteredTemplates = templates.filter(
     (template: BoardTemplate) =>
-      template.name
-        .toLowerCase()
-        .includes(search.toLowerCase()) ||
-      template.description
-        ?.toLowerCase()
-        .includes(search.toLowerCase()),
+      template.name.toLowerCase().includes(search.toLowerCase()) ||
+      template.description?.toLowerCase().includes(search.toLowerCase()),
   );
 
   const totalGroups = templates.reduce(
@@ -85,21 +76,16 @@ export function BoardTemplates() {
             <div className="flex items-center gap-2">
               <LayoutTemplate className="h-5 w-5 text-primary" />
 
-              <h2 className="text-xl font-semibold">
-                Board Templates
-              </h2>
+              <h2 className="text-xl font-semibold">Board Templates</h2>
             </div>
 
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Create reusable board structures that your team
-              can use to quickly start new projects.
+              Create reusable board structures that your team can use to quickly
+              start new projects.
             </p>
           </div>
 
-          <Button
-            onClick={handleCreateTemplate}
-            className="shrink-0 gap-2"
-          >
+          <Button onClick={handleCreateTemplate} className="shrink-0 gap-2">
             <Plus className="h-4 w-4" />
             Create Template
           </Button>
@@ -144,18 +130,13 @@ export function BoardTemplates() {
             <div className="text-center">
               <LayoutTemplate className="mx-auto h-8 w-8 text-muted-foreground" />
 
-              <h3 className="mt-3 font-medium">
-                No templates yet
-              </h3>
+              <h3 className="mt-3 font-medium">No templates yet</h3>
 
               <p className="mt-1 text-sm text-muted-foreground">
                 Create your first board template.
               </p>
 
-              <Button
-                className="mt-4"
-                onClick={handleCreateTemplate}
-              >
+              <Button className="mt-4" onClick={handleCreateTemplate}>
                 <Plus className="mr-2 h-4 w-4" />
                 Create Template
               </Button>
@@ -164,35 +145,31 @@ export function BoardTemplates() {
         )}
 
         {/* Search Empty State */}
-        {templates.length > 0 &&
-          filteredTemplates.length === 0 && (
-            <div className="mt-4 flex min-h-48 items-center justify-center rounded-xl border border-dashed">
-              <div className="text-center">
-                <Search className="mx-auto h-8 w-8 text-muted-foreground" />
+        {templates.length > 0 && filteredTemplates.length === 0 && (
+          <div className="mt-4 flex min-h-48 items-center justify-center rounded-xl border border-dashed">
+            <div className="text-center">
+              <Search className="mx-auto h-8 w-8 text-muted-foreground" />
 
-                <p className="mt-3 text-sm font-medium">
-                  No templates found
-                </p>
+              <p className="mt-3 text-sm font-medium">No templates found</p>
 
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Try a different search term.
-                </p>
-              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Try a different search term.
+              </p>
             </div>
-          )}
+          </div>
+        )}
 
         {/* Templates */}
         {filteredTemplates.length > 0 && (
           <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTemplates.map(
-              (template: BoardTemplate) => (
-                <BoardTemplateCard
-                  key={template.id}
-                  template={template}
-                  onEdit={handleEditTemplate}
-                />
-              ),
-            )}
+            {filteredTemplates.map((template: BoardTemplate) => (
+              <BoardTemplateCard
+                key={template.id}
+                template={template}
+                onEdit={handleEditTemplate}
+                onDelete={handleDeleteTemplate}
+              />
+            ))}
           </div>
         )}
       </div>

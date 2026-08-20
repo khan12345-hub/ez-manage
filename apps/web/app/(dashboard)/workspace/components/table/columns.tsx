@@ -56,14 +56,14 @@ export const columns: ColumnDef<Board>[] = [
     header: "Updated",
   },
 
-  {
-    id: "actions",
-    header: "",
-    size: 60,
-    cell: () => (
-      <Button variant="ghost" size="icon">
-        <MoreHorizontal className="h-4 w-4" />
-      </Button>
-    ),
-  },
+  // {
+  //   id: "actions",
+  //   header: "",
+  //   size: 60,
+  //   cell: () => (
+  //     <Button variant="ghost" size="icon">
+  //       <MoreHorizontal className="h-4 w-4" />
+  //     </Button>
+  //   ),
+  // },
 ];

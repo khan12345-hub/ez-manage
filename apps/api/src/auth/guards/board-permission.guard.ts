@@ -2,11 +2,13 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 import { BOARD_PERMISSION_KEY } from '../decorators/require-board-permission.decorator';
 import { BoardAccessService } from '../../boards/board-access.service';
+import { SystemRole } from 'generated/prisma/enums';
 
 @Injectable()
 export class BoardPermissionGuard implements CanActivate {
@@ -29,17 +31,26 @@ export class BoardPermissionGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-
+    
     const boardId = Number(
       request.params.boardId ??
       request.params.id,
     );
+    
+    const user = request.user;
 
-    const userId = request.user.id;
+     if (!user) {
+      throw new UnauthorizedException();
+    }
+
+    // SUPER ADMIN BYPASS
+    if (user.systemRole === SystemRole.SUPER_ADMIN) {
+      return true;
+    }
 
     return this.boardAccess.requirePermission(
       boardId,
-      userId,
+      user.id,
       permission,
     );
   }

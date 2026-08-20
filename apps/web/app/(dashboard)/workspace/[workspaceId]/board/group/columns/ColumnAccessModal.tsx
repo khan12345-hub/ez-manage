@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Search, ShieldCheck } from "lucide-react";
+import { Check, Crown, Search, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -88,19 +88,10 @@ export function ColumnAccessDialog({
       canEdit: boolean;
     }) => {
       if (canEdit) {
-        return updateColumnPermission(
-          boardId,
-          columnId,
-          userId,
-          true,
-        );
+        return updateColumnPermission(boardId, columnId, userId, true);
       }
 
-      return removeColumnPermission(
-        boardId,
-        columnId,
-        userId,
-      );
+      return removeColumnPermission(boardId, columnId, userId);
     },
 
     onSuccess: (_, variables) => {
@@ -132,10 +123,7 @@ export function ColumnAccessDialog({
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[380px] gap-0 p-0">
         <DialogHeader className="border-b p-4">
           <DialogTitle className="flex items-center gap-2 text-sm">
@@ -154,9 +142,7 @@ export function ColumnAccessDialog({
 
             <Input
               value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
-              }
+              onChange={(event) => setSearch(event.target.value)}
               placeholder="Enter a person's name"
               className="pl-9"
             />
@@ -165,58 +151,56 @@ export function ColumnAccessDialog({
 
         <div className="border-t" />
 
-        {filteredMembers && <div className="max-h-72 overflow-y-auto p-2">
-          {filteredMembers.length === 0 ? (
-            <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-              No people found
-            </div>
-          ) : (
-            filteredMembers.map((member) => {
-              const isAllowed = permittedUserIds.has(
-                member.user.id,
-              );
+        {filteredMembers && (
+          <div className="max-h-72 overflow-y-auto p-2">
+            {filteredMembers.length === 0 ? (
+              <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+                No people found
+              </div>
+            ) : (
+              filteredMembers.map((member) => {
+                const isAllowed = permittedUserIds.has(member.user.id);
 
-              return (
-                <button
-                  key={member.user.id}
-                  type="button"
-                  disabled={permissionMutation.isPending}
-                  onClick={() =>
-                    handleUserClick(member.user.id)
-                  }
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium">
-                    {member.user.avatarUrl ? (
-                      <img
-                        src={member.user.avatarUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      `${member.user.firstName?.[0] ?? ""}${member.user.lastName?.[0] ?? ""}`
+                return (
+                  <button
+                    key={member.user.id}
+                    type="button"
+                    disabled={permissionMutation.isPending}
+                    onClick={() => handleUserClick(member.user.id)}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium">
+                      {member.user.avatarUrl ? (
+                        <img
+                          src={member.user.avatarUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        `${member.user.firstName?.[0] ?? ""}${member.user.lastName?.[0] ?? ""}`
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium flex gap-1 items-center">
+                        {member.user.firstName} {member.user.lastName} {member.role === "OWNER" && <Crown className="h-4 w-4 text-primary" />}
+                      </div>
+
+                      <div className="text-xs text-muted-foreground capitalize">
+                        
+                        {member.role.toLowerCase()}
+                      </div>
+                    </div>
+
+                    {isAllowed && (
+                      <Check className="h-4 w-4 shrink-0 text-primary" />
                     )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">
-                      {member.user.firstName}{" "}
-                      {member.user.lastName}
-                    </div>
-
-                    <div className="text-xs text-muted-foreground">
-                      {member.role}
-                    </div>
-                  </div>
-
-                  {isAllowed && (
-                    <Check className="h-4 w-4 shrink-0 text-primary" />
-                  )}
-                </button>
-              );
-            })
-          )}
-        </div>}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

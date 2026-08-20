@@ -141,16 +141,17 @@ export class BoardsService {
             templateColumn.options
           ) {
             const options = templateColumn.options as {
-              options?: Array<{
+              statusOptions?: Array<{
+                id: string;
                 label: string;
                 color: string;
                 order: number;
               }>;
             };
 
-            if (options.options?.length) {
+            if (options.statusOptions?.length) {
               await tx.statusOption.createMany({
-                data: options.options.map((option) => ({
+                data: options.statusOptions.map((option) => ({
                   columnId: boardColumn.id,
                   label: option.label,
                   color: option.color,

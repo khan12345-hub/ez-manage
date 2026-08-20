@@ -20,12 +20,12 @@ export function WorkspaceCover({ image }: Props) {
 
       <div className="absolute inset-0 bg-black/15" />
 
-      <div className="absolute right-8 top-6">
+      {/* <div className="absolute right-8 top-6">
         <Button variant="secondary">
           <Pencil className="mr-2 h-4 w-4" />
           Change Cover
         </Button>
-      </div>
+      </div> */}
     </div>
   );
 }

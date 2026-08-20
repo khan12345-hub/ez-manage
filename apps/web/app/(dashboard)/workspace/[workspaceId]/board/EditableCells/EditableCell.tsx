@@ -136,7 +136,7 @@ export function EditableCell<T>({
     <HoverCard openDelay={200} closeDelay={100}>
       <HoverCardTrigger asChild>
         <div className="z-20 flex items-center justify-center">
-          {/* <Component
+          <Component
             editing={editing}
             inputRef={inputRef}
             value={localValue}
@@ -149,14 +149,14 @@ export function EditableCell<T>({
             boardId={boardId}
             isPrimary={column?.isPrimary}
             isDragging={isDragging}
-          /> */}
-          <Lock className="h-7 w-7 text-muted-foreground" />
+          />
+          {/* <Lock strokeWidth={0.75} className="h-7 w-7 text-muted-foreground" /> */}
         </div>
       </HoverCardTrigger>
 
       <HoverCardContent side="top" align="center" className="w-64">
         <div className="flex items-start gap-2">
-          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <Lock strokeWidth={1} className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
 
           <div className="space-y-1">
             <p className="text-sm font-medium">Protected column</p>

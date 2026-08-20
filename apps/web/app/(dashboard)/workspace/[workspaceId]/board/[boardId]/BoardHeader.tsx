@@ -6,7 +6,6 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,37 +17,66 @@ import {
   updateBoardVisibility,
   updateBoardMemberRole,
   removeBoardMember,
+  BoardVisibility,
 } from "@/services/board-access-management.api";
 
 import { ManageBoardAccessModal } from "./ManageBoardAccessModal";
 import AutomationModal from "./Automation/AutomationModal";
+import { usePermissions } from "@/services/permissions/permissions.hooks";
 
 interface BoardHeaderProps {
   board: any;
 }
 
-export function BoardHeader({
-  board
-}: BoardHeaderProps) {
+export function BoardHeader({ board }: BoardHeaderProps) {
   const queryClient = useQueryClient();
 
   const [manageAccessOpen, setManageAccessOpen] = useState(false);
 
+  const [open, setOpen] = useState(false);
+
+  /**
+   * Update board visibility
+   */
   const visibilityMutation = useMutation({
-    mutationFn: (visibility: "PRIVATE" | "PUBLIC") =>
+    mutationFn: (visibility: BoardVisibility) =>
       updateBoardVisibility(board.id, visibility),
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["boards", board.id, "access"],
+    onMutate: async (newVisibility) => {
+      await queryClient.cancelQueries({
+        queryKey: ["board", board.id],
       });
 
+      const previousBoard = queryClient.getQueryData(["board", board.id]);
+
+      queryClient.setQueryData(["board", board.id], (old: any) => {
+        if (!old) return old;
+
+        return {
+          ...old,
+          visibility: newVisibility,
+        };
+      });
+
+      return { previousBoard };
+    },
+
+    onError: (_error, _newVisibility, context) => {
+      if (context?.previousBoard) {
+        queryClient.setQueryData(["board", board.id], context.previousBoard);
+      }
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: ["boards", board.id],
+        queryKey: ["board", board.id],
       });
     },
   });
 
+  /**
+   * Update board member role
+   */
   const roleMutation = useMutation({
     mutationFn: ({
       memberId,
@@ -58,32 +86,95 @@ export function BoardHeader({
       role: "MEMBER" | "ADMIN";
     }) => updateBoardMemberRole(board.id, memberId, role),
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["boards", board.id, "access"],
+    onMutate: async ({ memberId, role }) => {
+      await queryClient.cancelQueries({
+        queryKey: ["board", board.id],
       });
 
+      const previousBoard = queryClient.getQueryData(["board", board.id]);
+
+      /**
+       * Optimistically update the exact cache
+       * that BoardHeader uses to render members.
+       */
+      queryClient.setQueryData(["board", board.id], (old: any) => {
+        if (!old) return old;
+
+        return {
+          ...old,
+
+          members: (old.members ?? []).map((member: any) =>
+            member.id === memberId
+              ? {
+                  ...member,
+                  role,
+                }
+              : member,
+          ),
+        };
+      });
+
+      return { previousBoard };
+    },
+
+    onError: (_error, _variables, context) => {
+      if (context?.previousBoard) {
+        queryClient.setQueryData(["board", board.id], context.previousBoard);
+      }
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: ["boards", board.id],
+        queryKey: ["board", board.id],
       });
     },
   });
 
+  /**
+   * Remove board member
+   */
   const removeMutation = useMutation({
     mutationFn: (memberId: number) => removeBoardMember(board.id, memberId),
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["boards", board.id, "access"],
+    onMutate: async (memberId) => {
+      await queryClient.cancelQueries({
+        queryKey: ["board", board.id],
       });
 
+      const previousBoard = queryClient.getQueryData(["board", board.id]);
+
+      /**
+       * Remove member immediately from the UI.
+       */
+      queryClient.setQueryData(["board", board.id], (old: any) => {
+        if (!old) return old;
+
+        return {
+          ...old,
+
+          members: (old.members ?? []).filter(
+            (member: any) => member.id !== memberId,
+          ),
+        };
+      });
+
+      return { previousBoard };
+    },
+
+    onError: (_error, _memberId, context) => {
+      if (context?.previousBoard) {
+        queryClient.setQueryData(["board", board.id], context.previousBoard);
+      }
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: ["boards", board.id],
+        queryKey: ["board", board.id],
       });
     },
   });
 
-  const [open, setOpen] = useState(false);
+  const { canManageBoard } = usePermissions();
 
   return (
     <>
@@ -109,26 +200,27 @@ export function BoardHeader({
             <Bot className="h-4 w-4" />
             Automate
           </Button>
+          {canManageBoard(board.role === "OWNER") && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="ml-1 h-9 w-9"
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="ml-1 h-9 w-9"
-              >
-                <MoreHorizontal className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setManageAccessOpen(true)}>
-                <Users className="mr-2 h-4 w-4" />
-                Manage access
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setManageAccessOpen(true)}>
+                  <Users className="mr-2 h-4 w-4" />
+                  Manage access
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </header>
 
@@ -141,17 +233,18 @@ export function BoardHeader({
         onVisibilityChange={(visibility) =>
           visibilityMutation.mutate(visibility)
         }
-        onRoleChange={(memberId, role) =>
+        onRoleChange={(memberId, role) => {
           roleMutation.mutate({
             memberId,
             role,
-          })
-        }
+          });
+        }}
+        isRoleUpdating={roleMutation.isPending}
         onRemoveMember={(memberId) => removeMutation.mutate(memberId)}
         isVisibilityUpdating={visibilityMutation.isPending}
-        isRoleUpdating={roleMutation.isPending}
         isRemovingMember={removeMutation.isPending}
       />
+
       <AutomationModal
         open={open}
         onOpenChange={setOpen}

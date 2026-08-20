@@ -24,7 +24,6 @@ import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 import { BoardPermissionGuard } from 'src/auth/guards/board-permission.guard';
 
 import { BoardPermission } from '@repo/shared';
-import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
 import { BoardImportService } from './board-import.service';
 import { UpdateColumnPermissionDto } from './dto/update-column-permission.dto';
 import { ColumnsAccessService } from './update-column-access.service';
@@ -99,7 +98,7 @@ export class BoardsController {
   }
 
   @Delete(':id')
-  @RequireBoardPermission(BoardPermission.DELETE)
+  @RequireBoardPermission(BoardPermission.DELETE_BOARD)
   remove(
     @Param('id', ParseIntPipe)
     id: number,
@@ -111,6 +110,7 @@ export class BoardsController {
   }
 
   @Put(':boardId/columns/:columnId/permissions')
+  @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
   async updateColumnPermission(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Param('columnId', ParseIntPipe) columnId: number,
@@ -126,6 +126,8 @@ export class BoardsController {
   }
 
   @Patch(':boardId/access/visibility')
+  @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
+
   async updateVisibility(
     @Param('boardId') boardId: number,
     @Body() dto: UpdateBoardVisibilityDto,
@@ -139,6 +141,8 @@ export class BoardsController {
   }
 
   @Patch(':boardId/access/members/:memberId/role')
+  @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
+
   async updateMemberRole(
     @Param('boardId') boardId: number,
     @Param('memberId') memberId: number,
@@ -154,6 +158,8 @@ export class BoardsController {
   }
 
   @Delete(':boardId/access/members/:memberId')
+  @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
+
   async removeMember(
     @Param('boardId') boardId: number,
     @Param('memberId') memberId: number,
@@ -167,6 +173,7 @@ export class BoardsController {
   }
 
   @Put(':boardId/columns/:columnId/access')
+  @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
   async updateColumnAccess(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Param('columnId', ParseIntPipe) columnId: number,

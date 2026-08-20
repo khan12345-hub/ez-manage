@@ -27,6 +27,7 @@ import FileThumbnail from "./FilePreviewItemThumbnail";
 
 import { toast } from "sonner";
 import { useAuth } from "@/providers/AuthProvider";
+import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 
 interface FilePreviewItemProps {
   file: FilePreviewItemType;
@@ -144,9 +145,7 @@ export default function FilePreviewItem({
             fileName={file.fileName}
             mimeType={file.mimeType}
             url={file.url}
-            
           />
-          
         </button>
       ) : (
         <div className="group flex items-center gap-3 rounded-md border p-3">
@@ -161,7 +160,6 @@ export default function FilePreviewItem({
               mimeType={file.mimeType}
               url={file.url}
             />
-            
           </button>
 
           {/* File information */}
@@ -205,43 +203,22 @@ export default function FilePreviewItem({
       />
 
       {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this file?</AlertDialogTitle>
-
-            <AlertDialogDescription className="max-w-82!">
-              Are you sure you want to delete{" "}
-              <span className="line-clamp-2 font-medium text-foreground">
-                {file.fileName}?
-              </span>{" "}
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <AlertDialogFooter>
-            {/* Cancel */}
-            <Button
-              type="button"
-              variant="outline"
-              disabled={deleteMutation.isPending}
-              onClick={() => setDeleteDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-
-            {/* Delete */}
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={deleteMutation.isPending}
-              onClick={() => deleteMutation.mutate()}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={() => deleteMutation.mutate()}
+        isDeleting={deleteMutation.isPending}
+        title="Delete this file?"
+        description={
+          `
+            Are you sure you want to delete{" "}
+            ${<span className="line-clamp-2 font-medium text-foreground">
+              {file.fileName}
+            </span>}
+            This action cannot be undone.
+          `
+        }
+      />
     </>
   );
 }

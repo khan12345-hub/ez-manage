@@ -29,7 +29,9 @@ export class InvitationsService {
   ) {}
 
   async create(dto: CreateInvitationDto, invitedById: number) {
-    // Check if the invited user already exists
+    // ------------------------------------------------------------
+    // 1. Check if the invited user already exists
+    // ------------------------------------------------------------
     const existingUser = await this.usersRepository.findByEmail(dto.email);
 
     if (existingUser) {
@@ -68,7 +70,7 @@ export class InvitationsService {
         });
 
         const existingBoardIds = new Set(
-          existingBoardMembers.map((b) => b.boardId),
+          existingBoardMembers.map((boardMember) => boardMember.boardId),
         );
 
         const boardsToAdd = dto.boardIds.filter(
@@ -97,13 +99,18 @@ export class InvitationsService {
       };
     }
 
+    // ------------------------------------------------------------
+    // 2. Validate inviter
+    // ------------------------------------------------------------
     const inviter = await this.usersRepository.findById(invitedById);
 
     if (!inviter) {
       throw new NotFoundException('Inviting user not found.');
     }
 
-    // Verify inviter belongs to the workspace
+    // ------------------------------------------------------------
+    // 3. Verify inviter belongs to workspace
+    // ------------------------------------------------------------
     const membership = await this.usersRepository.findWorkspaceMembership(
       invitedById,
       dto.workspaceId,
@@ -113,7 +120,9 @@ export class InvitationsService {
       throw new ForbiddenException('You are not a member of this workspace.');
     }
 
-    // Verify inviter has permission to invite
+    // ------------------------------------------------------------
+    // 4. Verify inviter has permission
+    // ------------------------------------------------------------
     if (
       membership.role !== WorkspaceMemberRole.OWNER &&
       membership.role !== WorkspaceMemberRole.ADMIN
@@ -123,53 +132,73 @@ export class InvitationsService {
       );
     }
 
-    // Check if the invited user already exists
+    // ------------------------------------------------------------
+    // 5. Validate selected boards belong to workspace
+    // ------------------------------------------------------------
+    const boards = await this.prisma.board.findMany({
+      where: {
+        id: {
+          in: dto.boardIds,
+        },
+        workspaceId: dto.workspaceId,
+      },
+      select: {
+        id: true,
+      },
+    });
 
-    // Check for existing pending invitation
+    if (boards.length !== dto.boardIds.length) {
+      throw new BadRequestException(
+        'One or more selected boards do not belong to the selected workspace.',
+      );
+    }
+
+    // ------------------------------------------------------------
+    // 6. Check existing invitation
+    //
+    // Only a NON-EXPIRED pending invitation should block
+    // creating another invitation.
+    // ------------------------------------------------------------
+    const now = new Date();
+
     const existingInvitation = await this.prisma.invitation.findFirst({
       where: {
         email: dto.email,
+        workspaceId: dto.workspaceId,
         status: InvitationStatus.PENDING,
       },
     });
 
     if (existingInvitation) {
-      throw new BadRequestException('A pending invitation already exists.');
+      // Existing invitation has expired.
+      // Mark it as expired so a new invitation can be created.
+      if (existingInvitation.expiresAt <= now) {
+        await this.prisma.invitation.update({
+          where: {
+            id: existingInvitation.id,
+          },
+          data: {
+            status: InvitationStatus.EXPIRED,
+          },
+        });
+      } else {
+        // Invitation is still valid.
+        throw new BadRequestException('A pending invitation already exists.');
+      }
     }
+
+    // ------------------------------------------------------------
+    // 7. Generate invitation token and expiry
+    // ------------------------------------------------------------
     const token = randomUUID();
-    const inviteUrl = `${process.env.FRONTEND_URL}/setup-account?token=${token}`;
-    const template = invitationTemplate(inviteUrl)
-    await this.mailService.sendMail({
-      to: dto.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text
-    });
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    // ------------------------------------------------------------
+    // 8. Create invitation + invitation boards
+    // ------------------------------------------------------------
     const invite = await this.prisma.$transaction(async (tx) => {
-      // Validate that all selected boards belong to the selected workspace
-      const boards = await tx.board.findMany({
-        where: {
-          id: {
-            in: dto.boardIds,
-          },
-          workspaceId: dto.workspaceId,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (boards.length !== dto.boardIds.length) {
-        throw new BadRequestException(
-          'One or more selected boards do not belong to the selected workspace.',
-        );
-      }
-
-      // Create invitation
       const invitation = await tx.invitation.create({
         data: {
           email: dto.email,
@@ -183,7 +212,6 @@ export class InvitationsService {
         },
       });
 
-      // Assign boards to the invitation
       if (dto.boardIds.length > 0) {
         await tx.invitationBoard.createMany({
           data: dto.boardIds.map((boardId) => ({
@@ -196,6 +224,23 @@ export class InvitationsService {
       return invitation;
     });
 
+    // ------------------------------------------------------------
+    // 9. Send invitation email AFTER successful DB creation
+    // ------------------------------------------------------------
+    const inviteUrl = `${process.env.FRONTEND_URL}/setup-account?token=${token}`;
+
+    const template = invitationTemplate(inviteUrl);
+
+    await this.mailService.sendMail({
+      to: dto.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+
+    // ------------------------------------------------------------
+    // 10. Return response
+    // ------------------------------------------------------------
     return {
       success: true,
       invitationId: invite.id,

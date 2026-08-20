@@ -117,13 +117,13 @@ export function TemplateColumnRow({
                 })
               }
             >
-              <SelectTrigger className="h-8 w-[140px]">
+              <SelectTrigger className="h-8 w-[140px] cursor-pointer">
                 <SelectValue />
               </SelectTrigger>
 
               <SelectContent>
                 {COLUMN_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
+                  <SelectItem key={type.value} value={type.value} className="cursor-pointer capitalize">
                     {type.label}
                   </SelectItem>
                 ))}

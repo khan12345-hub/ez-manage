@@ -1,19 +1,13 @@
 "use client";
 
-import {
-  Crown,
-  Trash2,
-  Users,
-} from "lucide-react";
+import { Crown, UserMinus, Users } from "lucide-react";
 
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar";
-
 import { Button } from "@/components/ui/button";
-
 import {
   Select,
   SelectContent,
@@ -36,9 +30,7 @@ interface BoardMembersSectionProps {
     role: "MEMBER" | "ADMIN",
   ) => void;
 
-  onRemoveMember?: (
-    memberId: number,
-  ) => void;
+  onRemoveMember?: (memberId: number) => void;
 
   isRoleUpdating?: boolean;
   isRemovingMember?: boolean;
@@ -55,9 +47,7 @@ export function BoardMembersSection({
     <div className="px-6 py-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium">
-            Members
-          </h3>
+          <h3 className="text-sm font-medium">Members</h3>
 
           <p className="text-sm text-muted-foreground">
             Manage members and their permissions.
@@ -80,8 +70,7 @@ export function BoardMembersSection({
                 member.user.lastName?.[0] ?? ""
               }`.toUpperCase();
 
-            const isOwner =
-              member.role === "OWNER";
+            const isOwner = member.role === "OWNER";
 
             return (
               <div
@@ -91,10 +80,7 @@ export function BoardMembersSection({
                 {/* Avatar */}
                 <Avatar className="h-9 w-9">
                   <AvatarImage
-                    src={
-                      member.user.avatar ??
-                      undefined
-                    }
+                    src={member.user.avatar ?? undefined}
                     alt={fullName}
                   />
 
@@ -118,7 +104,6 @@ export function BoardMembersSection({
                 {isOwner ? (
                   <div className="flex items-center gap-1.5 px-2 text-xs font-medium text-muted-foreground">
                     <Crown className="h-4 w-4 text-primary" />
-
                     <span>Owner</span>
                   </div>
                 ) : (
@@ -126,9 +111,7 @@ export function BoardMembersSection({
                     {/* Role */}
                     <Select
                       value={member.role}
-                      disabled={
-                        isRoleUpdating
-                      }
+                      disabled={isRoleUpdating}
                       onValueChange={(value) => {
                         if (
                           value === "MEMBER" ||
@@ -147,9 +130,7 @@ export function BoardMembersSection({
 
                       <SelectContent>
                         {ROLE_OPTIONS.filter(
-                          (role) =>
-                            role.value !==
-                            "OWNER",
+                          (role) => role.value !== "OWNER",
                         ).map((role) => (
                           <SelectItem
                             key={role.id}
@@ -164,19 +145,15 @@ export function BoardMembersSection({
                     {/* Remove */}
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="destructive"
                       size="icon"
-                      disabled={
-                        isRemovingMember
-                      }
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      disabled={isRemovingMember}
+                      className="h-8 w-8"
                       onClick={() =>
-                        onRemoveMember?.(
-                          member.id,
-                        )
+                        onRemoveMember?.(member.id)
                       }
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <UserMinus className="h-4 w-4" />
                     </Button>
                   </div>
                 )}

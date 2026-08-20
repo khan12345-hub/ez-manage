@@ -93,16 +93,15 @@ export function ColumnActions({ column, members }: Props) {
     },
   });
 
-  const isProtected = Boolean(column.accessControlEnabled);
-
   /**
    * SUPER_ADMIN can manage column protection.
    */
-  const isSuperAdmin = user?.systemRole === "SUPER_ADMIN";
 
   /**
    * Board OWNER can manage column protection.
    */
+  const isProtected = Boolean(column.accessControlEnabled);
+  const isSuperAdmin = user?.systemRole === "SUPER_ADMIN";
   const isBoardOwner = (members ?? []).some(
     (member) => member.role === "OWNER" && member.user.id === user?.id,
   );
@@ -164,28 +163,25 @@ export function ColumnActions({ column, members }: Props) {
           {/* Protection controls */}
           {canManageColumnProtection && (
             <>
-              <DropdownMenuItem
-                disabled={
-                  column.isPrimary || accessMutation.isPending || isProtected
-                }
-                onClick={() => accessMutation.mutate(true)}
-                className="cursor-pointer"
-              >
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                Enable protection
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                disabled={
-                  column.isPrimary || accessMutation.isPending || !isProtected
-                }
-                onClick={() => accessMutation.mutate(false)}
-                className="cursor-pointer"
-
-              >
-                <ShieldOff className="mr-2 h-4 w-4" />
-                Disable protection
-              </DropdownMenuItem>
+              {isProtected ? (
+                <DropdownMenuItem
+                  disabled={column.isPrimary || accessMutation.isPending}
+                  onClick={() => accessMutation.mutate(false)}
+                  className="cursor-pointer"
+                >
+                  <ShieldOff className="mr-2 h-4 w-4" />
+                  Disable protection
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  disabled={column.isPrimary || accessMutation.isPending}
+                  onClick={() => accessMutation.mutate(true)}
+                  className="cursor-pointer"
+                >
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Enable protection
+                </DropdownMenuItem>
+              )}
 
               {isProtected && (
                 <DropdownMenuItem
@@ -194,8 +190,7 @@ export function ColumnActions({ column, members }: Props) {
                     event.preventDefault();
                     setAccessOpen(true);
                   }}
-                className="cursor-pointer"
-
+                  className="cursor-pointer"
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Manage access
@@ -210,7 +205,6 @@ export function ColumnActions({ column, members }: Props) {
               disabled={deleteMutation.isPending || accessMutation.isPending}
               className="cursor-pointer text-destructive focus:text-destructive"
               onClick={() => deleteMutation.mutate()}
-              
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete

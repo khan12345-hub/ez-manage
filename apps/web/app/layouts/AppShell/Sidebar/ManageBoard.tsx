@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { FolderPen, MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { updateBoard, deleteBoard } from "@/services/boards.api";
 import { useRouter } from "next/navigation";
+import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 
 interface ManageBoardDropdownProps {
   boardId: number;
@@ -42,7 +43,7 @@ export function ManageBoardDropdown({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const router = useRouter()
+  const router = useRouter();
   const { mutate: renameMutation, isPending: isRenaming_ } = useMutation({
     mutationFn: () => updateBoard(boardId, { name: newName.trim() }),
     onSuccess: () => {
@@ -66,7 +67,7 @@ export function ManageBoardDropdown({
       queryClient.invalidateQueries({
         queryKey: ["boards", workspaceId],
       });
-      router.replace("/dashboard")
+      router.replace("/dashboard");
       setIsDeleteDialogOpen(false);
       toast.success("Board deleted successfully");
     },
@@ -148,7 +149,7 @@ export function ManageBoardDropdown({
 
   if (isRenaming) {
     return (
-      <div className="flex items-center gap-1.5">
+      <div className=" flex items-center gap-1.5">
         <Input
           ref={inputRef}
           value={newName}
@@ -188,53 +189,35 @@ export function ManageBoardDropdown({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600">
+          <button className="cursor-pointer outline-none rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600">
             <MoreHorizontal className="h-3.5 w-3.5" />
           </button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-max">
-          <DropdownMenuItem onClick={handleRenameClick}>
+          <DropdownMenuItem onClick={handleRenameClick} className="cursor-pointer">
+            <FolderPen strokeWidth={1} />
             Rename Board
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={handleDeleteClick}
-            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+            className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
           >
-            <Trash2 className="mr-2 h-3.5 w-3.5" />
+            <Trash2 />
             Delete Board
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Board</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this board? This action cannot be
-              undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteConfirmationDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+        title="Delete Board"
+        description="Are you sure you want to delete this board? This action cannot be undone."
+      />
     </>
   );
 }

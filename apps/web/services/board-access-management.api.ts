@@ -47,7 +47,7 @@ export async function updateBoardMemberRole(
   role: BoardMemberRole,
 ) {
   const { data } = await api.patch(
-    `/boards/${boardId}/access/users/${userId}/role`,
+    `/boards/${boardId}/access/members/${userId}/role`,
     {
       role,
     },
@@ -56,9 +56,10 @@ export async function updateBoardMemberRole(
   return data;
 }
 
+
 export async function removeBoardMember(boardId: number, userId: number) {
   const { data } = await api.delete(
-    `/boards/${boardId}/access/users/${userId}`,
+    `/boards/${boardId}/access/members/${userId}`,
   );
 
   return data;

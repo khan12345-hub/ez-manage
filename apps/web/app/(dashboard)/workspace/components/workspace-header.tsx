@@ -29,6 +29,7 @@ import { AssetVisibility, UserRole } from "@repo/shared";
 import { useAuth } from "@/providers/AuthProvider";
 import { InviteModal } from "@/components/InviteModal";
 import { useInviteModalStore } from "@/store/invite-modal";
+import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 // interface Workspace {
 //   id: number;
 //   name: string;
@@ -207,8 +208,6 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
 
   const open = useInviteModalStore((state) => state.open);
 
-  // console.log("Auth:", {...user} );
-  console.log({ user });
   return (
     <>
       <div className="-mt-5 flex items-end justify-between">
@@ -270,7 +269,7 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
         </div>
         {/* <WorkspaceActions /> */}
 
-        {workspace.createdById === user?.user?.id && (
+        {workspace.createdById === user.id && (
           <>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -302,34 +301,14 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
         )}
       </div>
 
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Workspace</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this workspace? This action cannot
-              be undone. All boards and members associated with this workspace
-              will also be deleted.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteConfirmationDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+        title="Delete Workspace"
+        description="Are you sure you want to delete this workspace? This action cannot be undone. All boards and members associated with this workspace will also be deleted."
+      />
     </>
   );
 }
