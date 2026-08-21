@@ -5,490 +5,907 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from 'prisma/prisma.service';
-import { BoardColumnType, BoardMemberRole } from 'generated/prisma/enums';
+import {
+  BoardColumnType,
+  BoardMemberRole,
+} from 'generated/prisma/enums';
 
 import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
+
+type ImportedRow = Record<string, unknown>;
+
+type StatusOptionData = {
+  label: string;
+  color?: string;
+};
+
+type StatusOptionMap = Map<
+  string,
+  {
+    id: number;
+    label: string;
+    color: string;
+  }
+>;
+
+type GroupedRows = {
+  name: string;
+  color?: string;
+  rows: ImportedRow[];
+};
 
 @Injectable()
 export class BoardImportService {
   constructor(private readonly prisma: PrismaService) {}
 
-async importExcelBoard(
-  dto: ImportExcelBoardDto,
-  userId: number,
-) {
-  return this.prisma.$transaction(async (tx) => {
-    // 1. Validate workspace
-    const workspace = await tx.workspace.findUnique({
-      where: { id: dto.workspaceId },
-      select: { id: true },
-    });
+  async importExcelBoard(dto: ImportExcelBoardDto, userId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      /*
+       * ---------------------------------------------------------
+       * 1. Validate workspace
+       * ---------------------------------------------------------
+       */
 
-    if (!workspace) {
-      throw new NotFoundException('Workspace not found.');
-    }
-
-    // 2. Prevent duplicate board
-    const boardName = dto.boardName.trim();
-    const existingBoard = await tx.board.findFirst({
-      where: {
-        workspaceId: dto.workspaceId,
-        name: boardName,
-      },
-      select: { id: true },
-    });
-
-    if (existingBoard) {
-      throw new ConflictException(
-        'A board with this name already exists in this workspace.',
-      );
-    }
-
-    // 3. Create board
-    const board = await tx.board.create({
-      data: {
-        name: boardName,
-        workspaceId: dto.workspaceId,
-        visibility: dto.visibility ?? 'PUBLIC',
-        createdById: userId,
-        members: {
-          create: {
-            userId,
-            role: BoardMemberRole.OWNER,
-          },
+      const workspace = await tx.workspace.findUnique({
+        where: {
+          id: dto.workspaceId,
         },
-      },
-    });
-
-    // 4. Create board columns
-    // Filter out metadata columns
-    const mappings = dto.columns.filter(
-      (mapping) =>
-        mapping.sourceColumn !== dto.taskColumn &&
-        mapping.sourceColumn !== dto.groupColumn &&
-        mapping.sourceColumn !== '__groupName' &&
-        mapping.sourceColumn !== '__groupColor',
-    );
-
-    const primaryColumnMapping = dto.columns.find(
-      (mapping) => mapping.sourceColumn === dto.taskColumn,
-    );
-
-    const primaryColumnName =
-      primaryColumnMapping?.targetColumn?.trim() ||
-      dto.taskColumn.trim();
-
-    const columnDefinitions = [
-      {
-        name: primaryColumnName,
-        type: BoardColumnType.TEXT,
-        isPrimary: true,
-      },
-      ...mappings.map((mapping) => ({
-        name: mapping.targetColumn.trim(),
-        type: mapping.type,
-        isPrimary: false,
-      })),
-    ];
-
-    const uniqueColumnDefinitions = columnDefinitions.filter(
-      (column, index, array) =>
-        array.findIndex(
-          (item) =>
-            item.name.trim().toLowerCase() ===
-            column.name.trim().toLowerCase(),
-        ) === index,
-    );
-
-    const columns = await tx.boardColumn.createManyAndReturn({
-      data: uniqueColumnDefinitions.map((column, index) => ({
-        boardId: board.id,
-        name: column.name,
-        type: column.type,
-        isPrimary: column.isPrimary,
-        order: (index + 1) * 1000,
-      })),
-    });
-
-    // 5. Create status options (Extracts labels + hex colors from parsed cells)
-    const statusOptionsByColumn = new Map<string, Map<string, any>>();
-
-    for (const mapping of mappings) {
-      if (mapping.type !== BoardColumnType.STATUS) {
-        continue;
-      }
-
-      const column = columns.find(
-        (item) =>
-          item.name.trim().toLowerCase() ===
-          mapping.targetColumn.trim().toLowerCase(),
-      );
-
-      if (!column) continue;
-
-      const statusOptionsData = this.getUniqueStatusOptions(
-        dto.rows,
-        mapping.sourceColumn,
-      );
-
-      if (!statusOptionsData.length) continue;
-
-      const statusOptions = await tx.statusOption.createManyAndReturn({
-        data: statusOptionsData.map((opt, index) => ({
-          columnId: column.id,
-          label: opt.label,
-          color: opt.color || this.getStatusColor(index),
-          order: (index + 1) * 1000,
-        })),
-      });
-
-      const optionMap = new Map<string, any>();
-      for (const option of statusOptions) {
-        optionMap.set(option.label.trim().toLowerCase(), option);
-      }
-
-      statusOptionsByColumn.set(mapping.sourceColumn, optionMap);
-    }
-
-    // 6. Group Excel rows
-    const groupedRows = this.groupImportedRows(dto.rows);
-    let groupOrder = 1000;
-
-    // 7. Create groups + tasks + cells
-    for (const [groupKey, groupData] of groupedRows) {
-      const group = await tx.group.create({
-        data: {
-          boardId: board.id,
-          name: groupData.name || 'Imported Tasks',
-          color: groupData.color || this.getGroupColor(groupOrder),
-          order: groupOrder,
-          createdById: userId,
+        select: {
+          id: true,
         },
       });
 
-      const validRows = groupData.rows
-        .map((row) => ({
-          row,
-          taskName: this.getTaskName(this.getFlexibleValue(row, dto.taskColumn)),
-        }))
-        .filter(
-          (item): item is { row: Record<string, unknown>; taskName: string } =>
-            Boolean(item.taskName),
+      if (!workspace) {
+        throw new NotFoundException('Workspace not found.');
+      }
+
+      /*
+       * ---------------------------------------------------------
+       * 2. Validate board name / duplicate board
+       * ---------------------------------------------------------
+       */
+
+      const boardName = dto.boardName.trim();
+
+      if (!boardName) {
+        throw new ConflictException('Board name is required.');
+      }
+
+      const existingBoard = await tx.board.findFirst({
+        where: {
+          workspaceId: dto.workspaceId,
+          name: boardName,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (existingBoard) {
+        throw new ConflictException(
+          'A board with this name already exists in this workspace.',
         );
-
-      if (!validRows.length) {
-        groupOrder += 1000;
-        continue;
       }
 
-      // Create tasks
-      const tasks = await tx.task.createManyAndReturn({
-        data: validRows.map((item, index) => ({
-          groupId: group.id,
-          name: item.taskName,
-          order: (index + 1) * 1000,
+      /*
+       * ---------------------------------------------------------
+       * 3. Create board
+       * ---------------------------------------------------------
+       */
+
+      const board = await tx.board.create({
+        data: {
+          name: boardName,
+          workspaceId: dto.workspaceId,
+          visibility: dto.visibility ?? 'PUBLIC',
           createdById: userId,
-        })),
-      });
 
-      // Create task cells
-      const taskCells: {
-        taskId: number;
-        columnId: number;
-        value: string;
-      }[] = [];
-
-      for (let index = 0; index < tasks.length; index++) {
-        const task = tasks[index];
-        const row = validRows[index].row;
-
-        for (const mapping of mappings) {
-          const column = columns.find(
-            (item) =>
-              item.name.trim().toLowerCase() ===
-              mapping.targetColumn.trim().toLowerCase(),
-          );
-
-          if (!column) continue;
-
-          // Uses flexible key matching (handles exact or case-insensitive column lookup)
-          const rawValue = this.getFlexibleValue(row, mapping.sourceColumn);
-
-          if (rawValue === null || rawValue === undefined || rawValue === '') {
-            continue;
-          }
-
-          const value = this.normalizeCellValue(
-            rawValue,
-            mapping.type,
-            mapping.sourceColumn,
-            statusOptionsByColumn,
-          );
-
-          if (value === null) continue;
-
-          taskCells.push({
-            taskId: task.id,
-            columnId: column.id,
-            value,
-          });
-        }
-      }
-
-      if (taskCells.length) {
-        await tx.taskCell.createMany({ data: taskCells });
-      }
-
-      groupOrder += 1000;
-    }
-
-    // 8. Return complete board
-    return tx.board.findUniqueOrThrow({
-      where: { id: board.id },
-      include: {
-        columns: {
-          orderBy: { order: 'asc' },
-          include: {
-            statusOptions: {
-              where: { isArchived: false },
-              orderBy: { order: 'asc' },
+          members: {
+            create: {
+              userId,
+              role: BoardMemberRole.OWNER,
             },
           },
         },
-        groups: {
-          orderBy: { order: 'asc' },
-          include: {
-            tasks: {
-              orderBy: { order: 'asc' },
-              include: {
-                cells: {
-                  include: {
-                    column: {
-                      include: {
-                        statusOptions: {
-                          where: { isArchived: false },
-                          orderBy: { order: 'asc' },
+      });
+
+      /*
+       * ---------------------------------------------------------
+       * 4. Prepare column mappings
+       *
+       * __groupName / __groupColor are parser metadata and
+       * must NEVER become board columns.
+       *
+       * The task column is the primary board column.
+       * ---------------------------------------------------------
+       */
+
+      const mappings = dto.columns.filter((mapping) => {
+        const sourceColumn = mapping.sourceColumn?.trim();
+
+        if (!sourceColumn) {
+          return false;
+        }
+
+        if (sourceColumn === '__groupName') {
+          return false;
+        }
+
+        if (sourceColumn === '__groupColor') {
+          return false;
+        }
+
+        if (sourceColumn === dto.taskColumn) {
+          return false;
+        }
+
+        if (sourceColumn === dto.groupColumn) {
+          return false;
+        }
+
+        return true;
+      });
+
+      /*
+       * Find primary/task mapping.
+       */
+
+      const primaryColumnMapping = dto.columns.find(
+        (mapping) =>
+          this.normalizeKey(mapping.sourceColumn) ===
+          this.normalizeKey(dto.taskColumn),
+      );
+
+      const primaryColumnName =
+        primaryColumnMapping?.targetColumn?.trim() ||
+        dto.taskColumn.trim() ||
+        'Name';
+
+      /*
+       * ---------------------------------------------------------
+       * 5. Build column definitions
+       * ---------------------------------------------------------
+       */
+
+      const columnDefinitions = [
+        {
+          name: primaryColumnName,
+          type: BoardColumnType.TEXT,
+          isPrimary: true,
+        },
+
+        ...mappings
+          .filter((mapping) => {
+            const targetName = mapping.targetColumn?.trim();
+
+            return Boolean(targetName);
+          })
+          .map((mapping) => ({
+            name: mapping.targetColumn.trim(),
+            type: mapping.type,
+            isPrimary: false,
+          })),
+      ];
+
+      /*
+       * Remove duplicate columns case-insensitively.
+       */
+
+      const uniqueColumnDefinitions =
+        columnDefinitions.filter((column, index, array) => {
+          const normalizedName = this.normalizeKey(column.name);
+
+          return (
+            array.findIndex(
+              (item) =>
+                this.normalizeKey(item.name) === normalizedName,
+            ) === index
+          );
+        });
+
+      /*
+       * ---------------------------------------------------------
+       * 6. Create board columns
+       * ---------------------------------------------------------
+       */
+
+      const columns = await tx.boardColumn.createManyAndReturn({
+        data: uniqueColumnDefinitions.map((column, index) => ({
+          boardId: board.id,
+          name: column.name,
+          type: column.type,
+          isPrimary: column.isPrimary,
+          order: (index + 1) * 1000,
+        })),
+      });
+
+      /*
+       * ---------------------------------------------------------
+       * 7. Create status options
+       *
+       * Parser may return:
+       *
+       * {
+       *   label: "Done",
+       *   color: "#00C875"
+       * }
+       *
+       * or simply:
+       *
+       * "Done"
+       * ---------------------------------------------------------
+       */
+
+      const statusOptionsByColumn = new Map<
+        string,
+        StatusOptionMap
+      >();
+
+      for (const mapping of mappings) {
+        if (mapping.type !== BoardColumnType.STATUS) {
+          continue;
+        }
+
+        const column = columns.find(
+          (item) =>
+            this.normalizeKey(item.name) ===
+            this.normalizeKey(mapping.targetColumn),
+        );
+
+        if (!column) {
+          continue;
+        }
+
+        const statusOptionsData = this.getUniqueStatusOptions(
+          dto.rows,
+          mapping.sourceColumn,
+        );
+
+        if (!statusOptionsData.length) {
+          continue;
+        }
+
+        const statusOptions =
+          await tx.statusOption.createManyAndReturn({
+            data: statusOptionsData.map((option, index) => ({
+              columnId: column.id,
+              label: option.label,
+              color:
+                option.color ||
+                this.getStatusColor(index),
+              order: (index + 1) * 1000,
+            })),
+          });
+
+        const optionMap: StatusOptionMap = new Map();
+
+        for (const option of statusOptions) {
+          optionMap.set(
+            this.normalizeKey(option.label),
+            option,
+          );
+        }
+
+        statusOptionsByColumn.set(
+          mapping.sourceColumn,
+          optionMap,
+        );
+      }
+
+      /*
+       * ---------------------------------------------------------
+       * 8. Group imported rows
+       *
+       * The custom Excel parser puts:
+       *
+       * __groupName
+       * __groupColor
+       *
+       * into each row.
+       * ---------------------------------------------------------
+       */
+
+      const groupedRows = this.groupImportedRows(dto.rows);
+
+      let groupOrder = 1000;
+
+      /*
+       * ---------------------------------------------------------
+       * 9. Create groups
+       * 10. Create tasks
+       * 11. Create task cells
+       * ---------------------------------------------------------
+       */
+
+      for (const groupData of groupedRows.values()) {
+        const group = await tx.group.create({
+          data: {
+            boardId: board.id,
+            name: groupData.name || 'Imported Tasks',
+            color:
+              groupData.color ||
+              this.getGroupColor(groupOrder),
+            order: groupOrder,
+            createdById: userId,
+          },
+        });
+
+        /*
+         * Resolve task names before creating tasks.
+         */
+
+        const validRows = groupData.rows
+          .map((row) => {
+            const rawTaskValue = this.getFlexibleValue(
+              row,
+              dto.taskColumn,
+            );
+
+            const taskName = this.getTaskName(
+              rawTaskValue,
+              row,
+            );
+
+            return {
+              row,
+              taskName,
+            };
+          })
+          .filter(
+            (
+              item,
+            ): item is {
+              row: ImportedRow;
+              taskName: string;
+            } => Boolean(item.taskName),
+          );
+
+        if (!validRows.length) {
+          groupOrder += 1000;
+          continue;
+        }
+
+        /*
+         * -------------------------------------------------------
+         * Create tasks
+         * -------------------------------------------------------
+         */
+
+        const tasks = await tx.task.createManyAndReturn({
+          data: validRows.map((item, index) => ({
+            groupId: group.id,
+            name: item.taskName,
+            order: (index + 1) * 1000,
+            createdById: userId,
+          })),
+        });
+
+        /*
+         * -------------------------------------------------------
+         * Build task cells
+         * -------------------------------------------------------
+         */
+
+        const taskCells: {
+          taskId: number;
+          columnId: number;
+          value: string;
+        }[] = [];
+
+        for (let index = 0; index < tasks.length; index++) {
+          const task = tasks[index];
+          const row = validRows[index].row;
+
+          for (const mapping of mappings) {
+            /*
+             * Never create a cell for the primary column.
+             */
+
+            if (
+              this.normalizeKey(mapping.sourceColumn) ===
+              this.normalizeKey(dto.taskColumn)
+            ) {
+              continue;
+            }
+
+            /*
+             * Find target board column.
+             */
+
+            const column = columns.find(
+              (item) =>
+                this.normalizeKey(item.name) ===
+                this.normalizeKey(mapping.targetColumn),
+            );
+
+            if (!column) {
+              continue;
+            }
+
+            /*
+             * Read value from imported row.
+             */
+
+            const rawValue = this.getFlexibleValue(
+              row,
+              mapping.sourceColumn,
+            );
+
+            /*
+             * Ignore empty values.
+             */
+
+            if (this.isEmptyValue(rawValue)) {
+              continue;
+            }
+
+            /*
+             * Convert value to TaskCell string.
+             */
+
+            const normalizedValue =
+              this.normalizeCellValue(
+                rawValue,
+                mapping.type,
+                mapping.sourceColumn,
+                statusOptionsByColumn,
+              );
+
+            if (
+              normalizedValue === null ||
+              normalizedValue === ''
+            ) {
+              continue;
+            }
+
+            taskCells.push({
+              taskId: task.id,
+              columnId: column.id,
+              value: normalizedValue,
+            });
+          }
+        }
+
+        /*
+         * -------------------------------------------------------
+         * Insert all cells for this group
+         * -------------------------------------------------------
+         */
+
+        if (taskCells.length) {
+          await tx.taskCell.createMany({
+            data: taskCells,
+          });
+        }
+
+        groupOrder += 1000;
+      }
+
+      /*
+       * ---------------------------------------------------------
+       * 12. Return complete board
+       * ---------------------------------------------------------
+       */
+
+      return tx.board.findUniqueOrThrow({
+        where: {
+          id: board.id,
+        },
+
+        include: {
+          columns: {
+            orderBy: {
+              order: 'asc',
+            },
+
+            include: {
+              statusOptions: {
+                where: {
+                  isArchived: false,
+                },
+
+                orderBy: {
+                  order: 'asc',
+                },
+              },
+            },
+          },
+
+          groups: {
+            orderBy: {
+              order: 'asc',
+            },
+
+            include: {
+              tasks: {
+                orderBy: {
+                  order: 'asc',
+                },
+
+                include: {
+                  cells: {
+                    include: {
+                      column: {
+                        include: {
+                          statusOptions: {
+                            where: {
+                              isArchived: false,
+                            },
+
+                            orderBy: {
+                              order: 'asc',
+                            },
+                          },
                         },
                       },
                     },
+
+                    orderBy: {
+                      column: {
+                        order: 'asc',
+                      },
+                    },
                   },
-                  orderBy: { column: { order: 'asc' } },
+                },
+              },
+            },
+          },
+
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true,
                 },
               },
             },
           },
         },
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                avatarUrl: true,
-              },
-            },
-          },
-        },
-      },
+      });
     });
-  });
-}
-/**
- * Case-insensitive lookup so mapping never fails if sourceColumn string has spacing/casing differences.
- */
-private getFlexibleValue(row: Record<string, any>, keyName: string): any {
-  if (!row || !keyName) return undefined;
-  if (keyName in row) return row[keyName];
-
-  const targetKey = keyName.trim().toLowerCase();
-  for (const k of Object.keys(row)) {
-    if (k.trim().toLowerCase() === targetKey) {
-      return row[k];
-    }
-  }
-  return undefined;
-}
-
-/**
- * Parses both raw strings and { label, color } status objects.
- */
-private getUniqueStatusOptions(
-  rows: Record<string, any>[],
-  sourceColumn: string,
-): Array<{ label: string; color?: string }> {
-  const optionsMap = new Map<string, { label: string; color?: string }>();
-
-  for (const row of rows) {
-    const rawVal = this.getFlexibleValue(row, sourceColumn);
-    if (!rawVal) continue;
-
-    let label = '';
-    let color: string | undefined = undefined;
-
-    if (typeof rawVal === 'object' && rawVal !== null && 'label' in rawVal) {
-      label = String(rawVal.label).trim();
-      color = rawVal.color;
-    } else {
-      label = String(rawVal).trim();
-    }
-
-    if (label && !optionsMap.has(label.toLowerCase())) {
-      optionsMap.set(label.toLowerCase(), { label, color });
-    }
   }
 
-  return Array.from(optionsMap.values());
-}
-
-/**
- * Normalizes values stored inside TaskCell.
- */
-private normalizeCellValue(
-  rawValue: any,
-  columnType: BoardColumnType,
-  sourceColumn: string,
-  statusOptionsByColumn: Map<string, Map<string, any>>,
-): string | null {
-  if (rawValue === null || rawValue === undefined || rawValue === '') {
-    return null;
-  }
-
-  let label = '';
-  if (typeof rawValue === 'object' && rawValue !== null && 'label' in rawValue) {
-    label = String(rawValue.label).trim();
-  } else {
-    label = String(rawValue).trim();
-  }
-
-  if (!label) return null;
-
-  if (columnType === BoardColumnType.STATUS) {
-    const columnOptions = statusOptionsByColumn.get(sourceColumn);
-    if (!columnOptions) return label;
-
-    const matchedOption = columnOptions.get(label.toLowerCase());
-    return matchedOption ? matchedOption.label : label;
-  }
-
-  return label;
-}
   /*
-   * ============================================================
-   * GROUP IMPORT
-   * ============================================================
-   *
-   * Groups are determined from metadata generated by the
-   * Excel parser:
-   *
-   * __groupName
-   * __groupColor
+   * ============================================================================
+   * VALUE HELPERS
+   * ============================================================================
    */
 
+  /**
+   * Normalize object keys for reliable comparison.
+   *
+   * Examples:
+   *
+   * "Task Name" -> "task name"
+   * " task name " -> "task name"
+   * "TASK_NAME" -> "task_name"
+   */
+  private normalizeKey(value: unknown): string {
+    return String(value ?? '')
+      .trim()
+      .toLowerCase();
+  }
 
+  /**
+   * Check whether an imported Excel value is empty.
+   */
+  private isEmptyValue(value: unknown): boolean {
+    if (value === null || value === undefined) {
+      return true;
+    }
 
-  private groupImportedRows(rows: Record<string, unknown>[]) {
-    const grouped = new Map<
-      string,
-      {
-        name: string;
-        color: string | null;
-        rows: Record<string, unknown>[];
+    if (typeof value === 'string') {
+      return value.trim() === '';
+    }
+
+    return false;
+  }
+
+  /**
+   * Case-insensitive + whitespace-tolerant row lookup.
+   *
+   * This is important because the parser and DTO can have
+   * slightly different header formatting.
+   */
+  private getFlexibleValue(
+    row: ImportedRow,
+    keyName: string,
+  ): unknown {
+    if (!row || !keyName) {
+      return undefined;
+    }
+
+    /*
+     * Exact lookup first.
+     */
+
+    if (Object.prototype.hasOwnProperty.call(row, keyName)) {
+      return row[keyName];
+    }
+
+    const targetKey = this.normalizeKey(keyName);
+
+    /*
+     * Case-insensitive lookup.
+     */
+
+    for (const [key, value] of Object.entries(row)) {
+      if (this.normalizeKey(key) === targetKey) {
+        return value;
       }
+    }
+
+    /*
+     * Also support whitespace normalization.
+     *
+     * "Task  Name"
+     * "Task Name"
+     *
+     * become equivalent.
+     */
+
+    const compactTarget = targetKey.replace(/\s+/g, ' ');
+
+    for (const [key, value] of Object.entries(row)) {
+      const normalizedKey = this.normalizeKey(key).replace(
+        /\s+/g,
+        ' ',
+      );
+
+      if (normalizedKey === compactTarget) {
+        return value;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Extract task name.
+   */
+  private getTaskName(
+    rawValue: unknown,
+    row?: ImportedRow,
+  ): string {
+    /*
+     * Primary lookup.
+     */
+
+    const directValue = this.extractDisplayValue(rawValue);
+
+    if (directValue) {
+      return directValue;
+    }
+
+    /*
+     * Fallback to common task/name columns.
+     */
+
+    if (row) {
+      const preferredKeys = [
+        'name',
+        'task',
+        'task name',
+        'item',
+        'item name',
+        'title',
+      ];
+
+      for (const key of preferredKeys) {
+        const value = this.getFlexibleValue(row, key);
+
+        const extracted = this.extractDisplayValue(value);
+
+        if (extracted) {
+          return extracted;
+        }
+      }
+
+      /*
+       * Last fallback:
+       * first non-metadata value.
+       */
+
+      for (const [key, value] of Object.entries(row)) {
+        if (key.startsWith('__')) {
+          continue;
+        }
+
+        const extracted = this.extractDisplayValue(value);
+
+        if (extracted) {
+          return extracted;
+        }
+      }
+    }
+
+    return '';
+  }
+
+  /**
+   * Convert parser values into a display string.
+   *
+   * Handles:
+   *
+   * "Done"
+   *
+   * {
+   *   label: "Done",
+   *   color: "#00C875"
+   * }
+   */
+  private extractDisplayValue(value: unknown): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    if (typeof value === 'object') {
+      if (
+        'label' in value &&
+        value.label !== null &&
+        value.label !== undefined
+      ) {
+        return String(value.label).trim();
+      }
+
+      /*
+       * Avoid storing "[object Object]" in cells.
+       */
+
+      return '';
+    }
+
+    return String(value).trim();
+  }
+
+  /*
+   * ============================================================================
+   * STATUS OPTIONS
+   * ============================================================================
+   */
+
+  private getUniqueStatusOptions(
+    rows: ImportedRow[],
+    sourceColumn: string,
+  ): StatusOptionData[] {
+    const optionsMap = new Map<
+      string,
+      StatusOptionData
     >();
 
     for (const row of rows) {
-      const rawGroupName = row.__groupName;
+      const rawValue = this.getFlexibleValue(
+        row,
+        sourceColumn,
+      );
 
-      const rawGroupColor = row.__groupColor;
-
-      const groupName =
-        rawGroupName !== null &&
-        rawGroupName !== undefined &&
-        String(rawGroupName).trim()
-          ? String(rawGroupName).trim()
-          : 'Imported Tasks';
-
-      const groupColor =
-        rawGroupColor !== null &&
-        rawGroupColor !== undefined &&
-        String(rawGroupColor).trim()
-          ? String(rawGroupColor).trim()
-          : null;
-
-      const key = groupName.trim().toLowerCase();
-
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          name: groupName,
-          color: groupColor,
-          rows: [],
-        });
-      }
-
-      grouped.get(key)!.rows.push(row);
-    }
-
-    return grouped;
-  }
-
-  /*
-   * ============================================================
-   * TASK NAME
-   * ============================================================
-   */
-
-  private getTaskName(value: unknown): string | null {
-    if (value === null || value === undefined) {
-      return null;
-    }
-
-    const name = String(value).trim();
-
-    return name || null;
-  }
-
-  /*
-   * ============================================================
-   * UNIQUE STATUS VALUES
-   * ============================================================
-   */
-
-  private getUniqueColumnValues(
-    rows: Record<string, unknown>[],
-    columnName: string,
-  ): string[] {
-    const values = new Set<string>();
-
-    for (const row of rows) {
-      const value = row[columnName];
-
-      if (value === null || value === undefined || value === '') {
+      if (this.isEmptyValue(rawValue)) {
         continue;
       }
 
-      const normalized = String(value).trim();
+      let label = '';
+      let color: string | undefined;
 
-      if (normalized) {
-        values.add(normalized);
+      if (
+        typeof rawValue === 'object' &&
+        rawValue !== null &&
+        'label' in rawValue
+      ) {
+        label = String(
+          rawValue.label ?? '',
+        ).trim();
+
+        if (
+          'color' in rawValue &&
+          rawValue.color
+        ) {
+          color = String(rawValue.color).trim();
+        }
+      } else {
+        label = String(rawValue).trim();
+      }
+
+      if (!label) {
+        continue;
+      }
+
+      const key = this.normalizeKey(label);
+
+      if (!optionsMap.has(key)) {
+        optionsMap.set(key, {
+          label,
+          color,
+        });
       }
     }
 
-    return Array.from(values);
+    return Array.from(optionsMap.values());
   }
 
   /*
-   * ============================================================
+   * ============================================================================
    * CELL NORMALIZATION
-   * ============================================================
+   * ============================================================================
    */
 
+  private normalizeCellValue(
+    rawValue: unknown,
+    columnType: BoardColumnType,
+    sourceColumn: string,
+    statusOptionsByColumn: Map<
+      string,
+      StatusOptionMap
+    >,
+  ): string | null {
+    if (this.isEmptyValue(rawValue)) {
+      return null;
+    }
 
+    /*
+     * STATUS
+     */
+
+    if (columnType === BoardColumnType.STATUS) {
+      const label =
+        this.extractDisplayValue(rawValue);
+
+      if (!label) {
+        return null;
+      }
+
+      const columnOptions =
+        statusOptionsByColumn.get(sourceColumn);
+
+      if (!columnOptions) {
+        return label;
+      }
+
+      const matchedOption =
+        columnOptions.get(
+          this.normalizeKey(label),
+        );
+
+      return matchedOption?.label ?? label;
+    }
+
+    /*
+     * NUMBER
+     */
+
+    if (columnType === BoardColumnType.NUMBER) {
+      return this.normalizeNumber(rawValue);
+    }
+
+    /*
+     * DATE
+     */
+
+    if (columnType === BoardColumnType.DATE) {
+      return this.normalizeDate(rawValue);
+    }
+
+    /*
+     * CHECKBOX
+     */
+
+    if (columnType === BoardColumnType.CHECKBOX) {
+      return this.normalizeBoolean(rawValue);
+    }
+
+    /*
+     * Everything else.
+     */
+
+    return this.extractDisplayValue(rawValue) || null;
+  }
 
   /*
-   * ============================================================
+   * ============================================================================
    * BOOLEAN
-   * ============================================================
+   * ============================================================================
    */
 
   private normalizeBoolean(value: unknown): string {
@@ -496,15 +913,26 @@ private normalizeCellValue(
       return String(value);
     }
 
-    const normalized = String(value).trim().toLowerCase();
+    const normalized = String(value ?? '')
+      .trim()
+      .toLowerCase();
 
-    return String(['true', 'yes', '1', 'checked', 'x'].includes(normalized));
+    return String(
+      [
+        'true',
+        'yes',
+        '1',
+        'checked',
+        'x',
+        '✓',
+      ].includes(normalized),
+    );
   }
 
   /*
-   * ============================================================
+   * ============================================================================
    * NUMBER
-   * ============================================================
+   * ============================================================================
    */
 
   private normalizeNumber(value: unknown): string {
@@ -512,17 +940,25 @@ private normalizeCellValue(
       return String(value);
     }
 
-    const normalized = String(value).replace(/,/g, '').trim();
+    const normalized = String(value ?? '')
+      .replace(/,/g, '')
+      .trim();
+
+    if (!normalized) {
+      return '';
+    }
 
     const parsed = Number(normalized);
 
-    return Number.isNaN(parsed) ? normalized : String(parsed);
+    return Number.isNaN(parsed)
+      ? normalized
+      : String(parsed);
   }
 
   /*
-   * ============================================================
+   * ============================================================================
    * DATE
-   * ============================================================
+   * ============================================================================
    */
 
   private normalizeDate(value: unknown): string {
@@ -536,13 +972,61 @@ private normalizeCellValue(
       return date.toISOString();
     }
 
-    return String(value);
+    return String(value).trim();
   }
 
   /*
-   * ============================================================
+   * ============================================================================
+   * GROUPING
+   * ============================================================================
+   */
+
+  private groupImportedRows(
+    rows: ImportedRow[],
+  ): Map<string, GroupedRows> {
+    const groupedMap = new Map<
+      string,
+      GroupedRows
+    >();
+
+    for (const row of rows) {
+      const rawGroupName = row.__groupName;
+
+      const groupName =
+        String(
+          rawGroupName ?? 'Imported Tasks',
+        ).trim() || 'Imported Tasks';
+
+      const rawGroupColor = row.__groupColor;
+
+      const groupColor =
+        rawGroupColor !== null &&
+        rawGroupColor !== undefined &&
+        String(rawGroupColor).trim()
+          ? String(rawGroupColor).trim()
+          : undefined;
+
+      const groupKey =
+        this.normalizeKey(groupName);
+
+      if (!groupedMap.has(groupKey)) {
+        groupedMap.set(groupKey, {
+          name: groupName,
+          color: groupColor,
+          rows: [],
+        });
+      }
+
+      groupedMap.get(groupKey)!.rows.push(row);
+    }
+
+    return groupedMap;
+  }
+
+  /*
+   * ============================================================================
    * STATUS COLORS
-   * ============================================================
+   * ============================================================================
    */
 
   private getStatusColor(index: number): string {
@@ -559,11 +1043,9 @@ private normalizeCellValue(
   }
 
   /*
-   * ============================================================
-   * FALLBACK GROUP COLORS
-   * ============================================================
-   *
-   * Used only when Excel didn't provide a color.
+   * ============================================================================
+   * GROUP COLORS
+   * ============================================================================
    */
 
   private getGroupColor(order: number): string {
@@ -576,8 +1058,42 @@ private normalizeCellValue(
       '#66CCFF',
     ];
 
-    const index = Math.floor(order / 1000) - 1;
+    const index =
+      Math.floor(order / 1000) - 1;
 
     return colors[index % colors.length];
+  }
+
+  /*
+   * ============================================================================
+   * OPTIONAL / LEGACY HELPERS
+   * ============================================================================
+   */
+
+  private getUniqueColumnValues(
+    rows: ImportedRow[],
+    columnName: string,
+  ): string[] {
+    const values = new Set<string>();
+
+    for (const row of rows) {
+      const value = this.getFlexibleValue(
+        row,
+        columnName,
+      );
+
+      if (this.isEmptyValue(value)) {
+        continue;
+      }
+
+      const normalized =
+        this.extractDisplayValue(value);
+
+      if (normalized) {
+        values.add(normalized);
+      }
+    }
+
+    return Array.from(values);
   }
 }

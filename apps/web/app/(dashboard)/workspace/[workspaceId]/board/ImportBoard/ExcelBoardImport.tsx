@@ -10,9 +10,9 @@ import { toast } from "sonner";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 
-import { FormInput } from "./form/FormInput";
-import { FormRadio } from "./form/FormRadio";
-import { Button } from "./ui/button";
+import { FormInput } from "../../../../../../components/form/FormInput";
+import { FormRadio } from "../../../../../../components/form/FormRadio";
+import { Button } from "../../../../../../components/ui/button";
 
 import { createBoard } from "@/services/boards.api";
 import { extractExcelBoard } from "./excelParser"; // Imported parser
@@ -107,7 +107,7 @@ export function ExcelBoardImport({
     try {
       // Use our modular parser function
       const boardData = await extractExcelBoard(file);
-
+        console.log({boardData})
       if (boardData.boardName) {
         setValue("name", boardData.boardName, {
           shouldDirty: true,

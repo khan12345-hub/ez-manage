@@ -18,13 +18,14 @@ import { useRouter } from "next/navigation";
 import { FormInput } from "./form/FormInput";
 import { FormRadio } from "./form/FormRadio";
 import { Button } from "./ui/button";
-import { ExcelImportModal } from "./ExcelImportModal";
+
 
 import {
   createBoard,
   importExcelBoard,
   ImportExcelBoardDto,
 } from "@/services/boards.api";
+import { ExcelImportModal } from "@/app/(dashboard)/workspace/[workspaceId]/board/ImportBoard/ExcelImportModal";
 
 const boardSchema = z.object({
   name: z.string().trim().min(1, "Board name is required"),

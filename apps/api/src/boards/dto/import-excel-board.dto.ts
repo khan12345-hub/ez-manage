@@ -1,11 +1,4 @@
-import {
-  IsArray,
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  ValidateNested,
-} from "class-validator";
+
 import { Type } from "class-transformer";
 import { ExcelColumnMappingDto } from "./excel-column-mapping.dto";
 
@@ -13,6 +6,15 @@ enum WorkspaceVisibility {
   PUBLIC = "PUBLIC",
   PRIVATE = "PRIVATE",
 }
+import {
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  ValidateNested,
+  IsObject,
+} from 'class-validator';
 
 export class ImportExcelBoardDto {
   @IsString()
@@ -37,5 +39,7 @@ export class ImportExcelBoardDto {
   columns!: ExcelColumnMappingDto[];
 
   @IsArray()
+  @IsObject({ each: true })
+  @Type(() => Object)
   rows!: Record<string, unknown>[];
 }

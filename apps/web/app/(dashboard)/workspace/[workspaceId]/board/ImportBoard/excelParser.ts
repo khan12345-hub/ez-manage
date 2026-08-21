@@ -76,7 +76,10 @@ export const getCellValue = (
 ): string => {
   const address = XLSX.utils.encode_cell({ r: row, c: column });
   const cell = worksheet[address];
-  return cell && cell.v !== undefined && cell.v !== null ? String(cell.v).trim() : "";
+  if (!cell) return "";
+
+  const val = cell.w ?? cell.v ?? cell.f ?? "";
+  return String(val).trim();
 };
 
 export const findBoardName = (worksheet: XLSX.WorkSheet, file: File): string => {
@@ -101,7 +104,7 @@ export const findGroupRows = (worksheet: XLSX.WorkSheet): ExcelGroup[] => {
       if (leftVal) continue;
 
       const rowBelowVal = getCellValue(worksheet, r + 1, c).toLowerCase();
-      if (rowBelowVal === "name" || rowBelowVal.length > 0) {
+      if (rowBelowVal === "name") {
         const color = getCellTextColor(worksheet, r, c) ?? DEFAULT_GROUP_COLOR;
         groups.push({ name: val, color, rowIndex: r });
         break;
@@ -118,6 +121,8 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
   const workbook = XLSX.read(arrayBuffer, {
     type: "array",
     cellStyles: true,
+    cellDates: true,
+    cellNF: true,
   });
 
   const sheetName = workbook.SheetNames[0];
@@ -132,27 +137,29 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
   const boardName = findBoardName(worksheet, file);
   const groups = findGroupRows(worksheet);
 
-  const parsedRows: ExcelRowItem[] = [];
-  const masterColumnsMap = new Map<string, number>();
+  if (!groups.length) {
+    throw new Error("Could not detect any valid groups or column headers in the file.");
+  }
 
+  const masterHeaderRow = groups[0].rowIndex + 1;
+  const fixedColumns: ExcelColumn[] = [];
+
+  // 1. Scan headers from gray row
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const colName = getCellValue(worksheet, masterHeaderRow, c);
+    if (colName) {
+      fixedColumns.push({ name: colName, index: c });
+    }
+  }
+
+  const parsedRows: ExcelRowItem[] = [];
+
+  // 2. Parse task rows
   groups.forEach((group, index) => {
     const headerRow = group.rowIndex + 1;
     const nextGroup = groups[index + 1];
     const sectionEndRow = nextGroup ? nextGroup.rowIndex - 1 : range.e.r;
 
-    // Scan headers in gray row
-    const sectionColumns: ExcelColumn[] = [];
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const headerName = getCellValue(worksheet, headerRow, c);
-      if (headerName) {
-        sectionColumns.push({ name: headerName, index: c });
-        if (!masterColumnsMap.has(headerName)) {
-          masterColumnsMap.set(headerName, c);
-        }
-      }
-    }
-
-    // Extract row data
     for (let r = headerRow + 1; r <= sectionEndRow; r++) {
       const rowItem: ExcelRowItem = {
         __groupName: group.name,
@@ -160,8 +167,14 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
       };
       let rowHasData = false;
 
-      sectionColumns.forEach((col) => {
-        const cellValue = getCellValue(worksheet, r, col.index);
+      fixedColumns.forEach((col, colIdx) => {
+        let cellValue = getCellValue(worksheet, r, col.index);
+
+        // FALLBACK: If column 0 / primary column cell is empty, check column A index (range.s.c)
+        if (!cellValue && colIdx === 0) {
+          cellValue = getCellValue(worksheet, r, range.s.c);
+        }
+
         const fillColor = getCellFillColor(worksheet, r, col.index);
 
         if (cellValue) {
@@ -185,9 +198,15 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
     }
   });
 
-  const columns: ExcelColumn[] = Array.from(masterColumnsMap.entries()).map(
-    ([name, index]) => ({ name, index })
+  // Remove duplicate column definitions if any exist
+  const uniqueColumns = fixedColumns.filter(
+    (col, idx, arr) => arr.findIndex((c) => c.name === col.name) === idx
   );
 
-  return { boardName, groups, columns, rows: parsedRows };
+  return {
+    boardName,
+    groups,
+    columns: uniqueColumns,
+    rows: parsedRows,
+  };
 }

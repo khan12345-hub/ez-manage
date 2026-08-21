@@ -212,6 +212,7 @@ export interface Group {
   boardId: number;
   createdAt: string;
   updatedAt: string;
+  color?:string;
 }
 
 export async function getGroups(boardId: number): Promise<Group[]> {
