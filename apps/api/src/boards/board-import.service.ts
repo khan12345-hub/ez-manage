@@ -4,391 +4,442 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import {
-  BoardColumnType,
-  BoardMemberRole,
-} from '@repo/shared';
-import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { BoardColumnType, BoardMemberRole } from 'generated/prisma/enums';
+
+import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
 
 @Injectable()
 export class BoardImportService {
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async importExcelBoard(
-    dto: ImportExcelBoardDto,
-    userId: number,
-  ) {
-    return this.prisma.$transaction(async (tx) => {
-      const workspace = await tx.workspace.findUnique({
-        where: {
-          id: dto.workspaceId,
-        },
-        select: {
-          id: true,
-        },
-      });
+async importExcelBoard(
+  dto: ImportExcelBoardDto,
+  userId: number,
+) {
+  return this.prisma.$transaction(async (tx) => {
+    // 1. Validate workspace
+    const workspace = await tx.workspace.findUnique({
+      where: { id: dto.workspaceId },
+      select: { id: true },
+    });
 
-      if (!workspace) {
-        throw new NotFoundException(
-          'Workspace not found.',
-        );
-      }
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found.');
+    }
 
-      const existingBoard = await tx.board.findFirst({
-        where: {
-          workspaceId: dto.workspaceId,
-          name: dto.boardName.trim(),
-        },
-        select: {
-          id: true,
-        },
-      });
+    // 2. Prevent duplicate board
+    const boardName = dto.boardName.trim();
+    const existingBoard = await tx.board.findFirst({
+      where: {
+        workspaceId: dto.workspaceId,
+        name: boardName,
+      },
+      select: { id: true },
+    });
 
-      if (existingBoard) {
-        throw new ConflictException(
-          'A board with this name already exists in this workspace.',
-        );
-      }
+    if (existingBoard) {
+      throw new ConflictException(
+        'A board with this name already exists in this workspace.',
+      );
+    }
 
-      const board = await tx.board.create({
-        data: {
-          name: dto.boardName.trim(),
-          workspaceId: dto.workspaceId,
-          visibility: dto.visibility ?? 'PUBLIC',
-          createdById: userId,
-          members: {
-            create: {
-              userId,
-              role: BoardMemberRole.OWNER,
-            },
+    // 3. Create board
+    const board = await tx.board.create({
+      data: {
+        name: boardName,
+        workspaceId: dto.workspaceId,
+        visibility: dto.visibility ?? 'PUBLIC',
+        createdById: userId,
+        members: {
+          create: {
+            userId,
+            role: BoardMemberRole.OWNER,
           },
         },
-      });
+      },
+    });
 
-      const columnDefinitions = [
-        {
-          name: dto.taskColumn,
-          type: BoardColumnType.TEXT,
-          isPrimary: true,
-        },
-        ...dto.columns
-          .filter(
-            (column) =>
-              column.sourceColumn !== dto.taskColumn &&
-              column.sourceColumn !== dto.groupColumn,
-          )
-          .map((column) => ({
-            name: column.targetColumn,
-            type: column.type,
-            isPrimary: false,
-          })),
-      ];
+    // 4. Create board columns
+    // Filter out metadata columns
+    const mappings = dto.columns.filter(
+      (mapping) =>
+        mapping.sourceColumn !== dto.taskColumn &&
+        mapping.sourceColumn !== dto.groupColumn &&
+        mapping.sourceColumn !== '__groupName' &&
+        mapping.sourceColumn !== '__groupColor',
+    );
 
-      const columns = await tx.boardColumn.createManyAndReturn({
-        data: columnDefinitions.map(
-          (column, index) => ({
-            boardId: board.id,
-            name: column.name,
-            type: column.type,
-            isPrimary: column.isPrimary,
-            order: (index + 1) * 1000,
-          }),
-        ),
-      });
+    const primaryColumnMapping = dto.columns.find(
+      (mapping) => mapping.sourceColumn === dto.taskColumn,
+    );
 
-      const statusOptionsByColumn = new Map<
-        string,
-        Map<string, any>
-      >();
+    const primaryColumnName =
+      primaryColumnMapping?.targetColumn?.trim() ||
+      dto.taskColumn.trim();
 
-      for (const mapping of dto.columns) {
-        if (
-          mapping.type !== BoardColumnType.STATUS
-        ) {
-          continue;
-        }
+    const columnDefinitions = [
+      {
+        name: primaryColumnName,
+        type: BoardColumnType.TEXT,
+        isPrimary: true,
+      },
+      ...mappings.map((mapping) => ({
+        name: mapping.targetColumn.trim(),
+        type: mapping.type,
+        isPrimary: false,
+      })),
+    ];
 
-        const column = columns.find(
+    const uniqueColumnDefinitions = columnDefinitions.filter(
+      (column, index, array) =>
+        array.findIndex(
           (item) =>
-            item.name === mapping.targetColumn,
-        );
+            item.name.trim().toLowerCase() ===
+            column.name.trim().toLowerCase(),
+        ) === index,
+    );
 
-        if (!column) {
-          continue;
-        }
+    const columns = await tx.boardColumn.createManyAndReturn({
+      data: uniqueColumnDefinitions.map((column, index) => ({
+        boardId: board.id,
+        name: column.name,
+        type: column.type,
+        isPrimary: column.isPrimary,
+        order: (index + 1) * 1000,
+      })),
+    });
 
-        const uniqueValues =
-          this.getUniqueColumnValues(
-            dto.rows,
-            mapping.sourceColumn,
-          );
+    // 5. Create status options (Extracts labels + hex colors from parsed cells)
+    const statusOptionsByColumn = new Map<string, Map<string, any>>();
 
-        if (!uniqueValues.length) {
-          continue;
-        }
-
-        const statusOptions =
-          await tx.statusOption.createManyAndReturn({
-            data: uniqueValues.map(
-              (label, index) => ({
-                columnId: column.id,
-                label,
-                color: this.getStatusColor(index),
-                order: (index + 1) * 1000,
-              }),
-            ),
-          });
-
-        const optionMap = new Map<string, any>();
-
-        for (const option of statusOptions) {
-          optionMap.set(
-            option.label.trim().toLowerCase(),
-            option,
-          );
-        }
-
-        statusOptionsByColumn.set(
-          mapping.sourceColumn,
-          optionMap,
-        );
+    for (const mapping of mappings) {
+      if (mapping.type !== BoardColumnType.STATUS) {
+        continue;
       }
 
-      const groupedRows = this.groupRows(
-        dto.rows,
-        dto.groupColumn,
+      const column = columns.find(
+        (item) =>
+          item.name.trim().toLowerCase() ===
+          mapping.targetColumn.trim().toLowerCase(),
       );
 
-      let groupOrder = 1000;
+      if (!column) continue;
 
-      for (const [groupName, rows] of groupedRows) {
-        const group = await tx.group.create({
-          data: {
-            boardId: board.id,
-            name: groupName,
-            color: this.getGroupColor(groupOrder),
-            order: groupOrder,
-            createdById: userId,
-          },
-        });
+      const statusOptionsData = this.getUniqueStatusOptions(
+        dto.rows,
+        mapping.sourceColumn,
+      );
 
-        const validRows = rows
-          .map((row) => ({
-            row,
-            taskName: this.getTaskName(
-              row[dto.taskColumn],
-            ),
-          }))
-          .filter(
-            (
-              item,
-            ): item is {
-              row: Record<string, unknown>;
-              taskName: string;
-            } => Boolean(item.taskName),
-          );
+      if (!statusOptionsData.length) continue;
 
-        if (!validRows.length) {
-          groupOrder += 1000;
-          continue;
-        }
+      const statusOptions = await tx.statusOption.createManyAndReturn({
+        data: statusOptionsData.map((opt, index) => ({
+          columnId: column.id,
+          label: opt.label,
+          color: opt.color || this.getStatusColor(index),
+          order: (index + 1) * 1000,
+        })),
+      });
 
-        const tasks =
-          await tx.task.createManyAndReturn({
-            data: validRows.map(
-              (item, index) => ({
-                groupId: group.id,
-                name: item.taskName,
-                order: (index + 1) * 1000,
-                createdById: userId,
-              }),
-            ),
-          });
-
-        const taskCells: {
-          taskId: number;
-          columnId: number;
-          value: string;
-        }[] = [];
-
-        for (
-          let index = 0;
-          index < tasks.length;
-          index++
-        ) {
-          const task = tasks[index];
-          const row = validRows[index].row;
-
-          for (const mapping of dto.columns) {
-            if (
-              mapping.sourceColumn === dto.taskColumn ||
-              mapping.sourceColumn === dto.groupColumn
-            ) {
-              continue;
-            }
-
-            const column = columns.find(
-              (item) =>
-                item.name === mapping.targetColumn,
-            );
-
-            if (!column) {
-              continue;
-            }
-
-            const rawValue =
-              row[mapping.sourceColumn];
-
-            if (
-              rawValue === null ||
-              rawValue === undefined ||
-              rawValue === ''
-            ) {
-              continue;
-            }
-
-            const value =
-              this.normalizeCellValue(
-                rawValue,
-                mapping.type,
-                mapping.sourceColumn,
-                statusOptionsByColumn,
-              );
-
-            if (value === null) {
-              continue;
-            }
-
-            taskCells.push({
-              taskId: task.id,
-              columnId: column.id,
-              value,
-            });
-          }
-        }
-
-        if (taskCells.length) {
-          await tx.taskCell.createMany({
-            data: taskCells,
-          });
-        }
-
-        groupOrder += 1000;
+      const optionMap = new Map<string, any>();
+      for (const option of statusOptions) {
+        optionMap.set(option.label.trim().toLowerCase(), option);
       }
 
-      return tx.board.findUniqueOrThrow({
-        where: {
-          id: board.id,
+      statusOptionsByColumn.set(mapping.sourceColumn, optionMap);
+    }
+
+    // 6. Group Excel rows
+    const groupedRows = this.groupImportedRows(dto.rows);
+    let groupOrder = 1000;
+
+    // 7. Create groups + tasks + cells
+    for (const [groupKey, groupData] of groupedRows) {
+      const group = await tx.group.create({
+        data: {
+          boardId: board.id,
+          name: groupData.name || 'Imported Tasks',
+          color: groupData.color || this.getGroupColor(groupOrder),
+          order: groupOrder,
+          createdById: userId,
         },
-        include: {
-          columns: {
-            orderBy: {
-              order: 'asc',
-            },
-            include: {
-              statusOptions: {
-                where: {
-                  isArchived: false,
-                },
-                orderBy: {
-                  order: 'asc',
-                },
-              },
+      });
+
+      const validRows = groupData.rows
+        .map((row) => ({
+          row,
+          taskName: this.getTaskName(this.getFlexibleValue(row, dto.taskColumn)),
+        }))
+        .filter(
+          (item): item is { row: Record<string, unknown>; taskName: string } =>
+            Boolean(item.taskName),
+        );
+
+      if (!validRows.length) {
+        groupOrder += 1000;
+        continue;
+      }
+
+      // Create tasks
+      const tasks = await tx.task.createManyAndReturn({
+        data: validRows.map((item, index) => ({
+          groupId: group.id,
+          name: item.taskName,
+          order: (index + 1) * 1000,
+          createdById: userId,
+        })),
+      });
+
+      // Create task cells
+      const taskCells: {
+        taskId: number;
+        columnId: number;
+        value: string;
+      }[] = [];
+
+      for (let index = 0; index < tasks.length; index++) {
+        const task = tasks[index];
+        const row = validRows[index].row;
+
+        for (const mapping of mappings) {
+          const column = columns.find(
+            (item) =>
+              item.name.trim().toLowerCase() ===
+              mapping.targetColumn.trim().toLowerCase(),
+          );
+
+          if (!column) continue;
+
+          // Uses flexible key matching (handles exact or case-insensitive column lookup)
+          const rawValue = this.getFlexibleValue(row, mapping.sourceColumn);
+
+          if (rawValue === null || rawValue === undefined || rawValue === '') {
+            continue;
+          }
+
+          const value = this.normalizeCellValue(
+            rawValue,
+            mapping.type,
+            mapping.sourceColumn,
+            statusOptionsByColumn,
+          );
+
+          if (value === null) continue;
+
+          taskCells.push({
+            taskId: task.id,
+            columnId: column.id,
+            value,
+          });
+        }
+      }
+
+      if (taskCells.length) {
+        await tx.taskCell.createMany({ data: taskCells });
+      }
+
+      groupOrder += 1000;
+    }
+
+    // 8. Return complete board
+    return tx.board.findUniqueOrThrow({
+      where: { id: board.id },
+      include: {
+        columns: {
+          orderBy: { order: 'asc' },
+          include: {
+            statusOptions: {
+              where: { isArchived: false },
+              orderBy: { order: 'asc' },
             },
           },
-          groups: {
-            orderBy: {
-              order: 'asc',
-            },
-            include: {
-              tasks: {
-                orderBy: {
-                  order: 'asc',
-                },
-                include: {
-                  cells: {
-                    include: {
-                      column: {
-                        include: {
-                          statusOptions: {
-                            where: {
-                              isArchived: false,
-                            },
-                            orderBy: {
-                              order: 'asc',
-                            },
-                          },
+        },
+        groups: {
+          orderBy: { order: 'asc' },
+          include: {
+            tasks: {
+              orderBy: { order: 'asc' },
+              include: {
+                cells: {
+                  include: {
+                    column: {
+                      include: {
+                        statusOptions: {
+                          where: { isArchived: false },
+                          orderBy: { order: 'asc' },
                         },
                       },
                     },
-                    orderBy: {
-                      column: {
-                        order: 'asc',
-                      },
-                    },
                   },
-                },
-              },
-            },
-          },
-          members: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
+                  orderBy: { column: { order: 'asc' } },
                 },
               },
             },
           },
         },
-      });
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
     });
+  });
+}
+/**
+ * Case-insensitive lookup so mapping never fails if sourceColumn string has spacing/casing differences.
+ */
+private getFlexibleValue(row: Record<string, any>, keyName: string): any {
+  if (!row || !keyName) return undefined;
+  if (keyName in row) return row[keyName];
+
+  const targetKey = keyName.trim().toLowerCase();
+  for (const k of Object.keys(row)) {
+    if (k.trim().toLowerCase() === targetKey) {
+      return row[k];
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Parses both raw strings and { label, color } status objects.
+ */
+private getUniqueStatusOptions(
+  rows: Record<string, any>[],
+  sourceColumn: string,
+): Array<{ label: string; color?: string }> {
+  const optionsMap = new Map<string, { label: string; color?: string }>();
+
+  for (const row of rows) {
+    const rawVal = this.getFlexibleValue(row, sourceColumn);
+    if (!rawVal) continue;
+
+    let label = '';
+    let color: string | undefined = undefined;
+
+    if (typeof rawVal === 'object' && rawVal !== null && 'label' in rawVal) {
+      label = String(rawVal.label).trim();
+      color = rawVal.color;
+    } else {
+      label = String(rawVal).trim();
+    }
+
+    if (label && !optionsMap.has(label.toLowerCase())) {
+      optionsMap.set(label.toLowerCase(), { label, color });
+    }
   }
 
-  private groupRows(
-    rows: Record<string, unknown>[],
-    groupColumn?: string,
-  ) {
+  return Array.from(optionsMap.values());
+}
+
+/**
+ * Normalizes values stored inside TaskCell.
+ */
+private normalizeCellValue(
+  rawValue: any,
+  columnType: BoardColumnType,
+  sourceColumn: string,
+  statusOptionsByColumn: Map<string, Map<string, any>>,
+): string | null {
+  if (rawValue === null || rawValue === undefined || rawValue === '') {
+    return null;
+  }
+
+  let label = '';
+  if (typeof rawValue === 'object' && rawValue !== null && 'label' in rawValue) {
+    label = String(rawValue.label).trim();
+  } else {
+    label = String(rawValue).trim();
+  }
+
+  if (!label) return null;
+
+  if (columnType === BoardColumnType.STATUS) {
+    const columnOptions = statusOptionsByColumn.get(sourceColumn);
+    if (!columnOptions) return label;
+
+    const matchedOption = columnOptions.get(label.toLowerCase());
+    return matchedOption ? matchedOption.label : label;
+  }
+
+  return label;
+}
+  /*
+   * ============================================================
+   * GROUP IMPORT
+   * ============================================================
+   *
+   * Groups are determined from metadata generated by the
+   * Excel parser:
+   *
+   * __groupName
+   * __groupColor
+   */
+
+
+
+  private groupImportedRows(rows: Record<string, unknown>[]) {
     const grouped = new Map<
       string,
-      Record<string, unknown>[]
+      {
+        name: string;
+        color: string | null;
+        rows: Record<string, unknown>[];
+      }
     >();
 
     for (const row of rows) {
-      const rawGroup = groupColumn
-        ? row[groupColumn]
-        : null;
+      const rawGroupName = row.__groupName;
+
+      const rawGroupColor = row.__groupColor;
 
       const groupName =
-        rawGroup !== null &&
-        rawGroup !== undefined &&
-        String(rawGroup).trim()
-          ? String(rawGroup).trim()
+        rawGroupName !== null &&
+        rawGroupName !== undefined &&
+        String(rawGroupName).trim()
+          ? String(rawGroupName).trim()
           : 'Imported Tasks';
 
-      if (!grouped.has(groupName)) {
-        grouped.set(groupName, []);
+      const groupColor =
+        rawGroupColor !== null &&
+        rawGroupColor !== undefined &&
+        String(rawGroupColor).trim()
+          ? String(rawGroupColor).trim()
+          : null;
+
+      const key = groupName.trim().toLowerCase();
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          name: groupName,
+          color: groupColor,
+          rows: [],
+        });
       }
 
-      grouped.get(groupName)!.push(row);
+      grouped.get(key)!.rows.push(row);
     }
 
     return grouped;
   }
 
-  private getTaskName(
-    value: unknown,
-  ): string | null {
-    if (
-      value === null ||
-      value === undefined
-    ) {
+  /*
+   * ============================================================
+   * TASK NAME
+   * ============================================================
+   */
+
+  private getTaskName(value: unknown): string | null {
+    if (value === null || value === undefined) {
       return null;
     }
 
@@ -397,110 +448,84 @@ export class BoardImportService {
     return name || null;
   }
 
+  /*
+   * ============================================================
+   * UNIQUE STATUS VALUES
+   * ============================================================
+   */
+
   private getUniqueColumnValues(
     rows: Record<string, unknown>[],
     columnName: string,
-  ) {
+  ): string[] {
     const values = new Set<string>();
 
     for (const row of rows) {
       const value = row[columnName];
 
-      if (
-        value === null ||
-        value === undefined ||
-        value === ''
-      ) {
+      if (value === null || value === undefined || value === '') {
         continue;
       }
 
-      values.add(String(value).trim());
+      const normalized = String(value).trim();
+
+      if (normalized) {
+        values.add(normalized);
+      }
     }
 
     return Array.from(values);
   }
 
-  private normalizeCellValue(
-    value: unknown,
-    type: BoardColumnType,
-    sourceColumn: string,
-    statusOptionsByColumn: Map<
-      string,
-      Map<string, any>
-    >,
-  ): string | null {
-    switch (type) {
-      case BoardColumnType.STATUS: {
-        const optionMap =
-          statusOptionsByColumn.get(
-            sourceColumn,
-          );
+  /*
+   * ============================================================
+   * CELL NORMALIZATION
+   * ============================================================
+   */
 
-        const option = optionMap?.get(
-          String(value)
-            .trim()
-            .toLowerCase(),
-        );
 
-        return option
-          ? String(option.id)
-          : null;
-      }
 
-      case BoardColumnType.CHECKBOX:
-        return this.normalizeBoolean(value);
+  /*
+   * ============================================================
+   * BOOLEAN
+   * ============================================================
+   */
 
-      case BoardColumnType.NUMBER:
-        return this.normalizeNumber(value);
-
-      case BoardColumnType.DATE:
-        return this.normalizeDate(value);
-
-      default:
-        return String(value);
-    }
-  }
-
-  private normalizeBoolean(
-    value: unknown,
-  ): string {
+  private normalizeBoolean(value: unknown): string {
     if (typeof value === 'boolean') {
       return String(value);
     }
 
-    const normalized = String(value)
-      .trim()
-      .toLowerCase();
+    const normalized = String(value).trim().toLowerCase();
 
-    return String(
-      [
-        'true',
-        'yes',
-        '1',
-        'checked',
-      ].includes(normalized),
-    );
+    return String(['true', 'yes', '1', 'checked', 'x'].includes(normalized));
   }
 
-  private normalizeNumber(
-    value: unknown,
-  ): string {
+  /*
+   * ============================================================
+   * NUMBER
+   * ============================================================
+   */
+
+  private normalizeNumber(value: unknown): string {
     if (typeof value === 'number') {
       return String(value);
     }
 
-    const parsed = Number(
-      String(value).replace(/,/g, ''),
-    );
+    const normalized = String(value).replace(/,/g, '').trim();
 
-    return Number.isNaN(parsed)
-      ? String(value)
-      : String(parsed);
+    const parsed = Number(normalized);
+
+    return Number.isNaN(parsed) ? normalized : String(parsed);
   }
 
-  private normalizeDate(
-    value: unknown,
-  ): string {
+  /*
+   * ============================================================
+   * DATE
+   * ============================================================
+   */
+
+  private normalizeDate(value: unknown): string {
     if (value instanceof Date) {
       return value.toISOString();
     }
@@ -514,9 +539,13 @@ export class BoardImportService {
     return String(value);
   }
 
-  private getStatusColor(
-    index: number,
-  ): string {
+  /*
+   * ============================================================
+   * STATUS COLORS
+   * ============================================================
+   */
+
+  private getStatusColor(index: number): string {
     const colors = [
       '#579BFC',
       '#00C875',
@@ -526,28 +555,29 @@ export class BoardImportService {
       '#66CCFF',
     ];
 
-    return colors[
-      index % colors.length
-    ];
+    return colors[index % colors.length];
   }
 
-  private getGroupColor(
-    order: number,
-  ): string {
+  /*
+   * ============================================================
+   * FALLBACK GROUP COLORS
+   * ============================================================
+   *
+   * Used only when Excel didn't provide a color.
+   */
+
+  private getGroupColor(order: number): string {
     const colors = [
       '#579BFC',
       '#00C875',
       '#FDAB3D',
       '#E2445C',
       '#A25DDC',
+      '#66CCFF',
     ];
 
-    const index =
-      Math.floor(order / 1000) - 1;
+    const index = Math.floor(order / 1000) - 1;
 
-    return colors[
-      index % colors.length
-    ];
+    return colors[index % colors.length];
   }
 }
-

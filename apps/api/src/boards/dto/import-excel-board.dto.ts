@@ -1,23 +1,17 @@
 import {
   IsArray,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   ValidateNested,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-import { BoardColumnType } from '@repo/shared';
-import { WorkspaceVisibility } from 'generated/prisma/enums';
+} from "class-validator";
+import { Type } from "class-transformer";
+import { ExcelColumnMappingDto } from "./excel-column-mapping.dto";
 
-export class ExcelColumnMappingDto {
-  @IsString()
-  sourceColumn!: string;
-
-  @IsString()
-  targetColumn!: string;
-
-  @IsEnum(BoardColumnType)
-  type: BoardColumnType;
+enum WorkspaceVisibility {
+  PUBLIC = "PUBLIC",
+  PRIVATE = "PRIVATE",
 }
 
 export class ImportExcelBoardDto {
@@ -27,7 +21,7 @@ export class ImportExcelBoardDto {
   @IsEnum(WorkspaceVisibility)
   visibility!: WorkspaceVisibility;
 
-  @IsString()
+  @IsInt()
   workspaceId!: number;
 
   @IsString()

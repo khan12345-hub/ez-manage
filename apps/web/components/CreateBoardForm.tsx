@@ -47,6 +47,7 @@ interface CreateBoardFormProps {
   ) => void;
 
   onClose: () => void;
+  onExcelImport: () => void;
 }
 
 const VISIBILITY_OPTIONS = [

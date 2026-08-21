@@ -65,11 +65,8 @@ export function TaskActions({ task }: Props) {
         </DropdownMenuContent>
       </DropdownMenu>
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        
         <AlertDialogContent>
-          
           <AlertDialogHeader>
-            
             <AlertDialogTitle> Delete this task? </AlertDialogTitle>
             <AlertDialogDescription>
               

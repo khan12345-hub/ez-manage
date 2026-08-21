@@ -67,7 +67,7 @@ export function ManageBoardDropdown({
       queryClient.invalidateQueries({
         queryKey: ["boards", workspaceId],
       });
-      router.replace("/dashboard");
+      
       setIsDeleteDialogOpen(false);
       toast.success("Board deleted successfully");
     },

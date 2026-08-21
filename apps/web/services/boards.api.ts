@@ -154,49 +154,56 @@ export const searchBoardTasks = async ({
   return data;
 };
 
-// export interface ImportExcelBoardPayload {
-//   boardName: string;
-//   workspaceId: string;
-//   taskColumn: string;
-//   groupColumn?: string;
+export interface ExcelColumnMappingDto {
+  sourceColumn: string;
+  targetColumn: string;
+  type: string;
+}
 
-//   columns: {
-//     sourceColumn: string;
-//     targetColumn: string;
-//     type: BoardColumnType;
-//   }[];
-
-//   rows: Record<string, unknown>[];
-// }
-
-export const importBoard = async ({
-  name,
-  visibility,
-  workspaceId,
-  file,
-}: {
-  name: string;
+export interface ImportExcelBoardDto {
+  boardName: string;
   visibility: "PUBLIC" | "PRIVATE";
   workspaceId: number;
-  file: File;
-}) => {
-  const formData = new FormData();
+  taskColumn: string;
+  groupColumn?: string;
+  columns: ExcelColumnMappingDto[];
+  rows: Record<string, unknown>[];
+}
 
-  formData.append("name", name);
-  formData.append("visibility", visibility);
-  formData.append(
-    "workspaceId",
-    String(workspaceId),
+export interface ImportExcelBoardResponse {
+  id: number;
+  name: string;
+  workspaceId: number;
+}
+
+export const importExcelBoard = async (
+  dto: ImportExcelBoardDto,
+): Promise<ImportExcelBoardResponse> => {
+  const { data } = await api.post<ImportExcelBoardResponse>(
+    "/boards/import/excel",
+    dto,
   );
-  formData.append("file", file);
 
-  const response = await api.post(
-    "/imports/excel",
-    formData,
-  );
-
-  return response.data;
+  return data;
 };
+
+export interface ExcelColumnMappingDto {
+  sourceColumn: string;
+  targetColumn: string;
+  type: string;
+}
+
+export interface ImportExcelBoardDto {
+  boardName: string;
+  visibility: "PUBLIC" | "PRIVATE";
+  workspaceId: number;
+  taskColumn: string;
+  groupColumn?: string;
+  columns: ExcelColumnMappingDto[];
+  rows: Record<string, unknown>[];
+}
+
+
 
 export interface Group {
   id: number;

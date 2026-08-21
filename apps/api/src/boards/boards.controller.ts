@@ -33,6 +33,7 @@ import {
   UpdateBoardVisibilityDto,
 } from './dto/update-board-access-management.dto';
 import { BoardAccessManagementService } from './board-access-management.service';
+import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
 
 @Controller('boards')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -42,6 +43,7 @@ export class BoardsController {
     private readonly boardImportService: BoardImportService,
     private readonly columnAccessService: ColumnsAccessService,
     private readonly boardAccessManagementService: BoardAccessManagementService,
+    
   ) {}
 
   @Post()
@@ -127,7 +129,6 @@ export class BoardsController {
 
   @Patch(':boardId/access/visibility')
   @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
-
   async updateVisibility(
     @Param('boardId') boardId: number,
     @Body() dto: UpdateBoardVisibilityDto,
@@ -142,7 +143,6 @@ export class BoardsController {
 
   @Patch(':boardId/access/members/:memberId/role')
   @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
-
   async updateMemberRole(
     @Param('boardId') boardId: number,
     @Param('memberId') memberId: number,
@@ -159,7 +159,6 @@ export class BoardsController {
 
   @Delete(':boardId/access/members/:memberId')
   @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
-
   async removeMember(
     @Param('boardId') boardId: number,
     @Param('memberId') memberId: number,
@@ -186,5 +185,13 @@ export class BoardsController {
       dto,
       user.id,
     );
+  }
+
+  @Post('import/excel')
+  async importExcelBoard(
+    @Body() dto: ImportExcelBoardDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.boardImportService.importExcelBoard(dto, user.id);
   }
 }
