@@ -1,27 +1,22 @@
-import { Plus, GripVertical } from "lucide-react";
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  horizontalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { useDroppable } from "@dnd-kit/core";
-import type { DragEndEvent } from "@dnd-kit/core";
-import { toast } from "sonner";
+"use client";
 
-import { Headers } from "./columns/Headers";
-import { ColumnTypeModal } from "./columns/AddColumnModal";
-import { GroupHeader } from "./GroupHeader";
-import { GroupActions } from "./GroupActions";
+import { useState } from "react";
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { GripVertical } from "lucide-react";
+import { toast } from "sonner";
 
 import { useInviteModalStore } from "@/store/invite-modal";
 
-import { BoardColumnType, createColumn } from "@/services/columns.api";
+import {
+  BoardColumnType,
+  createColumn,
+} from "@/services/columns.api";
 
-import { NewTaskRow } from "./tasks/AddNewTaskRow";
-import { Checkbox } from "@/components/ui/checkbox";
-import { TaskHierarchyRow } from "./tasks/TaskRowHierarchy";
+import { ColumnTypeModal } from "./columns/AddColumnModal";
+import { GroupHeader } from "./GroupHeader";
+import { GroupActions } from "./GroupActions";
 import { GroupTable } from "./GroupTable";
 
 interface Props {
@@ -42,28 +37,30 @@ interface Props {
       lastName: string;
       avatarUrl: string | null;
     };
-    userId:number;
-  }>
+    userId: number;
+  }>;
 }
 
 export function Group({
   group,
   columns,
   dragHandleProps,
-  isDraggingGroup,
-  isDraggingTask,
+  isDraggingGroup = false,
+  isDraggingTask = false,
   selection,
   newTaskFocusToken = 0,
   newGroupFocusToken = 0,
-  members
+  members,
 }: Props) {
   const [open, setOpen] = useState(false);
 
   const { boardId } = useInviteModalStore();
+
   const queryClient = useQueryClient();
 
   const createColumnMutation = useMutation({
-    mutationFn: (type: BoardColumnType) => createColumn(boardId || 0, type),
+    mutationFn: (type: BoardColumnType) =>
+      createColumn(boardId || 0, type),
 
     onSuccess: () => {
       toast.success("Column created");
@@ -71,16 +68,6 @@ export function Group({
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
       });
-
-      console.log(
-        "GROUP TASKS:",
-        group.tasks.map((task: any) => ({
-          id: task.id,
-          name: task.name,
-          parentTaskId: task.parentTaskId,
-          parentId: task.parentId,
-        })),
-      );
 
       setOpen(false);
     },
@@ -90,60 +77,53 @@ export function Group({
     },
   });
 
-  const { setNodeRef } = useDroppable({
-    id: `group-drop-${group.id}`,
-
-    data: {
-      type: "group-drop",
-      groupId: group.id,
-    },
-  });
-
-  function handleDragEnd(event: DragEndEvent) {
-    console.log(event);
-  }
-
-  const rootTasks = (group.tasks ?? []).filter(
-    (task: any) => !task.parentTaskId,
-  );
-
-  const groupSelection = selection.getGroupSelectionState(group);
   return (
     <>
       <div className="overflow-hidden">
         {group.isNew || group.isEditing ? (
-          <GroupHeader group={group} focusToken={newGroupFocusToken} />
+          <GroupHeader
+            group={group}
+            focusToken={newGroupFocusToken}
+          />
         ) : (
           <div className="group flex items-center justify-start gap-2 py-3">
             <button
               type="button"
               {...dragHandleProps}
               className="cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+              aria-label={`Drag group ${group.name}`}
             >
               <GripVertical className="h-4 w-4" />
             </button>
 
             <GroupActions group={group} />
 
-            <span style={{ color: group.color }} className="font-semibold">
+            <span
+              style={{
+                color: group.color,
+              }}
+              className="font-semibold"
+            >
               {group.name}
             </span>
           </div>
         )}
 
         {!isDraggingGroup && (
-          
-            <GroupTable
-              group={group}
-              columns={columns}
-              selection={selection}
-              showSelection={false}
-              showNewTaskRow={true}
-              showAddColumn={false}
-              setOpen={setOpen}
-              newTaskFocusToken={newTaskFocusToken}
-              members={members}
-            />
+          <GroupTable
+            group={group}
+            columns={columns}
+            selection={selection}
+            isDraggingGroup={isDraggingGroup}
+            isDraggingTask={isDraggingTask}
+            showSelection={false}
+            showHeaders
+            showNewTaskRow
+            showAddColumn={false}
+            setOpen={setOpen}
+            newTaskFocusToken={newTaskFocusToken}
+            members={members}
+          />
         )}
       </div>
 

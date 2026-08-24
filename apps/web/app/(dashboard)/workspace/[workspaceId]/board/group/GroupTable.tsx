@@ -5,26 +5,23 @@ import {
   horizontalListSortingStrategy,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+
 import { useDroppable } from "@dnd-kit/core";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { Plus } from "lucide-react";
 
 import { Headers } from "./columns/Headers";
 import { TaskHierarchyRow } from "./tasks/TaskRowHierarchy";
 import { NewTaskRow } from "./tasks/AddNewTaskRow";
-import { Plus } from "lucide-react";
 
 interface Props {
   group: any;
   columns: any[];
-
   color?: string;
-
   selection?: any;
-
   isDraggingGroup?: boolean;
   isDraggingTask?: boolean;
-
   showSelection?: boolean;
   showHeaders?: boolean;
   showNewTaskRow?: boolean;
@@ -40,49 +37,54 @@ interface Props {
       lastName: string;
       avatarUrl: string | null;
     };
-    userId:number;
-  }>
+    userId: number;
+  }>;
 }
 
 export function GroupTable({
   group,
   columns,
   selection,
-  isDraggingGroup,
-  isDraggingTask,
+  isDraggingGroup = false,
+  isDraggingTask = false,
   showSelection = true,
   showHeaders = true,
   showNewTaskRow = true,
   setOpen,
   newTaskFocusToken = 0,
-  members
+  members,
 }: Props) {
   const { setNodeRef } = useDroppable({
     id: `group-drop-${group.id}`,
     data: {
       type: "group-drop",
-      groupId: group.id,
+      groupId: Number(group.id),
     },
   });
 
-  const rootTasks = (group.tasks ?? []).filter((task: any) => !task.parentId);
+  const rootTasks = (group?.tasks ?? []).filter(
+    (task: any) =>
+      !task.parentTaskId &&
+      !task.parentId,
+  );
 
-  const groupSelection = selection?.getGroupSelectionState(group);
+  const groupSelection =
+    selection?.getGroupSelectionState(group);
 
   return (
     <div className="overflow-x-auto scrollbar-none">
-      <table className="min-w-300 border-collapse">
+      <table className="min-w-[1200px] border-collapse">
         {showHeaders && (
           <thead>
             <tr className="border">
               <th
-                className="sticky left-0 w-1.5"
+                className="sticky left-0 z-20 w-1.5"
                 style={{
                   backgroundColor: group.color,
                 }}
               />
 
-              <th className="sticky left-30 bg-white">
+              <th className="sticky left-[30px] z-20 bg-white">
                 {!!selection && (
                   <Checkbox
                     checked={
@@ -90,18 +92,26 @@ export function GroupTable({
                         ? "indeterminate"
                         : groupSelection?.selected
                     }
-                    onCheckedChange={() => selection.toggleGroup(group)}
-                    
+                    onCheckedChange={() =>
+                      selection.toggleGroup(group)
+                    }
                   />
                 )}
               </th>
 
               <SortableContext
-                items={columns.map((column: any) => `column-${column.id}`)}
+                items={columns.map(
+                  (column: any) =>
+                    `column-${column.id}`,
+                )}
                 strategy={horizontalListSortingStrategy}
               >
                 {columns.map((column: any) => (
-                  <Headers key={column.id} column={column} members={members}/>
+                  <Headers
+                    key={column.id}
+                    column={column}
+                    members={members}
+                  />
                 ))}
               </SortableContext>
 
@@ -117,7 +127,9 @@ export function GroupTable({
         )}
 
         <SortableContext
-          items={rootTasks.map((task: any) => `task-${task.id}`)}
+          items={rootTasks.map(
+            (task: any) => `task-${task.id}`,
+          )}
           strategy={verticalListSortingStrategy}
         >
           <tbody ref={setNodeRef}>
@@ -125,6 +137,7 @@ export function GroupTable({
               <TaskHierarchyRow
                 key={task.id}
                 task={task}
+                groupId={Number(group.id)}
                 columns={columns}
                 color={group.color}
                 isDraggingTask={isDraggingTask}
@@ -133,14 +146,16 @@ export function GroupTable({
               />
             ))}
 
-            {showNewTaskRow && (
-              <NewTaskRow
-                columns={columns}
-                color={group.color}
-                groupId={group.id}
-                focusToken={newTaskFocusToken}
-              />
-            )}
+            {showNewTaskRow &&
+              !isDraggingGroup &&
+              !isDraggingTask && (
+                <NewTaskRow
+                  columns={columns}
+                  color={group.color}
+                  groupId={group.id}
+                  focusToken={newTaskFocusToken}
+                />
+              )}
           </tbody>
         </SortableContext>
       </table>

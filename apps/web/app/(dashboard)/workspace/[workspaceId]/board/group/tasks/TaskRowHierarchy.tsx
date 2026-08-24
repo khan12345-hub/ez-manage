@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -7,8 +9,6 @@ import {
 
 import { SortableTaskRow } from "./SortableTaskRow";
 import { SortableSubtaskRow } from "./sub-tasks/SortableSubTaskRow";
-import { SubtaskList } from "./sub-tasks/SubTaskList";
-import { useState } from "react";
 
 interface Props {
   task: any;
@@ -17,20 +17,23 @@ interface Props {
   isDraggingTask?: boolean;
   selection?: any;
   showSelection?: boolean;
+
+  onCreateSubtask?: (task: any) => void;
 }
 
 export function TaskHierarchyRow({
   task,
   columns,
   color,
-  isDraggingTask,
+  isDraggingTask = false,
   selection,
-  showSelection
+  showSelection = false,
+  onCreateSubtask,
 }: Props) {
-  const subtasks = task.subtasks ?? [];
-
-  const hasSubtasks = subtasks.length > 0;
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const subtasks = task?.subtasks ?? [];
+  const hasSubtasks = subtasks.length > 0;
 
   const taskSelection = selection
     ? selection.getTaskSelectionState(task)
@@ -45,21 +48,32 @@ export function TaskHierarchyRow({
         task={task}
         columns={columns}
         color={color}
-        onToggleSubtasks={() => setIsExpanded(!isExpanded)}
+        isDragging={isDraggingTask}
         hasSubtasks={hasSubtasks}
         expanded={isExpanded}
-        showSelection={!!selection}
+        onToggleSubtasks={() => {
+          setIsExpanded((previous) => !previous);
+        }}
+        onCreateSubtask={
+          onCreateSubtask
+            ? () => onCreateSubtask(task)
+            : undefined
+        }
+        showSelection={showSelection}
         selected={taskSelection.selected}
         indeterminate={taskSelection.indeterminate}
         onSelect={
-          selection ? () => selection.toggleTask(task) : undefined
+          selection
+            ? () => selection.toggleTask(task)
+            : undefined
         }
-        
       />
 
       {hasSubtasks && isExpanded && !isDraggingTask && (
         <SortableContext
-          items={subtasks.map((subtask: any) => `subtask-${subtask.id}`)}
+          items={subtasks.map(
+            (subtask: any) => `subtask-${subtask.id}`,
+          )}
           strategy={verticalListSortingStrategy}
         >
           {subtasks.map((subtask: any) => (
@@ -73,10 +87,6 @@ export function TaskHierarchyRow({
             />
           ))}
         </SortableContext>
-      )}
-
-      {!isDraggingTask && isExpanded && (
-        <SubtaskList task={task} columns={columns} color={color} />
       )}
     </>
   );

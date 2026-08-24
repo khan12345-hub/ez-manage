@@ -2,36 +2,49 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
 import { TaskRow } from "./TaskRow";
 
 interface Props {
   task: any;
   columns: any[];
   color: string;
+
   onToggleSubtasks?: () => void;
+  onCreateSubtask?: () => void;
+
   hasSubtasks?: boolean;
   expanded?: boolean;
+
   selected?: boolean;
   indeterminate?: boolean;
   onSelect?: () => void;
   showSelection?: boolean;
+
+  isDragging?: boolean;
 }
 
 export function SortableTaskRow({
   task,
   columns,
   color,
+
   onToggleSubtasks,
-  expanded,
-  selected,
-  indeterminate,
+  onCreateSubtask,
+
+  hasSubtasks = false,
+  expanded = false,
+
+  selected = false,
+  indeterminate = false,
   onSelect,
-  showSelection
+  showSelection = false,
 }: Props) {
   const {
+    setNodeRef,
+    setActivatorNodeRef,
     attributes,
     listeners,
-    setNodeRef,
     transform,
     transition,
     isDragging,
@@ -44,26 +57,29 @@ export function SortableTaskRow({
     },
   });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.4 : 1,
   };
 
   return (
     <TaskRow
       ref={setNodeRef}
-      style={style}
-      dragHandleProps={{
-        ...attributes,
-        ...listeners,
-      }}
       task={task}
       columns={columns}
       color={color}
+      style={style}
       isDragging={isDragging}
-      onToggleSubtasks={onToggleSubtasks}
+      dragHandleProps={{
+        ...attributes,
+        ...listeners,
+        ref: setActivatorNodeRef,
+      }}
+      hasSubtasks={hasSubtasks}
       expanded={expanded}
+      onToggleSubtasks={onToggleSubtasks}
+      onCreateSubtask={onCreateSubtask}
       selected={selected}
       indeterminate={indeterminate}
       onSelect={onSelect}

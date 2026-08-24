@@ -3,22 +3,24 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import { SubtaskRow } from "./SubTaskRow";
+import { TaskRow } from "../TaskRow";
 
 interface Props {
   task: any;
   parentTaskId: number;
+  groupId: number;
   columns: any[];
   color: string;
-  selection:any;
+  selection?: any;
 }
 
 export function SortableSubtaskRow({
   task,
   parentTaskId,
+  groupId,
   columns,
   color,
-  selection
+  selection,
 }: Props) {
   const {
     attributes,
@@ -29,25 +31,29 @@ export function SortableSubtaskRow({
     isDragging,
   } = useSortable({
     id: `subtask-${task.id}`,
-
     data: {
       type: "subtask",
-      taskId: task.id,
-      groupId: task.groupId,
-
-      // The ID of the parent task.
-      parentId: parentTaskId,
+      taskId: Number(task.id),
+      groupId: Number(groupId),
+      parentId: Number(parentTaskId),
     },
   });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0 : 1,
   };
 
+  const taskSelection = selection
+    ? selection.getTaskSelectionState(task)
+    : {
+        selected: false,
+        indeterminate: false,
+      };
+
   return (
-    <SubtaskRow
+    <TaskRow
       ref={setNodeRef}
       task={task}
       columns={columns}
@@ -58,7 +64,15 @@ export function SortableSubtaskRow({
         ...listeners,
       }}
       isDragging={isDragging}
-      selection={selection}
+      variant="subtask"
+      showSelection={!!selection}
+      selected={taskSelection.selected}
+      indeterminate={taskSelection.indeterminate}
+      onSelect={
+        selection
+          ? () => selection.toggleTask(task)
+          : undefined
+      }
     />
   );
 }

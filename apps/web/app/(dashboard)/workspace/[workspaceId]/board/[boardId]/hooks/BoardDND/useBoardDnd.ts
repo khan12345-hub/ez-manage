@@ -1,12 +1,15 @@
-// hooks/useBoardDnd.ts
-
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { DragStartEvent, DragOverEvent, DragEndEvent } from "@dnd-kit/core";
+import type {
+  DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
+} from "@dnd-kit/core";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+
 import { arrayMove } from "@dnd-kit/sortable";
 
 import {
@@ -16,16 +19,14 @@ import {
   ReorderTaskDto,
 } from "@/services/tasks.api";
 
-import { reorderGroup, ReorderGroupDto } from "@/services/groups.api";
+import {
+  reorderGroup,
+  ReorderGroupDto,
+} from "@/services/groups.api";
 
 import { reorderColumn } from "@/services/columns.api";
 
-import { handleTaskDragOver } from "./dnd/task-dnd";
 import { toast } from "sonner";
-
-/* ============================================================
-   DRAG DATA
-============================================================ */
 
 export type DragData =
   | {
@@ -52,10 +53,6 @@ export type DragData =
       columnId: number;
     };
 
-/* ============================================================
-   PROPS
-============================================================ */
-
 interface Props {
   groups: any[];
   setGroups: (groups: any[]) => void;
@@ -65,10 +62,6 @@ interface Props {
 
   boardId: number;
 }
-
-/* ============================================================
-   ACTIVE ITEM
-============================================================ */
 
 type ActiveItem =
   | {
@@ -91,10 +84,6 @@ type ActiveItem =
     }
   | null;
 
-/* ============================================================
-   HOOK
-============================================================ */
-
 export function useBoardDnd({
   groups,
   setGroups,
@@ -104,54 +93,85 @@ export function useBoardDnd({
 }: Props) {
   const queryClient = useQueryClient();
 
-  /* ============================================================
-     DRAG STATE
-  ============================================================ */
+  const [dragGroups, setDragGroups] =
+    useState<any[]>(groups);
 
-  const [dragGroups, setDragGroups] = useState<any[]>(groups);
+  const [dragColumns, setDragColumns] =
+    useState<any[]>(columns);
 
-  const [dragColumns, setDragColumns] = useState<any[]>(columns);
+  const [activeItem, setActiveItem] =
+    useState<ActiveItem>(null);
 
-  const [activeItem, setActiveItem] = useState<ActiveItem>(null);
+  /*
+   * Keep the latest server state in refs.
+   *
+   * This prevents callbacks from depending on
+   * rapidly changing render values.
+   */
+  const groupsRef = useRef(groups);
+  const columnsRef = useRef(columns);
 
-  /* ============================================================
-     SYNC DRAG STATE WITH SERVER STATE
-  ============================================================ */
+  const dragGroupsRef = useRef(dragGroups);
+  const dragColumnsRef = useRef(dragColumns);
+
+  const activeItemRef = useRef<ActiveItem>(null);
 
   useEffect(() => {
-    setDragGroups((currentGroups) => {
-      if (JSON.stringify(currentGroups) === JSON.stringify(groups)) {
-        return currentGroups;
-      }
-
-      return groups;
-    });
+    groupsRef.current = groups;
   }, [groups]);
 
   useEffect(() => {
-    setDragColumns((currentColumns) => {
-      if (JSON.stringify(currentColumns) === JSON.stringify(columns)) {
-        return currentColumns;
-      }
-
-      return columns;
-    });
+    columnsRef.current = columns;
   }, [columns]);
 
-  /* ============================================================
-     REORDER TASK MUTATION
-  ============================================================ */
+  useEffect(() => {
+    dragGroupsRef.current = dragGroups;
+  }, [dragGroups]);
+
+  useEffect(() => {
+    dragColumnsRef.current = dragColumns;
+  }, [dragColumns]);
+
+  useEffect(() => {
+    activeItemRef.current = activeItem;
+  }, [activeItem]);
+
+  /*
+   * Sync server state only when we are NOT dragging.
+   *
+   * Do not JSON.stringify large boards.
+   */
+  useEffect(() => {
+    if (activeItemRef.current) {
+      return;
+    }
+
+    setDragGroups(groups);
+    dragGroupsRef.current = groups;
+  }, [groups]);
+
+  useEffect(() => {
+    if (activeItemRef.current) {
+      return;
+    }
+
+    setDragColumns(columns);
+    dragColumnsRef.current = columns;
+  }, [columns]);
+
+  /*
+   * ============================================================
+   * TASK MUTATION
+   * ============================================================
+   */
 
   const reorderTaskMutation = useMutation({
-    mutationFn: (data: ReorderTaskDto) => reorderTask(boardId, data),
-
-    onMutate: async () => {
-      await queryClient.cancelQueries({
-        queryKey: ["board", boardId],
-      });
-    },
+    mutationFn: (data: ReorderTaskDto) =>
+      reorderTask(boardId, data),
 
     onError: () => {
+      toast.error("Failed to reorder task");
+
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
       });
@@ -164,9 +184,11 @@ export function useBoardDnd({
     },
   });
 
-  /* ============================================================
-     REORDER GROUP MUTATION
-  ============================================================ */
+  /*
+   * ============================================================
+   * GROUP MUTATION
+   * ============================================================
+   */
 
   const reorderGroupMutation = useMutation({
     mutationFn: ({
@@ -177,13 +199,9 @@ export function useBoardDnd({
       data: ReorderGroupDto;
     }) => reorderGroup(boardId, data),
 
-    onMutate: async () => {
-      await queryClient.cancelQueries({
-        queryKey: ["board", boardId],
-      });
-    },
-
     onError: () => {
+      toast.error("Failed to reorder group");
+
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
       });
@@ -196,20 +214,18 @@ export function useBoardDnd({
     },
   });
 
-  /* ============================================================
-     REORDER COLUMN MUTATION
-  ============================================================ */
+  /*
+   * ============================================================
+   * COLUMN MUTATION
+   * ============================================================
+   */
 
   const reorderColumnMutation = useMutation({
     mutationFn: reorderColumn,
 
-    onMutate: async () => {
-      await queryClient.cancelQueries({
-        queryKey: ["board", boardId],
-      });
-    },
-
     onError: () => {
+      toast.error("Failed to reorder column");
+
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
       });
@@ -222,9 +238,11 @@ export function useBoardDnd({
     },
   });
 
-  /* ============================================================
-     DRAG START
-  ============================================================ */
+  /*
+   * ============================================================
+   * SUBTASK MUTATION
+   * ============================================================
+   */
 
   const reorderSubtaskMutation = useMutation({
     mutationFn: ({
@@ -233,13 +251,8 @@ export function useBoardDnd({
     }: {
       taskId: number;
       data: ReorderSubtaskDto;
-    }) => reorderSubtask(boardId, taskId, data),
-
-    onMutate: async () => {
-      await queryClient.cancelQueries({
-        queryKey: ["board", boardId],
-      });
-    },
+    }) =>
+      reorderSubtask(boardId, taskId, data),
 
     onError: () => {
       toast.error("Failed to reorder subtask");
@@ -256,439 +269,789 @@ export function useBoardDnd({
     },
   });
 
-  function handleDragStart({ active }: DragStartEvent) {
-    const activeData = active.data.current as DragData | undefined;
+  /*
+   * ============================================================
+   * DRAG START
+   * ============================================================
+   */
+
+  function handleDragStart({
+    active,
+  }: DragStartEvent) {
+    const activeData =
+      active.data.current as
+        | DragData
+        | undefined;
 
     if (!activeData) {
       return;
     }
 
+    const currentGroups = groupsRef.current;
+    const currentColumns = columnsRef.current;
+
     switch (activeData.type) {
       case "task": {
-        const group = groups.find((group) => group.id === activeData.groupId);
+        const group = currentGroups.find(
+          (item: any) =>
+            Number(item.id) ===
+            Number(activeData.groupId),
+        );
 
-        const task = group?.tasks.find(
-          (task: any) => task.id === activeData.taskId,
+        const task = group?.tasks?.find(
+          (item: any) =>
+            Number(item.id) ===
+            Number(activeData.taskId),
         );
 
         if (!group || !task) {
           return;
         }
-        console.log("task is moving...");
 
-        setActiveItem({
-          type: "task",
+        const nextActiveItem = {
+          type: "task" as const,
           task,
           group,
-        });
+        };
+
+        activeItemRef.current =
+          nextActiveItem;
+
+        setActiveItem(nextActiveItem);
 
         break;
       }
 
       case "subtask": {
-        const group = groups.find((group) => group.id === activeData.groupId);
-        const parentTask = group?.tasks.find(
-          (task: any) => task.id === activeData.parentId,
+        const group = currentGroups.find(
+          (item: any) =>
+            Number(item.id) ===
+            Number(activeData.groupId),
         );
-        if (!group || !parentTask) {
-          console.log("Parent task not found", {
-            groupId: activeData.groupId,
-            taskId: activeData.taskId,
-          });
+
+        const parentTask = group?.tasks?.find(
+          (item: any) =>
+            Number(item.id) ===
+            Number(activeData.parentId),
+        );
+
+        const subtask =
+          parentTask?.subtasks?.find(
+            (item: any) =>
+              Number(item.id) ===
+              Number(activeData.taskId),
+          );
+
+        if (!group || !parentTask || !subtask) {
           return;
         }
-        const subtask = parentTask.subtasks?.find(
-          (subtask: any) => subtask.id === activeData.taskId,
-        );
-        if (!subtask) {
-          console.log("Subtask not found", {
-            subtaskId: activeData.taskId,
-            parentTaskId: parentTask.id,
-          });
-          return;
-        }
-        console.log("subtask is moving...", {
-          subtaskId: subtask.id,
-          parentTaskId: parentTask.id,
-          groupId: group.id,
-        });
-        setActiveItem({ type: "subtask", task: subtask, group });
+
+        const nextActiveItem = {
+          type: "subtask" as const,
+          task: subtask,
+          group,
+        };
+
+        activeItemRef.current =
+          nextActiveItem;
+
+        setActiveItem(nextActiveItem);
+
         break;
       }
 
       case "group": {
-        const group = groups.find((group) => group.id === activeData.groupId);
+        const group = currentGroups.find(
+          (item: any) =>
+            Number(item.id) ===
+            Number(activeData.groupId),
+        );
 
         if (!group) {
           return;
         }
 
-        setActiveItem({
-          type: "group",
+        const nextActiveItem = {
+          type: "group" as const,
           group,
-        });
+        };
+
+        activeItemRef.current =
+          nextActiveItem;
+
+        setActiveItem(nextActiveItem);
 
         break;
       }
 
       case "column": {
-        const column = columns.find(
-          (column) => column.id === activeData.columnId,
-        );
+        const column =
+          currentColumns.find(
+            (item: any) =>
+              Number(item.id) ===
+              Number(activeData.columnId),
+          );
 
         if (!column) {
           return;
         }
 
-        setActiveItem({
-          type: "column",
+        const nextActiveItem = {
+          type: "column" as const,
           column,
-        });
+        };
+
+        activeItemRef.current =
+          nextActiveItem;
+
+        setActiveItem(nextActiveItem);
 
         break;
       }
     }
   }
 
-  /* ============================================================
-     DRAG OVER
-  ============================================================ */
+  /*
+   * ============================================================
+   * DRAG OVER
+   *
+   * IMPORTANT:
+   * We intentionally do NOT modify dragGroups here for tasks.
+   *
+   * dnd-kit already handles the visual transform.
+   * The actual array is changed once in DragEnd.
+   * ============================================================
+   */
 
-  function handleDragOver({ active, over }: DragOverEvent) {
+  function handleDragOver({
+    active,
+    over,
+  }: DragOverEvent) {
     if (!over) {
       return;
     }
-    const activeData = active.data.current as DragData | undefined;
-    const overData = over.data.current as DragData | undefined;
+
+    const activeData =
+      active.data.current as
+        | DragData
+        | undefined;
+
+    const overData =
+      over.data.current as
+        | DragData
+        | undefined;
+
     if (!activeData || !overData) {
       return;
     }
-    switch (activeData.type) {
-      case "subtask": {
-        if (overData.type !== "subtask") {
-          return;
-        }
-        if (
-          activeData.groupId !== overData.groupId ||
-          activeData.parentId !== overData.parentId
-        ) {
-          return;
-        }
-        if (activeData.taskId === overData.taskId) {
-          return;
-        }
-        setDragGroups((currentGroups: any[]) => {
-          const groupIndex = currentGroups.findIndex(
-            (group: any) => group.id === activeData.groupId,
-          );
-          if (groupIndex === -1) {
-            return currentGroups;
-          }
-          const group = currentGroups[groupIndex];
-          const parentTaskIndex = group.tasks.findIndex(
-            (task: any) => task.id === activeData.parentId,
-          );
-          if (parentTaskIndex === -1) {
-            return currentGroups;
-          }
-          const parentTask = group.tasks[parentTaskIndex];
-          const subtasks = [...(parentTask.subtasks ?? [])];
-          const oldIndex = subtasks.findIndex(
-            (subtask: any) => subtask.id === activeData.taskId,
-          );
-          const newIndex = subtasks.findIndex(
-            (subtask: any) => subtask.id === overData.taskId,
-          );
-          if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
-            return currentGroups;
-          }
-          const reorderedSubtasks = arrayMove(subtasks, oldIndex, newIndex);
-          const updatedSubtasks = reorderedSubtasks.map(
-            (subtask: any, index: number) => ({
-              ...subtask,
-              order: (index + 1) * 1000,
-            }),
-          );
-          const updatedParentTask = {
-            ...parentTask,
-            subtasks: updatedSubtasks,
-          };
-          const updatedGroup = {
-            ...group,
-            tasks: group.tasks.map((task: any, index: number) =>
-              index === parentTaskIndex ? updatedParentTask : task,
-            ),
-          };
-          return currentGroups.map((currentGroup: any, index: number) =>
-            index === groupIndex ? updatedGroup : currentGroup,
-          );
-        });
-        break;
-      }
-      case "task": {
-        if (overData.type !== "task" && overData.type !== "group-drop") {
-          break;
-        }
-        const nextGroups = handleTaskDragOver({
-          groups: dragGroups,
-          activeTaskId: activeData.taskId,
-          overTaskId: overData.type === "task" ? overData.taskId : undefined,
-          overGroupId:
-            overData.type === "group-drop" ? overData.groupId : undefined,
-          overType: overData.type,
-        });
-        setDragGroups(nextGroups);
-        break;
-      }
-      case "group": {
-        let overGroupId: number | string | undefined;
-        if (overData.type === "group" || overData.type === "group-drop") {
-          overGroupId = overData.groupId;
-        } else if (overData.type === "task") {
-          overGroupId = overData.groupId;
-        }
-        if (overGroupId === undefined && over.id) {
-          const overId = String(over.id);
-          const parsed = overId.startsWith("group-")
-            ? Number(overId.replace("group-", ""))
-            : Number(overId);
-          if (!Number.isNaN(parsed)) {
-            overGroupId = parsed;
-          }
-        }
-        if (overGroupId === undefined || activeData.groupId === overGroupId) {
-          break;
-        }
-        setDragGroups((currentGroups: any[]) => {
-          const oldIndex = currentGroups.findIndex(
-            (group: any) => group.id === activeData.groupId,
-          );
-          const newIndex = currentGroups.findIndex(
-            (group: any) => group.id === overGroupId,
-          );
-          if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
-            return currentGroups;
-          }
-          return arrayMove(currentGroups, oldIndex, newIndex);
-        });
-        break;
-      }
-      case "column": {
-        if (overData.type !== "column") {
-          break;
-        }
-        if (activeData.columnId === overData.columnId) {
-          break;
-        }
-        const overColumn = dragColumns.find(
-          (column: any) => column.id === overData.columnId,
-        );
-        const activeColumn = dragColumns.find(
-          (column: any) => column.id === activeData.columnId,
-        );
-        if (
-          !overColumn ||
-          !activeColumn ||
-          overColumn.isPrimary ||
-          activeColumn.isPrimary
-        ) {
-          break;
-        }
-        setDragColumns((currentColumns: any[]) => {
-          const oldIndex = currentColumns.findIndex(
-            (column: any) => column.id === activeData.columnId,
-          );
-          const newIndex = currentColumns.findIndex(
-            (column: any) => column.id === overData.columnId,
-          );
-          if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
-            return currentColumns;
-          }
-          return arrayMove(currentColumns, oldIndex, newIndex);
-        });
-        break;
-      }
-      default:
-        break;
-    }
+
+    /*
+     * We don't reorder anything during dragOver.
+     *
+     * This is the main performance fix.
+     */
   }
 
-  /* ============================================================
-     DRAG CANCEL
-  ============================================================ */
+  /*
+   * ============================================================
+   * DRAG CANCEL
+   * ============================================================
+   */
 
   function handleDragCancel() {
-    /*
-     * Restore original server state.
-     */
+    const currentGroups = groupsRef.current;
+    const currentColumns = columnsRef.current;
 
-    setDragGroups(groups);
+    dragGroupsRef.current = currentGroups;
+    dragColumnsRef.current = currentColumns;
 
-    setDragColumns(columns);
+    setDragGroups(currentGroups);
+    setDragColumns(currentColumns);
 
+    activeItemRef.current = null;
     setActiveItem(null);
   }
 
-  /* ============================================================
-     DRAG END
-  ============================================================ */
+  /*
+   * ============================================================
+   * DRAG END
+   * ============================================================
+   */
 
-  function handleDragEnd({ active, over }: DragEndEvent) {
-    if (!over) {
-      handleDragCancel();
-      return;
-    }
-    const activeData = active.data.current as DragData | undefined;
-    const overData = over.data.current as DragData | undefined;
+  function handleDragEnd({
+    active,
+    over,
+  }: DragEndEvent) {
+    const activeData =
+      active.data.current as
+        | DragData
+        | undefined;
+
+    const overData =
+      over?.data.current as
+        | DragData
+        | undefined;
+
     if (!activeData || !overData) {
       handleDragCancel();
       return;
     }
+
+    const currentGroups = groupsRef.current;
+    const currentColumns = columnsRef.current;
+
     switch (activeData.type) {
+      /*
+       * ========================================================
+       * TASK
+       * ========================================================
+       */
+
       case "task": {
-        const sourceGroup = groups.find(
-          (group) => group.id === activeData.groupId,
+        if (
+          overData.type !== "task" &&
+          overData.type !== "group-drop"
+        ) {
+          handleDragCancel();
+          return;
+        }
+
+        const sourceGroup = currentGroups.find(
+          (group: any) =>
+            Number(group.id) ===
+            Number(activeData.groupId),
         );
 
-        const destinationGroupId =
-          overData.type === "task" ||
-          overData.type === "group" ||
-          overData.type === "group-drop"
-            ? overData.groupId
-            : undefined;
+        let destinationGroupId: number;
 
-        const destinationGroup = dragGroups.find(
-          (group) => group.id === destinationGroupId,
-        );
+        if (overData.type === "task") {
+          destinationGroupId =
+            Number(overData.groupId);
+        } else {
+          destinationGroupId =
+            Number(overData.groupId);
+        }
+
+        const destinationGroup =
+          currentGroups.find(
+            (group: any) =>
+              Number(group.id) ===
+              destinationGroupId,
+          );
 
         if (!sourceGroup || !destinationGroup) {
-          break;
+          handleDragCancel();
+          return;
         }
 
-        const destinationTasks = destinationGroup.tasks;
+        const sourceTasks =
+          sourceGroup.tasks ?? [];
 
-        const taskIndex = destinationTasks.findIndex(
-          (task: any) => task.id === activeData.taskId,
+        const destinationTasks = [
+          ...(destinationGroup.tasks ?? []),
+        ];
+
+        /*
+         * Remove the dragged task from destination
+         * before calculating the final position.
+         */
+        const draggedTaskIndex =
+          destinationTasks.findIndex(
+            (task: any) =>
+              Number(task.id) ===
+              Number(activeData.taskId),
+          );
+
+        if (draggedTaskIndex !== -1) {
+          destinationTasks.splice(
+            draggedTaskIndex,
+            1,
+          );
+        }
+
+        let destinationIndex =
+          destinationTasks.length;
+
+        if (overData.type === "task") {
+          const overIndex =
+            destinationTasks.findIndex(
+              (task: any) =>
+                Number(task.id) ===
+                Number(overData.taskId),
+            );
+
+          if (overIndex !== -1) {
+            destinationIndex = overIndex;
+          }
+        }
+
+        const draggedTask =
+          sourceTasks.find(
+            (task: any) =>
+              Number(task.id) ===
+              Number(activeData.taskId),
+          );
+
+        if (!draggedTask) {
+          handleDragCancel();
+          return;
+        }
+
+        /*
+         * Build optimistic task order.
+         */
+        const nextTasks = [
+          ...destinationTasks,
+        ];
+
+        nextTasks.splice(
+          destinationIndex,
+          0,
+          draggedTask,
         );
 
-        if (taskIndex === -1) {
-          break;
-        }
+        /*
+         * Calculate previous/next using the final array.
+         */
+        const finalIndex =
+          nextTasks.findIndex(
+            (task: any) =>
+              Number(task.id) ===
+              Number(activeData.taskId),
+          );
 
-        const previousTask = destinationTasks[taskIndex - 1] ?? null;
+        const previousTask =
+          nextTasks[finalIndex - 1] ?? null;
 
-        const nextTask = destinationTasks[taskIndex + 1] ?? null;
+        const nextTask =
+          nextTasks[finalIndex + 1] ?? null;
 
-        setGroups(dragGroups);
+        /*
+         * Update local state once.
+         */
+        const updatedGroups =
+          currentGroups.map(
+            (group: any) => {
+              if (
+                Number(group.id) ===
+                Number(sourceGroup.id)
+              ) {
+                return {
+                  ...group,
+                  tasks:
+                    sourceGroup.id ===
+                    destinationGroup.id
+                      ? nextTasks
+                      : sourceTasks.filter(
+                          (task: any) =>
+                            Number(task.id) !==
+                            Number(
+                              activeData.taskId,
+                            ),
+                        ),
+                };
+              }
 
+              if (
+                Number(group.id) ===
+                Number(destinationGroup.id)
+              ) {
+                return {
+                  ...group,
+                  tasks: nextTasks,
+                };
+              }
+
+              return group;
+            },
+          );
+
+        dragGroupsRef.current =
+          updatedGroups;
+
+        setDragGroups(updatedGroups);
+        setGroups(updatedGroups);
+
+        /*
+         * Persist.
+         */
         reorderTaskMutation.mutate({
-          taskId: Number(activeData.taskId),
-          destinationGroupId: destinationGroup.id,
-          previousTaskId: previousTask?.id ?? null,
-          nextTaskId: nextTask?.id ?? null,
+          taskId: Number(
+            activeData.taskId,
+          ),
+          destinationGroupId:
+            Number(destinationGroup.id),
+          previousTaskId:
+            previousTask?.id ?? null,
+          nextTaskId:
+            nextTask?.id ?? null,
         });
 
         break;
       }
+
+      /*
+       * ========================================================
+       * SUBTASK
+       * ========================================================
+       */
+
       case "subtask": {
         if (overData.type !== "subtask") {
           handleDragCancel();
           return;
         }
+
         if (
-          activeData.groupId !== overData.groupId ||
-          activeData.parentId !== overData.parentId
+          Number(activeData.groupId) !==
+            Number(overData.groupId) ||
+          Number(activeData.parentId) !==
+            Number(overData.parentId)
         ) {
           handleDragCancel();
           return;
         }
-        const group = dragGroups.find(
-          (group: any) => group.id === activeData.groupId,
+
+        const group = currentGroups.find(
+          (item: any) =>
+            Number(item.id) ===
+            Number(activeData.groupId),
         );
+
         if (!group) {
           handleDragCancel();
           return;
         }
-        const parentTask = group.tasks.find(
-          (task: any) => task.id === activeData.parentId,
+
+        const parentTask = (
+          group.tasks ?? []
+        ).find(
+          (task: any) =>
+            Number(task.id) ===
+            Number(activeData.parentId),
         );
+
         if (!parentTask) {
           handleDragCancel();
           return;
         }
-        const subtasks = [...(parentTask.subtasks ?? [])];
-        const currentIndex = subtasks.findIndex(
-          (subtask: any) => subtask.id === activeData.taskId,
-        );
-        if (currentIndex === -1) {
+
+        const subtasks = [
+          ...(parentTask.subtasks ?? []),
+        ];
+
+        const oldIndex =
+          subtasks.findIndex(
+            (subtask: any) =>
+              Number(subtask.id) ===
+              Number(activeData.taskId),
+          );
+
+        const newIndex =
+          subtasks.findIndex(
+            (subtask: any) =>
+              Number(subtask.id) ===
+              Number(overData.taskId),
+          );
+
+        if (
+          oldIndex === -1 ||
+          newIndex === -1 ||
+          oldIndex === newIndex
+        ) {
           handleDragCancel();
           return;
         }
-        const previousSubtask = subtasks[currentIndex - 1] ?? null;
-        const nextSubtask = subtasks[currentIndex + 1] ?? null;
-        setGroups(dragGroups);
+
+        const reorderedSubtasks =
+          arrayMove(
+            subtasks,
+            oldIndex,
+            newIndex,
+          );
+
+        const finalIndex =
+          reorderedSubtasks.findIndex(
+            (subtask: any) =>
+              Number(subtask.id) ===
+              Number(activeData.taskId),
+          );
+
+        const previousSubtask =
+          reorderedSubtasks[
+            finalIndex - 1
+          ] ?? null;
+
+        const nextSubtask =
+          reorderedSubtasks[
+            finalIndex + 1
+          ] ?? null;
+
+        const updatedParentTask = {
+          ...parentTask,
+          subtasks: reorderedSubtasks.map(
+            (
+              subtask: any,
+              index: number,
+            ) => ({
+              ...subtask,
+              order:
+                (index + 1) * 1000,
+            }),
+          ),
+        };
+
+        const updatedGroups =
+          currentGroups.map(
+            (currentGroup: any) => {
+              if (
+                Number(currentGroup.id) !==
+                Number(group.id)
+              ) {
+                return currentGroup;
+              }
+
+              return {
+                ...currentGroup,
+                tasks: (
+                  currentGroup.tasks ?? []
+                ).map(
+                  (task: any) =>
+                    Number(task.id) ===
+                    Number(parentTask.id)
+                      ? updatedParentTask
+                      : task,
+                ),
+              };
+            },
+          );
+
+        dragGroupsRef.current =
+          updatedGroups;
+
+        setDragGroups(updatedGroups);
+        setGroups(updatedGroups);
+
         reorderSubtaskMutation.mutate({
-          taskId: Number(activeData.taskId),
+          taskId: Number(
+            activeData.taskId,
+          ),
           data: {
-            previousTaskId: previousSubtask?.id ?? null,
-            nextTaskId: nextSubtask?.id ?? null,
+            previousTaskId:
+              previousSubtask?.id ?? null,
+            nextTaskId:
+              nextSubtask?.id ?? null,
           },
         });
+
         break;
       }
+
+      /*
+       * ========================================================
+       * GROUP
+       * ========================================================
+       */
+
       case "group": {
-        const oldIndex = groups.findIndex(
-          (group) => group.id === activeData.groupId,
-        );
-        const newIndex = dragGroups.findIndex(
-          (group) => group.id === activeData.groupId,
-        );
-        if (oldIndex === newIndex || newIndex === -1) {
-          break;
+        if (
+          overData.type !== "group" &&
+          overData.type !== "group-drop" &&
+          overData.type !== "task"
+        ) {
+          handleDragCancel();
+          return;
         }
-        setGroups(dragGroups);
-        const previousGroup = dragGroups[newIndex - 1] ?? null;
-        const nextGroup = dragGroups[newIndex + 1] ?? null;
+
+        const oldIndex =
+          currentGroups.findIndex(
+            (group: any) =>
+              Number(group.id) ===
+              Number(activeData.groupId),
+          );
+
+        const overGroupId =
+          Number(overData.groupId);
+
+        const newIndex =
+          currentGroups.findIndex(
+            (group: any) =>
+              Number(group.id) ===
+              overGroupId,
+          );
+
+        if (
+          oldIndex === -1 ||
+          newIndex === -1 ||
+          oldIndex === newIndex
+        ) {
+          handleDragCancel();
+          return;
+        }
+
+        const reorderedGroups =
+          arrayMove(
+            currentGroups,
+            oldIndex,
+            newIndex,
+          );
+
+        dragGroupsRef.current =
+          reorderedGroups;
+
+        setDragGroups(reorderedGroups);
+        setGroups(reorderedGroups);
+
+        const finalIndex =
+          reorderedGroups.findIndex(
+            (group: any) =>
+              Number(group.id) ===
+              Number(activeData.groupId),
+          );
+
+        const previousGroup =
+          reorderedGroups[
+            finalIndex - 1
+          ] ?? null;
+
+        const nextGroup =
+          reorderedGroups[
+            finalIndex + 1
+          ] ?? null;
+
         reorderGroupMutation.mutate({
           boardId,
           data: {
-            groupId: Number(activeData.groupId),
-            previousGroupId: previousGroup?.id ?? null,
-            nextGroupId: nextGroup?.id ?? null,
+            groupId: Number(
+              activeData.groupId,
+            ),
+            previousGroupId:
+              previousGroup?.id ?? null,
+            nextGroupId:
+              nextGroup?.id ?? null,
           },
         });
+
         break;
       }
+
+      /*
+       * ========================================================
+       * COLUMN
+       * ========================================================
+       */
+
       case "column": {
-        const oldIndex = columns.findIndex(
-          (column) => column.id === activeData.columnId,
-        );
-        const newIndex = dragColumns.findIndex(
-          (column) => column.id === activeData.columnId,
-        );
-        if (oldIndex === newIndex || newIndex === -1) {
-          break;
+        if (
+          overData.type !== "column"
+        ) {
+          handleDragCancel();
+          return;
         }
-        setColumns(dragColumns);
-        const previousColumn = dragColumns[newIndex - 1] ?? null;
-        const nextColumn = dragColumns[newIndex + 1] ?? null;
+
+        const activeColumn =
+          currentColumns.find(
+            (column: any) =>
+              Number(column.id) ===
+              Number(
+                activeData.columnId,
+              ),
+          );
+
+        const overColumn =
+          currentColumns.find(
+            (column: any) =>
+              Number(column.id) ===
+              Number(overData.columnId),
+          );
+
+        if (
+          !activeColumn ||
+          !overColumn ||
+          activeColumn.isPrimary ||
+          overColumn.isPrimary
+        ) {
+          handleDragCancel();
+          return;
+        }
+
+        const oldIndex =
+          currentColumns.findIndex(
+            (column: any) =>
+              Number(column.id) ===
+              Number(
+                activeData.columnId,
+              ),
+          );
+
+        const newIndex =
+          currentColumns.findIndex(
+            (column: any) =>
+              Number(column.id) ===
+              Number(
+                overData.columnId,
+              ),
+          );
+
+        if (
+          oldIndex === -1 ||
+          newIndex === -1 ||
+          oldIndex === newIndex
+        ) {
+          handleDragCancel();
+          return;
+        }
+
+        const reorderedColumns =
+          arrayMove(
+            currentColumns,
+            oldIndex,
+            newIndex,
+          );
+
+        dragColumnsRef.current =
+          reorderedColumns;
+
+        setDragColumns(reorderedColumns);
+        setColumns(reorderedColumns);
+
+        const finalIndex =
+          reorderedColumns.findIndex(
+            (column: any) =>
+              Number(column.id) ===
+              Number(
+                activeData.columnId,
+              ),
+          );
+
+        const previousColumn =
+          reorderedColumns[
+            finalIndex - 1
+          ] ?? null;
+
+        const nextColumn =
+          reorderedColumns[
+            finalIndex + 1
+          ] ?? null;
+
         reorderColumnMutation.mutate({
           boardId,
-          columnId: Number(activeData.columnId),
-          previousColumnId: previousColumn?.id ?? null,
-          nextColumnId: nextColumn?.id ?? null,
+          columnId: Number(
+            activeData.columnId,
+          ),
+          previousColumnId:
+            previousColumn?.id ?? null,
+          nextColumnId:
+            nextColumn?.id ?? null,
         });
+
         break;
       }
-      default:
-        break;
     }
+
+    activeItemRef.current = null;
     setActiveItem(null);
   }
-
-  /* ============================================================
-     RETURN
-  ============================================================ */
 
   return {
     dragGroups,

@@ -88,13 +88,15 @@ export function StatusEditor({
   if (!editing) {
     return (
       <div
-        className="absolute top-0 left-0 flex h-full w-full cursor-pointer items-center justify-center text-sm font-medium text-white"
-        style={{
-          background: current?.color ?? value?.color ?? "#c4c4c4",
-        }}
-      >
-        {current?.label ?? value?.label ?? "Not Started"}
-      </div>
+  className="absolute top-0 left-0 flex h-full w-full cursor-pointer items-center justify-center overflow-hidden px-2 text-sm font-medium text-white"
+  style={{
+    background: current?.color ?? value?.color ?? "#c4c4c4",
+  }}
+>
+  <span className="min-w-0 truncate">
+    {current?.label ?? value?.label ?? "Not Started"}
+  </span>
+</div>
     );
   }
 

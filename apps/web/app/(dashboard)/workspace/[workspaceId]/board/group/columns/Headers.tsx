@@ -1,12 +1,12 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { ColumnActions } from "./ColumnActions";
-
 import { useColumnRename } from "./useColumnRename.hooks";
 
 export const Headers = ({ column, members }: any) => {
@@ -16,7 +16,14 @@ export const Headers = ({ column, members }: any) => {
       columnName: column.name,
     });
 
-  
+  const DEFAULT_WIDTH = column.isPrimary ? 300 : 180;
+  const MIN_WIDTH = column.isPrimary ? 250 : 120;
+
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+
+  const resizing = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
 
   const {
     attributes,
@@ -40,7 +47,54 @@ export const Headers = ({ column, members }: any) => {
       : undefined,
     transition,
     opacity: isDragging ? 0.5 : 1,
+    width,
+    minWidth: width,
+    maxWidth: width,
   };
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    resizing.current = true;
+    startX.current = e.clientX;
+    startWidth.current = width;
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizing.current) return;
+
+      const diff = e.clientX - startX.current;
+
+      const newWidth = Math.max(
+        MIN_WIDTH,
+        startWidth.current + diff
+      );
+
+      setWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (!resizing.current) return;
+
+      resizing.current = false;
+
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [MIN_WIDTH]);
 
   return (
     <th
@@ -48,15 +102,18 @@ export const Headers = ({ column, members }: any) => {
       style={style}
       className={`
         group
-        border-b border-l px-4 py-3 font-semibold
+        relative
+        border-b border-l
+        px-4 py-3
+        font-semibold
         ${
           column.isPrimary
-            ? "sticky left-[150px] z-30 min-w-[300px] bg-background"
-            : "min-w-[180px]"
+            ? "sticky left-[150px] z-30 bg-background"
+            : ""
         }
       `}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex h-full items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-1">
           {!column.isPrimary && (
             <button
@@ -64,9 +121,12 @@ export const Headers = ({ column, members }: any) => {
               {...attributes}
               {...listeners}
               className="
-                cursor-grab rounded p-1
+                cursor-grab
+                rounded
+                p-1
                 text-muted-foreground
-                opacity-0 transition-opacity
+                opacity-0
+                transition-opacity
                 hover:bg-muted
                 group-hover:opacity-100
               "
@@ -83,6 +143,8 @@ export const Headers = ({ column, members }: any) => {
             disabled={isSaving}
             className="
               h-8
+              min-w-0
+              flex-1
               border-transparent
               bg-transparent
               px-2
@@ -93,7 +155,36 @@ export const Headers = ({ column, members }: any) => {
           />
         </div>
 
-        <ColumnActions members={members}  column={column} />
+        <ColumnActions
+          members={members}
+          column={column}
+        />
+      </div>
+
+      {/* Excel-style resize handle */}
+      <div
+        onMouseDown={handleResizeStart}
+        className="
+          absolute
+          right-[-3px]
+          top-0
+          z-50
+          h-full
+          w-[6px]
+          cursor-col-resize
+        "
+      >
+        <div
+          className="
+            mx-auto
+            h-full
+            w-[2px]
+            opacity-0
+            transition-opacity
+            group-hover:opacity-100
+            hover:bg-primary
+          "
+        />
       </div>
     </th>
   );

@@ -8,7 +8,7 @@ import { createTask } from "@/services/tasks.api";
 import { useGroupStore } from "@/store/create-group-store";
 
 import { useTaskSelection } from "../group/tasks/sub-tasks/useTaskSelection";
-import { BoardContent } from "./BoardContent";
+
 import { BoardHeader } from "./BoardHeader/BoardHeader";
 import { useBoard } from "./hooks/useBoard.hooks";
 import { useTaskBulkActions } from "./useTaskBulkActions";
@@ -19,6 +19,7 @@ import {
 } from "./BoardHeader/Filters/GroupSort";
 
 import { BulkActionToolbar } from "./BulkActionsToolbar/BulkActionsToolbar";
+import { BoardContent } from "./BoardContent";
 
 export function Board({
   board,

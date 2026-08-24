@@ -1,20 +1,29 @@
 "use client";
 
-import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+} from "@dnd-kit/core";
+
 import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+
 import { Plus } from "lucide-react";
+
 import { TaskRow } from "../group/tasks/TaskRow";
 import { Group } from "../group/Group";
 import { Button } from "@/components/ui/button";
-import { HideColumnModal } from "../group/columns/HideColumnModal";
-import { useGroupStore } from "@/store/create-group-store";
-import { SortableGroup } from "../group/SortableGroup";
-import { SortableGroupContainer } from "../group/SortableGroupContainer";
-import { BoardSkeleton } from "./BoardSkeleton";
 
+import { HideColumnModal } from "../group/columns/HideColumnModal";
+
+import { useGroupStore } from "@/store/create-group-store";
+
+import { SortableGroupContainer } from "../group/SortableGroupContainer";
+
+import { BoardSkeleton } from "./BoardSkeleton";
 
 interface BoardContentProps {
   board: any;
@@ -22,14 +31,18 @@ interface BoardContentProps {
   isLoading: boolean;
   isFetching: boolean;
   isError: boolean;
+
   dragGroups: any[];
   filteredColumns: any[];
+
   activeItem: any;
   filters: any;
+
   handleDragStart: (event: any) => void;
   handleDragOver: (event: any) => void;
   handleDragEnd: (event: any) => void;
   handleDragCancel: () => void;
+
   selection: any;
   newGroupFocusToken: number;
 }
@@ -51,13 +64,16 @@ export function BoardContent({
   selection,
   newGroupFocusToken,
 }: BoardContentProps) {
-  const addNewGroup = useGroupStore((state) => state.addNewGroup);
-
-  const hasDraft = useGroupStore((state) =>
-    state.groups.some((group: any) => group.isNew),
+  const addNewGroup = useGroupStore(
+    (state) => state.addNewGroup,
   );
 
-
+  const hasDraft = useGroupStore(
+    (state) =>
+      state.groups.some(
+        (group: any) => group.isNew,
+      ),
+  );
 
   if (isLoading) {
     return <BoardSkeleton />;
@@ -65,21 +81,21 @@ export function BoardContent({
 
   if (isError || !board) {
     return (
-      <div className="flex min-h-96 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground ">
+      <div className="flex min-h-96 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
         Board not found.
       </div>
     );
   }
 
   const groupsToRender = dragGroups;
-  const firstGroupId = groupsToRender[0]?.id;
 
   return (
     <>
-      
       <div
         className={
-          isFetching ? "opacity-60 transition-opacity" : "transition-opacity"
+          isFetching
+            ? "opacity-60 transition-opacity"
+            : "transition-opacity"
         }
       >
         <DndContext
@@ -95,13 +111,17 @@ export function BoardContent({
               easing: "ease",
             }}
           >
-            {activeItem?.type === "task" || activeItem?.type === "subtask" ? (
-              <div className="rotate-1 rounded border bg-background opacity-90 shadow-2xl ">
+            {activeItem?.type === "task" ||
+            activeItem?.type === "subtask" ? (
+              <div className="rotate-1 rounded border bg-background opacity-90 shadow-2xl">
                 <table>
                   <tbody>
                     <TaskRow
                       task={activeItem.task}
-                      color={activeItem.group.color || "#3B82F6"}
+                      color={
+                        activeItem.group?.color ??
+                        "#3B82F6"
+                      }
                       columns={filteredColumns}
                     />
                   </tbody>
@@ -111,45 +131,63 @@ export function BoardContent({
               <div className="min-w-[500px] rotate-1 rounded border bg-background p-4 opacity-90 shadow-2xl">
                 <span
                   style={{
-                    color: activeItem.group.color,
+                    color:
+                      activeItem.group?.color,
                   }}
                   className="text-lg font-semibold"
                 >
-                  {activeItem.group.name}
+                  {activeItem.group?.name}
                 </span>
               </div>
             ) : activeItem?.type === "column" ? (
               <div className="min-w-[180px] rotate-1 rounded border border-primary/50 bg-background px-6 py-3 text-center font-semibold text-primary opacity-90 shadow-2xl">
-                {activeItem.column.name}
+                {activeItem.column?.name}
               </div>
             ) : null}
           </DragOverlay>
 
           <SortableContext
-            items={groupsToRender.map((group: any) => `group-${group.id}`)}
+            items={groupsToRender.map(
+              (group: any) =>
+                `group-${group.id}`,
+            )}
             strategy={verticalListSortingStrategy}
           >
-            <div className="mb-4 space-y-6 mt-10">
+            <div className="mb-4 mt-10 space-y-6">
               {groupsToRender.map((group: any) => (
-                <SortableGroupContainer key={group.id} groupId={group.id}>
-                  {({ attributes, listeners }: any) => (
-                    <SortableGroup id={group.id.toString()} groupId={group.id}>
-                      <Group
-                        group={group}
-                        columns={filteredColumns}
-                        dragHandleProps={{
-                          ...attributes,
-                          ...listeners,
-                        }}
-                        isDraggingGroup={activeItem?.type === "group"}
-                        isDraggingTask={activeItem?.type === "task"}
-                        selection={selection}
-                        newGroupFocusToken={
-                          group.isNew ? newGroupFocusToken : 0
-                        }
-                        members={board.members}
-                      />
-                    </SortableGroup>
+                <SortableGroupContainer
+                  key={group.id}
+                  groupId={Number(group.id)}
+                >
+                  {({
+                    attributes,
+                    listeners,
+                  }) => (
+                    <Group
+                      group={group}
+                      columns={filteredColumns}
+                      dragHandleProps={{
+                        ...attributes,
+                        ...listeners,
+                      }}
+                      isDraggingGroup={
+                        activeItem?.type ===
+                        "group"
+                      }
+                      isDraggingTask={
+                        activeItem?.type ===
+                          "task" ||
+                        activeItem?.type ===
+                          "subtask"
+                      }
+                      selection={selection}
+                      newGroupFocusToken={
+                        group.isNew
+                          ? newGroupFocusToken
+                          : 0
+                      }
+                      members={board.members}
+                    />
                   )}
                 </SortableGroupContainer>
               ))}
@@ -158,11 +196,14 @@ export function BoardContent({
         </DndContext>
       </div>
 
-      {search.trim() && !isFetching && groupsToRender.length === 0 && (
-        <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
-          No matching groups, tasks, file, date, timeline or person found.
-        </div>
-      )}
+      {search.trim() &&
+        !isFetching &&
+        groupsToRender.length === 0 && (
+          <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+            No matching groups, tasks, file, date,
+            timeline or person found.
+          </div>
+        )}
 
       <Button
         type="button"
@@ -182,7 +223,9 @@ export function BoardContent({
         hiddenColumnIds={filters.hiddenColumnIds}
         allColumnsVisible={filters.allColumnsVisible}
         onToggleColumn={filters.toggleColumn}
-        onToggleAllColumns={filters.toggleAllColumns}
+        onToggleAllColumns={
+          filters.toggleAllColumns
+        }
       />
     </>
   );
