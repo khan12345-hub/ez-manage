@@ -33,28 +33,25 @@ export function useExcelImport({
   onImport,
   setOpen,
 }: UseExcelImportOptions) {
-  const [boardName, setBoardName] =
-    useState(defaultBoardName);
+  const [boardName, setBoardName] = useState(defaultBoardName);
 
-  const [visibility, setVisibility] =
-    useState<"PUBLIC" | "PRIVATE">(defaultVisibility);
+  const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">(
+    defaultVisibility,
+  );
 
   const [headers, setHeaders] = useState<string[]>([]);
 
-  const [rows, setRows] = useState<
-    Record<string, unknown>[]
-  >([]);
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
 
   const [taskColumn, setTaskColumn] = useState("");
 
   const [groupColumn, setGroupColumn] = useState("");
 
-  const [columnMappings, setColumnMappings] = useState<
-    ExcelColumnMappingDto[]
-  >([]);
+  const [columnMappings, setColumnMappings] = useState<ExcelColumnMappingDto[]>(
+    [],
+  );
 
-  const [parseError, setParseError] =
-    useState<string | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
 
   useEffect(() => {
     setBoardName(defaultBoardName);
@@ -83,6 +80,14 @@ export function useExcelImport({
 
         const parsedData = await extractExcelBoard(file);
 
+        console.log("========== EXTRACTED DATA FROM PARSER ==========");
+
+        console.log("TASK COLUMN:", parsedData.taskColumn);
+
+        console.log("FIRST ROW:", parsedData.rows[0]);
+
+        console.log("ALL ROWS:", JSON.stringify(parsedData.rows, null, 2));
+
         if (cancelled) {
           return;
         }
@@ -100,21 +105,18 @@ export function useExcelImport({
         }
 
         const parsedHeaders = parsedData.columns.map(
-          (column:any) => column.name,
+          (column: any) => column.name,
         );
 
-        const parsedRows =
-          parsedData.rows as Record<string, unknown>[];
+        const parsedRows = parsedData.rows as Record<string, unknown>[];
 
         setHeaders(parsedHeaders);
         setRows(parsedRows);
 
-        setBoardName(
-          parsedData.boardName || defaultBoardName,
-        );
+        setBoardName(parsedData.boardName || defaultBoardName);
 
         const detectedTaskColumn =
-          getDetectedTaskColumn(parsedHeaders);
+          parsedData.taskColumn || getDetectedTaskColumn(parsedHeaders);
 
         setTaskColumn(detectedTaskColumn);
 
@@ -124,17 +126,11 @@ export function useExcelImport({
          */
         setGroupColumn("__groupName");
 
-        const mappings = buildColumnMappings(
-          parsedHeaders,
-          parsedRows,
-        );
+        const mappings = buildColumnMappings(parsedHeaders, parsedRows);
 
         setColumnMappings(mappings);
       } catch (error) {
-        console.error(
-          "Failed to parse Excel file:",
-          error,
-        );
+        console.error("Failed to parse Excel file:", error);
 
         if (!cancelled) {
           setParseError(
@@ -159,17 +155,13 @@ export function useExcelImport({
     };
   }, [file, defaultBoardName]);
 
-  const handleFileSelect = (
-    selectedFile: File | undefined,
-  ) => {
+  const handleFileSelect = (selectedFile: File | undefined) => {
     if (!selectedFile) {
       return;
     }
 
     if (!isExcelFile(selectedFile)) {
-      setParseError(
-        "Please select a valid .xlsx or .xls file.",
-      );
+      setParseError("Please select a valid .xlsx or .xls file.");
       return;
     }
 
@@ -198,10 +190,7 @@ export function useExcelImport({
         mapping.sourceColumn === sourceColumn
           ? {
               ...mapping,
-              [field]:
-                field === "type"
-                  ? (value as BoardColumnType)
-                  : value,
+              [field]: field === "type" ? (value as BoardColumnType) : value,
             }
           : mapping,
       ),
@@ -219,16 +208,12 @@ export function useExcelImport({
     }
 
     if (!headers.length) {
-      setParseError(
-        "No columns were found in the Excel file.",
-      );
+      setParseError("No columns were found in the Excel file.");
       return;
     }
 
     if (!rows.length) {
-      setParseError(
-        "The Excel file does not contain any data rows.",
-      );
+      setParseError("The Excel file does not contain any data rows.");
       return;
     }
 
@@ -237,6 +222,30 @@ export function useExcelImport({
       return;
     }
 
+    console.log("========== FINAL IMPORT DATA ==========");
+
+    console.log({
+      boardName: boardName.trim(),
+      visibility,
+      taskColumn,
+      groupColumn: groupColumn || undefined,
+      columns: columnMappings,
+      rows,
+    });
+
+    console.log("FIRST FINAL ROW:", rows[0]);
+
+    console.log("========== IMPORT PAYLOAD ==========");
+    const importPayload = {
+      boardName: boardName.trim(),
+      visibility,
+      taskColumn,
+      groupColumn: groupColumn || undefined,
+      columns: columnMappings,
+      rows,
+    };
+    console.log(JSON.stringify(importPayload, null, 2));
+    console.log("====================================");
     try {
       await onImport({
         boardName: boardName.trim(),
