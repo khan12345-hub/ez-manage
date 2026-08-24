@@ -45,7 +45,7 @@ const normalizeColor = (colorObj: any): string | null => {
 export const getCellFillColor = (
   worksheet: XLSX.WorkSheet,
   row: number,
-  column: number
+  column: number,
 ): string | null => {
   const address = XLSX.utils.encode_cell({ r: row, c: column });
   const cell = worksheet[address];
@@ -60,7 +60,7 @@ export const getCellFillColor = (
 export const getCellTextColor = (
   worksheet: XLSX.WorkSheet,
   row: number,
-  column: number
+  column: number,
 ): string | null => {
   const address = XLSX.utils.encode_cell({ r: row, c: column });
   const cell = worksheet[address];
@@ -72,7 +72,7 @@ export const getCellTextColor = (
 export const getCellValue = (
   worksheet: XLSX.WorkSheet,
   row: number,
-  column: number
+  column: number,
 ): string => {
   const address = XLSX.utils.encode_cell({ r: row, c: column });
   const cell = worksheet[address];
@@ -82,13 +82,18 @@ export const getCellValue = (
   return String(val).trim();
 };
 
-export const findBoardName = (worksheet: XLSX.WorkSheet, file: File): string => {
+export const findBoardName = (
+  worksheet: XLSX.WorkSheet,
+  file: File,
+): string => {
   const val = getCellValue(worksheet, 0, 0);
   return val || file.name.replace(/\.(xlsx|xls)$/i, "").trim();
 };
 
 export const findGroupRows = (worksheet: XLSX.WorkSheet): ExcelGroup[] => {
-  const range = worksheet["!ref"] ? XLSX.utils.decode_range(worksheet["!ref"]) : null;
+  const range = worksheet["!ref"]
+    ? XLSX.utils.decode_range(worksheet["!ref"])
+    : null;
   if (!range) return [];
 
   const groups: ExcelGroup[] = [];
@@ -131,17 +136,22 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
   const worksheet = workbook.Sheets[sheetName];
   if (!worksheet) throw new Error("Unable to read worksheet.");
 
-  const range = worksheet["!ref"] ? XLSX.utils.decode_range(worksheet["!ref"]) : null;
+  const range = worksheet["!ref"]
+    ? XLSX.utils.decode_range(worksheet["!ref"])
+    : null;
   if (!range) throw new Error("Worksheet is empty.");
 
   const boardName = findBoardName(worksheet, file);
   const groups = findGroupRows(worksheet);
 
   if (!groups.length) {
-    throw new Error("Could not detect any valid groups or column headers in the file.");
+    throw new Error(
+      "Could not detect any valid groups or column headers in the file.",
+    );
   }
 
-  const masterHeaderRow = groups[0].rowIndex + 1;
+  const masterHeaderRow =
+    groups[0]?.rowIndex != null ? groups[0].rowIndex + 1 : 0;
   const fixedColumns: ExcelColumn[] = [];
 
   // 1. Scan headers from gray row
@@ -200,7 +210,7 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
 
   // Remove duplicate column definitions if any exist
   const uniqueColumns = fixedColumns.filter(
-    (col, idx, arr) => arr.findIndex((c) => c.name === col.name) === idx
+    (col, idx, arr) => arr.findIndex((c) => c.name === col.name) === idx,
   );
 
   return {

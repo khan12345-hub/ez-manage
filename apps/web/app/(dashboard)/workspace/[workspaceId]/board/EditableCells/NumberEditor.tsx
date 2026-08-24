@@ -13,7 +13,6 @@ export function NumberEditor({
   return (
     <Input
       ref={inputRef}
-      autoFocus
       type="number"
       value={value ?? ""}
       onChange={(e) =>

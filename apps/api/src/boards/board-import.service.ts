@@ -5,10 +5,13 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from 'prisma/prisma.service';
+
 import {
   BoardColumnType,
   BoardMemberRole,
 } from 'generated/prisma/enums';
+
+import { Prisma } from 'generated/prisma/client';
 
 import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
 
@@ -38,7 +41,10 @@ type GroupedRows = {
 export class BoardImportService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async importExcelBoard(dto: ImportExcelBoardDto, userId: number) {
+  async importExcelBoard(
+    dto: ImportExcelBoardDto,
+    userId: number,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       /*
        * ---------------------------------------------------------
@@ -135,11 +141,18 @@ export class BoardImportService {
           return false;
         }
 
-        if (sourceColumn === dto.taskColumn) {
+        if (
+          this.normalizeKey(sourceColumn) ===
+          this.normalizeKey(dto.taskColumn)
+        ) {
           return false;
         }
 
-        if (sourceColumn === dto.groupColumn) {
+        if (
+          dto.groupColumn &&
+          this.normalizeKey(sourceColumn) ===
+            this.normalizeKey(dto.groupColumn)
+        ) {
           return false;
         }
 
@@ -147,7 +160,9 @@ export class BoardImportService {
       });
 
       /*
-       * Find primary/task mapping.
+       * ---------------------------------------------------------
+       * Find primary/task mapping
+       * ---------------------------------------------------------
        */
 
       const primaryColumnMapping = dto.columns.find(
@@ -188,20 +203,26 @@ export class BoardImportService {
       ];
 
       /*
-       * Remove duplicate columns case-insensitively.
+       * ---------------------------------------------------------
+       * Remove duplicate columns case-insensitively
+       * ---------------------------------------------------------
        */
 
       const uniqueColumnDefinitions =
-        columnDefinitions.filter((column, index, array) => {
-          const normalizedName = this.normalizeKey(column.name);
+        columnDefinitions.filter(
+          (column, index, array) => {
+            const normalizedName =
+              this.normalizeKey(column.name);
 
-          return (
-            array.findIndex(
-              (item) =>
-                this.normalizeKey(item.name) === normalizedName,
-            ) === index
-          );
-        });
+            return (
+              array.findIndex(
+                (item) =>
+                  this.normalizeKey(item.name) ===
+                  normalizedName,
+              ) === index
+            );
+          },
+        );
 
       /*
        * ---------------------------------------------------------
@@ -209,30 +230,22 @@ export class BoardImportService {
        * ---------------------------------------------------------
        */
 
-      const columns = await tx.boardColumn.createManyAndReturn({
-        data: uniqueColumnDefinitions.map((column, index) => ({
-          boardId: board.id,
-          name: column.name,
-          type: column.type,
-          isPrimary: column.isPrimary,
-          order: (index + 1) * 1000,
-        })),
-      });
+      const columns =
+        await tx.boardColumn.createManyAndReturn({
+          data: uniqueColumnDefinitions.map(
+            (column, index) => ({
+              boardId: board.id,
+              name: column.name,
+              type: column.type,
+              isPrimary: column.isPrimary,
+              order: (index + 1) * 1000,
+            }),
+          ),
+        });
 
       /*
        * ---------------------------------------------------------
        * 7. Create status options
-       *
-       * Parser may return:
-       *
-       * {
-       *   label: "Done",
-       *   color: "#00C875"
-       * }
-       *
-       * or simply:
-       *
-       * "Done"
        * ---------------------------------------------------------
        */
 
@@ -256,10 +269,11 @@ export class BoardImportService {
           continue;
         }
 
-        const statusOptionsData = this.getUniqueStatusOptions(
-          dto.rows,
-          mapping.sourceColumn,
-        );
+        const statusOptionsData =
+          this.getUniqueStatusOptions(
+            dto.rows,
+            mapping.sourceColumn,
+          );
 
         if (!statusOptionsData.length) {
           continue;
@@ -267,17 +281,20 @@ export class BoardImportService {
 
         const statusOptions =
           await tx.statusOption.createManyAndReturn({
-            data: statusOptionsData.map((option, index) => ({
-              columnId: column.id,
-              label: option.label,
-              color:
-                option.color ||
-                this.getStatusColor(index),
-              order: (index + 1) * 1000,
-            })),
+            data: statusOptionsData.map(
+              (option, index) => ({
+                columnId: column.id,
+                label: option.label,
+                color:
+                  option.color ||
+                  this.getStatusColor(index),
+                order: (index + 1) * 1000,
+              }),
+            ),
           });
 
-        const optionMap: StatusOptionMap = new Map();
+        const optionMap: StatusOptionMap =
+          new Map();
 
         for (const option of statusOptions) {
           optionMap.set(
@@ -295,17 +312,11 @@ export class BoardImportService {
       /*
        * ---------------------------------------------------------
        * 8. Group imported rows
-       *
-       * The custom Excel parser puts:
-       *
-       * __groupName
-       * __groupColor
-       *
-       * into each row.
        * ---------------------------------------------------------
        */
 
-      const groupedRows = this.groupImportedRows(dto.rows);
+      const groupedRows =
+        this.groupImportedRows(dto.rows);
 
       let groupOrder = 1000;
 
@@ -318,10 +329,18 @@ export class BoardImportService {
        */
 
       for (const groupData of groupedRows.values()) {
+        /*
+         * -------------------------------------------------------
+         * Create group
+         * -------------------------------------------------------
+         */
+
         const group = await tx.group.create({
           data: {
             boardId: board.id,
-            name: groupData.name || 'Imported Tasks',
+            name:
+              groupData.name ||
+              'Imported Tasks',
             color:
               groupData.color ||
               this.getGroupColor(groupOrder),
@@ -331,20 +350,24 @@ export class BoardImportService {
         });
 
         /*
-         * Resolve task names before creating tasks.
+         * -------------------------------------------------------
+         * Resolve task names before creating tasks
+         * -------------------------------------------------------
          */
 
         const validRows = groupData.rows
           .map((row) => {
-            const rawTaskValue = this.getFlexibleValue(
-              row,
-              dto.taskColumn,
-            );
+            const rawTaskValue =
+              this.getFlexibleValue(
+                row,
+                dto.taskColumn,
+              );
 
-            const taskName = this.getTaskName(
-              rawTaskValue,
-              row,
-            );
+            const taskName =
+              this.getTaskName(
+                rawTaskValue,
+                row,
+              );
 
             return {
               row,
@@ -371,28 +394,60 @@ export class BoardImportService {
          * -------------------------------------------------------
          */
 
-        const tasks = await tx.task.createManyAndReturn({
-          data: validRows.map((item, index) => ({
-            groupId: group.id,
-            name: item.taskName,
-            order: (index + 1) * 1000,
-            createdById: userId,
-          })),
-        });
+        const tasks =
+          await tx.task.createManyAndReturn({
+            data: validRows.map(
+              (item, index) => ({
+                groupId: group.id,
+                name: item.taskName,
+                order: (index + 1) * 1000,
+                createdById: userId,
+              }),
+            ),
+          });
 
         /*
          * -------------------------------------------------------
          * Build task cells
+         *
+         * IMPORTANT:
+         *
+         * TaskCell.value is JSON.
+         *
+         * TEXT / NUMBER:
+         * {
+         *   text: "..."
+         * }
+         *
+         * STATUS:
+         * {
+         *   label: "...",
+         *   color: "..."
+         * }
+         *
+         * DATE:
+         * {
+         *   date: "..."
+         * }
+         *
+         * CHECKBOX:
+         * {
+         *   checked: true
+         * }
          * -------------------------------------------------------
          */
 
         const taskCells: {
           taskId: number;
           columnId: number;
-          value: string;
+          value: Prisma.InputJsonValue;
         }[] = [];
 
-        for (let index = 0; index < tasks.length; index++) {
+        for (
+          let index = 0;
+          index < tasks.length;
+          index++
+        ) {
           const task = tasks[index];
           const row = validRows[index].row;
 
@@ -402,8 +457,12 @@ export class BoardImportService {
              */
 
             if (
-              this.normalizeKey(mapping.sourceColumn) ===
-              this.normalizeKey(dto.taskColumn)
+              this.normalizeKey(
+                mapping.sourceColumn,
+              ) ===
+              this.normalizeKey(
+                dto.taskColumn,
+              )
             ) {
               continue;
             }
@@ -415,7 +474,9 @@ export class BoardImportService {
             const column = columns.find(
               (item) =>
                 this.normalizeKey(item.name) ===
-                this.normalizeKey(mapping.targetColumn),
+                this.normalizeKey(
+                  mapping.targetColumn,
+                ),
             );
 
             if (!column) {
@@ -426,10 +487,11 @@ export class BoardImportService {
              * Read value from imported row.
              */
 
-            const rawValue = this.getFlexibleValue(
-              row,
-              mapping.sourceColumn,
-            );
+            const rawValue =
+              this.getFlexibleValue(
+                row,
+                mapping.sourceColumn,
+              );
 
             /*
              * Ignore empty values.
@@ -440,7 +502,7 @@ export class BoardImportService {
             }
 
             /*
-             * Convert value to TaskCell string.
+             * Normalize imported value.
              */
 
             const normalizedValue =
@@ -458,10 +520,27 @@ export class BoardImportService {
               continue;
             }
 
+            /*
+             * Build the same JSON structure used
+             * by the frontend CELL_CONFIG.
+             */
+
+            const cellValue =
+              this.buildCellValue(
+                normalizedValue,
+                mapping.type,
+                mapping.sourceColumn,
+                statusOptionsByColumn,
+              );
+
+            if (!cellValue) {
+              continue;
+            }
+
             taskCells.push({
               taskId: task.id,
               columnId: column.id,
-              value: normalizedValue,
+              value: cellValue,
             });
           }
         }
@@ -469,6 +548,8 @@ export class BoardImportService {
         /*
          * -------------------------------------------------------
          * Insert all cells for this group
+         *
+         * Prisma generates TaskCell.id here.
          * -------------------------------------------------------
          */
 
@@ -483,88 +564,105 @@ export class BoardImportService {
 
       /*
        * ---------------------------------------------------------
-       * 12. Return complete board
+       * 12. Re-fetch complete board
+       *
+       * IMPORTANT:
+       *
+       * We deliberately query the database again after all
+       * TaskCells have been inserted.
+       *
+       * This guarantees the returned task.cells contain:
+       *
+       * - id
+       * - taskId
+       * - columnId
+       * - value
+       *
+       * which the frontend EditableCell requires.
        * ---------------------------------------------------------
        */
 
-      return tx.board.findUniqueOrThrow({
-        where: {
-          id: board.id,
-        },
+      const importedBoard =
+        await tx.board.findUniqueOrThrow({
+          where: {
+            id: board.id,
+          },
 
-        include: {
-          columns: {
-            orderBy: {
-              order: 'asc',
-            },
+          include: {
+            columns: {
+              orderBy: {
+                order: 'asc',
+              },
 
-            include: {
-              statusOptions: {
-                where: {
-                  isArchived: false,
-                },
+              include: {
+                statusOptions: {
+                  where: {
+                    isArchived: false,
+                  },
 
-                orderBy: {
-                  order: 'asc',
+                  orderBy: {
+                    order: 'asc',
+                  },
                 },
               },
             },
-          },
 
-          groups: {
-            orderBy: {
-              order: 'asc',
-            },
+            groups: {
+              orderBy: {
+                order: 'asc',
+              },
 
-            include: {
-              tasks: {
-                orderBy: {
-                  order: 'asc',
-                },
+              include: {
+                tasks: {
+                  orderBy: {
+                    order: 'asc',
+                  },
 
-                include: {
-                  cells: {
-                    include: {
-                      column: {
-                        include: {
-                          statusOptions: {
-                            where: {
-                              isArchived: false,
-                            },
+                  include: {
+                    cells: {
+                      include: {
+                        column: {
+                          include: {
+                            statusOptions: {
+                              where: {
+                                isArchived: false,
+                              },
 
-                            orderBy: {
-                              order: 'asc',
+                              orderBy: {
+                                order: 'asc',
+                              },
                             },
                           },
                         },
                       },
-                    },
 
-                    orderBy: {
-                      column: {
-                        order: 'asc',
+                      orderBy: {
+                        column: {
+                          order: 'asc',
+                        },
                       },
                     },
                   },
                 },
               },
             },
-          },
 
-          members: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
+            members: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    avatarUrl: true,
+                  },
                 },
               },
             },
           },
-        },
-      });
+        });
+
+      return importedBoard;
     });
   }
 
@@ -574,26 +672,21 @@ export class BoardImportService {
    * ============================================================================
    */
 
-  /**
-   * Normalize object keys for reliable comparison.
-   *
-   * Examples:
-   *
-   * "Task Name" -> "task name"
-   * " task name " -> "task name"
-   * "TASK_NAME" -> "task_name"
-   */
-  private normalizeKey(value: unknown): string {
+  private normalizeKey(
+    value: unknown,
+  ): string {
     return String(value ?? '')
       .trim()
       .toLowerCase();
   }
 
-  /**
-   * Check whether an imported Excel value is empty.
-   */
-  private isEmptyValue(value: unknown): boolean {
-    if (value === null || value === undefined) {
+  private isEmptyValue(
+    value: unknown,
+  ): boolean {
+    if (
+      value === null ||
+      value === undefined
+    ) {
       return true;
     }
 
@@ -604,12 +697,6 @@ export class BoardImportService {
     return false;
   }
 
-  /**
-   * Case-insensitive + whitespace-tolerant row lookup.
-   *
-   * This is important because the parser and DTO can have
-   * slightly different header formatting.
-   */
   private getFlexibleValue(
     row: ImportedRow,
     keyName: string,
@@ -622,40 +709,52 @@ export class BoardImportService {
      * Exact lookup first.
      */
 
-    if (Object.prototype.hasOwnProperty.call(row, keyName)) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        row,
+        keyName,
+      )
+    ) {
       return row[keyName];
     }
 
-    const targetKey = this.normalizeKey(keyName);
+    const targetKey =
+      this.normalizeKey(keyName);
 
     /*
      * Case-insensitive lookup.
      */
 
-    for (const [key, value] of Object.entries(row)) {
-      if (this.normalizeKey(key) === targetKey) {
+    for (const [key, value] of Object.entries(
+      row,
+    )) {
+      if (
+        this.normalizeKey(key) ===
+        targetKey
+      ) {
         return value;
       }
     }
 
     /*
-     * Also support whitespace normalization.
-     *
-     * "Task  Name"
-     * "Task Name"
-     *
-     * become equivalent.
+     * Whitespace normalization.
      */
 
-    const compactTarget = targetKey.replace(/\s+/g, ' ');
+    const compactTarget =
+      targetKey.replace(/\s+/g, ' ');
 
-    for (const [key, value] of Object.entries(row)) {
-      const normalizedKey = this.normalizeKey(key).replace(
-        /\s+/g,
-        ' ',
-      );
+    for (const [key, value] of Object.entries(
+      row,
+    )) {
+      const normalizedKey =
+        this.normalizeKey(key).replace(
+          /\s+/g,
+          ' ',
+        );
 
-      if (normalizedKey === compactTarget) {
+      if (
+        normalizedKey === compactTarget
+      ) {
         return value;
       }
     }
@@ -663,9 +762,12 @@ export class BoardImportService {
     return undefined;
   }
 
-  /**
-   * Extract task name.
+  /*
+   * ============================================================================
+   * TASK NAME
+   * ============================================================================
    */
+
   private getTaskName(
     rawValue: unknown,
     row?: ImportedRow,
@@ -674,7 +776,8 @@ export class BoardImportService {
      * Primary lookup.
      */
 
-    const directValue = this.extractDisplayValue(rawValue);
+    const directValue =
+      this.extractDisplayValue(rawValue);
 
     if (directValue) {
       return directValue;
@@ -695,9 +798,11 @@ export class BoardImportService {
       ];
 
       for (const key of preferredKeys) {
-        const value = this.getFlexibleValue(row, key);
+        const value =
+          this.getFlexibleValue(row, key);
 
-        const extracted = this.extractDisplayValue(value);
+        const extracted =
+          this.extractDisplayValue(value);
 
         if (extracted) {
           return extracted;
@@ -709,12 +814,15 @@ export class BoardImportService {
        * first non-metadata value.
        */
 
-      for (const [key, value] of Object.entries(row)) {
+      for (const [key, value] of Object.entries(
+        row,
+      )) {
         if (key.startsWith('__')) {
           continue;
         }
 
-        const extracted = this.extractDisplayValue(value);
+        const extracted =
+          this.extractDisplayValue(value);
 
         if (extracted) {
           return extracted;
@@ -725,20 +833,19 @@ export class BoardImportService {
     return '';
   }
 
-  /**
-   * Convert parser values into a display string.
-   *
-   * Handles:
-   *
-   * "Done"
-   *
-   * {
-   *   label: "Done",
-   *   color: "#00C875"
-   * }
+  /*
+   * ============================================================================
+   * DISPLAY VALUE
+   * ============================================================================
    */
-  private extractDisplayValue(value: unknown): string {
-    if (value === null || value === undefined) {
+
+  private extractDisplayValue(
+    value: unknown,
+  ): string {
+    if (
+      value === null ||
+      value === undefined
+    ) {
       return '';
     }
 
@@ -748,12 +855,10 @@ export class BoardImportService {
         value.label !== null &&
         value.label !== undefined
       ) {
-        return String(value.label).trim();
+        return String(
+          value.label,
+        ).trim();
       }
-
-      /*
-       * Avoid storing "[object Object]" in cells.
-       */
 
       return '';
     }
@@ -777,17 +882,20 @@ export class BoardImportService {
     >();
 
     for (const row of rows) {
-      const rawValue = this.getFlexibleValue(
-        row,
-        sourceColumn,
-      );
+      const rawValue =
+        this.getFlexibleValue(
+          row,
+          sourceColumn,
+        );
 
       if (this.isEmptyValue(rawValue)) {
         continue;
       }
 
       let label = '';
-      let color: string | undefined;
+      let color:
+        | string
+        | undefined;
 
       if (
         typeof rawValue === 'object' &&
@@ -802,17 +910,22 @@ export class BoardImportService {
           'color' in rawValue &&
           rawValue.color
         ) {
-          color = String(rawValue.color).trim();
+          color = String(
+            rawValue.color,
+          ).trim();
         }
       } else {
-        label = String(rawValue).trim();
+        label = String(
+          rawValue,
+        ).trim();
       }
 
       if (!label) {
         continue;
       }
 
-      const key = this.normalizeKey(label);
+      const key =
+        this.normalizeKey(label);
 
       if (!optionsMap.has(key)) {
         optionsMap.set(key, {
@@ -822,7 +935,9 @@ export class BoardImportService {
       }
     }
 
-    return Array.from(optionsMap.values());
+    return Array.from(
+      optionsMap.values(),
+    );
   }
 
   /*
@@ -848,16 +963,23 @@ export class BoardImportService {
      * STATUS
      */
 
-    if (columnType === BoardColumnType.STATUS) {
+    if (
+      columnType ===
+      BoardColumnType.STATUS
+    ) {
       const label =
-        this.extractDisplayValue(rawValue);
+        this.extractDisplayValue(
+          rawValue,
+        );
 
       if (!label) {
         return null;
       }
 
       const columnOptions =
-        statusOptionsByColumn.get(sourceColumn);
+        statusOptionsByColumn.get(
+          sourceColumn,
+        );
 
       if (!columnOptions) {
         return label;
@@ -868,38 +990,196 @@ export class BoardImportService {
           this.normalizeKey(label),
         );
 
-      return matchedOption?.label ?? label;
+      return (
+        matchedOption?.label ??
+        label
+      );
     }
 
     /*
      * NUMBER
      */
 
-    if (columnType === BoardColumnType.NUMBER) {
-      return this.normalizeNumber(rawValue);
+    if (
+      columnType ===
+      BoardColumnType.NUMBER
+    ) {
+      return this.normalizeNumber(
+        rawValue,
+      );
     }
 
     /*
      * DATE
      */
 
-    if (columnType === BoardColumnType.DATE) {
-      return this.normalizeDate(rawValue);
+    if (
+      columnType ===
+      BoardColumnType.DATE
+    ) {
+      return this.normalizeDate(
+        rawValue,
+      );
     }
 
     /*
      * CHECKBOX
      */
 
-    if (columnType === BoardColumnType.CHECKBOX) {
-      return this.normalizeBoolean(rawValue);
+    if (
+      columnType ===
+      BoardColumnType.CHECKBOX
+    ) {
+      return this.normalizeBoolean(
+        rawValue,
+      );
     }
 
     /*
      * Everything else.
      */
 
-    return this.extractDisplayValue(rawValue) || null;
+    return (
+      this.extractDisplayValue(
+        rawValue,
+      ) || null
+    );
+  }
+
+  /*
+   * ============================================================================
+   * BUILD FRONTEND-COMPATIBLE CELL VALUE
+   * ============================================================================
+   */
+
+  private buildCellValue(
+    normalizedValue: string,
+    columnType: BoardColumnType,
+    sourceColumn: string,
+    statusOptionsByColumn: Map<
+      string,
+      StatusOptionMap
+    >,
+  ): Prisma.InputJsonValue | null {
+    if (!normalizedValue) {
+      return null;
+    }
+
+    /*
+     * TEXT
+     *
+     * Frontend:
+     *
+     * cell?.value?.text
+     */
+
+    if (
+      columnType ===
+      BoardColumnType.TEXT
+    ) {
+      return {
+        text: normalizedValue,
+      };
+    }
+
+    /*
+     * NUMBER
+     *
+     * NumberEditor currently reads:
+     *
+     * cell?.value?.text
+     */
+
+    if (
+      columnType ===
+      BoardColumnType.NUMBER
+    ) {
+      return {
+        text: normalizedValue,
+      };
+    }
+
+    /*
+     * STATUS
+     *
+     * Frontend:
+     *
+     * value.label
+     * value.color
+     */
+
+    if (
+      columnType ===
+      BoardColumnType.STATUS
+    ) {
+      const options =
+        statusOptionsByColumn.get(
+          sourceColumn,
+        );
+
+      const matchedOption =
+        options?.get(
+          this.normalizeKey(
+            normalizedValue,
+          ),
+        );
+
+      return {
+        label:
+          matchedOption?.label ??
+          normalizedValue,
+
+        color:
+          matchedOption?.color ??
+          this.getStatusColor(0),
+      };
+    }
+
+    /*
+     * DATE
+     *
+     * Frontend:
+     *
+     * value.date
+     */
+
+    if (
+      columnType ===
+      BoardColumnType.DATE
+    ) {
+      return {
+        date: normalizedValue,
+      };
+    }
+
+    /*
+     * CHECKBOX
+     *
+     * Frontend:
+     *
+     * value.checked
+     */
+
+    if (
+      columnType ===
+      BoardColumnType.CHECKBOX
+    ) {
+      return {
+        checked:
+          normalizedValue === 'true',
+      };
+    }
+
+    /*
+     * PERSON / DROPDOWN / LABEL / anything else
+     *
+     * Default to text so the imported value
+     * isn't lost.
+     */
+
+    return {
+      text: normalizedValue,
+    };
   }
 
   /*
@@ -908,14 +1188,17 @@ export class BoardImportService {
    * ============================================================================
    */
 
-  private normalizeBoolean(value: unknown): string {
+  private normalizeBoolean(
+    value: unknown,
+  ): string {
     if (typeof value === 'boolean') {
       return String(value);
     }
 
-    const normalized = String(value ?? '')
-      .trim()
-      .toLowerCase();
+    const normalized =
+      String(value ?? '')
+        .trim()
+        .toLowerCase();
 
     return String(
       [
@@ -935,14 +1218,17 @@ export class BoardImportService {
    * ============================================================================
    */
 
-  private normalizeNumber(value: unknown): string {
+  private normalizeNumber(
+    value: unknown,
+  ): string {
     if (typeof value === 'number') {
       return String(value);
     }
 
-    const normalized = String(value ?? '')
-      .replace(/,/g, '')
-      .trim();
+    const normalized =
+      String(value ?? '')
+        .replace(/,/g, '')
+        .trim();
 
     if (!normalized) {
       return '';
@@ -961,12 +1247,16 @@ export class BoardImportService {
    * ============================================================================
    */
 
-  private normalizeDate(value: unknown): string {
+  private normalizeDate(
+    value: unknown,
+  ): string {
     if (value instanceof Date) {
       return value.toISOString();
     }
 
-    const date = new Date(String(value));
+    const date = new Date(
+      String(value),
+    );
 
     if (!Number.isNaN(date.getTime())) {
       return date.toISOString();
@@ -990,24 +1280,34 @@ export class BoardImportService {
     >();
 
     for (const row of rows) {
-      const rawGroupName = row.__groupName;
+      const rawGroupName =
+        row.__groupName;
 
       const groupName =
         String(
-          rawGroupName ?? 'Imported Tasks',
-        ).trim() || 'Imported Tasks';
+          rawGroupName ??
+            'Imported Tasks',
+        ).trim() ||
+        'Imported Tasks';
 
-      const rawGroupColor = row.__groupColor;
+      const rawGroupColor =
+        row.__groupColor;
 
       const groupColor =
         rawGroupColor !== null &&
         rawGroupColor !== undefined &&
-        String(rawGroupColor).trim()
-          ? String(rawGroupColor).trim()
+        String(
+          rawGroupColor,
+        ).trim()
+          ? String(
+              rawGroupColor,
+            ).trim()
           : undefined;
 
       const groupKey =
-        this.normalizeKey(groupName);
+        this.normalizeKey(
+          groupName,
+        );
 
       if (!groupedMap.has(groupKey)) {
         groupedMap.set(groupKey, {
@@ -1017,7 +1317,9 @@ export class BoardImportService {
         });
       }
 
-      groupedMap.get(groupKey)!.rows.push(row);
+      groupedMap
+        .get(groupKey)!
+        .rows.push(row);
     }
 
     return groupedMap;
@@ -1029,7 +1331,9 @@ export class BoardImportService {
    * ============================================================================
    */
 
-  private getStatusColor(index: number): string {
+  private getStatusColor(
+    index: number,
+  ): string {
     const colors = [
       '#579BFC',
       '#00C875',
@@ -1039,7 +1343,9 @@ export class BoardImportService {
       '#66CCFF',
     ];
 
-    return colors[index % colors.length];
+    return colors[
+      index % colors.length
+    ];
   }
 
   /*
@@ -1048,7 +1354,9 @@ export class BoardImportService {
    * ============================================================================
    */
 
-  private getGroupColor(order: number): string {
+  private getGroupColor(
+    order: number,
+  ): string {
     const colors = [
       '#579BFC',
       '#00C875',
@@ -1061,7 +1369,9 @@ export class BoardImportService {
     const index =
       Math.floor(order / 1000) - 1;
 
-    return colors[index % colors.length];
+    return colors[
+      index % colors.length
+    ];
   }
 
   /*
@@ -1077,17 +1387,20 @@ export class BoardImportService {
     const values = new Set<string>();
 
     for (const row of rows) {
-      const value = this.getFlexibleValue(
-        row,
-        columnName,
-      );
+      const value =
+        this.getFlexibleValue(
+          row,
+          columnName,
+        );
 
       if (this.isEmptyValue(value)) {
         continue;
       }
 
       const normalized =
-        this.extractDisplayValue(value);
+        this.extractDisplayValue(
+          value,
+        );
 
       if (normalized) {
         values.add(normalized);

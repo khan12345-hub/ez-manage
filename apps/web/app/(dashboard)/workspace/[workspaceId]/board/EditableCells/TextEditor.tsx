@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
+
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+
 import {
   Popover,
   PopoverAnchor,
   PopoverContent,
 } from "@/components/ui/popover";
+
 import {
   Tooltip,
   TooltipContent,
@@ -15,12 +18,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-interface Props {
-  inputRef: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
-  value: string | { text: string };
-  setValue: React.Dispatch<React.SetStateAction<string | { text: string }>>;
-  save: (value?: string) => void;
-  cancel: () => void;
+import { CellEditorProps } from "./EditableCell";
+
+interface Props extends CellEditorProps<string> {
   isPrimary?: boolean;
 }
 
@@ -34,8 +34,6 @@ export function TextEditor({
 }: Props) {
   const [open, setOpen] = useState(false);
 
-  const textValue = typeof value === "string" ? value : value.text;
-
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
@@ -44,7 +42,7 @@ export function TextEditor({
 
   const handleSave = () => {
     setOpen(false);
-    save(textValue);
+    save();
   };
 
   const handleCancel = () => {
@@ -55,13 +53,19 @@ export function TextEditor({
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    // Primary column: Enter saves
     if (isPrimary && e.key === "Enter") {
       e.preventDefault();
       handleSave();
       return;
     }
 
-    if (!isPrimary && e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    // Non-primary: Ctrl/Cmd + Enter saves
+    if (
+      !isPrimary &&
+      e.key === "Enter" &&
+      (e.ctrlKey || e.metaKey)
+    ) {
       e.preventDefault();
       handleSave();
       return;
@@ -73,48 +77,41 @@ export function TextEditor({
     }
   };
 
-  const input = (
-    <Input
-      ref={inputRef as React.RefObject<HTMLInputElement>}
-      value={textValue}
-      onChange={handleChange}
-      onKeyDown={handleKeyDown}
-      onClick={() => {
-        if (!isPrimary) {
-          setOpen(true);
-        }
-      }}
-      onBlur={() => {
-        if (isPrimary) {
-          save(textValue);
-        }
-      }}
-      className="h-full w-full truncate rounded-none border-none bg-transparent text-[16px]! shadow-none focus-visible:ring-0"
-    />
-  );
-
-  const inputWithTooltip = (
-    <TooltipProvider delayDuration={500}>
-      <Tooltip>
-        <TooltipTrigger asChild>{input}</TooltipTrigger>
-
-        {textValue && (!open || isPrimary) && (
-          <TooltipContent
-            side="top"
-            align="start"
-            className="max-w-md whitespace-pre-wrap break-words"
-          >
-            {textValue}
-          </TooltipContent>
-        )}
-      </Tooltip>
-    </TooltipProvider>
-  );
-
+  /*
+   * PRIMARY TEXT COLUMN
+   */
   if (isPrimary) {
-    return inputWithTooltip;
+    return (
+      <TooltipProvider delayDuration={500}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Input
+              ref={inputRef as React.RefObject<HTMLInputElement>}
+              value={value ?? ""}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onBlur={handleSave}
+              className="h-full w-full truncate rounded-none border-none bg-transparent text-[16px]! shadow-none focus-visible:ring-0"
+            />
+          </TooltipTrigger>
+
+          {value && (
+            <TooltipContent
+              side="top"
+              align="start"
+              className="max-w-md whitespace-pre-wrap wrap-break-word"
+            >
+              {value}
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
+  /*
+   * NON-PRIMARY TEXT COLUMN
+   */
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <TooltipProvider delayDuration={500}>
@@ -123,7 +120,7 @@ export function TextEditor({
             <PopoverAnchor asChild>
               <Input
                 ref={inputRef as React.RefObject<HTMLInputElement>}
-                value={textValue}
+                value={value ?? ""}
                 onChange={handleChange}
                 onClick={() => setOpen(true)}
                 onKeyDown={handleKeyDown}
@@ -132,13 +129,13 @@ export function TextEditor({
             </PopoverAnchor>
           </TooltipTrigger>
 
-          {textValue && !open && (
+          {value && !open && (
             <TooltipContent
               side="top"
               align="start"
               className="max-w-md text-md whitespace-pre-wrap wrap-break-word"
             >
-              {textValue}
+              {value}
             </TooltipContent>
           )}
         </Tooltip>
@@ -150,8 +147,7 @@ export function TextEditor({
           className="w-[400px] p-0"
         >
           <Textarea
-            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-            value={textValue}
+            value={value ?? ""}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder="Write something..."
