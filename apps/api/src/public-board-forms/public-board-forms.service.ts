@@ -2,10 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from 'prisma/prisma.service';
-import { BoardColumnType } from 'generated/prisma/enums';
-import { SubmitBoardFormDto } from 'src/board-forms/dto/submit-board-form.dto';
+} from "@nestjs/common";
+import { PrismaService } from "prisma/prisma.service";
+import { BoardColumnType } from "generated/prisma/enums";
+import { SubmitBoardFormDto } from "src/board-forms/dto/submit-board-form.dto";
 
 const ORDER_GAP = 1000;
 
@@ -17,6 +17,7 @@ function normalizeDateValue(raw: unknown): string | null {
   }
 
   const value = String(raw).trim();
+
   if (!value) return null;
 
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -29,39 +30,78 @@ function normalizeDateValue(raw: unknown): string | null {
 function normalizeCellValue(
   type: BoardColumnType,
   raw: unknown,
-  statusOptions: { id: number; label: string; color: string }[],
+  statusOptions: {
+    id: number;
+    label: string;
+    color: string;
+  }[],
 ): unknown {
   switch (type) {
     case BoardColumnType.TEXT:
-      return { text: String(raw ?? '') };
+      return {
+        text: String(raw ?? ""),
+      };
 
-    case BoardColumnType.NUMBER:
-      return { number: Number(raw) };
+    case BoardColumnType.NUMBER: {
+      const number = Number(raw);
+
+      return {
+        number: Number.isNaN(number) ? null : number,
+      };
+    }
 
     case BoardColumnType.CHECKBOX:
-      return { checked: Boolean(raw) };
+      return {
+        checked:
+          raw === true ||
+          raw === "true" ||
+          raw === 1 ||
+          raw === "1",
+      };
 
     case BoardColumnType.DATE: {
       const iso = normalizeDateValue(raw);
-      return iso ? { date: iso } : {};
+
+      return iso
+        ? {
+            date: iso,
+          }
+        : {};
     }
 
     case BoardColumnType.TIMELINE: {
-      const tl = raw as { startDate?: string; endDate?: string } | undefined;
+      const timeline = raw as
+        | {
+            startDate?: string;
+            endDate?: string;
+          }
+        | undefined;
+
       return {
-        startDate: tl?.startDate ?? null,
-        endDate: tl?.endDate ?? null,
+        startDate: timeline?.startDate ?? null,
+        endDate: timeline?.endDate ?? null,
       };
     }
 
     case BoardColumnType.STATUS: {
-      // The frontend sends the StatusOption.label string as the value.
-      // We look up the matching option to store { label, color } — the same
-      // shape the board uses when a user picks a status manually.
-      const label = String(raw ?? '');
-      const option = statusOptions.find((o) => o.label === label);
-      if (!option) return {};
-      return { label: option.label, color: option.color };
+      const label = String(raw ?? "").trim();
+
+      if (!label) {
+        return {};
+      }
+
+      const option = statusOptions.find(
+        (status) => status.label === label,
+      );
+
+      if (!option) {
+        return {};
+      }
+
+      return {
+        label: option.label,
+        color: option.color,
+      };
     }
 
     default:
@@ -75,29 +115,34 @@ export class PublicBoardFormsService {
 
   /**
    * Return the public form definition for a board.
-   * Throws if the form does not exist or is inactive.
    */
   async findPublicByBoardId(boardId: number) {
     const form = await this.prisma.boardForm.findUnique({
-      where: { boardId },
+      where: {
+        boardId,
+      },
       include: {
         fields: {
           include: {
             column: {
-              include: { statusOptions: true },
+              include: {
+                statusOptions: true,
+              },
             },
           },
-          orderBy: { position: 'asc' },
+          orderBy: {
+            position: "asc",
+          },
         },
       },
     });
 
     if (!form) {
-      throw new NotFoundException('Form not found');
+      throw new NotFoundException("Form not found");
     }
 
     if (!form.isActive) {
-      throw new NotFoundException('Form is not active');
+      throw new NotFoundException("Form is not active");
     }
 
     return form;
@@ -106,124 +151,246 @@ export class PublicBoardFormsService {
   /**
    * Submit a public board form.
    *
-   * Steps:
-   *  1. Load and validate the form (active, belongs to board).
-   *  2. Create a new Task in the form's target group.
-   *  3. For every submitted value, find the matching TaskCell and update it
-   *     with the normalised value for that column type.
+   * Creates the task and all of its cells in one transaction.
    *
-   * Everything runs inside a single transaction so a partial failure
-   * leaves no orphaned task.
+   * Cell values are normalized before creation, so we don't need
+   * to create empty cells and then update them individually.
    */
   async submit(boardId: number, dto: SubmitBoardFormDto) {
-    // 1. Load form + fields + column types
-    const form = await this.prisma.boardForm.findUnique({
-      where: { boardId },
-      include: {
-        fields: {
-          include: {
-            column: {
-              include: { statusOptions: true },
+    /**
+     * Load the form and board creator before opening the transaction.
+     *
+     * This keeps the transaction as short as possible.
+     */
+    const [form, board] = await Promise.all([
+      this.prisma.boardForm.findUnique({
+        where: {
+          boardId,
+        },
+        include: {
+          fields: {
+            include: {
+              column: {
+                include: {
+                  statusOptions: true,
+                },
+              },
             },
           },
         },
-      },
-    });
+      }),
+
+      this.prisma.board.findUnique({
+        where: {
+          id: boardId,
+        },
+        select: {
+          createdById: true,
+        },
+      }),
+    ]);
 
     if (!form) {
-      throw new NotFoundException('Form not found');
+      throw new NotFoundException("Form not found");
     }
 
     if (!form.isActive) {
-      throw new BadRequestException('This form is currently inactive');
+      throw new BadRequestException(
+        "This form is currently inactive",
+      );
     }
 
-    // Build a columnId → field map for quick lookup
+    if (!board) {
+      throw new NotFoundException("Board not found");
+    }
+
+    /**
+     * columnId -> form field
+     */
     const fieldByColumnId = new Map(
-      form.fields.map((f) => [f.columnId, f]),
+      form.fields.map((field) => [
+        field.columnId,
+        field,
+      ]),
     );
 
-    // Validate that every submitted columnId actually belongs to this form
-    for (const val of dto.values) {
-      if (!fieldByColumnId.has(val.columnId)) {
+    /**
+     * Validate submitted columns.
+     */
+    for (const value of dto.values) {
+      if (!fieldByColumnId.has(value.columnId)) {
         throw new BadRequestException(
-          `Column ${val.columnId} is not part of this form`,
+          `Column ${value.columnId} is not part of this form`,
         );
       }
     }
 
+    /**
+     * columnId -> submitted value
+     *
+     * This avoids repeatedly calling .find() while
+     * creating cells.
+     */
+    const submittedValues = new Map(
+      dto.values.map((value) => [
+        value.columnId,
+        value.value,
+      ]),
+    );
+
     return this.prisma.$transaction(async (tx) => {
-      // 2. Find the last task in the group so we can append after it
+      /**
+       * Find the last root task in the target group.
+       */
       const lastTask = await tx.task.findFirst({
-        where: { groupId: form.groupId, parentId: null },
-        orderBy: { order: 'desc' },
-        select: { order: true },
+        where: {
+          groupId: form.groupId,
+          parentId: null,
+        },
+        orderBy: {
+          order: "desc",
+        },
+        select: {
+          order: true,
+        },
       });
 
-      // Fetch all non-primary columns for the board so we can create cells
+      /**
+       * Fetch all non-primary board columns.
+       */
       const boardColumns = await tx.boardColumn.findMany({
-        where: { boardId, isPrimary: false },
-        select: { id: true },
-        orderBy: { order: 'asc' },
+        where: {
+          boardId,
+          isPrimary: false,
+        },
+        select: {
+          id: true,
+        },
+        orderBy: {
+          order: "asc",
+        },
       });
 
-      const primaryField = form.fields.find((field) => field.column.isPrimary);
-      const primaryValue = dto.values.find(
-        (value) => value.columnId === primaryField?.columnId,
-      )?.value;
+      /**
+       * Find the primary form field.
+       *
+       * Usually this is the Name column.
+       */
+      const primaryField = form.fields.find(
+        (field) => field.column.isPrimary,
+      );
 
+      const primaryValue = primaryField
+        ? submittedValues.get(primaryField.columnId)
+        : undefined;
+
+      /**
+       * Determine task name.
+       */
       const taskName =
         dto.taskName?.trim() ||
-        String(primaryValue ?? '').trim() ||
-        'Form submission';
+        String(primaryValue ?? "").trim() ||
+        "Form submission";
 
-      // Create the task with empty cells for every column
+      /**
+       * Build cells in memory.
+       *
+       * Previously:
+       *
+       * create empty cells
+       *       ↓
+       * find every cell
+       *       ↓
+       * update every submitted cell
+       *
+       * Now:
+       *
+       * normalize values
+       *       ↓
+       * create cells once
+       */
+      const cells = boardColumns.map((column) => {
+        const field = fieldByColumnId.get(column.id);
+
+        /**
+         * No form field for this column.
+         * Create an empty cell.
+         */
+        if (!field) {
+          return {
+            column: {
+              connect: {
+                id: column.id,
+              },
+            },
+          };
+        }
+
+        const rawValue = submittedValues.get(
+          column.id,
+        );
+
+        /**
+         * No submitted value.
+         */
+        if (rawValue === undefined) {
+          return {
+            column: {
+              connect: {
+                id: column.id,
+              },
+            },
+          };
+        }
+
+        const normalized = normalizeCellValue(
+          field.column.type as BoardColumnType,
+          rawValue,
+          field.column.statusOptions,
+        );
+
+        return {
+          column: {
+            connect: {
+              id: column.id,
+            },
+          },
+          value: normalized as any,
+        };
+      });
+
+      /**
+       * Create task + cells in one operation.
+       */
       const task = await tx.task.create({
         data: {
           groupId: form.groupId,
-          // Public submissions are anonymous — reuse the board creator as a
-          // placeholder (tasks require a createdById FK).
-          createdById: await tx.board
-            .findUniqueOrThrow({ where: { id: boardId }, select: { createdById: true } })
-            .then((b) => b.createdById),
+
+          /**
+           * Public submissions are anonymous.
+           * Use board creator because createdById is required.
+           */
+          createdById: board.createdById,
+
           name: taskName,
-          order: lastTask ? lastTask.order + ORDER_GAP : ORDER_GAP,
+
+          order: lastTask
+            ? lastTask.order + ORDER_GAP
+            : ORDER_GAP,
+
           cells: {
-            create: boardColumns.map((col) => ({
-              column: { connect: { id: col.id } },
-            })),
+            create: cells,
           },
         },
-        include: { cells: { include: { column: true } } },
+
+        select: {
+          id: true,
+        },
       });
-
-      // 3. Apply submitted values to their corresponding cells
-      const updatePromises = dto.values
-        .map((val) => {
-          const field = fieldByColumnId.get(val.columnId);
-          if (!field) return null;
-
-          const cell = task.cells.find((c) => c.columnId === val.columnId);
-          if (!cell) return null;
-
-          const normalized = normalizeCellValue(
-            field.column.type as BoardColumnType,
-            val.value,
-            field.column.statusOptions,
-          );
-
-          return tx.taskCell.update({
-            where: { id: cell.id },
-            data: { value: normalized as any },
-          });
-        })
-        .filter(Boolean);
-
-      await Promise.all(updatePromises);
 
       return {
         taskId: task.id,
-        message: 'Form submitted successfully',
+        message: "Form submitted successfully",
       };
     });
   }

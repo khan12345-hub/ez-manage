@@ -25,8 +25,9 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto, req: Request) {
+    const email = dto.email.trim().toLowerCase();
     // 1. Find user
-    const user = await this.authRepository.findUserByEmail(dto.email);
+    const user = await this.authRepository.findUserByEmail(email);
 
     // 2. User not found
     if (!user) {
@@ -77,11 +78,7 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-    
     const user = await this.authRepository.findUserById(req.id);
-    
-    
-    
 
     // User deleted
     if (!user) {
@@ -93,7 +90,7 @@ export class AuthService {
       throw new ForbiddenException('Your account is inactive.');
     }
     const { password, ...safeUser } = user;
-    return safeUser
+    return safeUser;
   }
 
   async logout(req: Request, res: Response) {
