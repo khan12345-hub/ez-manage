@@ -59,11 +59,24 @@ export function BoardContent({
 
 
 
-  if (isLoading) {
+  // Show skeleton while the board is being loaded or replaced.
+  if (isLoading || (!board && isFetching)) {
     return <BoardSkeleton />;
   }
 
-  if (isError || !board) {
+  if (isError) {
+    return (
+      <div className="flex min-h-96 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+        Board not found.
+      </div>
+    );
+  }
+
+  if (!board) {
+    return <BoardSkeleton />;
+  }
+
+  if (isError) {
     return (
       <div className="flex min-h-96 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground ">
         Board not found.

@@ -477,7 +477,10 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
    * Therefore the row immediately below the group is
    * always the header row.
    */
-  const masterHeaderRow = groups[0].rowIndex + 1;
+  const masterHeaderRow =
+  groups.length > 0 && groups[0]?.rowIndex != null
+    ? groups[0].rowIndex + 1
+    : 0;
 
   console.log("[Excel Import] Master header row:", {
     rowIndex: masterHeaderRow,

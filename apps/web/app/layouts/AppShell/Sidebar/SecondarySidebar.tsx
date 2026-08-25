@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Search,
   Plus,
@@ -64,6 +64,12 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
 
   const [isCreateBoardOpen, setIsCreateBoardOpen] = useState(false);
+
+  const [isNavigating, startTransition] = useTransition();
+
+  const [navigatingBoardId, setNavigatingBoardId] = useState<number | null>(
+    null,
+  );
 
   const {
     setBoard,
@@ -170,10 +176,18 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
   };
 
   const handleBoardChange = (board: any) => {
+    if (board.id === boardId) {
+      return;
+    }
+
+    setNavigatingBoardId(board.id);
+
     setBoard(board.id);
     setBoardRole(board.role);
 
-    router.push(`/workspace/${workspaceId}/board/${board.id}`);
+    startTransition(() => {
+      router.push(`/workspace/${workspaceId}/board/${board.id}`);
+    });
   };
 
   const { user } = useAuth();
@@ -281,9 +295,18 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
                         <button
                           type="button"
                           onClick={() => handleBoardChange(item)}
-                          className="cursor-pointer flex-1 truncate text-left"
+                          disabled={
+                            isNavigating && navigatingBoardId === item.id
+                          }
+                          className="flex-1 cursor-pointer truncate text-left"
                         >
-                          {item.name}
+                          <span className="flex items-center gap-2">
+                            {navigatingBoardId === item.id && isNavigating && (
+                              <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                            )}
+
+                            <span className="truncate">{item.name}</span>
+                          </span>
                         </button>
 
                         {(item.role === "OWNER" || item.role === "ADMIN") &&
@@ -330,7 +353,10 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
         />
       )}
       {user && user?.systemRole === "SUPER_ADMIN" && (
-        <Link href="/system-settings" className="flex gap-2 items-center text-gray-600! mb-4 px-4">
+        <Link
+          href="/system-settings"
+          className="flex gap-2 items-center text-gray-600! mb-4 px-4"
+        >
           <Cog strokeWidth={1} size={28} />
           System Settings
         </Link>
