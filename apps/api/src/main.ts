@@ -8,13 +8,11 @@ import { postgresProvider } from './database/postgres.provider';
 import cookieParser from 'cookie-parser';
 import { join } from 'node:path';
 import { NestExpressApplication } from '@nestjs/platform-express';
-
+import * as express from "express";
 dotenv.config();
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(
-    AppModule,
-  );
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // CORS
   app.enableCors({
@@ -35,12 +33,9 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Static uploads
-  app.useStaticAssets(
-    join(process.cwd(), 'uploads'),
-    {
-      prefix: '/uploads/',
-    },
-  );
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // Global API prefix
   app.setGlobalPrefix('api');
@@ -62,6 +57,9 @@ async function bootstrap() {
       },
     }),
   );
+
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   await app.listen(process.env.PORT ?? 3010);
 }

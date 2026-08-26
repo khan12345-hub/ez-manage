@@ -1,19 +1,27 @@
-import PersonPicker, { PersonValue } from "../Cells/Person/PersonPicker";
+"use client";
+
+import PersonPicker, {
+  PersonValue,
+} from "../Cells/Person/PersonPicker";
+
 import { CellEditorProps } from "./EditableCell";
 
-
 export function PersonEditor({
+  editing,
+  inputRef,
   value,
   setValue,
   save,
-}: CellEditorProps<PersonValue>) {
+  cancel,
+}: CellEditorProps<PersonValue | null>) {
   return (
     <PersonPicker
+      editing={editing}
+      inputRef={inputRef}
       value={value}
-      onChange={(user:any) => {
-        setValue(user);
-        save(user);
-      }}
+      setValue={setValue}
+      save={save}
+      cancel={cancel}
     />
   );
 }

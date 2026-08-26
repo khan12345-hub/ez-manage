@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useCallback } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,96 +24,131 @@ interface Props extends CellEditorProps<string> {
   isPrimary?: boolean;
 }
 
-export function TextEditor({
+/* -------------------------------------------------------------------------- */
+/* Cheap non-editing display                                                  */
+/* -------------------------------------------------------------------------- */
+
+const TextValue = memo(function TextValue({
+  value,
+  onClick,
+}: {
+  value?: string | null;
+  onClick?: () => void;
+}) {
+  return (
+    <span
+      onClick={onClick}
+      title={value || ""}
+      className="block h-full w-full cursor-text truncate"
+    >
+      {value || ""}
+    </span>
+  );
+});
+
+/* -------------------------------------------------------------------------- */
+/* Primary editor                                                             */
+/* -------------------------------------------------------------------------- */
+
+const PrimaryEditor = memo(function PrimaryEditor({
   inputRef,
   value,
   setValue,
   save,
   cancel,
-  isPrimary,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setValue(e.target.value);
+    },
+    [setValue],
+  );
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    setValue(e.target.value);
-  };
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        save();
+        return;
+      }
 
-  const handleSave = () => {
-    setOpen(false);
-    save();
-  };
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cancel();
+      }
+    },
+    [save, cancel],
+  );
 
-  const handleCancel = () => {
-    setOpen(false);
-    cancel();
-  };
-
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    // Primary column: Enter saves
-    if (isPrimary && e.key === "Enter") {
-      e.preventDefault();
-      handleSave();
-      return;
-    }
-
-    // Non-primary: Ctrl/Cmd + Enter saves
-    if (
-      !isPrimary &&
-      e.key === "Enter" &&
-      (e.ctrlKey || e.metaKey)
-    ) {
-      e.preventDefault();
-      handleSave();
-      return;
-    }
-
-    if (e.key === "Escape") {
-      e.preventDefault();
-      handleCancel();
-    }
-  };
-
-  /*
-   * PRIMARY TEXT COLUMN
-   */
-  if (isPrimary) {
-    return (
-      <TooltipProvider delayDuration={500}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Input
-              ref={inputRef as React.RefObject<HTMLInputElement>}
-              value={value ?? ""}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              onBlur={handleSave}
-              className="h-full w-full truncate rounded-none border-none bg-transparent text-[16px]! shadow-none focus-visible:ring-0"
-            />
-          </TooltipTrigger>
-
-          {value && (
-            <TooltipContent
-              side="top"
-              align="start"
-              className="max-w-md whitespace-pre-wrap wrap-break-word"
-            >
-              {value}
-            </TooltipContent>
-          )}
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-
-  /*
-   * NON-PRIMARY TEXT COLUMN
-   */
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <TooltipProvider delayDuration={500}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Input
+            ref={inputRef as React.RefObject<HTMLInputElement>}
+            value={value ?? ""}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            // onBlur={save}
+            className="h-full w-full truncate rounded-none border-none bg-transparent text-[16px]! shadow-none focus-visible:ring-0"
+          />
+        </TooltipTrigger>
+
+        {value && (
+          <TooltipContent
+            side="top"
+            align="start"
+            className="max-w-md whitespace-pre-wrap wrap-break-word"
+          >
+            {value}
+          </TooltipContent>
+        )}
+      </Tooltip>
+    </TooltipProvider>
+  );
+});
+
+/* -------------------------------------------------------------------------- */
+/* Non-primary editor                                                         */
+/* -------------------------------------------------------------------------- */
+
+const NonPrimaryEditor = memo(function NonPrimaryEditor({
+  inputRef,
+  value,
+  setValue,
+  save,
+  cancel,
+}: Props) {
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setValue(e.target.value);
+    },
+    [setValue],
+  );
+
+  const handleKeyDown = useCallback(
+    (
+      e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+    ) => {
+      if (
+        e.key === "Enter" &&
+        (e.ctrlKey || e.metaKey)
+      ) {
+        e.preventDefault();
+        save();
+        return;
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cancel();
+      }
+    },
+    [save, cancel],
+  );
+
+  return (
+    <Popover open>
       <TooltipProvider delayDuration={500}>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -122,18 +157,17 @@ export function TextEditor({
                 ref={inputRef as React.RefObject<HTMLInputElement>}
                 value={value ?? ""}
                 onChange={handleChange}
-                onClick={() => setOpen(true)}
                 onKeyDown={handleKeyDown}
                 className="h-full w-full truncate rounded-none border-none bg-transparent text-[16px]! shadow-none focus-visible:ring-0"
               />
             </PopoverAnchor>
           </TooltipTrigger>
 
-          {value && !open && (
+          {value && (
             <TooltipContent
               side="top"
               align="start"
-              className="max-w-md text-md whitespace-pre-wrap wrap-break-word"
+              className="max-w-md whitespace-pre-wrap wrap-break-word"
             >
               {value}
             </TooltipContent>
@@ -173,5 +207,58 @@ export function TextEditor({
         </PopoverContent>
       </TooltipProvider>
     </Popover>
+  );
+});
+
+/* -------------------------------------------------------------------------- */
+/* Main editor                                                                */
+/* -------------------------------------------------------------------------- */
+
+export function TextEditor({
+  inputRef,
+  value,
+  setValue,
+  save,
+  cancel,
+  editing,
+  isPrimary,
+}: Props) {
+  /*
+   * IMPORTANT:
+   *
+   * `editing` is controlled by EditableCell.
+   *
+   * When false, we render ONLY the cheap display value.
+   * When true, we mount the actual editor.
+   */
+
+  if (!editing) {
+    return <TextValue value={value} />;
+  }
+
+  if (isPrimary) {
+    return (
+      <PrimaryEditor
+        inputRef={inputRef}
+        value={value}
+        setValue={setValue}
+        save={save}
+        cancel={cancel}
+        editing={editing}
+        isPrimary
+      />
+    );
+  }
+
+  return (
+    <NonPrimaryEditor
+      inputRef={inputRef}
+      value={value}
+      setValue={setValue}
+      save={save}
+      cancel={cancel}
+      editing={editing}
+      isPrimary={false}
+    />
   );
 }
