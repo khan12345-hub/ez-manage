@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
 import { Check, Search, User2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -9,24 +10,33 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
-import { getBoardMembers, BoardMember } from "@/services/boards.api";
-import { useInviteModalStore } from "@/store/invite-modal";
+import { Button } from "@/components/ui/button";
+
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { Button } from "@/components/ui/button";
+
+import { cn } from "@/lib/utils";
+
+import {
+  getBoardMembers,
+  BoardMember,
+} from "@/services/boards.api";
+
+import { useInviteModalStore } from "@/store/invite-modal";
 
 export interface PersonValue {
   users: BoardMember[];
 }
 
 interface Props {
+  editing?: boolean;
   value?: PersonValue | null;
   onChange: (value: PersonValue | null) => void;
   placeholder?: string;
@@ -35,6 +45,7 @@ interface Props {
 }
 
 export default function PersonPicker({
+  editing,
   value,
   onChange,
   placeholder = "Search people...",
@@ -48,6 +59,13 @@ export default function PersonPicker({
   const inputRef = useRef<HTMLInputElement>(null);
   const { boardId } = useInviteModalStore();
 
+  const selectedUsers = value?.users ?? [];
+
+  /**
+   * ---------------------------------------------------------------
+   * Search debounce
+   * ---------------------------------------------------------------
+   */
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
@@ -56,20 +74,52 @@ export default function PersonPicker({
     return () => clearTimeout(timer);
   }, [search]);
 
+  /**
+   * ---------------------------------------------------------------
+   * Cell editor opens automatically when editing starts.
+   *
+   * Filter usage has no editing prop, so it opens normally through
+   * the PopoverTrigger.
+   * ---------------------------------------------------------------
+   */
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 100);
+    if (editing) {
+      setOpen(true);
     }
+  }, [editing]);
+
+  /**
+   * ---------------------------------------------------------------
+   * Focus search
+   * ---------------------------------------------------------------
+   */
+  useEffect(() => {
+    if (!open) return;
+
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [open]);
 
+  /**
+   * ---------------------------------------------------------------
+   * Board members
+   * ---------------------------------------------------------------
+   *
+   * For cell editing:
+   *   editing && open
+   *
+   * For filter/normal picker:
+   *   open
+   */
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["board-members", boardId, debouncedSearch],
     queryFn: () => getBoardMembers(boardId, debouncedSearch),
     enabled: open,
     staleTime: 1000 * 60 * 5,
   });
-
-  const selectedUsers = value?.users ?? [];
 
   function initials(user: BoardMember | undefined) {
     return `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`;
@@ -95,7 +145,7 @@ export default function PersonPicker({
     const avatarUrl = getAvatarUrl(user);
 
     return (
-      <Avatar className={`${size} overflow-hidden h-7 w-7`}>
+      <Avatar className={`${size} overflow-hidden`}>
         {avatarUrl ? (
           <img
             src={avatarUrl}
@@ -149,18 +199,89 @@ export default function PersonPicker({
   }
 
   function clearSelection() {
-    onChange({ users: [] });
+    onChange(null);
     setOpen(false);
   }
 
   function selectAll() {
-    onChange({ users });
+    onChange({
+      users,
+    });
   }
 
+  /**
+   * ---------------------------------------------------------------
+   * CHEAP CELL DISPLAY
+   *
+   * Only used when editing prop was explicitly supplied as false.
+   *
+   * Filter usage has editing === undefined, so it continues to
+   * render the Popover normally.
+   * ---------------------------------------------------------------
+   */
+  if (editing === false) {
+    return (
+      <div
+        className={cn(
+          "flex h-full w-full items-center gap-2",
+          className,
+        )}
+      >
+        {selectedUsers.length === 0 ? (
+          <>
+            <User2 className="h-4 w-4 text-muted-foreground" />
+
+            <span className="truncate text-sm text-muted-foreground">
+              {type === "filter"
+                ? "Select person"
+                : "Assign person"}
+            </span>
+          </>
+        ) : (
+          <div className="inline-flex -space-x-2">
+            {selectedUsers.slice(0, 3).map((user) => (
+              <div
+                key={user.id}
+                className="rounded-full border-2 border-background"
+              >
+                <AvatarContent user={user} size="h-7 w-7" />
+              </div>
+            ))}
+
+            {selectedUsers.length > 3 && (
+              <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium">
+                +{selectedUsers.length - 3}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /**
+   * ---------------------------------------------------------------
+   * NORMAL / EDITING PICKER
+   *
+   * This works for both:
+   *
+   * <PersonPicker editing={true} />
+   *
+   * and:
+   *
+   * <PersonPicker type="filter" />
+   * ---------------------------------------------------------------
+   */
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
         <button
+          type="button"
           className={cn(
             "flex w-full cursor-pointer items-center gap-2 rounded-md bg-background transition-colors hover:bg-accent",
             className,
@@ -169,8 +290,11 @@ export default function PersonPicker({
           {selectedUsers.length === 0 ? (
             <>
               <User2 className="h-4 w-4 text-muted-foreground" />
+
               <span className="text-sm text-muted-foreground">
-                {type === "filter" ? "Select person" : "Assign person"}
+                {type === "filter"
+                  ? "Select person"
+                  : "Assign person"}
               </span>
             </>
           ) : (
@@ -182,7 +306,10 @@ export default function PersonPicker({
                       key={user.id}
                       className="rounded-full border-2 border-background"
                     >
-                      <AvatarContent user={user} size="h-10 w-10" />
+                      <AvatarContent
+                        user={user}
+                        size="h-7 w-7"
+                      />
                     </div>
                   ))}
 
@@ -194,14 +321,19 @@ export default function PersonPicker({
                 </div>
               </HoverCardTrigger>
 
-              <HoverCardContent side="top" align="start" className="w-72 p-2">
+              <HoverCardContent
+                side="top"
+                align="start"
+                className="w-72 p-2"
+              >
                 <div className="space-y-2">
-                  {selectedUsers.length > 0 && selectedUsers.map((user) => (
+                  {selectedUsers.map((user) => (
                     <div
                       key={user.id}
                       className="flex items-center gap-3 rounded-md p-2"
                     >
                       <AvatarContent user={user} />
+
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium">
                           {user.firstName} {user.lastName}
@@ -237,13 +369,21 @@ export default function PersonPicker({
 
         <div className="flex gap-2 px-4 py-2">
           {type === "default" && (
-            <Button onClick={selectAll} variant="outline">
+            <Button
+              type="button"
+              onClick={selectAll}
+              variant="outline"
+            >
               Select All
             </Button>
           )}
 
           {selectedUsers.length > 0 && (
-            <Button onClick={clearSelection} variant="destructive">
+            <Button
+              type="button"
+              onClick={clearSelection}
+              variant="destructive"
+            >
               {type === "filter" ? "Clear All" : "Unassign All"}
             </Button>
           )}
@@ -270,6 +410,7 @@ export default function PersonPicker({
             users.map((user) => (
               <button
                 key={user.id}
+                type="button"
                 onClick={() => handleSelect(user)}
                 className="mb-2 flex w-full items-center gap-3 text-left transition-colors hover:bg-accent"
               >

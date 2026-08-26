@@ -141,7 +141,7 @@ export default function BoardPage() {
         >
           <BoardHeader board={board} />
 
-          <BoardViewsTabs
+          {/* <BoardViewsTabs
             board={board}
             formContent={<FormBuilder board={board} />}
           >
@@ -155,7 +155,7 @@ export default function BoardPage() {
               personFilter={personFilter}
               setPersonFilter={setPersonFilter}
             />
-          </BoardViewsTabs>
+          </BoardViewsTabs> */}
         </div>
 
         {/**

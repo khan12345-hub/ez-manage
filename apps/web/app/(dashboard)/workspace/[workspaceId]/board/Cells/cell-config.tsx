@@ -123,24 +123,24 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   },
 
   PERSON: {
-    component: PersonEditor,
+  component: PersonEditor,
 
-    getValue: (_, cell) => cell?.value ?? null,
+  getValue: (_, cell) => cell?.value ?? null,
 
-    renderValue: (value) => <PersonCell cell={value} />,
+  renderValue: (value) => <PersonCell cell={value} />,
 
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) {
-        return Promise.resolve(null);
-      }
+  save: ({ cell, value, boardId }) => {
+    if (!cell?.id) {
+      return Promise.resolve(null);
+    }
 
-      return updateCell(boardId!, cell.id, {
-        value: {
-          users: value?.users ?? [],
-        },
-      });
-    },
+    return updateCell(boardId!, cell.id, {
+      value: {
+        users: value?.users ?? [],
+      },
+    });
   },
+},
 
   STATUS: {
     component: StatusEditor,

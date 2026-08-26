@@ -1,8 +1,8 @@
 "use client";
 
-import { File as FileIcon, Paperclip, UploadIcon } from "lucide-react";
-
+import { Paperclip, UploadIcon } from "lucide-react";
 import { useState } from "react";
+
 import { FileUploadModal } from "./FileUploadModal";
 import { FilePreviewModal } from "./Previews/FilePreviewModal";
 import { Button } from "@/components/ui/button";
@@ -14,29 +14,32 @@ export interface FileItem {
   fileSize: number;
   storageKey: string;
   url?: string;
+  uploadedById: number;
 }
 
 interface FileCellProps {
-  value?: any;
+  value?: {
+    files: FileItem[];
+    cellId: number;
+  } | null;
 }
 
 export function FileCell({ value }: FileCellProps) {
-  const [open, setOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  console.log({
-    "CELL FILES": value
-  })
+
+  const files = value?.files ?? [];
+
   return (
     <>
-      {value.files.length > 0 ? (
+      {files.length > 0 ? (
         <Button
           type="button"
           variant="ghost"
           onClick={() => setPreviewOpen(true)}
         >
           <Paperclip className="mr-2 h-4 w-4" />
-          {value.files.length} files
+          {files.length} {files.length === 1 ? "file" : "files"}
         </Button>
       ) : (
         <Button
@@ -49,21 +52,31 @@ export function FileCell({ value }: FileCellProps) {
         </Button>
       )}
 
-      <FilePreviewModal
-        open={previewOpen}
-        onOpenChange={setPreviewOpen}
-        files={value.files}
-        cellId={value.cellId}
-        onUploadClick={() => setUploadOpen(true)}
-        type="CELL"
-      />
+      {previewOpen && value?.cellId != null && (
+        <FilePreviewModal
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          files={files}
+          cellId={value.cellId}
+          onUploadClick={() => {
+            setPreviewOpen(false);
+            setUploadOpen(true);
+          }}
+          type="CELL"
+        />
+      )}
 
-      <FileUploadModal
-        open={uploadOpen}
-        onOpenChange={setUploadOpen}
-        cellId={value.cellId}
-        onUploadSuccess={() => setPreviewOpen(true)}
-      />
+      {uploadOpen && value?.cellId != null && (
+        <FileUploadModal
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          cellId={value.cellId}
+          onUploadSuccess={() => {
+            setUploadOpen(false);
+            setPreviewOpen(true);
+          }}
+        />
+      )}
     </>
   );
 }

@@ -62,11 +62,7 @@ export function TextEditor({
     }
 
     // Non-primary: Ctrl/Cmd + Enter saves
-    if (
-      !isPrimary &&
-      e.key === "Enter" &&
-      (e.ctrlKey || e.metaKey)
-    ) {
+    if (!isPrimary && e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handleSave();
       return;
@@ -137,10 +133,11 @@ export function TextEditor({
    */
   if (!editing) {
     return (
-      <div 
-      onClick={()=>setOpen(true)}
-      className="absolute flex h-full w-full items-center truncate px-2 text-[16px]">
-        {value || ""} 
+      <div
+        onClick={() => setOpen(true)}
+        className="absolute flex h-full w-full items-center truncate px-2 text-[16px]"
+      >
+        {value || ""}
       </div>
     );
   }
@@ -155,9 +152,9 @@ export function TextEditor({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-
         if (!next) {
-          cancel();
+          save()
+          // cancel();
         }
       }}
     >
@@ -181,6 +178,7 @@ export function TextEditor({
           value={value ?? ""}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onBlur={() => save}
           placeholder="Write something..."
           rows={6}
           autoFocus={true}
