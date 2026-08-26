@@ -10,6 +10,7 @@ import {
   Kanban,
   Building2,
   Cog,
+  SquareKanban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -201,9 +202,12 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-gray-200 px-5">
-          <span className="text-sm font-bold tracking-tight text-gray-700">
+          <Link
+            href="/dashboard"
+            className="text-sm font-bold tracking-tight text-gray-700"
+          >
             Workspace
-          </span>
+          </Link>
 
           <div className="flex items-center gap-1.5">
             {workspace?.id && (
@@ -241,7 +245,10 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-max">
-              <DropdownMenuItem onClick={() => setIsCreateWorkspaceOpen(true)}>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => setIsCreateWorkspaceOpen(true)}
+              >
                 <Building2 className="mr-2 h-4 w-4" />
                 Create Workspace
               </DropdownMenuItem>
@@ -249,8 +256,9 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
               <DropdownMenuItem
                 onClick={() => setIsCreateBoardOpen(true)}
                 disabled={!workspace}
+                className="cursor-pointer"
               >
-                <Kanban className="mr-2 h-4 w-4" />
+                <SquareKanban className="mr-2 h-4 w-4" />
                 Create Board
               </DropdownMenuItem>
             </DropdownMenuContent>

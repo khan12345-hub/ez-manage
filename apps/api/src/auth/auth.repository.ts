@@ -44,6 +44,7 @@ export class AuthRepository {
             role: true,
             board: {
               select: {
+                id:true,
                 name:true,
                 workspace: true,
               },

@@ -4,6 +4,7 @@ import { ChevronRight, LayoutDashboard, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/AuthProvider";
+import Link from "next/link";
 
 const boards = [
   {
@@ -47,37 +48,37 @@ export function MyBoards() {
             Boards you recently accessed
           </p>
         </div>
-
-        
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
-        {user && user.boardMemberships.map((boardMembership:any) => (
-          <button
-            key={boardMembership.board.name}
-            className="group flex w-full items-center gap-4 border-b px-5 py-4 text-left transition last:border-0 hover:bg-muted/40"
-          >
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-              <LayoutDashboard className="size-4 text-muted-foreground" />
-            </div>
+        {user?.boardMemberships?.map((boardMembership: any) => {
+          const board = boardMembership.board;
+          const workspace = board.workspace;
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                
-
-                <p className="truncate text-sm font-semibold">{boardMembership.board.name}</p>
+          return (
+            <Link
+              key={board.id}
+              href={`/workspace/${workspace.id}/board/${board.id}`}
+              className="group flex w-full items-center gap-4 border-b px-5 py-4 text-left transition last:border-0 hover:bg-muted/40"
+            >
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                <LayoutDashboard className="size-4 text-muted-foreground" />
               </div>
 
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {boardMembership.board.workspace.name} ({boardMembership.board.workspace.description})
-              </p>
-            </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-semibold">{board.name}</p>
+                </div>
 
-            
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {workspace.name} ({workspace.description})
+                </p>
+              </div>
 
-            <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-          </button>
-        ))}
+              <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

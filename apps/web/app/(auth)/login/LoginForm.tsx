@@ -39,7 +39,7 @@ export function LoginForm() {
   <FormProvider {...form}>
     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <FormInput name="email" label="Email" />
-      <FormInput name="password" label="Password" />
+      <FormInput name="password" label="Password" type="password" />
 
       <Button
        loading={loginMutation.isPending}

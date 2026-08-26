@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/providers/AuthProvider";
 import { ArrowUpRight, FolderKanban } from "lucide-react";
+import Link from "next/link";
 
 const workspaces = [
   {
@@ -36,31 +37,34 @@ export function WorkspaceCards() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {user && user.workspaceMemberships.map((workspaceMembership:any) => (
-          <button
-            key={workspaceMembership.workspace.name}
-            className="group rounded-2xl border bg-background p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`flex size-11 items-center justify-center rounded-xl bg-primary`}
-                >
-                  <FolderKanban className="size-5 text-white" />
+        {user &&
+          user.workspaceMemberships.map((workspaceMembership: any) => (
+            <button
+              key={workspaceMembership.workspace.name}
+              className="group rounded-2xl border bg-background p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex size-11 items-center justify-center rounded-xl bg-primary`}
+                  >
+                    <FolderKanban className="size-5 text-white" />
+                  </div>
+
+                  <div>
+                    <Link href={`/workspace/${workspaceMembership.workspace.id}`}>
+                      <h3 className="font-semibold">
+                        {workspaceMembership.workspace.name}
+                      </h3>
+                    </Link>
+                    <p className="text-xs text-muted-foreground">Workspace</p>
+                  </div>
                 </div>
 
-                <div>
-                  <h3 className="font-semibold">{workspaceMembership.workspace.name}</h3>
-                  <p className="text-xs text-muted-foreground">Workspace</p>
-                </div>
+                <ArrowUpRight className="size-4 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
               </div>
-
-              <ArrowUpRight className="size-4 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-            </div>
-
-            
-          </button>
-        ))}
+            </button>
+          ))}
       </div>
     </section>
   );

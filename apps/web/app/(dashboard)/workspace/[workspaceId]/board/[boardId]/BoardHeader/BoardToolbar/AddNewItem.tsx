@@ -34,7 +34,7 @@ export function AddNewItem({
       <DropdownMenuTrigger asChild>
         <Button disabled={!boardId}>
           <Plus className="mr-2 h-4 w-4" />
-          New task
+          New item
           <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

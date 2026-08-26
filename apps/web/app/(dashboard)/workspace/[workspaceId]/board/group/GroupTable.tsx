@@ -40,8 +40,8 @@ interface Props {
       lastName: string;
       avatarUrl: string | null;
     };
-    userId:number;
-  }>
+    userId: number;
+  }>;
 }
 
 export function GroupTable({
@@ -55,7 +55,7 @@ export function GroupTable({
   showNewTaskRow = true,
   setOpen,
   newTaskFocusToken = 0,
-  members
+  members,
 }: Props) {
   const { setNodeRef } = useDroppable({
     id: `group-drop-${group.id}`,
@@ -76,24 +76,25 @@ export function GroupTable({
           <thead>
             <tr className="border">
               <th
-                className="sticky left-0 w-1.5"
+                className="sticky left-0 w-1.5 z-10"
                 style={{
                   backgroundColor: group.color,
                 }}
               />
-
-              <th className="sticky left-30 bg-white">
-                {!!selection && (
-                  <Checkbox
-                    checked={
-                      groupSelection?.indeterminate
-                        ? "indeterminate"
-                        : groupSelection?.selected
-                    }
-                    onCheckedChange={() => selection.toggleGroup(group)}
-                    
-                  />
-                )}
+              <th className="bg-white w-[450px] sticky left-1.5 z-10">
+                <div className="flex justify-end">
+                  {!!selection && (
+                    <Checkbox
+                      className="mr-5"
+                      checked={
+                        groupSelection?.indeterminate
+                          ? "indeterminate"
+                          : groupSelection?.selected
+                      }
+                      onCheckedChange={() => selection.toggleGroup(group)}
+                    />
+                  )}
+                </div>
               </th>
 
               <SortableContext
@@ -101,7 +102,7 @@ export function GroupTable({
                 strategy={horizontalListSortingStrategy}
               >
                 {columns.map((column: any) => (
-                  <Headers key={column.id} column={column} members={members}/>
+                  <Headers key={column.id} column={column} members={members} />
                 ))}
               </SortableContext>
 
