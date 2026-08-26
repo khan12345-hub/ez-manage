@@ -1,7 +1,8 @@
 "use client";
 
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -12,11 +13,13 @@ import {
 } from "@/components/ui/popover";
 
 import { CellEditorProps } from "./EditableCell";
-import { useState } from "react";
+
 export interface DateValue {
   date?: Date;
 }
+
 export function DateEditor({
+  editing,
   inputRef,
   value,
   setValue,
@@ -24,22 +27,57 @@ export function DateEditor({
   cancel,
 }: CellEditorProps<DateValue>) {
   const date = value?.date;
-  
 
   const [open, setOpen] = useState(false);
+
+  /**
+   * Only open the popover when the cell actually enters edit mode.
+   */
+  useEffect(() => {
+    if (editing) {
+      setOpen(true);
+    }
+  }, [editing]);
+
+  /**
+   * Cheap display when the cell isn't being edited.
+   * No Popover or Calendar is mounted.
+   */
+  if (!editing) {
+    return (
+      <div className="flex h-full w-full items-center px-2 text-sm">
+          <CalendarIcon className="mr-4 h-4 w-4" />
+        {date ? format(date, "dd MMM yyyy") : "-"}
+      </div>
+    );
+  }
+
+  /**
+   * Expensive editor UI is only mounted while editing.
+   */
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+
+        if (!next) {
+          cancel();
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           ref={inputRef}
           variant="ghost"
-          className="w-full justify-start text-left font-normal cursor-pointer"
+          className="w-full cursor-pointer justify-start text-left font-normal"
           onKeyDown={(e) => {
-            if (e.key === "Escape") cancel();
+            if (e.key === "Escape") {
+              cancel();
+            }
           }}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          
           {date ? format(date, "dd MMM yyyy") : "Pick a date"}
         </Button>
       </PopoverTrigger>

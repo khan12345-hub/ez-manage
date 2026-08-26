@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import {
   Popover,
-  PopoverAnchor,
   PopoverContent,
+  PopoverTrigger,
 } from "@/components/ui/popover";
 
 import {
@@ -25,6 +25,7 @@ interface Props extends CellEditorProps<string> {
 }
 
 export function TextEditor({
+  editing,
   inputRef,
   value,
   setValue,
@@ -77,8 +78,22 @@ export function TextEditor({
     }
   };
 
-  /*
-   * PRIMARY TEXT COLUMN
+  /**
+   * Open the popover only after this cell enters edit mode.
+   */
+  useEffect(() => {
+    if (editing && !isPrimary) {
+      setOpen(true);
+    }
+  }, [editing, isPrimary]);
+
+  /**
+   * ------------------------------------------------------------------
+   * PRIMARY COLUMN
+   * ------------------------------------------------------------------
+   *
+   * Primary text uses a normal input, so there is no expensive
+   * popover/textarea to defer.
    */
   if (isPrimary) {
     return (
@@ -109,69 +124,84 @@ export function TextEditor({
     );
   }
 
-  /*
-   * NON-PRIMARY TEXT COLUMN
+  /**
+   * ------------------------------------------------------------------
+   * NON-PRIMARY / NOT EDITING
+   * ------------------------------------------------------------------
+   *
+   * IMPORTANT:
+   * No Popover, Textarea or PopoverContent is mounted here.
+   *
+   * EditableCell is responsible for changing editing -> true when
+   * the cell is clicked.
+   */
+  if (!editing) {
+    return (
+      <div 
+      onClick={()=>setOpen(true)}
+      className="absolute flex h-full w-full items-center truncate px-2 text-[16px]">
+        {value || ""} 
+      </div>
+    );
+  }
+
+  /**
+   * ------------------------------------------------------------------
+   * NON-PRIMARY / EDITING
+   * ------------------------------------------------------------------
    */
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <TooltipProvider delayDuration={500}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverAnchor asChild>
-              <Input
-                ref={inputRef as React.RefObject<HTMLInputElement>}
-                value={value ?? ""}
-                onChange={handleChange}
-                onClick={() => setOpen(true)}
-                onKeyDown={handleKeyDown}
-                className="h-full w-full truncate rounded-none border-none bg-transparent text-[16px]! shadow-none focus-visible:ring-0"
-              />
-            </PopoverAnchor>
-          </TooltipTrigger>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
 
-          {value && !open && (
-            <TooltipContent
-              side="top"
-              align="start"
-              className="max-w-md text-md whitespace-pre-wrap wrap-break-word"
-            >
-              {value}
-            </TooltipContent>
-          )}
-        </Tooltip>
+        if (!next) {
+          cancel();
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Input
+          ref={inputRef as React.RefObject<HTMLInputElement>}
+          value={value ?? ""}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          className="h-full w-full cursor-pointer truncate rounded-none border-none bg-transparent text-[16px]! shadow-none focus-visible:ring-0"
+        />
+      </PopoverTrigger>
 
-        <PopoverContent
-          align="start"
-          side="bottom"
-          sideOffset={4}
-          className="w-[400px] p-0"
-        >
-          <Textarea
-            value={value ?? ""}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Write something..."
-            rows={6}
-            autoFocus
-            className="min-h-[140px] w-full resize-y rounded-md border-none px-3 py-3 text-[16px]! leading-6 shadow-none focus-visible:ring-0"
-          />
+      <PopoverContent
+        align="start"
+        side="bottom"
+        sideOffset={4}
+        className="w-[400px] p-0"
+      >
+        <Textarea
+          value={value ?? ""}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          placeholder="Write something..."
+          rows={6}
+          autoFocus={true}
+          className="min-h-[140px] w-full resize-y rounded-md border-none px-3 py-3 text-[16px]! leading-6 shadow-none focus-visible:ring-0"
+        />
 
-          <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
-            <span>Esc to cancel</span>
+        <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
+          <span>Esc to cancel</span>
 
-            <span>
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono">
-                Ctrl
-              </kbd>{" "}
-              +{" "}
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono">
-                Enter
-              </kbd>{" "}
-              to save
-            </span>
-          </div>
-        </PopoverContent>
-      </TooltipProvider>
+          <span>
+            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono">
+              Ctrl
+            </kbd>{" "}
+            +{" "}
+            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono">
+              Enter
+            </kbd>{" "}
+            to save
+          </span>
+        </div>
+      </PopoverContent>
     </Popover>
   );
 }

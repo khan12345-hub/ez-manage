@@ -1,4 +1,4 @@
-import { ComponentType } from "react";
+import { ComponentType, ReactNode } from "react";
 import { QueryClient } from "@tanstack/react-query";
 
 import { CellEditorProps } from "../EditableCells/EditableCell";
@@ -15,12 +15,32 @@ import { FileCell } from "./File/FileCell";
 import { updateTask } from "@/services/tasks.api";
 import { updateCell } from "@/services/cells.api";
 import { toast } from "sonner";
+import PersonPicker from "./Person/PersonPicker";
+import { PersonCell } from "./Person/PersonCell";
+import { StatusCell } from "./Status/StatusCell";
 
 export interface CellConfig<T = any> {
+  /**
+   * Component used ONLY when the cell is being edited.
+   */
   component: ComponentType<CellEditorProps<T>>;
 
+  /**
+   * Gets the actual value from the task/cell.
+   */
   getValue: (task: any, cell: any, column: any) => T;
 
+  /**
+   * Cheap renderer used when the cell is NOT being edited.
+   *
+   * This is important for large boards because we don't
+   * mount the expensive editor component for every cell.
+   */
+  renderValue?: (value: T) => ReactNode;
+
+  /**
+   * Persists the value to the backend.
+   */
   save: (args: {
     task: any;
     cell: any;
@@ -32,63 +52,57 @@ export interface CellConfig<T = any> {
 }
 
 export const CELL_CONFIG: Record<string, CellConfig> = {
-TEXT: {
-  component: TextEditor,
+  TEXT: {
+    component: TextEditor,
 
-  getValue: (task, cell, column) => {
-    const value = column.isPrimary
-      ? task.name ?? ""
-      : cell?.value?.text ?? "";
+    getValue: (task, cell, column) => {
+      const value = column.isPrimary
+        ? (task.name ?? "")
+        : (cell?.value?.text ?? "");
 
-    console.log("[TEXT getValue]", {
-      taskId: task?.id,
-      cellId: cell?.id,
-      columnId: column?.id,
-      isPrimary: column?.isPrimary,
-      value,
-    });
-
-    return value;
-  },
-
-  save: async ({
-    task,
-    cell,
-    column,
-    value,
-    boardId,
-  }) => {
-    console.log("[TEXT save CALLED]", {
-      taskId: task?.id,
-      cellId: cell?.id,
-      columnId: column?.id,
-      isPrimary: column?.isPrimary,
-      value,
-      boardId,
-    });
-
-    if (column.isPrimary) {
-      console.log("[TEXT] calling updateTask");
-
-      return updateTask(boardId!, task.id, {
-        name: value,
+      console.log("[TEXT getValue]", {
+        taskId: task?.id,
+        cellId: cell?.id,
+        columnId: column?.id,
+        isPrimary: column?.isPrimary,
+        value,
       });
-    }
 
-    if (!cell?.id) {
-      console.log("[TEXT] NO CELL ID");
-      return null;
-    }
+      return value;
+    },
 
-    console.log("[TEXT] calling updateCell");
+    save: async ({ task, cell, column, value, boardId }) => {
+      console.log("[TEXT save CALLED]", {
+        taskId: task?.id,
+        cellId: cell?.id,
+        columnId: column?.id,
+        isPrimary: column?.isPrimary,
+        value,
+        boardId,
+      });
 
-    return updateCell(boardId!, cell.id, {
-      value: {
-        text: value,
-      },
-    });
+      if (column.isPrimary) {
+        console.log("[TEXT] calling updateTask");
+
+        return updateTask(boardId!, task.id, {
+          name: value,
+        });
+      }
+
+      if (!cell?.id) {
+        console.log("[TEXT] NO CELL ID");
+        return null;
+      }
+
+      console.log("[TEXT] calling updateCell");
+
+      return updateCell(boardId!, cell.id, {
+        value: {
+          text: value,
+        },
+      });
+    },
   },
-},
 
   NUMBER: {
     component: NumberEditor,
@@ -111,16 +125,18 @@ TEXT: {
   PERSON: {
     component: PersonEditor,
 
-    getValue: (_, cell) => cell?.value,
+    getValue: (_, cell) => cell?.value ?? null,
+
+    renderValue: (value) => <PersonCell cell={value} />,
 
     save: ({ cell, value, boardId }) => {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
 
-      return updateCell(boardId, cell.id, {
+      return updateCell(boardId!, cell.id, {
         value: {
-          users: value.users,
+          users: value?.users ?? [],
         },
       });
     },
@@ -129,34 +145,19 @@ TEXT: {
   STATUS: {
     component: StatusEditor,
 
-    getValue: (_, cell) => cell?.value,
+    getValue: (_, cell) => cell?.value ?? null,
 
     save: ({ cell, value, boardId, queryClient }) => {
       if (!cell?.id) {
         return Promise.resolve(null);
       }
 
-      return updateCell(boardId, cell.id, {
+      return updateCell(boardId!, cell.id, {
         value: {
           label: value.label,
           color: value.color,
         },
-      }).then((result) => {
-        /*
-         * The backend automation may have
-         * changed task.groupId.
-         *
-         * Refetch the board so the task
-         * immediately appears in its new group.
-         */
-        queryClient?.invalidateQueries({
-          queryKey: ["board", boardId],
-        });
-
-        // toast.success("Automation moved an item")
-
-        return result;
-      });
+      })
     },
   },
 
