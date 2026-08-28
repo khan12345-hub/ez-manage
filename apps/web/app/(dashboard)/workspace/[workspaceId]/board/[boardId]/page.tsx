@@ -15,6 +15,8 @@ import { BoardViewsTabs } from "./BoardViewsTabs";
 import { FormBuilder } from "./(board-features)/forms/BoardFeatureForm/FormBuilder/FormBuilder";
 import { BoardHeader } from "./BoardHeader";
 import { BoardSkeleton } from "./BoardSkeleton";
+import { BoardDocuments } from "./(board-features)/documents/BoardDocuments";
+import { FileGallery } from "./(board-features)/file-gallery/FileGallery";
 
 export default function BoardPage() {
   const { setGroups } = useGroupStore();
@@ -25,8 +27,7 @@ export default function BoardPage() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [personFilter, setPersonFilter] =
-    useState<PersonValue | null>(null);
+  const [personFilter, setPersonFilter] = useState<PersonValue | null>(null);
 
   const selectedPersonSearch = personFilter?.users?.[0]
     ? `${personFilter.users[0].firstName ?? ""} ${
@@ -56,12 +57,7 @@ export default function BoardPage() {
     isFetching,
     isError,
   } = useQuery({
-    queryKey: [
-      "board",
-      boardId,
-      debouncedSearch,
-      selectedPersonSearch,
-    ],
+    queryKey: ["board", boardId, debouncedSearch, selectedPersonSearch],
     queryFn: () =>
       getBoardDetail(
         boardId,
@@ -104,9 +100,7 @@ export default function BoardPage() {
   if (isError && !board) {
     return (
       <div className="flex min-h-[400px] items-center justify-center bg-background p-6">
-        <div className="text-sm text-muted-foreground">
-          Board not found.
-        </div>
+        <div className="text-sm text-muted-foreground">Board not found.</div>
 
         <TaskDetailsSheet />
       </div>
@@ -141,9 +135,11 @@ export default function BoardPage() {
         >
           <BoardHeader board={board} />
 
-          {/* <BoardViewsTabs
+          <BoardViewsTabs
             board={board}
             formContent={<FormBuilder board={board} />}
+            documentContent={<BoardDocuments />}
+            fileGalleryContent={<FileGallery />}
           >
             <Board
               board={board}
@@ -155,7 +151,7 @@ export default function BoardPage() {
               personFilter={personFilter}
               setPersonFilter={setPersonFilter}
             />
-          </BoardViewsTabs> */}
+          </BoardViewsTabs>
         </div>
 
         {/**

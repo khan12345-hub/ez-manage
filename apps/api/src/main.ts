@@ -8,7 +8,7 @@ import { postgresProvider } from './database/postgres.provider';
 import cookieParser from 'cookie-parser';
 import { join } from 'node:path';
 import { NestExpressApplication } from '@nestjs/platform-express';
-
+import * as express from "express";
 dotenv.config();
 
 async function bootstrap() {
@@ -62,6 +62,9 @@ async function bootstrap() {
       },
     }),
   );
+
+  app.use(express.json({ limit: "50mb" }));
+  app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   await app.listen(process.env.PORT ?? 3010);
 }

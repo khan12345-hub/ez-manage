@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageCircleMore } from "lucide-react";
+
 import { useQueryClient } from "@tanstack/react-query";
 
 import { EditableCell } from "../EditableCells/EditableCell";
@@ -8,12 +9,25 @@ import { CELL_CONFIG } from "./cell-config";
 
 import { useInviteModalStore } from "@/store/invite-modal";
 import { useTaskDetailsStore } from "@/store/task-details-store";
+
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 interface CellProps {
   column: any;
   task: any;
+
+  /*
+   * Cell is now passed directly from TaskRow.
+   *
+   * This avoids:
+   *
+   * task.cells.find(...)
+   *
+   * for every rendered cell.
+   */
+  cell?: any;
+
   isDragging?: boolean;
   isSubTask?: boolean;
 }
@@ -21,6 +35,7 @@ interface CellProps {
 export function Cell({
   column,
   task,
+  cell,
   isDragging,
   isSubTask,
 }: CellProps) {
@@ -33,12 +48,6 @@ export function Cell({
   );
 
   const isPrimary = column.isPrimary;
-
-  const cell = isPrimary
-    ? null
-    : task.cells.find(
-        (c: any) => c.columnId === column.id,
-      );
 
   const config =
     CELL_CONFIG[
@@ -67,14 +76,15 @@ export function Cell({
   return (
     <td
       className={cn(
-        "border relative px-3 py-1",
+        "relative border px-3 py-1",
+
         isPrimary &&
-          "sticky left-36 bg-background z-20 min-w-[300px]",
+          "sticky left-36 z-20 min-w-[300px] bg-background",
       )}
     >
       <div className="flex items-center gap-2">
         {isSubTask && isPrimary && (
-          <div className="flex items-center sticky left-2">
+          <div className="sticky left-2 flex items-center">
             <div className="absolute -left-3 -top-2.5 h-3 w-6 rounded-bl-3xl border-b border-l border-gray-300" />
           </div>
         )}
@@ -112,13 +122,13 @@ export function Cell({
               });
             }}
             className={cn(
-              "cursor-pointer flex h-7 w-7 shrink-0",
+              "relative flex h-7 w-7 shrink-0 cursor-pointer",
               "items-center justify-center",
               "rounded-md",
               "text-muted-foreground",
+              "transition-colors",
               "hover:bg-muted",
               "hover:text-foreground",
-              "transition-colors relative",
             )}
             title="Open task details"
             aria-label="Open task details"
@@ -136,11 +146,11 @@ export function Cell({
               <Badge
                 className="
                   absolute
-                  text-[9px]!
                   left-4
                   top-4
                   h-4
                   w-4
+                  text-[9px]!
                   leading-0.25
                 "
               >

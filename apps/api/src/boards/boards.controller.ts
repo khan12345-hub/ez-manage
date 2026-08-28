@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   Param,
@@ -34,6 +35,8 @@ import {
 } from './dto/update-board-access-management.dto';
 import { BoardAccessManagementService } from './board-access-management.service';
 import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
+import { GetBoardTasksDto } from './dto/get-single-board.dto';
+import { GetBoardTasksService } from './single-board-tasks.service';
 
 @Controller('boards')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -43,7 +46,7 @@ export class BoardsController {
     private readonly boardImportService: BoardImportService,
     private readonly columnAccessService: ColumnsAccessService,
     private readonly boardAccessManagementService: BoardAccessManagementService,
-    
+    private readonly getBoardTasksService: GetBoardTasksService,
   ) {}
 
   @Post()
@@ -66,7 +69,7 @@ export class BoardsController {
     @Query('person')
     person?: string,
   ) {
-    return this.boardsService.findOne(boardId, search, person);
+    return this.boardsService.findOne(boardId);
   }
 
   @Get(':boardId/members')
@@ -193,5 +196,42 @@ export class BoardsController {
     @CurrentUser() user: SessionUser,
   ) {
     return this.boardImportService.importExcelBoard(dto, user.id);
+  }
+
+  @Get(':boardId/tasks')
+  getBoardTasks(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Query('groupId') groupId?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+    @Query('search') search?: string,
+    @Query('person') person?: string,
+  ) {
+    return this.getBoardTasksService.execute({
+      boardId,
+      groupId: groupId ? Number(groupId) : undefined,
+      limit: limit ? Number(limit) : 50,
+      cursor: cursor ? Number(cursor) : undefined,
+      search,
+      person,
+    });
+  }
+  @Get(':boardId/groups/:groupId/tasks')
+  async getGroupTasks(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @Query('search') search?: string,
+    @Query('person') person?: string,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset?: number,
+  ) {
+    return this.getBoardTasksService.getGroupTasks(
+      boardId,
+      groupId,
+      search,
+      person,
+      Math.min(limit ?? 50, 50),
+      offset ?? 0,
+    );
   }
 }

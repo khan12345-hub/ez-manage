@@ -1,8 +1,8 @@
-
 "use client";
 
 import { useInviteModalStore } from "@/store/invite-modal";
 import { useGroupStore } from "@/store/create-group-store";
+
 import { useBoardFilters } from "./filters/useBoardFilters";
 import { useBoardDnd } from "./BoardDND/useBoardDnd";
 
@@ -11,12 +11,26 @@ interface UseBoardProps {
 }
 
 export function useBoard({ board }: UseBoardProps) {
-  const groups = useGroupStore((state) => state.groups);
+  const storeGroups = useGroupStore((state) => state.groups);
+
   const setGroups = useGroupStore((state) => state.setGroups);
 
   const { boardId } = useInviteModalStore();
 
   const columns = board?.columns ?? [];
+
+  /**
+   * Use the groups passed from Board when available.
+   *
+   * Board.tsx attaches the currently loaded/paginated tasks
+   * to these groups before calling useBoard().
+   *
+   * Fall back to the Zustand groups for draft/new-group states.
+   */
+  const groups =
+    board?.groups?.length > 0
+      ? board.groups
+      : storeGroups;
 
   const filters = useBoardFilters({
     columns,

@@ -7,9 +7,19 @@ import { BoardSearchService } from './board-search.service';
 import { BoardImportService } from './board-import.service';
 import { ColumnsAccessService } from './update-column-access.service';
 import { BoardAccessManagementService } from './board-access-management.service';
+import { GetBoardTasksService } from './single-board-tasks.service';
 
 @Module({
   controllers: [BoardsController],
-  providers: [BoardsService, WorkspaceAccessService, BoardAccessService, BoardSearchService, BoardImportService, ColumnsAccessService, BoardAccessManagementService],
+  providers: [
+    BoardsService,
+    WorkspaceAccessService,
+    BoardAccessService,
+    BoardSearchService,
+    BoardImportService,
+    ColumnsAccessService,
+    BoardAccessManagementService,
+    GetBoardTasksService
+  ],
 })
 export class BoardsModule {}

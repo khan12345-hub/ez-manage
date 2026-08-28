@@ -171,6 +171,8 @@ model Board {
 
   automations AutomationRule[]
 
+  documents BoardDocument[]
+
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@map("boards")
@@ -726,4 +728,21 @@ model AutomationRule {
   @@index([triggerColumnId])
   @@index([triggerStatusId])
   @@index([targetGroupId])
+}
+model BoardDocument {
+  id          Int      @id @default(autoincrement())
+  boardId     Int
+  title       String
+  content     Json
+  icon        String?
+  order       Int      @default(0)
+
+  createdById Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  board       Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  createdBy   User  @relation(fields: [createdById], references: [id])
+
+  @@index([boardId])
 }

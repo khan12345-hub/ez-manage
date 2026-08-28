@@ -39,598 +39,596 @@ export class BoardImportService {
   constructor(private readonly prisma: PrismaService) {}
 
   async importExcelBoard(dto: ImportExcelBoardDto, userId: number) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        /*
+         * ---------------------------------------------------------
+         * 1. Validate workspace
+         * ---------------------------------------------------------
+         */
 
-    
-    return this.prisma.$transaction(async (tx) => {
-      /*
-       * ---------------------------------------------------------
-       * 1. Validate workspace
-       * ---------------------------------------------------------
-       */
-
-      const workspace = await tx.workspace.findUnique({
-        where: {
-          id: dto.workspaceId,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (!workspace) {
-        throw new NotFoundException('Workspace not found.');
-      }
-
-      /*
-       * ---------------------------------------------------------
-       * 2. Validate board name / duplicate board
-       * ---------------------------------------------------------
-       */
-
-      const boardName = dto.boardName.trim();
-
-      if (!boardName) {
-        throw new ConflictException('Board name is required.');
-      }
-
-      const existingBoard = await tx.board.findFirst({
-        where: {
-          workspaceId: dto.workspaceId,
-          name: boardName,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (existingBoard) {
-        throw new ConflictException(
-          'A board with this name already exists in this workspace.',
-        );
-      }
-
-      /*
-       * ---------------------------------------------------------
-       * 3. Create board
-       * ---------------------------------------------------------
-       */
-
-      const board = await tx.board.create({
-        data: {
-          name: boardName,
-          workspaceId: dto.workspaceId,
-          visibility: dto.visibility ?? 'PUBLIC',
-          createdById: userId,
-
-          members: {
-            create: {
-              userId,
-              role: BoardMemberRole.OWNER,
-            },
+        const workspace = await tx.workspace.findUnique({
+          where: {
+            id: dto.workspaceId,
           },
-        },
-      });
-
-      /*
-       * ---------------------------------------------------------
-       * 4. Prepare column mappings
-       *
-       * __groupName / __groupColor are parser metadata and
-       * must NEVER become board columns.
-       *
-       * The task column is the primary board column.
-       * ---------------------------------------------------------
-       */
-
-      const mappings = dto.columns.filter((mapping) => {
-        const sourceColumn = mapping.sourceColumn?.trim();
-
-        if (!sourceColumn) {
-          return false;
-        }
-
-        if (sourceColumn === '__groupName') {
-          return false;
-        }
-
-        if (sourceColumn === '__groupColor') {
-          return false;
-        }
-
-        if (
-          this.normalizeKey(sourceColumn) === this.normalizeKey(dto.taskColumn)
-        ) {
-          return false;
-        }
-
-        if (
-          dto.groupColumn &&
-          this.normalizeKey(sourceColumn) === this.normalizeKey(dto.groupColumn)
-        ) {
-          return false;
-        }
-
-        return true;
-      });
-
-      /*
-       * ---------------------------------------------------------
-       * Find primary/task mapping
-       * ---------------------------------------------------------
-       */
-
-      const primaryColumnMapping = dto.columns.find(
-        (mapping) =>
-          this.normalizeKey(mapping.sourceColumn) ===
-          this.normalizeKey(dto.taskColumn),
-      );
-
-      const primaryColumnName =
-        primaryColumnMapping?.targetColumn?.trim() ||
-        dto.taskColumn.trim() ||
-        'Name';
-
-      /*
-       * ---------------------------------------------------------
-       * 5. Build column definitions
-       * ---------------------------------------------------------
-       */
-
-      const columnDefinitions = [
-        {
-          name: primaryColumnName,
-          type: BoardColumnType.TEXT,
-          isPrimary: true,
-        },
-
-        ...mappings
-          .filter((mapping) => {
-            const targetName = mapping.targetColumn?.trim();
-
-            return Boolean(targetName);
-          })
-          .map((mapping) => ({
-            name: mapping.targetColumn.trim(),
-            type: mapping.type,
-            isPrimary: false,
-          })),
-      ];
-
-      /*
-       * ---------------------------------------------------------
-       * Remove duplicate columns case-insensitively
-       * ---------------------------------------------------------
-       */
-
-      const uniqueColumnDefinitions = columnDefinitions.filter(
-        (column, index, array) => {
-          const normalizedName = this.normalizeKey(column.name);
-
-          return (
-            array.findIndex(
-              (item) => this.normalizeKey(item.name) === normalizedName,
-            ) === index
-          );
-        },
-      );
-
-      /*
-       * ---------------------------------------------------------
-       * 6. Create board columns
-       * ---------------------------------------------------------
-       */
-
-      const columns = await tx.boardColumn.createManyAndReturn({
-        data: uniqueColumnDefinitions.map((column, index) => ({
-          boardId: board.id,
-          name: column.name,
-          type: column.type,
-          isPrimary: column.isPrimary,
-          order: (index + 1) * 1000,
-        })),
-      });
-
-      /*
-       * ---------------------------------------------------------
-       * 7. Create status options
-       * ---------------------------------------------------------
-       */
-
-      const statusOptionsByColumn = new Map<string, StatusOptionMap>();
-
-      for (const mapping of mappings) {
-        if (mapping.type !== BoardColumnType.STATUS) {
-          continue;
-        }
-
-        const column = columns.find(
-          (item) =>
-            this.normalizeKey(item.name) ===
-            this.normalizeKey(mapping.targetColumn),
-        );
-
-        if (!column) {
-          continue;
-        }
-
-        const statusOptionsData = this.getUniqueStatusOptions(
-          dto.rows,
-          mapping.sourceColumn,
-        );
-
-        if (!statusOptionsData.length) {
-          continue;
-        }
-
-        const statusOptions = await tx.statusOption.createManyAndReturn({
-          data: statusOptionsData.map((option, index) => ({
-            columnId: column.id,
-            label: option.label,
-            color: option.color || this.getStatusColor(index),
-            order: (index + 1) * 1000,
-          })),
+          select: {
+            id: true,
+          },
         });
 
-        const optionMap: StatusOptionMap = new Map();
-
-        for (const option of statusOptions) {
-          optionMap.set(this.normalizeKey(option.label), option);
+        if (!workspace) {
+          throw new NotFoundException('Workspace not found.');
         }
 
-        statusOptionsByColumn.set(mapping.sourceColumn, optionMap);
-      }
-
-      /*
-       * ---------------------------------------------------------
-       * 8. Group imported rows
-       * ---------------------------------------------------------
-       */
-
-      const groupedRows = this.groupImportedRows(dto.rows);
-
-      let groupOrder = 1000;
-
-      /*
-       * ---------------------------------------------------------
-       * 9. Create groups
-       * 10. Create tasks
-       * 11. Create task cells
-       * ---------------------------------------------------------
-       */
-
-      for (const groupData of groupedRows.values()) {
         /*
-         * -------------------------------------------------------
-         * Create group
-         * -------------------------------------------------------
+         * ---------------------------------------------------------
+         * 2. Validate board name / duplicate board
+         * ---------------------------------------------------------
          */
-        console.log({ groupData });
-        const group = await tx.group.create({
+
+        const boardName = dto.boardName.trim();
+
+        if (!boardName) {
+          throw new ConflictException('Board name is required.');
+        }
+
+        const existingBoard = await tx.board.findFirst({
+          where: {
+            workspaceId: dto.workspaceId,
+            name: boardName,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (existingBoard) {
+          throw new ConflictException(
+            'A board with this name already exists in this workspace.',
+          );
+        }
+
+        /*
+         * ---------------------------------------------------------
+         * 3. Create board
+         * ---------------------------------------------------------
+         */
+
+        const board = await tx.board.create({
           data: {
-            boardId: board.id,
-            name: groupData.name || 'Imported Tasks',
-            color: groupData.color || '#579BFC',
-            order: groupOrder,
+            name: boardName,
+            workspaceId: dto.workspaceId,
+            visibility: dto.visibility ?? 'PUBLIC',
             createdById: userId,
-          },
-        });
 
-        /*
-         * -------------------------------------------------------
-         * Resolve task names before creating tasks
-         * -------------------------------------------------------
-         */
-
-        const validRows = groupData.rows
-          .map((row) => {
-            console.log("dto.taskColumn", dto.taskColumn)
-            const rawTaskValue = this.getFlexibleValue(row, dto.taskColumn);
-
-            const taskName = this.getTaskName(rawTaskValue, row);
-            console.log({ taskName });
-            return {
-              row,
-              taskName,
-            };
-          })
-          .filter(
-            (
-              item,
-            ): item is {
-              row: ImportedRow;
-              taskName: string;
-            } => Boolean(item.taskName),
-          );
-
-        if (!validRows.length) {
-          groupOrder += 1000;
-          continue;
-        }
-
-        /*
-         * -------------------------------------------------------
-         * Create tasks
-         * -------------------------------------------------------
-         */
-
-        const tasks = await tx.task.createManyAndReturn({
-          data: validRows.map((item, index) => ({
-            groupId: group.id,
-            name: item.taskName,
-            order: (index + 1) * 1000,
-            createdById: userId,
-          })),
-        });
-
-        /*
-         * -------------------------------------------------------
-         * Build task cells
-         *
-         * IMPORTANT:
-         *
-         * TaskCell.value is JSON.
-         *
-         * TEXT / NUMBER:
-         * {
-         *   text: "..."
-         * }
-         *
-         * STATUS:
-         * {
-         *   label: "...",
-         *   color: "..."
-         * }
-         *
-         * DATE:
-         * {
-         *   date: "..."
-         * }
-         *
-         * CHECKBOX:
-         * {
-         *   checked: true
-         * }
-         * -------------------------------------------------------
-         */
-
-        const taskCells: {
-          taskId: number;
-          columnId: number;
-          value: Prisma.InputJsonValue;
-        }[] = [];
-
-        for (let index = 0; index < tasks.length; index++) {
-          const task = tasks[index];
-          const row = validRows[index].row;
-
-          for (const mapping of mappings) {
-            /*
-             * Never create a cell for the primary column.
-             */
-
-            if (
-              this.normalizeKey(mapping.sourceColumn) ===
-              this.normalizeKey(dto.taskColumn)
-            ) {
-              continue;
-            }
-
-            /*
-             * Find target board column.
-             */
-
-            const column = columns.find(
-              (item) =>
-                this.normalizeKey(item.name) ===
-                this.normalizeKey(mapping.targetColumn),
-            );
-
-            if (!column) {
-              continue;
-            }
-
-            /*
-             * Read value from imported row.
-             */
-
-            const rawValue = this.getFlexibleValue(row, mapping.sourceColumn);
-
-            /*
-             * Ignore empty values.
-             */
-
-            /*
-             * Normalize imported value.
-             */
-
-            const isEmpty = this.isEmptyValue(rawValue);
-
-            if (isEmpty) {
-              if (column.type === BoardColumnType.TEXT) {
-                const emptyValue = JSON.stringify({
-                  text: '',
-                });
-
-                taskCells.push({
-                  taskId: task.id,
-                  columnId: column.id,
-                  value: emptyValue,
-                });
-
-                console.log('[BoardImport] EMPTY TEXT CELL CREATED:', {
-                  taskId: task.id,
-                  columnId: column.id,
-                  value: emptyValue,
-                });
-              } else {
-                console.log('[BoardImport] Empty non-TEXT cell:', {
-                  taskId: task.id,
-                  columnId: column.id,
-                  type: column.type,
-                });
-
-                /**
-                 * If you want ALL column types to have a cell,
-                 * uncomment this block and provide their defaults.
-                 */
-              }
-
-              continue;
-            }
-
-            const normalizedValue = this.normalizeCellValue(
-              rawValue,
-              mapping.type,
-              mapping.sourceColumn,
-              statusOptionsByColumn,
-            );
-
-            // if (normalizedValue === null || normalizedValue === '') {
-            //   continue;
-            // }
-
-            /*
-             * Build the same JSON structure used
-             * by the frontend CELL_CONFIG.
-             */
-
-            const cellValue = this.buildCellValue(
-              normalizedValue ?? '',
-              mapping.type,
-              mapping.sourceColumn,
-              statusOptionsByColumn,
-            );
-
-            if (!cellValue) {
-              continue;
-            }
-
-            taskCells.push({
-              taskId: task.id,
-              columnId: column.id,
-              value: cellValue,
-            });
-          }
-        }
-
-        /*
-         * -------------------------------------------------------
-         * Insert all cells for this group
-         *
-         * Prisma generates TaskCell.id here.
-         * -------------------------------------------------------
-         */
-
-        if (taskCells.length) {
-          await tx.taskCell.createMany({
-            data: taskCells,
-          });
-        }
-
-        groupOrder += 1000;
-      }
-
-      /*
-       * ---------------------------------------------------------
-       * 12. Re-fetch complete board
-       *
-       * IMPORTANT:
-       *
-       * We deliberately query the database again after all
-       * TaskCells have been inserted.
-       *
-       * This guarantees the returned task.cells contain:
-       *
-       * - id
-       * - taskId
-       * - columnId
-       * - value
-       *
-       * which the frontend EditableCell requires.
-       * ---------------------------------------------------------
-       */
-
-      const importedBoard = await tx.board.findUniqueOrThrow({
-        where: {
-          id: board.id,
-        },
-
-        include: {
-          columns: {
-            orderBy: {
-              order: 'asc',
-            },
-
-            include: {
-              statusOptions: {
-                where: {
-                  isArchived: false,
-                },
-
-                orderBy: {
-                  order: 'asc',
-                },
+            members: {
+              create: {
+                userId,
+                role: BoardMemberRole.OWNER,
               },
             },
           },
+        });
 
-          groups: {
-            orderBy: {
-              order: 'asc',
+        /*
+         * ---------------------------------------------------------
+         * 4. Prepare column mappings
+         *
+         * __groupName / __groupColor are parser metadata and
+         * must NEVER become board columns.
+         *
+         * The task column is the primary board column.
+         * ---------------------------------------------------------
+         */
+
+        const mappings = dto.columns.filter((mapping) => {
+          const sourceColumn = mapping.sourceColumn?.trim();
+
+          if (!sourceColumn) {
+            return false;
+          }
+
+          if (sourceColumn === '__groupName') {
+            return false;
+          }
+
+          if (sourceColumn === '__groupColor') {
+            return false;
+          }
+
+          if (
+            this.normalizeKey(sourceColumn) ===
+            this.normalizeKey(dto.taskColumn)
+          ) {
+            return false;
+          }
+
+          if (
+            dto.groupColumn &&
+            this.normalizeKey(sourceColumn) ===
+              this.normalizeKey(dto.groupColumn)
+          ) {
+            return false;
+          }
+
+          return true;
+        });
+
+        /*
+         * ---------------------------------------------------------
+         * Find primary/task mapping
+         * ---------------------------------------------------------
+         */
+
+        const primaryColumnMapping = dto.columns.find(
+          (mapping) =>
+            this.normalizeKey(mapping.sourceColumn) ===
+            this.normalizeKey(dto.taskColumn),
+        );
+
+        const primaryColumnName =
+          primaryColumnMapping?.targetColumn?.trim() ||
+          dto.taskColumn.trim() ||
+          'Name';
+
+        /*
+         * ---------------------------------------------------------
+         * 5. Build column definitions
+         * ---------------------------------------------------------
+         */
+
+        const columnDefinitions = [
+          {
+            name: primaryColumnName,
+            type: BoardColumnType.TEXT,
+            isPrimary: true,
+          },
+
+          ...mappings
+            .filter((mapping) => {
+              const targetName = mapping.targetColumn?.trim();
+
+              return Boolean(targetName);
+            })
+            .map((mapping) => ({
+              name: mapping.targetColumn.trim(),
+              type: mapping.type,
+              isPrimary: false,
+            })),
+        ];
+
+        /*
+         * ---------------------------------------------------------
+         * Remove duplicate columns case-insensitively
+         * ---------------------------------------------------------
+         */
+
+        const uniqueColumnDefinitions = columnDefinitions.filter(
+          (column, index, array) => {
+            const normalizedName = this.normalizeKey(column.name);
+
+            return (
+              array.findIndex(
+                (item) => this.normalizeKey(item.name) === normalizedName,
+              ) === index
+            );
+          },
+        );
+
+        /*
+         * ---------------------------------------------------------
+         * 6. Create board columns
+         * ---------------------------------------------------------
+         */
+
+        const columns = await tx.boardColumn.createManyAndReturn({
+          data: uniqueColumnDefinitions.map((column, index) => ({
+            boardId: board.id,
+            name: column.name,
+            type: column.type,
+            isPrimary: column.isPrimary,
+            order: (index + 1) * 1000,
+          })),
+        });
+
+        /*
+         * ---------------------------------------------------------
+         * 7. Create status options
+         * ---------------------------------------------------------
+         */
+
+        const statusOptionsByColumn = new Map<string, StatusOptionMap>();
+
+        for (const mapping of mappings) {
+          if (mapping.type !== BoardColumnType.STATUS) {
+            continue;
+          }
+
+          const column = columns.find(
+            (item) =>
+              this.normalizeKey(item.name) ===
+              this.normalizeKey(mapping.targetColumn),
+          );
+
+          if (!column) {
+            continue;
+          }
+
+          const statusOptionsData = this.getUniqueStatusOptions(
+            dto.rows,
+            mapping.sourceColumn,
+          );
+
+          if (!statusOptionsData.length) {
+            continue;
+          }
+
+          const statusOptions = await tx.statusOption.createManyAndReturn({
+            data: statusOptionsData.map((option, index) => ({
+              columnId: column.id,
+              label: option.label,
+              color: option.color || this.getStatusColor(index),
+              order: (index + 1) * 1000,
+            })),
+          });
+
+          const optionMap: StatusOptionMap = new Map();
+
+          for (const option of statusOptions) {
+            optionMap.set(this.normalizeKey(option.label), option);
+          }
+
+          statusOptionsByColumn.set(mapping.sourceColumn, optionMap);
+        }
+
+        /*
+         * ---------------------------------------------------------
+         * 8. Group imported rows
+         * ---------------------------------------------------------
+         */
+
+        const groupedRows = this.groupImportedRows(dto.rows);
+
+        let groupOrder = 1000;
+
+        /*
+         * ---------------------------------------------------------
+         * 9. Create groups
+         * 10. Create tasks
+         * 11. Create task cells
+         * ---------------------------------------------------------
+         */
+
+        for (const groupData of groupedRows.values()) {
+          /*
+           * -------------------------------------------------------
+           * Create group
+           * -------------------------------------------------------
+           */
+          console.log({ groupData });
+          const group = await tx.group.create({
+            data: {
+              boardId: board.id,
+              name: groupData.name || 'Imported Tasks',
+              color: groupData.color || '#579BFC',
+              order: groupOrder,
+              createdById: userId,
+            },
+          });
+
+          /*
+           * -------------------------------------------------------
+           * Resolve task names before creating tasks
+           * -------------------------------------------------------
+           */
+
+          const validRows = groupData.rows
+            .map((row) => {
+              console.log('dto.taskColumn', dto.taskColumn);
+              const rawTaskValue = this.getFlexibleValue(row, dto.taskColumn);
+
+              const taskName = this.getTaskName(rawTaskValue, row);
+              console.log({ taskName });
+              return {
+                row,
+                taskName,
+              };
+            })
+            .filter(
+              (
+                item,
+              ): item is {
+                row: ImportedRow;
+                taskName: string;
+              } => Boolean(item.taskName),
+            );
+
+          if (!validRows.length) {
+            groupOrder += 1000;
+            continue;
+          }
+
+          /*
+           * -------------------------------------------------------
+           * Create tasks
+           * -------------------------------------------------------
+           */
+
+          const tasks = await tx.task.createManyAndReturn({
+            data: validRows.map((item, index) => ({
+              groupId: group.id,
+              name: item.taskName,
+              order: (index + 1) * 1000,
+              createdById: userId,
+            })),
+          });
+
+          /*
+           * -------------------------------------------------------
+           * Build task cells
+           *
+           * IMPORTANT:
+           *
+           * TaskCell.value is JSON.
+           *
+           * TEXT / NUMBER:
+           * {
+           *   text: "..."
+           * }
+           *
+           * STATUS:
+           * {
+           *   label: "...",
+           *   color: "..."
+           * }
+           *
+           * DATE:
+           * {
+           *   date: "..."
+           * }
+           *
+           * CHECKBOX:
+           * {
+           *   checked: true
+           * }
+           * -------------------------------------------------------
+           */
+
+          const taskCells: {
+            taskId: number;
+            columnId: number;
+            value: Prisma.InputJsonValue;
+          }[] = [];
+
+          for (let index = 0; index < tasks.length; index++) {
+            const task = tasks[index];
+            const row = validRows[index].row;
+
+            for (const mapping of mappings) {
+              /*
+               * Never create a cell for the primary column.
+               */
+
+              if (
+                this.normalizeKey(mapping.sourceColumn) ===
+                this.normalizeKey(dto.taskColumn)
+              ) {
+                continue;
+              }
+
+              /*
+               * Find target board column.
+               */
+
+              const column = columns.find(
+                (item) =>
+                  this.normalizeKey(item.name) ===
+                  this.normalizeKey(mapping.targetColumn),
+              );
+
+              if (!column) {
+                continue;
+              }
+
+              /*
+               * Read value from imported row.
+               */
+
+              const rawValue = this.getFlexibleValue(row, mapping.sourceColumn);
+
+              /*
+               * Ignore empty values.
+               */
+
+              /*
+               * Normalize imported value.
+               */
+
+              const isEmpty = this.isEmptyValue(rawValue);
+
+              if (isEmpty) {
+                if (column.type === BoardColumnType.TEXT) {
+                  const emptyValue = JSON.stringify({
+                    text: '',
+                  });
+
+                  taskCells.push({
+                    taskId: task.id,
+                    columnId: column.id,
+                    value: emptyValue,
+                  });
+
+                  
+                } else {
+                  
+
+                  /**
+                   * If you want ALL column types to have a cell,
+                   * uncomment this block and provide their defaults.
+                   */
+                }
+
+                continue;
+              }
+
+              const normalizedValue = this.normalizeCellValue(
+                rawValue,
+                mapping.type,
+                mapping.sourceColumn,
+                statusOptionsByColumn,
+              );
+
+              // if (normalizedValue === null || normalizedValue === '') {
+              //   continue;
+              // }
+
+              /*
+               * Build the same JSON structure used
+               * by the frontend CELL_CONFIG.
+               */
+
+              const cellValue = this.buildCellValue(
+                normalizedValue ?? '',
+                mapping.type,
+                mapping.sourceColumn,
+                statusOptionsByColumn,
+              );
+
+              if (!cellValue) {
+                continue;
+              }
+
+              taskCells.push({
+                taskId: task.id,
+                columnId: column.id,
+                value: cellValue,
+              });
+            }
+          }
+
+          /*
+           * -------------------------------------------------------
+           * Insert all cells for this group
+           *
+           * Prisma generates TaskCell.id here.
+           * -------------------------------------------------------
+           */
+
+          if (taskCells.length) {
+            await tx.taskCell.createMany({
+              data: taskCells,
+            });
+          }
+
+          groupOrder += 1000;
+        }
+
+        /*
+         * ---------------------------------------------------------
+         * 12. Re-fetch complete board
+         *
+         * IMPORTANT:
+         *
+         * We deliberately query the database again after all
+         * TaskCells have been inserted.
+         *
+         * This guarantees the returned task.cells contain:
+         *
+         * - id
+         * - taskId
+         * - columnId
+         * - value
+         *
+         * which the frontend EditableCell requires.
+         * ---------------------------------------------------------
+         */
+
+        const importedBoard = await tx.board.findUniqueOrThrow({
+          where: {
+            id: board.id,
+          },
+
+          include: {
+            columns: {
+              orderBy: {
+                order: 'asc',
+              },
+
+              include: {
+                statusOptions: {
+                  where: {
+                    isArchived: false,
+                  },
+
+                  orderBy: {
+                    order: 'asc',
+                  },
+                },
+              },
             },
 
-            include: {
-              tasks: {
-                orderBy: {
-                  order: 'asc',
-                },
+            groups: {
+              orderBy: {
+                order: 'asc',
+              },
 
-                include: {
-                  cells: {
-                    include: {
-                      column: {
-                        include: {
-                          statusOptions: {
-                            where: {
-                              isArchived: false,
-                            },
+              include: {
+                tasks: {
+                  orderBy: {
+                    order: 'asc',
+                  },
 
-                            orderBy: {
-                              order: 'asc',
+                  include: {
+                    cells: {
+                      include: {
+                        column: {
+                          include: {
+                            statusOptions: {
+                              where: {
+                                isArchived: false,
+                              },
+
+                              orderBy: {
+                                order: 'asc',
+                              },
                             },
                           },
                         },
                       },
-                    },
 
-                    orderBy: {
-                      column: {
-                        order: 'asc',
+                      orderBy: {
+                        column: {
+                          order: 'asc',
+                        },
                       },
                     },
                   },
                 },
               },
             },
-          },
 
-          members: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
+            members: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    avatarUrl: true,
+                  },
                 },
               },
             },
           },
-        },
-      });
+        });
 
-      return importedBoard;
-    });
+        return importedBoard;
+      },
+      {
+        timeout: 120000, // 2 minutes
+        maxWait: 10000,
+      },
+    );
   }
 
   /*

@@ -135,7 +135,8 @@ export function TextEditor({
     return (
       <div
         onClick={() => setOpen(true)}
-        className="absolute flex h-full w-full items-center truncate px-2 text-[16px]"
+        className="absolute inset-0 flex w-full items-center overflow-hidden truncate whitespace-nowrap px-2 text-[16px]"
+        title={value || ""}
       >
         {value || ""}
       </div>
@@ -153,7 +154,7 @@ export function TextEditor({
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) {
-          save()
+          save();
           // cancel();
         }
       }}
@@ -181,7 +182,7 @@ export function TextEditor({
           onBlur={() => save}
           placeholder="Write something..."
           rows={6}
-          autoFocus={true}
+          autoFocus
           className="min-h-[140px] w-full resize-y rounded-md border-none px-3 py-3 text-[16px]! leading-6 shadow-none focus-visible:ring-0"
         />
 

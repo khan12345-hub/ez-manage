@@ -1,4 +1,3 @@
-console.log("BulkUpdateDto loaded");
 import { Type } from 'class-transformer';
 import {
   IsArray,

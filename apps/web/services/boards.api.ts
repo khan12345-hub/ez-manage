@@ -222,3 +222,30 @@ export async function getGroups(boardId: number): Promise<Group[]> {
 
   return data;
 }
+
+export interface BoardTasksResponse {
+  // tasks: Task[];
+  tasks:any[];
+  nextCursor: number | null;
+  hasMore: boolean;
+}
+
+export const getBoardTasks = async (
+  boardId: number,
+  params?: {
+    groupId?: number;
+    cursor?: number | null;
+    limit?: number;
+    search?: string;
+    person?: string;
+  },
+) => {
+  const { data } = await api.get<BoardTasksResponse>(
+    `/boards/${boardId}/tasks`,
+    {
+      params,
+    },
+  );
+
+  return data;
+};

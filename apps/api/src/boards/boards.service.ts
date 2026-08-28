@@ -388,270 +388,109 @@ export class BoardsService {
     }));
   }
 
-  async findOne(id: number, search?: string, person?: string) {
-    const board = await this.prisma.board.findUnique({
-      where: {
-        id,
-      },
+async findOne(id: number) {
+  const board = await this.prisma.board.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      // description: true,
+      visibility: true,
+      createdAt: true,
+      updatedAt: true,
 
-      include: {
-        form: true,
+      form: true,
 
-        columns: {
-          orderBy: {
-            order: 'asc',
-          },
-
-          include: {
-            statusOptions: {
-              where: {
-                isArchived: false,
-              },
-
-              orderBy: {
-                order: 'asc',
-              },
-            },
-
-            permissions: {
-              select: {
-                userId: true,
-                canEdit: true,
-                columnId: true,
-              },
-            },
-          },
+      columns: {
+        orderBy: {
+          order: "asc",
         },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          order: true,
+          isPrimary: true,
 
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                avatarUrl: true,
-              },
+          statusOptions: {
+            where: {
+              isArchived: false,
+            },
+            orderBy: {
+              order: "asc",
+            },
+            select: {
+              id: true,
+              label: true,
+              color: true,
+              order: true,
             },
           },
-        },
 
-        groups: {
-          orderBy: {
-            order: 'asc',
-          },
-
-          include: {
-            tasks: {
-              where: {
-                parentId: null,
-              },
-
-              orderBy: {
-                order: 'asc',
-              },
-
-              include: {
-                _count: {
-                  select: {
-                    comments: true,
-                  },
-                },
-
-                cells: {
-                  orderBy: {
-                    column: {
-                      order: 'asc',
-                    },
-                  },
-
-                  include: {
-                    column: {
-                      include: {
-                        statusOptions: {
-                          where: {
-                            isArchived: false,
-                          },
-
-                          orderBy: {
-                            order: 'asc',
-                          },
-                        },
-
-                        permissions: {
-                          include: {
-                            user: {
-                              select: {
-                                id: true,
-                                firstName: true,
-                                lastName: true,
-                                avatarUrl: true,
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-
-                    files: {
-                      select: {
-                        file: {
-                          select: {
-                            id: true,
-                            fileName: true,
-                            url: true,
-                            mimeType: true,
-                            fileSize: true,
-                            storageKey: true,
-                            uploadedById: true,
-                            uploadedAt: true,
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-
-                subtasks: {
-                  orderBy: {
-                    order: 'asc',
-                  },
-
-                  include: {
-                    cells: {
-                      orderBy: {
-                        column: {
-                          order: 'asc',
-                        },
-                      },
-
-                      include: {
-                        column: {
-                          include: {
-                            statusOptions: {
-                              where: {
-                                isArchived: false,
-                              },
-
-                              orderBy: {
-                                order: 'asc',
-                              },
-                            },
-
-                            permissions: {
-                              include: {
-                                user: {
-                                  select: {
-                                    id: true,
-                                    firstName: true,
-                                    lastName: true,
-                                    avatarUrl: true,
-                                  },
-                                },
-                              },
-                            },
-                          },
-                        },
-
-                        files: {
-                          select: {
-                            file: {
-                              select: {
-                                id: true,
-                                fileName: true,
-                                url: true,
-                                mimeType: true,
-                                fileSize: true,
-                                storageKey: true,
-                                uploadedById: true,
-                                uploadedAt: true,
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
+          permissions: {
+            select: {
+              userId: true,
+              canEdit: true,
+              columnId: true,
             },
           },
         },
       },
-    });
 
-    if (!board) {
-      throw new NotFoundException(`Board with ID ${id} not found.`);
-    }
+      members: {
+        select: {
+          id: true,
+          role: true,
+          userId: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      },
 
-    const searchTerm = search?.trim() ?? '';
-    const personTerm = person?.trim() ?? '';
+      groups: {
+        orderBy: {
+          order: "asc",
+        },
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          order: true,
+        },
+      },
+    },
+  });
 
-    const groups = board.groups
-      .map((group) => {
-        const tasks = this.boardSearchService.filterTasks(group.tasks, {
-          search: searchTerm,
-          person: personTerm,
-        });
+  if (!board) {
+    throw new NotFoundException(`Board with ID ${id} not found.`);
+  }
 
-        const groupNameMatches =
-          Boolean(searchTerm) &&
-          group.name?.trim().toLowerCase().includes(searchTerm.toLowerCase());
-
-        if (searchTerm && !groupNameMatches && tasks.length === 0) {
-          return null;
-        }
-
-        const visibleTasks = groupNameMatches ? group.tasks : tasks;
-
-        return {
-          ...group,
-
-          tasks: visibleTasks.map((task) => ({
-            ...task,
-
-            cells: task.cells.map((cell) => ({
-              ...cell,
-
-              files: cell.files.map(({ file }) => file),
-            })),
-
-            subtasks: task.subtasks.map((subtask) => ({
-              ...subtask,
-
-              cells: subtask.cells.map((cell) => ({
-                ...cell,
-
-                files: cell.files.map(({ file }) => file),
-              })),
-            })),
-          })),
-        };
-      })
-      .filter((group): group is NonNullable<typeof group> => Boolean(group));
-
-    const views = [
+  return {
+    ...board,
+    views: [
       {
-        id: 'main',
-        name: 'Main table',
-        type: 'table',
+        id: "main",
+        name: "Main table",
+        type: "table",
       },
-
       ...(board.form
         ? [
             {
-              type: 'form',
+              id: "form",
+              name: "Form",
+              type: "form",
             },
           ]
         : []),
-    ];
-
-    return {
-      ...board,
-      groups,
-      views,
-    };
-  }
+    ],
+  };
+}
 
   async update(id: number, updateBoardDto: UpdateBoardDto, userId: number) {
     return this.prisma.$transaction(async (tx) => {

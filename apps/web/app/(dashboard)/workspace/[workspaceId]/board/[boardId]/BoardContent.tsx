@@ -32,6 +32,8 @@ interface BoardContentProps {
   handleDragCancel: () => void;
   selection: any;
   newGroupFocusToken: number;
+  hasNextPage?:boolean
+  isFetchingNextPage?:boolean
 }
 
 export function BoardContent({

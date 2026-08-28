@@ -193,3 +193,28 @@ export async function bulkUpdateTasks(
 
   return data;
 }
+export async function getGroupTasks(
+  boardId: number,
+  groupId: number,
+  search?: string,
+  person?: string,
+) {
+  const params = new URLSearchParams();
+
+  if (search?.trim()) {
+    params.set("search", search.trim());
+  }
+
+  if (person?.trim()) {
+    params.set("person", person.trim());
+  }
+
+  const { data } = await api.get(
+    `/boards/${boardId}/groups/${groupId}/tasks`,
+    {
+      params,
+    },
+  );
+
+  return data;
+}
