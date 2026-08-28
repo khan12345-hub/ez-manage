@@ -133,7 +133,7 @@ export default function FilePreviewItem({
   }
   console.log({file})
   // @ts-ignore
-  const renderedFile = file.file
+  const renderedFile = file.file ?? file
   return (
     <>
       {/* File Row */}
