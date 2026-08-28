@@ -388,109 +388,109 @@ export class BoardsService {
     }));
   }
 
-async findOne(id: number) {
-  const board = await this.prisma.board.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      // description: true,
-      visibility: true,
-      createdAt: true,
-      updatedAt: true,
+  async findOne(id: number) {
+    const board = await this.prisma.board.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        // description: true,
+        visibility: true,
+        createdAt: true,
+        updatedAt: true,
 
-      form: true,
+        form: true,
 
-      columns: {
-        orderBy: {
-          order: "asc",
-        },
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          order: true,
-          isPrimary: true,
-
-          statusOptions: {
-            where: {
-              isArchived: false,
-            },
-            orderBy: {
-              order: "asc",
-            },
-            select: {
-              id: true,
-              label: true,
-              color: true,
-              order: true,
-            },
+        columns: {
+          orderBy: {
+            order: 'asc',
           },
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            order: true,
+            isPrimary: true,
 
-          permissions: {
-            select: {
-              userId: true,
-              canEdit: true,
-              columnId: true,
+            statusOptions: {
+              where: {
+                isArchived: false,
+              },
+              orderBy: {
+                order: 'asc',
+              },
+              select: {
+                id: true,
+                label: true,
+                color: true,
+                order: true,
+              },
             },
-          },
-        },
-      },
 
-      members: {
-        select: {
-          id: true,
-          role: true,
-          userId: true,
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              avatarUrl: true,
+            permissions: {
+              select: {
+                userId: true,
+                canEdit: true,
+                columnId: true,
+              },
             },
           },
         },
-      },
 
-      groups: {
-        orderBy: {
-          order: "asc",
+        members: {
+          select: {
+            id: true,
+            role: true,
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+              },
+            },
+          },
         },
-        select: {
-          id: true,
-          name: true,
-          color: true,
-          order: true,
+
+        groups: {
+          orderBy: {
+            order: 'asc',
+          },
+          select: {
+            id: true,
+            name: true,
+            color: true,
+            order: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  if (!board) {
-    throw new NotFoundException(`Board with ID ${id} not found.`);
+    if (!board) {
+      throw new NotFoundException(`Board with ID ${id} not found.`);
+    }
+
+    return {
+      ...board,
+      views: [
+        {
+          id: 'main',
+          name: 'Main table',
+          type: 'table',
+        },
+        ...(board.form
+          ? [
+              {
+                id: 'form',
+                name: 'Form',
+                type: 'form',
+              },
+            ]
+          : []),
+      ],
+    };
   }
-
-  return {
-    ...board,
-    views: [
-      {
-        id: "main",
-        name: "Main table",
-        type: "table",
-      },
-      ...(board.form
-        ? [
-            {
-              id: "form",
-              name: "Form",
-              type: "form",
-            },
-          ]
-        : []),
-    ],
-  };
-}
 
   async update(id: number, updateBoardDto: UpdateBoardDto, userId: number) {
     return this.prisma.$transaction(async (tx) => {

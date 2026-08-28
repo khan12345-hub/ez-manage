@@ -8,6 +8,7 @@ import { BoardImportService } from './board-import.service';
 import { ColumnsAccessService } from './update-column-access.service';
 import { BoardAccessManagementService } from './board-access-management.service';
 import { GetBoardTasksService } from './single-board-tasks.service';
+import { boardAllFilesService } from './board-all-files.service';
 
 @Module({
   controllers: [BoardsController],
@@ -19,7 +20,8 @@ import { GetBoardTasksService } from './single-board-tasks.service';
     BoardImportService,
     ColumnsAccessService,
     BoardAccessManagementService,
-    GetBoardTasksService
+    GetBoardTasksService,
+    boardAllFilesService
   ],
 })
 export class BoardsModule {}

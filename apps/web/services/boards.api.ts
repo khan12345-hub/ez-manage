@@ -249,3 +249,31 @@ export const getBoardTasks = async (
 
   return data;
 };
+
+export interface BoardGalleryFile {
+  id: number;
+  name: string;
+  url: string;
+  type:
+    | "image"
+    | "video"
+    | "audio"
+    | "pdf"
+    | "excel"
+    | "document"
+    | "archive"
+    | "file";
+  updatedAt: string;
+  boardName: string;
+  taskName: string;
+}
+
+export async function getBoardFiles(
+  boardId: number,
+): Promise<BoardGalleryFile[]> {
+  const { data } = await api.get<BoardGalleryFile[]>(
+    `/boards/${boardId}/files`,
+  );
+
+  return data;
+}

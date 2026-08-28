@@ -29,7 +29,7 @@ export function FileCell({ value }: FileCellProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const files = value?.files ?? [];
-
+  
   return (
     <>
       {files.length > 0 ? (

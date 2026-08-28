@@ -131,7 +131,9 @@ export default function FilePreviewItem({
   if (deleted) {
     return null;
   }
-
+  console.log({file})
+  // @ts-ignore
+  const renderedFile = file.file
   return (
     <>
       {/* File Row */}
@@ -156,9 +158,9 @@ export default function FilePreviewItem({
             className="shrink-0"
           >
             <FileThumbnail
-              fileName={file.fileName}
-              mimeType={file.mimeType}
-              url={file.url}
+              fileName={renderedFile.fileName}
+              mimeType={renderedFile.mimeType}
+              url={renderedFile.url}
             />
           </button>
 
@@ -170,11 +172,11 @@ export default function FilePreviewItem({
               className="min-w-0 flex-1 text-left"
             >
               <p className="line-clamp-2 text-sm font-medium hover:underline">
-                {file.fileName}
+                {renderedFile.fileName}
               </p>
 
               <p className="text-xs text-muted-foreground">
-                {formatFileSize(file.fileSize)}
+                {formatFileSize(renderedFile.fileSize)}
               </p>
             </button>
           }
@@ -199,7 +201,7 @@ export default function FilePreviewItem({
       <SingleFilePreviewModal
         open={previewOpen}
         onOpenChange={setPreviewOpen}
-        file={file}
+        file={renderedFile}
       />
 
       {/* Delete Confirmation */}
@@ -213,7 +215,7 @@ export default function FilePreviewItem({
           `
             Are you sure you want to delete{" "}
             ${<span className="line-clamp-2 font-medium text-foreground">
-              {file.fileName}
+              {renderedFile.fileName}
             </span>}
             This action cannot be undone.
           `

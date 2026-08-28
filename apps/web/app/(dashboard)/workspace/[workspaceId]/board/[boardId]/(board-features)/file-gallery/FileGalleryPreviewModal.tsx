@@ -1,5 +1,6 @@
 "use client";
 
+import { BoardGalleryFile } from "@/services/boards.api";
 import {
   ChevronLeft,
   ChevronRight,
@@ -19,22 +20,11 @@ import {
 
 import { useEffect } from "react";
 
-interface GalleryFile {
-  id: number;
-  name: string;
-  url: string;
-  type: "image" | "file";
-  version?: string;
-  updatedAt: string;
-  boardName?: string;
-  taskName?: string;
-}
-
 interface FilePreviewModalProps {
-  file: GalleryFile | null;
-  files: GalleryFile[];
+  file: BoardGalleryFile | null;
+  files: BoardGalleryFile[];
   onClose: () => void;
-  onNavigate: (file: GalleryFile) => void;
+  onNavigate: (file: BoardGalleryFile) => void;
 }
 
 export function FilePreviewModal({
@@ -185,7 +175,7 @@ export function FilePreviewModal({
 
       <div className="absolute inset-0 flex items-center justify-center px-24 pb-20 pt-20">
         <img
-          src={file.url}
+          src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL + file.url}
           alt={file.name}
           className="max-h-full max-w-full select-none object-contain"
           draggable={false}
@@ -289,7 +279,7 @@ export function FilePreviewModal({
           onClick={() => {
             const link = document.createElement("a");
 
-            link.href = file.url;
+            link.href = process.env.NEXT_PUBLIC_BACKEND_BASE_URL + file.url;
             link.download = file.name;
             link.target = "_blank";
 

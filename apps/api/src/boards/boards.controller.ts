@@ -37,6 +37,7 @@ import { BoardAccessManagementService } from './board-access-management.service'
 import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
 import { GetBoardTasksDto } from './dto/get-single-board.dto';
 import { GetBoardTasksService } from './single-board-tasks.service';
+import { boardAllFilesService } from './board-all-files.service';
 
 @Controller('boards')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -47,6 +48,7 @@ export class BoardsController {
     private readonly columnAccessService: ColumnsAccessService,
     private readonly boardAccessManagementService: BoardAccessManagementService,
     private readonly getBoardTasksService: GetBoardTasksService,
+    private readonly boardAllFilesService: boardAllFilesService,
   ) {}
 
   @Post()
@@ -234,4 +236,10 @@ export class BoardsController {
       offset ?? 0,
     );
   }
+@Get(':boardId/files')
+async findAllBoardFiles(
+  @Param('boardId', ParseIntPipe) boardId: number,
+) {
+  return this.boardAllFilesService.findAllBoardFiles(boardId);
+}
 }

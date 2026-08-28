@@ -17,6 +17,8 @@ export default function FileThumbnail({
   url,
   size = "md",
 }: FileThumbnailProps) {
+
+  console.log({fileName})
   const lowerFileName = fileName?.toLowerCase();
 
   const isImage =
