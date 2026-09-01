@@ -114,6 +114,20 @@ export async function deleteBoard(boardId: number) {
   return response.data;
 }
 
+export async function exportBoard(boardId: number, boardName: string) {
+  const response = await api.get(`/boards/${boardId}/export`, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${boardName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'board'}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export interface BoardMember {
   id: number;
   firstName: string;

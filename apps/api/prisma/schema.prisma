@@ -47,6 +47,8 @@ model User {
   activityLogs         ActivityLog[]      @relation("ActivityActor")
   undoneActivities     ActivityLog[]      @relation("ActivityUndoneBy")
 
+  boardDocuments       BoardDocument[]
+
   boardColumnPermissions BoardColumnPermission[]
 
   @@map("users")

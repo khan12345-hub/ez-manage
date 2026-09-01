@@ -6,6 +6,7 @@ import { GroupSortOption } from "../BoardHeader/Filters/GroupSort";
 
 interface Props {
   boardId?: number;
+  boardName?: string;
 
   onHideColumns: () => void;
 
@@ -28,6 +29,7 @@ interface Props {
 
 export function BoardHeader({
   boardId,
+  boardName,
   onHideColumns,
   personFilter,
   onPersonFilterChange,
@@ -41,6 +43,7 @@ export function BoardHeader({
   return (
     <BoardToolbar
       boardId={boardId}
+      boardName={boardName}
       onHideColumns={onHideColumns}
       personFilter={personFilter}
       onPersonFilterChange={onPersonFilterChange}

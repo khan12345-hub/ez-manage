@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArrowUpDown,
   ChevronDown,
   Check,
+  Download,
   EyeOff,
   Funnel,
   MoreHorizontal,
@@ -24,6 +26,7 @@ import { PersonFilter } from "./Filters/PersonFilterPopover";
 import { PersonValue } from "../../Cells/Person/PersonPicker";
 import { SearchInput } from "./Search/SearchInput";
 import { AddNewItem } from "./BoardToolbar/AddNewItem";
+import { exportBoard } from "@/services/boards.api";
 
 import {
   GROUP_SORT_OPTIONS,
@@ -32,6 +35,7 @@ import {
 
 interface Props {
   boardId?: number;
+  boardName?: string;
 
   onHideColumns: () => void;
 
@@ -54,6 +58,7 @@ interface Props {
 
 export function BoardToolbar({
   boardId,
+  boardName,
   onHideColumns,
   personFilter,
   onPersonFilterChange,
@@ -64,6 +69,18 @@ export function BoardToolbar({
   groupSort,
   onGroupSortChange,
 }: Props) {
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!boardId) return;
+    setExporting(true);
+    try {
+      await exportBoard(boardId, boardName ?? "board");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-1">
@@ -142,6 +159,17 @@ export function BoardToolbar({
           <EyeOff className="mr-2 h-4 w-4" />
           Hide
         </Button>
+
+        {boardId && (
+          <Button
+            variant="ghost"
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {exporting ? "Exporting..." : "Export"}
+          </Button>
+        )}
 
         {/* <Button variant="ghost">
           <Rows3 className="mr-2 h-4 w-4" />

@@ -6,6 +6,8 @@ import {
 import { PrismaService } from "prisma/prisma.service";
 import { BoardColumnType } from "generated/prisma/enums";
 import { SubmitBoardFormDto } from "src/board-forms/dto/submit-board-form.dto";
+import { NotificationsService } from "src/notifications/notifications.service";
+import { NotificationStreamService } from "src/notifications/notification-stream.service";
 
 const ORDER_GAP = 1000;
 
@@ -111,7 +113,11 @@ function normalizeCellValue(
 
 @Injectable()
 export class PublicBoardFormsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+    private readonly notificationStreamService: NotificationStreamService,
+  ) {}
 
   /**
    * Return the public form definition for a board.
@@ -186,6 +192,7 @@ export class PublicBoardFormsService {
         },
         select: {
           createdById: true,
+          workspaceId: true,
         },
       }),
     ]);
@@ -238,7 +245,7 @@ export class PublicBoardFormsService {
       ]),
     );
 
-    return this.prisma.$transaction(async (tx) => {
+    const { taskId, taskName } = await this.prisma.$transaction(async (tx) => {
       /**
        * Find the last root task in the target group.
        */
@@ -388,10 +395,51 @@ export class PublicBoardFormsService {
         },
       });
 
-      return {
-        taskId: task.id,
-        message: "Form submitted successfully",
-      };
+      return { taskId: task.id, taskName };
     });
+
+    /**
+     * Notify board admins/owners about the new form submission.
+     * Runs after the transaction commits — failure must not break the response.
+     */
+    try {
+      const boardAdmins = await this.prisma.boardMember.findMany({
+        where: {
+          boardId,
+          role: { in: ["OWNER", "ADMIN"] },
+        },
+        select: { userId: true },
+      });
+
+      const recipientIds = boardAdmins.length > 0
+        ? boardAdmins.map((m) => m.userId)
+        : [board.createdById];
+
+      for (const recipientId of recipientIds) {
+        const notification = await this.notificationsService.notify({
+          recipientId,
+          type: "FORM_SUBMITTED",
+          title: "New form submission",
+          message: `A new form was submitted: "${taskName}"`,
+          entityType: "BOARD" as any,
+          entityId: boardId,
+          metadata: {
+            boardId,
+            workspaceId: board.workspaceId,
+            taskId,
+          },
+          sendEmail: false,
+        });
+
+        this.notificationStreamService.emit(recipientId, notification);
+      }
+    } catch {
+      // Notification failure must not break the form submission response
+    }
+
+    return {
+      taskId,
+      message: "Form submitted successfully",
+    };
   }
 }

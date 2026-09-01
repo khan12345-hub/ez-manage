@@ -20,12 +20,17 @@ import { PrismaService } from 'prisma/prisma.service';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import 'dotenv';
 import { invitationTemplate } from 'src/mail/templates/invitation.template';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { NotificationStreamService } from 'src/notifications/notification-stream.service';
+
 @Injectable()
 export class InvitationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly usersRepository: UsersRepository,
     private readonly mailService: MailService,
+    private readonly notificationsService: NotificationsService,
+    private readonly notificationStreamService: NotificationStreamService,
   ) {}
 
   async create(dto: CreateInvitationDto, invitedById: number) {
@@ -91,6 +96,22 @@ export class InvitationsService {
           })),
         });
       });
+
+      try {
+        const notification = await this.notificationsService.notify({
+          recipientId: existingUser.id,
+          type: 'WORKSPACE_MEMBER_ADDED',
+          title: 'You were added to a workspace',
+          message: 'You have been added to a workspace and its boards.',
+          entityType: 'WORKSPACE' as any,
+          entityId: dto.workspaceId,
+          metadata: { workspaceId: dto.workspaceId },
+          sendEmail: false,
+        });
+        this.notificationStreamService.emit(existingUser.id, notification);
+      } catch {
+        // Notification failure must not break the invite response
+      }
 
       return {
         success: true,

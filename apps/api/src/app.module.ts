@@ -25,6 +25,7 @@ import { BoardFormsModule } from './board-forms/board-forms.module';
 import { PublicBoardFormsModule } from './public-board-forms/public-board-forms.module';
 import { BoardTemplatesModule } from './board-templates/board-templates.module';
 import { AutomationsModule } from './automations/automations.module';
+import { BoardDocumentsModule } from './board-documents/board-documents.module';
 
 @Module({
   imports: [
@@ -54,7 +55,8 @@ import { AutomationsModule } from './automations/automations.module';
     BoardFormsModule,
     PublicBoardFormsModule,
     BoardTemplatesModule,
-    AutomationsModule
+    AutomationsModule,
+    BoardDocumentsModule,
     ],
   controllers: [AppController],
   providers: [

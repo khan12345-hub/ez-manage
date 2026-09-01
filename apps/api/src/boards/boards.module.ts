@@ -9,6 +9,7 @@ import { ColumnsAccessService } from './update-column-access.service';
 import { BoardAccessManagementService } from './board-access-management.service';
 import { GetBoardTasksService } from './single-board-tasks.service';
 import { boardAllFilesService } from './board-all-files.service';
+import { BoardExportService } from './board-export.service';
 
 @Module({
   controllers: [BoardsController],
@@ -21,7 +22,8 @@ import { boardAllFilesService } from './board-all-files.service';
     ColumnsAccessService,
     BoardAccessManagementService,
     GetBoardTasksService,
-    boardAllFilesService
+    boardAllFilesService,
+    BoardExportService,
   ],
 })
 export class BoardsModule {}

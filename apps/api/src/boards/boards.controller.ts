@@ -10,8 +10,11 @@ import {
   Post,
   Put,
   Query,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 
 import { BoardsService } from './boards.service';
 import { CreateBoardDto } from './dto/create-board.dto';
@@ -38,6 +41,7 @@ import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
 import { GetBoardTasksDto } from './dto/get-single-board.dto';
 import { GetBoardTasksService } from './single-board-tasks.service';
 import { boardAllFilesService } from './board-all-files.service';
+import { BoardExportService } from './board-export.service';
 
 @Controller('boards')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -49,6 +53,7 @@ export class BoardsController {
     private readonly boardAccessManagementService: BoardAccessManagementService,
     private readonly getBoardTasksService: GetBoardTasksService,
     private readonly boardAllFilesService: boardAllFilesService,
+    private readonly boardExportService: BoardExportService,
   ) {}
 
   @Post()
@@ -57,6 +62,21 @@ export class BoardsController {
     @CurrentUser() user: SessionUser,
   ) {
     return this.boardsService.create(createBoardDto, user.id);
+  }
+
+  @Get(':boardId/export')
+  @RequireBoardPermission(BoardPermission.VIEW)
+  async exportBoard(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, filename } = await this.boardExportService.exportBoard(boardId);
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Get(':boardId')

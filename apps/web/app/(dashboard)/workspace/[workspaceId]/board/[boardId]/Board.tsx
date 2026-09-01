@@ -282,6 +282,7 @@ export function Board({
     <>
       <BoardHeader
         boardId={board?.id}
+        boardName={board?.name}
         onHideColumns={filters.openHideColumnModal}
         personFilter={personFilter}
         onPersonFilterChange={setPersonFilter}

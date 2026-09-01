@@ -2,7 +2,7 @@ export function connectNotificationStream(
   onNotification: (notification: any) => void,
 ) {
   const url =
-    "http://localhost:3001/api/notifications/stream";
+    `${process.env.NEXT_PUBLIC_API_URL}/notifications/stream`;
 
   console.log("[SSE] Connecting to:", url);
 

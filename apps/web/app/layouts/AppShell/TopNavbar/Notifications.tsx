@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import {
   useMutation,
@@ -28,6 +29,38 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Notification } from "@/services/notifications.types";
+import { getBoardDetail } from "@/services/boards.api";
+
+async function getNotificationUrl(
+  notification: Notification,
+): Promise<string | null> {
+  const { entityType, entityId, metadata } = notification;
+  const meta = (metadata ?? {}) as Record<string, unknown>;
+
+  try {
+    if (entityType === "WORKSPACE" && entityId) {
+      return `/workspace/${entityId}`;
+    }
+
+    if (entityType === "BOARD" && entityId) {
+      const board = await getBoardDetail(entityId);
+      return `/workspace/${board.workspaceId}/board/${entityId}`;
+    }
+
+    if (
+      (entityType === "TASK" || entityType === "COMMENT") &&
+      meta.boardId
+    ) {
+      const boardId = Number(meta.boardId);
+      const board = await getBoardDetail(boardId);
+      return `/workspace/${board.workspaceId}/board/${boardId}`;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
 
 export const notificationKeys = {
   all: ["notifications"] as const,
@@ -75,6 +108,7 @@ function formatNotificationDate(date: string) {
 
 export function Notifications() {
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const [open, setOpen] = React.useState(false);
 
@@ -150,13 +184,17 @@ export function Notifications() {
   const notifications =
     data?.data ?? [];
 
-  const handleNotificationClick = (
+  const handleNotificationClick = async (
     notification: Notification,
   ) => {
     if (!notification.isRead) {
-      markAsReadMutation.mutate(
-        notification.id,
-      );
+      markAsReadMutation.mutate(notification.id);
+    }
+
+    const url = await getNotificationUrl(notification);
+    if (url) {
+      setOpen(false);
+      router.push(url);
     }
   };
 
