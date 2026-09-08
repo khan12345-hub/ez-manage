@@ -2,7 +2,7 @@ import { api } from "@/lib/api";
 
 export type BoardVisibility = "PRIVATE" | "PUBLIC";
 
-export type BoardMemberRole = "MEMBER" | "ADMIN" | "OWNER";
+export type BoardMemberRole = "MEMBER" | "ADMIN" | "OWNER" | "VIEWER";
 
 export interface BoardAccessMember {
   id: number;

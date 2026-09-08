@@ -1,32 +1,76 @@
 import {
-  BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
-  NotFoundException,
+  Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
-  Req,
-  UnauthorizedException,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserSettingsDto } from './dto/update-user.dto';
+import { AdminUpdateUserDto } from './dto/admin-update-user.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { SessionUser } from 'src/auth/types/session-user.type';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
   // users.controller.ts
 
+  @Get()
+  @UseGuards(SessionAuthGuard)
+  async findAll(@Query('search') search?: string) {
+    return this.usersService.findAll(search);
+  }
+
+  @Post()
+  @UseGuards(SessionAuthGuard)
+  async createUser(@Body() dto: CreateUserDto) {
+    return this.usersService.createUser(dto);
+  }
+
+  @Patch(':id')
+  @UseGuards(SessionAuthGuard)
+  async updateUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AdminUpdateUserDto,
+  ) {
+    return this.usersService.adminUpdateUser(id, dto);
+  }
+
+  @Delete(':id')
+  @UseGuards(SessionAuthGuard)
+  async deleteUser(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.deleteUser(id);
+  }
+
   @Get('by-email')
   async findByEmail(@Query('email') email: string) {
     return this.usersService.findByEmailForInvite(email);
   }
+  @Get('me/notification-preferences')
+  async getNotificationPreferences(@CurrentUser() user: SessionUser) {
+    return this.usersService.getNotificationPreferences(user.id);
+  }
+
+  @Patch('me/notification-preferences')
+  async updateNotificationPreferences(
+    @CurrentUser() user: SessionUser,
+    @Body() dto: UpdateNotificationPreferencesDto,
+  ) {
+    return this.usersService.updateNotificationPreferences(user.id, dto);
+  }
+
   @Patch('me/settings')
   @UseInterceptors(FileInterceptor('avatar'))
   async updateSettings(

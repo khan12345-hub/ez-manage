@@ -10,8 +10,10 @@ import { BoardAccessManagementService } from './board-access-management.service'
 import { GetBoardTasksService } from './single-board-tasks.service';
 import { boardAllFilesService } from './board-all-files.service';
 import { BoardExportService } from './board-export.service';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
+  imports: [NotificationsModule],
   controllers: [BoardsController],
   providers: [
     BoardsService,

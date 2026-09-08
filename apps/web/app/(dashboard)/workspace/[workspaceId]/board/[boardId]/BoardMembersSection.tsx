@@ -27,7 +27,7 @@ interface BoardMembersSectionProps {
 
   onRoleChange?: (
     memberId: number,
-    role: "MEMBER" | "ADMIN",
+    role: "MEMBER" | "ADMIN" | "VIEWER",
   ) => void;
 
   onRemoveMember?: (memberId: number) => void;
@@ -115,7 +115,8 @@ export function BoardMembersSection({
                       onValueChange={(value) => {
                         if (
                           value === "MEMBER" ||
-                          value === "ADMIN"
+                          value === "ADMIN" ||
+                          value === "VIEWER"
                         ) {
                           onRoleChange?.(
                             member.id,

@@ -28,9 +28,10 @@ export class BoardAccessService {
     // ---------------------------------------
     // Check System Role first
     // ---------------------------------------
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findFirst({
       where: {
         id: userId,
+        deletedAt: null,
       },
       select: {
         systemRole: true,
@@ -59,6 +60,7 @@ export class BoardAccessService {
         id: boardId,
       },
       select: {
+        visibility: true,
         workspace: {
           select: {
             members: {
@@ -94,9 +96,17 @@ export class BoardAccessService {
 
     const boardRole = board.members[0]?.role as BoardMemberRole | undefined;
 
-    // Workspace role takes precedence
+    // PRIVATE board: only explicit board members have access
+    if (board.visibility === 'PRIVATE') {
+      if (boardRole && BOARD_ROLE_PERMISSIONS[boardRole]?.includes(permission)) {
+        return true;
+      }
+      throw new ForbiddenException(
+        "You don't have permission to perform this action.",
+      );
+    }
 
-
+    // PUBLIC board: workspace role takes precedence, then board-specific role
     if (
       workspaceRole &&
       WORKSPACE_ROLE_PERMISSIONS[workspaceRole]?.includes(permission)
@@ -104,7 +114,6 @@ export class BoardAccessService {
       return true;
     }
 
-    // Then board-specific permissions
     if (boardRole && BOARD_ROLE_PERMISSIONS[boardRole]?.includes(permission)) {
       return true;
     }

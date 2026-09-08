@@ -30,7 +30,7 @@ interface ManageBoardAccessModalProps {
 
   onRoleChange?: (
     memberId: number,
-    role: "MEMBER" | "ADMIN",
+    role: "MEMBER" | "ADMIN" | "VIEWER",
   ) => void;
 
   onRemoveMember?: (

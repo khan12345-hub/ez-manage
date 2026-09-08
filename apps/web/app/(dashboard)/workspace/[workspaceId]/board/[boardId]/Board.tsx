@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-query";
 
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error-message";
 
 import { createTask } from "@/services/tasks.api";
 import { BoardTasksResponse, getBoardTasks } from "@/services/boards.api";
@@ -194,8 +195,8 @@ export function Board({
       });
     },
 
-    onError: () => {
-      toast.error("Failed to create task");
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Failed to create task"));
     },
   });
 

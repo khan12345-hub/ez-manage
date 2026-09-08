@@ -22,6 +22,9 @@ model User {
   status               UserStatus        @default(ACTIVE)
   systemRole SystemRole  @default(USER)
 
+  emailNotificationsEnabled Boolean @default(true) @map("email_notifications_enabled")
+  inAppNotificationsEnabled  Boolean @default(true) @map("in_app_notifications_enabled")
+
   lastLoginAt          DateTime?         @map("last_login_at") @db.Timestamptz(6)
   createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -104,6 +107,8 @@ enum WorkspaceMemberRole {
   OWNER
   ADMIN
   MEMBER
+  VIEWER
+  GUEST
 }
 model WorkspaceMember {
   id          Int                 @id @default(autoincrement())
@@ -546,6 +551,8 @@ enum NotificationType {
   COMMENT_REPLY
 
   BOARD_MEMBER_ADDED
+  BOARD_MEMBER_REMOVED
+  BOARD_MEMBER_ROLE_UPDATED
   WORKSPACE_MEMBER_ADDED
 
   TASK_STATUS_CHANGED
@@ -554,6 +561,8 @@ enum NotificationType {
   LEAVE_REQUEST_CREATED
   LEAVE_REQUEST_APPROVED
   LEAVE_REQUEST_REJECTED
+
+  FORM_SUBMITTED
 }
 
 enum NotificationEntityType {

@@ -44,7 +44,8 @@ export const ROLE_OPTIONS = [
   { name: "Member", value: "MEMBER", id: 1 },
   { name: "Admin", value: "ADMIN", id: 2 },
   { name: "Owner", value: "OWNER", id: 3 },
-  // { name: "Viewer", value: "VIEWER", id: 4 },
+  { name: "Viewer", value: "VIEWER", id: 4 },
+  { name: "Guest", value: "GUEST", id: 5 },
 ];
 
 export function InviteModal() {

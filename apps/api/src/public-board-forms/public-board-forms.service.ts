@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "prisma/prisma.service";
-import { BoardColumnType } from "generated/prisma/enums";
+import { BoardColumnType, NotificationType } from "generated/prisma/enums";
 import { SubmitBoardFormDto } from "src/board-forms/dto/submit-board-form.dto";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { NotificationStreamService } from "src/notifications/notification-stream.service";
@@ -418,7 +418,7 @@ export class PublicBoardFormsService {
       for (const recipientId of recipientIds) {
         const notification = await this.notificationsService.notify({
           recipientId,
-          type: "FORM_SUBMITTED",
+          type: NotificationType.FORM_SUBMITTED,
           title: "New form submission",
           message: `A new form was submitted: "${taskName}"`,
           entityType: "BOARD" as any,

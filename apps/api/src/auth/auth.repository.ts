@@ -7,11 +7,11 @@ export class AuthRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findUserByEmail(email: string) {
-    return this.prisma.user.findUnique({
-      where: { email },
+    return this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
       select: {
         id: true,
-        firstName: true, // Prisma handles camelCase if mapped in schema.prisma
+        firstName: true,
         lastName: true,
         email: true,
         password: true,
@@ -22,8 +22,8 @@ export class AuthRepository {
   }
 
   async findUserById(id: number) {
-    return this.prisma.user.findUnique({
-      where: { id },
+    return this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
       select: {
         id: true,
         firstName: true,

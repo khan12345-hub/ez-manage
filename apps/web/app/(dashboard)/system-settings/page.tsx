@@ -13,6 +13,7 @@ import { UsersTab } from "./general/UsersTab";
 import { WorkspacesTab } from "./general/WorkspacesTab";
 import { BoardsTab } from "./general/BoardsTab";
 import { MediaTab } from "./general/MediaTab";
+import { NotificationsTab } from "./general/NotificationsTab";
 export default function SettingsPage() {
   return (
     <div className="min-h-full bg-muted/20">
@@ -114,7 +115,7 @@ export default function SettingsPage() {
                     value="notifications"
                     className="mt-0 focus-visible:outline-none"
                   >
-                    <SettingsPlaceholder title="Notifications" />
+                    <NotificationsTab />
                   </TabsContent>
 
                   <TabsContent

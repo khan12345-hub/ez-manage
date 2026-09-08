@@ -2,6 +2,7 @@
 "use client";
 
 import {
+  Bell,
   ChevronDown,
   HardDrive,
   LayoutDashboard,
@@ -58,6 +59,13 @@ const navigation = [
     label: "Board Templates",
     description: "Reusable board structures",
     icon: LayoutTemplate,
+  },
+
+  {
+    id: "notifications",
+    label: "Notifications",
+    description: "Email & in-app preferences",
+    icon: Bell,
   },
 ] as const;
 

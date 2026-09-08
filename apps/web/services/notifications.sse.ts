@@ -14,17 +14,14 @@ export function connectNotificationStream(
     console.log("[SSE] Connection opened");
   };
 
-  eventSource.onmessage = (event) => {
+  eventSource.addEventListener("notification", (event) => {
     console.log(
       "[SSE] Raw event received:",
       event.data,
     );
 
     try {
-      const notification = JSON.parse(
-        event.data,
-      );
-
+      const notification = JSON.parse(event.data);
       onNotification(notification);
     } catch (error) {
       console.error(
@@ -32,6 +29,14 @@ export function connectNotificationStream(
         error,
       );
     }
+  });
+
+  // fallback for unnamed events
+  eventSource.onmessage = (event) => {
+    try {
+      const notification = JSON.parse(event.data);
+      onNotification(notification);
+    } catch {}
   };
 
   eventSource.onerror = (error) => {

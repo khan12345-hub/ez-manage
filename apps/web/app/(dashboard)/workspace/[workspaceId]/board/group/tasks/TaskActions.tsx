@@ -20,6 +20,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteTask } from "@/services/tasks.api";
 import { toast } from "sonner";
 import { useInviteModalStore } from "@/store/invite-modal";
+import { getErrorMessage } from "@/lib/error-message";
 interface Props {
   task: any;
 }
@@ -34,8 +35,8 @@ export function TaskActions({ task }: Props) {
       setDeleteDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
     },
-    onError: () => {
-      toast.error("Failed to delete task");
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Failed to delete task"));
     },
   });
   const handleDelete = () => {

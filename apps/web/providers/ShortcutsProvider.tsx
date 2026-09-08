@@ -49,7 +49,7 @@ export function ShortcutsProvider({
         e.metaKey ? "meta" : "",
         e.shiftKey ? "shift" : "",
         e.altKey ? "alt" : "",
-        e.key.toLowerCase(),
+        e.key?.toLowerCase() ?? "",
       ]
         .filter(Boolean)
         .join("+");

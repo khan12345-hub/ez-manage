@@ -115,7 +115,8 @@ export function Notifications() {
   const { data: unreadData } = useQuery({
     queryKey: notificationKeys.unreadCount,
     queryFn: getUnreadNotificationCount,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchInterval: 30_000,
   });
 
   const {
@@ -128,6 +129,14 @@ export function Notifications() {
     enabled: open,
     staleTime: 0,
   });
+
+  React.useEffect(() => {
+    if (open) {
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount,
+      });
+    }
+  }, [open, queryClient]);
 
   React.useEffect(() => {
     const disconnect =

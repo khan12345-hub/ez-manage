@@ -4,6 +4,7 @@ import { KeyboardEvent, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error-message";
 
 import { createTask } from "@/services/tasks.api";
 import { Input } from "@/components/ui/input";
@@ -48,8 +49,8 @@ export function AddSubtaskRow({ groupId, parentId, columns, color }: Props) {
       });
     },
 
-    onError: () => {
-      toast.error("Failed to create subtask");
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Failed to create subtask"));
     },
   });
 

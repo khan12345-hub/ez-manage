@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error-message";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useInviteModalStore } from "@/store/invite-modal";
@@ -63,10 +64,8 @@ export function NewTaskRow({
       });
     },
 
-    onError: () => {
-      toast.error(
-        parentId ? "Failed to create subtask" : "Failed to create task",
-      );
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, parentId ? "Failed to create subtask" : "Failed to create task"));
     },
   });
 

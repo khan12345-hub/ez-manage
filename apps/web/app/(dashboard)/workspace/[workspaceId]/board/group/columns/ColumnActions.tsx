@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error-message";
 import { useState } from "react";
 
 import { deleteColumn, updateColumnAccess } from "@/services/columns.api";
@@ -69,8 +70,8 @@ export function ColumnActions({ column, members }: Props) {
       });
     },
 
-    onError: () => {
-      toast.error("Failed to delete column");
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Failed to delete column"));
     },
   });
 
@@ -88,8 +89,8 @@ export function ColumnActions({ column, members }: Props) {
       });
     },
 
-    onError: () => {
-      toast.error("Failed to update column protection");
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Failed to update column protection"));
     },
   });
 

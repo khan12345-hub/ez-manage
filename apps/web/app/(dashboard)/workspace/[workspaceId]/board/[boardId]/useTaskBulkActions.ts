@@ -1,5 +1,7 @@
 import { bulkDeleteTasks, bulkUpdateTasks } from "@/services/tasks.api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import axios from "axios";
 
 export interface BulkUpdateTaskPayload {
   taskIds: number[];
@@ -24,6 +26,14 @@ export function useTaskBulkActions(
 
       onSuccess?.();
     },
+
+    onError: (error: unknown) => {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        toast.error("You don't have permission to delete one or more selected tasks.");
+      } else {
+        toast.error("Failed to delete tasks. Please try again.");
+      }
+    },
   });
 
   const bulkUpdateMutation = useMutation({
@@ -36,6 +46,14 @@ export function useTaskBulkActions(
       });
 
       onSuccess?.();
+    },
+
+    onError: (error: unknown) => {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        toast.error("You don't have permission to update one or more selected tasks.");
+      } else {
+        toast.error("Failed to update tasks. Please try again.");
+      }
     },
   });
 

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/error-message";
 
 import { updateColumn } from "@/services/columns.api";
 import { useInviteModalStore } from "@/store/invite-modal";
@@ -46,9 +47,8 @@ export function useColumnRename({
       });
     },
 
-    onError: () => {
-      toast.error("Failed to update column");
-
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Failed to update column"));
       setName(columnName);
     },
   });

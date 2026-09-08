@@ -4,16 +4,18 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { BoardMemberRole, BoardVisibility } from "generated/prisma/enums";
+import { BoardMemberRole, BoardVisibility, NotificationType } from "generated/prisma/enums";
 import { PrismaService } from "prisma/prisma.service";
-
-// import { BoardMemberRole, BoardVisibility } from "@prisma/client";
-
-// import { PrismaService } from "@/prisma/prisma.service";
+import { NotificationsService } from "src/notifications/notifications.service";
+import { NotificationStreamService } from "src/notifications/notification-stream.service";
 
 @Injectable()
 export class BoardAccessManagementService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+    private readonly notificationStreamService: NotificationStreamService,
+  ) {}
 
   /**
    * Get board access information
@@ -115,44 +117,59 @@ export class BoardAccessManagementService {
       );
     }
 
-    // Owner cannot be changed through normal member role updates.
     if (member.role === BoardMemberRole.OWNER) {
       throw new BadRequestException(
         "The board owner role cannot be changed.",
       );
     }
 
-    // Don't allow assigning OWNER through this endpoint.
     if (role === BoardMemberRole.OWNER) {
       throw new BadRequestException(
         "Owner role cannot be assigned through this endpoint.",
       );
     }
 
-    const updatedMember =
-      await this.prisma.boardMember.update({
-        where: {
-          id: member.id,
-        },
-        data: {
-          role,
-        },
-        select: {
-          id: true,
-          userId: true,
-          role: true,
+    const board = await this.prisma.board.findUnique({
+      where: { id: boardId },
+      select: { id: true, name: true },
+    });
 
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              avatarUrl: true,
-            },
+    const updatedMember = await this.prisma.boardMember.update({
+      where: {
+        id: member.id,
+      },
+      data: {
+        role,
+      },
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            avatarUrl: true,
           },
         },
+      },
+    });
+
+    try {
+      const notification = await this.notificationsService.notify({
+        recipientId: member.userId,
+        type: NotificationType.BOARD_MEMBER_ROLE_UPDATED,
+        title: 'Your board role was updated',
+        message: `Your role in "${board?.name}" has been changed to ${role.toLowerCase()}.`,
+        entityType: 'BOARD' as any,
+        entityId: boardId,
+        metadata: { boardId, role },
+        sendEmail: false,
       });
+      this.notificationStreamService.emit(member.userId, notification);
+    } catch {}
 
     return updatedMember;
   }
@@ -191,11 +208,30 @@ export class BoardAccessManagementService {
       );
     }
 
+    const board = await this.prisma.board.findUnique({
+      where: { id: boardId },
+      select: { id: true, name: true },
+    });
+
     await this.prisma.boardMember.delete({
       where: {
         id: member.id,
       },
     });
+
+    try {
+      const notification = await this.notificationsService.notify({
+        recipientId: member.userId,
+        type: NotificationType.BOARD_MEMBER_REMOVED,
+        title: 'Removed from board',
+        message: `You have been removed from "${board?.name}".`,
+        entityType: 'BOARD' as any,
+        entityId: boardId,
+        metadata: { boardId },
+        sendEmail: false,
+      });
+      this.notificationStreamService.emit(member.userId, notification);
+    } catch {}
 
     return {
       success: true,

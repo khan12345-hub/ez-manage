@@ -55,7 +55,6 @@ export class UsersRepository {
         lastName: user.lastName,
         email: user.email,
         password: user.password,
-        status: user.status,
       },
     });
   }

@@ -169,8 +169,8 @@ export class BoardsController {
   @Patch(':boardId/access/members/:memberId/role')
   @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
   async updateMemberRole(
-    @Param('boardId') boardId: number,
-    @Param('memberId') memberId: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
     @Body() dto: UpdateBoardMemberRoleDto,
     @CurrentUser() user: SessionUser,
   ) {
@@ -185,8 +185,8 @@ export class BoardsController {
   @Delete(':boardId/access/members/:memberId')
   @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
   async removeMember(
-    @Param('boardId') boardId: number,
-    @Param('memberId') memberId: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
     @CurrentUser() user: SessionUser,
   ) {
     return this.boardAccessManagementService.removeMember(
@@ -221,6 +221,7 @@ export class BoardsController {
   }
 
   @Get(':boardId/tasks')
+  @RequireBoardPermission(BoardPermission.VIEW)
   getBoardTasks(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Query('groupId') groupId?: string,
@@ -239,6 +240,7 @@ export class BoardsController {
     });
   }
   @Get(':boardId/groups/:groupId/tasks')
+  @RequireBoardPermission(BoardPermission.VIEW)
   async getGroupTasks(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Param('groupId', ParseIntPipe) groupId: number,
@@ -257,6 +259,7 @@ export class BoardsController {
     );
   }
 @Get(':boardId/files')
+@RequireBoardPermission(BoardPermission.VIEW)
 async findAllBoardFiles(
   @Param('boardId', ParseIntPipe) boardId: number,
 ) {

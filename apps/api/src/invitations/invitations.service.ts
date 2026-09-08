@@ -9,6 +9,16 @@ import {
   InvitationStatus,
   WorkspaceMemberRole,
 } from '../../generated/prisma/client';
+import { BoardMemberRole } from 'generated/prisma/enums';
+
+function workspaceToBoardRole(role: WorkspaceMemberRole): BoardMemberRole {
+  switch (role) {
+    case WorkspaceMemberRole.OWNER:  return BoardMemberRole.OWNER;
+    case WorkspaceMemberRole.ADMIN:  return BoardMemberRole.ADMIN;
+    case WorkspaceMemberRole.MEMBER: return BoardMemberRole.MEMBER;
+    default:                         return BoardMemberRole.VIEWER;
+  }
+}
 
 import { InvitationsRepository } from './invitations.repository';
 import { UsersRepository } from '../users/users.repository';
@@ -40,8 +50,24 @@ export class InvitationsService {
     const existingUser = await this.usersRepository.findByEmail(dto.email);
 
     if (existingUser) {
+      // Validate BEFORE entering the transaction so HttpExceptions propagate correctly
+      const existingBoardMembers = await this.prisma.boardMember.findMany({
+        where: { userId: existingUser.id, boardId: { in: dto.boardIds } },
+        select: { boardId: true },
+      });
+
+      const existingBoardIds = new Set(
+        existingBoardMembers.map((m) => m.boardId),
+      );
+      const boardsToAdd = dto.boardIds.filter((id) => !existingBoardIds.has(id));
+
+      if (boardsToAdd.length === 0) {
+        throw new BadRequestException(
+          'This user is already a member of all selected boards.',
+        );
+      }
+
       await this.prisma.$transaction(async (tx) => {
-        // Ensure the user belongs to the workspace
         const workspaceMember = await tx.workspaceMember.findUnique({
           where: {
             workspaceId_userId: {
@@ -61,38 +87,11 @@ export class InvitationsService {
           });
         }
 
-        // Find boards the user is already a member of
-        const existingBoardMembers = await tx.boardMember.findMany({
-          where: {
-            userId: existingUser.id,
-            boardId: {
-              in: dto.boardIds,
-            },
-          },
-          select: {
-            boardId: true,
-          },
-        });
-
-        const existingBoardIds = new Set(
-          existingBoardMembers.map((boardMember) => boardMember.boardId),
-        );
-
-        const boardsToAdd = dto.boardIds.filter(
-          (boardId) => !existingBoardIds.has(boardId),
-        );
-
-        if (boardsToAdd.length === 0) {
-          throw new BadRequestException(
-            'This user is already a member of all selected boards.',
-          );
-        }
-
         await tx.boardMember.createMany({
           data: boardsToAdd.map((boardId) => ({
             boardId,
             userId: existingUser.id,
-            role: dto.role,
+            role: workspaceToBoardRole(dto.role),
           })),
         });
       });
@@ -319,7 +318,7 @@ export class InvitationsService {
         data: invitation.boardIds.map((boardId) => ({
           boardId,
           userId: id,
-          role: invitation.role,
+          role: workspaceToBoardRole(invitation.role),
         })),
       });
     });

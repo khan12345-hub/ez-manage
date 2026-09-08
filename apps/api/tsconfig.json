@@ -8,7 +8,7 @@
     // "moduleResolution": "nodenext",
     // "resolvePackageJsonExports": true,
     "module": "commonjs",
-"moduleResolution": "node",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "isolatedModules": false,
     "declaration": true,

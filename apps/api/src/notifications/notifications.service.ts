@@ -51,8 +51,26 @@ export class NotificationsService {
       entityId,
       metadata,
       eventKey,
-      sendEmail = true,
+      sendEmail: sendEmailParam = true,
     } = params;
+
+    /**
+     * Check user notification preferences.
+     */
+    const userPrefs = await this.prisma.user.findFirst({
+      where: { id: recipientId },
+      select: {
+        inAppNotificationsEnabled: true,
+        emailNotificationsEnabled: true,
+      },
+    });
+
+    if (userPrefs && !userPrefs.inAppNotificationsEnabled) {
+      console.log('[NotificationsService] In-app notifications disabled for user', recipientId);
+      return null;
+    }
+
+    const effectiveSendEmail = sendEmailParam && (userPrefs?.emailNotificationsEnabled ?? true);
 
     /**
      * Check duplicate event.
@@ -111,7 +129,7 @@ export class NotificationsService {
     /**
      * Queue email.
      */
-    if (sendEmail) {
+    if (effectiveSendEmail) {
       console.log('[NotificationsService] Queueing email:', notification.id);
 
       await this.notificationsQueue.add(

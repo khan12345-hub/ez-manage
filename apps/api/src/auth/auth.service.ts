@@ -16,6 +16,16 @@ import { Response } from 'express';
 import { PrismaService } from 'prisma/prisma.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { SetupAccountDto } from './dto/setup-account.dto';
+import { BoardMemberRole, WorkspaceMemberRole } from 'generated/prisma/enums';
+
+function workspaceToBoardRole(role: WorkspaceMemberRole): BoardMemberRole {
+  switch (role) {
+    case WorkspaceMemberRole.OWNER:  return BoardMemberRole.OWNER;
+    case WorkspaceMemberRole.ADMIN:  return BoardMemberRole.ADMIN;
+    case WorkspaceMemberRole.MEMBER: return BoardMemberRole.MEMBER;
+    default:                         return BoardMemberRole.VIEWER;
+  }
+}
 
 @Injectable()
 export class AuthService {
@@ -195,7 +205,7 @@ export class AuthService {
         data: invitation.boardIds.map((boardId) => ({
           boardId,
           userId: newUser.id,
-          role: invitation.role,
+          role: workspaceToBoardRole(invitation.role),
         })),
       });
 

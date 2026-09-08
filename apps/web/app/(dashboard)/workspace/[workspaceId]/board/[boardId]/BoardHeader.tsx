@@ -83,7 +83,7 @@ export function BoardHeader({ board }: BoardHeaderProps) {
       role,
     }: {
       memberId: number;
-      role: "MEMBER" | "ADMIN";
+      role: "MEMBER" | "ADMIN" | "VIEWER";
     }) => updateBoardMemberRole(board.id, memberId, role),
 
     onMutate: async ({ memberId, role }) => {

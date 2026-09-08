@@ -36,6 +36,7 @@ export class BoardExportService {
             name: true,
             color: true,
             tasks: {
+              where: { parentId: null },
               orderBy: { order: 'asc' },
               select: {
                 id: true,
@@ -57,11 +58,10 @@ export class BoardExportService {
       throw new NotFoundException('Board not found');
     }
 
-    const primaryCol = board.columns.find((c) => c.isPrimary) ?? board.columns[0];
     const extraCols = board.columns.filter((c) => !c.isPrimary);
 
-    /* column names row: Name | col1 | col2 | ... */
-    const headerRow = [primaryCol?.name ?? 'Name', ...extraCols.map((c) => c.name)];
+    /* column names row: always "Name" first so the import parser detects groups */
+    const headerRow = ['Name', ...extraCols.map((c) => c.name)];
 
     const wsData: any[][] = [];
 
@@ -154,10 +154,11 @@ export class BoardExportService {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Board');
 
-    const buffer = XLSX.write(workbook, {
+    const u8 = XLSX.write(workbook, {
       bookType: 'xlsx',
-      type: 'buffer',
-    }) as Buffer;
+      type: 'array',
+    }) as Uint8Array;
+    const buffer = Buffer.from(u8);
 
     const safeName = board.name.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_');
     const filename = `${safeName || 'board'}.xlsx`;
@@ -200,7 +201,10 @@ function resolveDisplayValue(raw: unknown, type: BoardColumnType): unknown {
       if (v?.startDate && v?.endDate) return `${v.startDate} - ${v.endDate}`;
       return v?.startDate ?? v?.endDate ?? '';
 
+    case BoardColumnType.PERSON:
+      return '';
+
     default:
-      return typeof v === 'string' ? v : JSON.stringify(v);
+      return typeof v === 'string' ? v : '';
   }
 }
