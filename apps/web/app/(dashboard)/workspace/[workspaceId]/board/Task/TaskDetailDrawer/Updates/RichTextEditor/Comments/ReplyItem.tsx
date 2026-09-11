@@ -103,8 +103,8 @@ export function ReplyItem({ reply, taskId, onEdit, onDelete }: ReplyItemProps) {
                 Record<string, { count: number; reacted: boolean }>
               >((acc, r) => {
                 if (!acc[r.emoji]) acc[r.emoji] = { count: 0, reacted: false };
-                acc[r.emoji].count++;
-                if (r.userId === myId) acc[r.emoji].reacted = true;
+                acc[r.emoji]!.count++;
+                if (r.userId === myId) acc[r.emoji]!.reacted = true;
                 return acc;
               }, {}),
             ).map(([emoji, { count, reacted }]) => (
