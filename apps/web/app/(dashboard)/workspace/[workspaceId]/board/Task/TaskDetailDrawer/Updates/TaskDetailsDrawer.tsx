@@ -23,7 +23,7 @@ export function TaskDetailsSheet() {
   });
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
-      <SheetContent side="right" className="min-w-xl p-0">
+      <SheetContent side="right" className="w-full p-0 sm:min-w-xl sm:w-auto">
         <SheetHeader className="border-b px-6 py-5">
           <SheetTitle className="text-2xl font-semibold">
             {task?.name}

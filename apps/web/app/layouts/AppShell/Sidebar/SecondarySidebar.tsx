@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  X,
   Kanban,
   Building2,
   Cog,
@@ -41,9 +42,11 @@ import { useAuth } from "@/providers/AuthProvider";
 interface SecondarySidebarProps {
   isOpen: boolean;
   onToggle: () => void;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
+export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMobileClose }: SecondarySidebarProps) {
   const router = useRouter();
   const params = useParams();
 
@@ -194,11 +197,24 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
   const { user } = useAuth();
 
   return (
-    <div className="relative flex h-full select-none flex-col border-r border-gray-200 bg-white">
+    <div
+      className={cn(
+        "select-none flex-col border-r border-gray-200 bg-white",
+        // Mobile: fixed slide-in drawer
+        "fixed inset-y-0 left-0 z-50 flex h-full shadow-xl transition-transform duration-300 ease-in-out",
+        isMobileOpen ? "translate-x-0" : "-translate-x-full",
+        // Desktop: inline in flex layout, no shadow/fixed
+        "md:relative md:z-auto md:flex md:h-full md:translate-x-0 md:shadow-none md:transition-none",
+      )}
+    >
       <div
         className={cn(
-          "flex h-full flex-col overflow-hidden bg-gray-50/50 transition-all duration-300 ease-in-out",
-          isOpen ? "max-w-[270px]" : "w-0",
+          "flex h-full flex-col overflow-hidden bg-gray-50/50",
+          // Mobile: always 270px wide when drawer is shown
+          "w-[270px]",
+          // Desktop: animate open/close
+          "md:w-auto md:transition-all md:duration-300 md:ease-in-out",
+          isOpen ? "md:max-w-[270px]" : "md:max-w-0",
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-gray-200 px-5">
@@ -218,12 +234,14 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
               />
             )}
 
-            {/* <button
-               onClick={onToggle}
-              className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-800"
+            {/* Mobile close button */}
+            <button
+              onClick={onMobileClose}
+              className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-800 md:hidden"
+              aria-label="Close menu"
             >
-              <ChevronLeft className="h-4.5 w-4.5" />
-            </button> */}
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </div>
 
@@ -346,7 +364,7 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
       {!isOpen && (
         <button
           onClick={onToggle}
-          className="absolute -right-3 top-1/2 z-50 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow hover:bg-gray-50 hover:text-gray-800"
+          className="absolute -right-3 top-1/2 z-50 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow hover:bg-gray-50 hover:text-gray-800 md:flex"
         >
           <ChevronRight className="h-3 w-3" />
         </button>
