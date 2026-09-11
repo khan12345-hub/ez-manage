@@ -214,7 +214,7 @@ function CommentReactions({
           reactions.reduce<Record<string, { count: number; reacted: boolean }>>(
             (acc, r) => {
               if (!acc[r.emoji]) acc[r.emoji] = { count: 0, reacted: false };
-              acc[r.emoji].count++;
+              acc[r.emoji]!.count++;
               if (r.userId === myId) acc[r.emoji].reacted = true;
               return acc;
             },
