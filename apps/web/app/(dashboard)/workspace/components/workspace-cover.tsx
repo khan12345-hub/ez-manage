@@ -10,7 +10,7 @@ interface Props {
 
 export function WorkspaceCover({ image }: Props) {
   return (
-    <div className="relative h-72 overflow-hidden">
+    <div className="relative h-36 sm:h-48 md:h-60 overflow-hidden">
       <Image
         src={image}
         alt="cover-image"

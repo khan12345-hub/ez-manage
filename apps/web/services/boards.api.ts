@@ -69,6 +69,17 @@ export async function getBoards(workspaceId: number | undefined) {
   return response.data;
 }
 
+export interface BoardGroup {
+  id: number;
+  name: string;
+  color: string;
+}
+
+export async function getBoardGroups(boardId: number): Promise<BoardGroup[]> {
+  const response = await api.get<BoardGroup[]>(`/boards/${boardId}/group-list`);
+  return response.data;
+}
+
 export async function getBoardDetail(
   boardId: number,
   search?: string,

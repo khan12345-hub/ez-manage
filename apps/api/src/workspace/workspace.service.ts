@@ -151,7 +151,7 @@ export class WorkspaceService {
       throw new NotFoundException('Workspace not found.');
     }
 
-    const data: UpdateWorkspaceDto & { updatedById?: number } = {};
+    const data: { name?: string; visibility?: any } = {};
 
     if (updateWorkspaceDto.name !== undefined) {
       const name = updateWorkspaceDto.name.trim();
@@ -185,8 +185,6 @@ export class WorkspaceService {
     if (updateWorkspaceDto.visibility !== undefined) {
       data.visibility = updateWorkspaceDto.visibility;
     }
-
-    data.updatedById = userId;
 
     return this.prisma.workspace.update({
       where: {

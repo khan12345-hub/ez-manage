@@ -214,7 +214,7 @@ export default function WorkspacePage() {
     <div className="min-h-screen bg-muted/30">
       <WorkspaceCover image={workspace.cover} />
 
-      <div className="mx-auto max-w-7xl px-8 pb-10">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-10">
         <WorkspaceHeader
           workspace={workspace}
         />

@@ -103,34 +103,19 @@ export function ColumnActions({ column, members }: Props) {
    */
   const isProtected = Boolean(column.accessControlEnabled);
   const isSuperAdmin = user?.systemRole === "SUPER_ADMIN";
-  const isBoardOwner = (members ?? []).some(
-    (member) => member.role === "OWNER" && member.user.id === user?.id,
-  );
+  const currentMember = (members ?? []).find((m) => m.user.id === user?.id);
+  const isBoardOwnerOrAdmin =
+    currentMember?.role === "OWNER" || currentMember?.role === "ADMIN";
 
-  /**
-   * Only SUPER_ADMIN and board OWNER can
-   * manage column protection.
-   */
-  const canManageColumnProtection = isSuperAdmin || isBoardOwner;
+  const canManageColumnProtection = isSuperAdmin || isBoardOwnerOrAdmin;
 
-  /**
-   * Check explicit column edit permission.
-   */
   const hasColumnEditAccess =
     column.permissions?.some(
       (permission) => permission.userId === user?.id && permission.canEdit,
     ) ?? false;
 
-  /**
-   * Delete is allowed when:
-   *
-   * - Column is not protected
-   * - User is SUPER_ADMIN
-   * - User is board OWNER
-   * - User has explicit column edit access
-   */
   const canDeleteColumn =
-    !isProtected || isSuperAdmin || isBoardOwner || hasColumnEditAccess;
+    !isProtected || isSuperAdmin || isBoardOwnerOrAdmin || hasColumnEditAccess;
 
   /**
    * Primary columns cannot be deleted.

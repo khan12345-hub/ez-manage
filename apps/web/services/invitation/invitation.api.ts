@@ -1,10 +1,16 @@
 import { api } from "@/lib/api";
 
+export interface BoardGroupAccessDto {
+  boardId: number;
+  groupIds: number[];
+}
+
 export interface CreateInvitationDto {
   email: string;
   workspaceId: number;
   boardIds: number[];
   role: string;
+  boardGroupAccess?: BoardGroupAccessDto[];
 }
 
 export interface CreateInvitationResponse {

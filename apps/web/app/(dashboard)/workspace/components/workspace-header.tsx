@@ -80,9 +80,9 @@ interface Props {
 }
 
 export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ workspaceId: string }>();
   const router = useRouter();
-  const workspaceId = Number(params.id);
+  const workspaceId = Number(params.workspaceId);
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(workspace.name);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -199,24 +199,17 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
     deleteWorkspaceHandler();
   };
 
-  console.log({
-    workspace,
-    createdById: workspace.createdById,
-    userId: user?.id,
-    equal: workspace.createdById === user?.id,
-  });
-
   const open = useInviteModalStore((state) => state.open);
 
   return (
     <>
-      <div className="-mt-5 flex items-end justify-between">
-        <div className="flex items-end gap-6">
+      <div className="-mt-4 flex items-end justify-between gap-4">
+        <div className="flex items-end gap-4 min-w-0">
           <WorkspaceAvatar name={workspace.name} />
-          <div className=" z-10">
+          <div className="z-10 min-w-0">
             {isRenaming ? (
-              <div className="mb-2">
-                <div className="flex items-center gap-2">
+              <div className="mb-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     ref={inputRef}
                     value={newName}
@@ -224,29 +217,20 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
                     onKeyDown={handleKeyDown}
                     placeholder="Enter workspace name"
                     disabled={isPending}
-                    className="text-5xl font-bold h-auto py-1"
+                    className="text-2xl font-bold h-auto py-1 min-w-0 w-auto"
                     maxLength={100}
                   />
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={handleSaveRename}
-                      disabled={isPending}
-                    >
+                    <Button size="sm" onClick={handleSaveRename} disabled={isPending}>
                       {isPending ? "Saving..." : "Save"}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleCancel}
-                      disabled={isPending}
-                    >
+                    <Button size="sm" variant="outline" onClick={handleCancel} disabled={isPending}>
                       Cancel
                     </Button>
                   </div>
                 </div>
                 {errors.length > 0 && (
-                  <div className="mt-2 text-sm text-destructive">
+                  <div className="mt-1 text-sm text-destructive">
                     {errors.map((error, idx) => (
                       <div key={idx}>{error}</div>
                     ))}
@@ -254,30 +238,31 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <h1 className="text-5xl font-bold tracking-tight">
-                  {workspace.name}
-                </h1>
-              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">
+                {workspace.name}
+              </h1>
             )}
-            <p className="text-muted-foreground">{workspace.description}</p>
-            <div className="mt-2 flex items-center gap-3 text-xs font-medium text-muted-foreground">
-              <span>{workspace.members} members</span>
-              {workspace.visibility && <span>{workspace.visibility}</span>}
+            <p className="mt-0.5 text-sm text-muted-foreground truncate">{workspace.description}</p>
+            <div className="mt-1.5 flex items-center gap-3 text-xs font-medium text-muted-foreground">
+              <span>{workspace.members} {workspace.members === 1 ? "member" : "members"}</span>
+              {workspace.visibility && (
+                <span className="rounded-full border px-2 py-0.5 capitalize text-[11px]">
+                  {workspace.visibility.toLowerCase()}
+                </span>
+              )}
             </div>
           </div>
         </div>
-        {/* <WorkspaceActions /> */}
 
-        {workspace.createdById === user.id && (
+        {workspace.createdById === user?.id && (
           <>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="mb-2">
+                <Button variant="ghost" size="icon" className="shrink-0 mb-1">
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-max">
+              <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onClick={open}>
                   <Plus className="mr-2 h-4 w-4" />
                   Invite a member

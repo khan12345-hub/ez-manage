@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Command pm2 -ErrorAction SilentlyContinue)",
+      "PowerShell(node -e \"require\\('child_process'\\).execSync\\('pm2 list', {stdio:'inherit'}\\)\" 2>$null)",
+      "PowerShell(npx --yes pm2@5 list 2>$null)",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId=8588 OR ProcessId=8800\")",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId=8588\")",
+      "PowerShell(Get-Process -Id 8800 -ErrorAction SilentlyContinue)",
+      "Bash(pnpm exec *)",
+      "PowerShell(\\(Get-Command pnpm\\).Source)",
+      "Read(//c/Users/RFP/AppData/Roaming/npm/**)",
+      "PowerShell($env:NODE_PATH)",
+      "PowerShell($env:NODE_ENV)",
+      "PowerShell(Stop-Process -Id 19156 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Process -Id 2880 -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-WmiObject Win32_Process | Where-Object { $_.ParentProcessId -eq 17280 } | Select-Object ProcessId, Name, CommandLine | Format-Table -AutoSize)",
+      "PowerShell(Get-WmiObject Win32_Process | Where-Object { $_.ParentProcessId -eq 7948 } | Select-Object ProcessId, Name, CommandLine | Format-Table -AutoSize)",
+      "PowerShell(Get-WmiObject Win32_Process | Where-Object { $_.ParentProcessId -eq 7440 } | Select-Object ProcessId, Name, CommandLine | Format-Table -AutoSize)",
+      "PowerShell(Get-WmiObject Win32_Process | Where-Object { $_.ParentProcessId -eq 19424 } | Select-Object ProcessId, Name, CommandLine | Format-Table -AutoSize)",
+      "PowerShell(Get-WmiObject Win32_Process | Where-Object { $_.ParentProcessId -eq 2136 } | Select-Object ProcessId, Name, CommandLine | Format-Table -AutoSize)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3010/api\" -Method GET -ErrorAction SilentlyContinue)",
+      "Read(//d/Ezmanage/ez-manage/apps/web/app/\\(dashboard\\)/workspace/**)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:3010/api/notifications/unread-count\" -Method GET -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Id 8336 -Force)",
+      "PowerShell(Start-Process pnpm.cmd -ArgumentList \"exec\", \"nest\", \"start\" -WorkingDirectory \"D:\\\\Ezmanage\\\\ez-manage\\\\apps\\\\api\" -RedirectStandardOutput \"D:\\\\Ezmanage\\\\ez-manage\\\\api-debug.log\" -RedirectStandardError \"D:\\\\Ezmanage\\\\ez-manage\\\\api-error.log\" -WindowStyle Hidden)"
+    ]
+  }
+}

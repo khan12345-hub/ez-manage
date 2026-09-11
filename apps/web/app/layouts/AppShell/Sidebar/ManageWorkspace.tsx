@@ -30,12 +30,14 @@ interface ManageWorkspaceDropDownProps {
   workspaceId: number;
   workspaceName?: string;
   workspaceVisibility?: "PUBLIC" | "PRIVATE";
+  onBeforeOpen?: () => void;
 }
 
 export function ManageWorkspaceDropDown({
   workspaceId,
   workspaceName = "",
   workspaceVisibility = "PRIVATE",
+  onBeforeOpen,
 }: ManageWorkspaceDropDownProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -82,6 +84,7 @@ export function ManageWorkspaceDropDown({
             className="cursor-pointer gap-2"
             onSelect={(e) => {
               e.preventDefault();
+              onBeforeOpen?.();
               setEditOpen(true);
             }}
           >
@@ -96,6 +99,7 @@ export function ManageWorkspaceDropDown({
             className="cursor-pointer gap-2 text-destructive focus:text-destructive"
             onSelect={(e) => {
               e.preventDefault();
+              onBeforeOpen?.();
               setDeleteOpen(true);
             }}
           >
@@ -110,6 +114,7 @@ export function ManageWorkspaceDropDown({
             className="cursor-pointer gap-2"
             onSelect={(e) => {
               e.preventDefault();
+              onBeforeOpen?.();
               setCreateOpen(true);
             }}
           >

@@ -33,6 +33,22 @@ import { invitationTemplate } from 'src/mail/templates/invitation.template';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { NotificationStreamService } from 'src/notifications/notification-stream.service';
 
+type BoardGroupAccessEntry = { boardId: number; groupIds: number[] };
+
+async function applyGroupAccess(
+  tx: any,
+  boardMemberId: number,
+  boardId: number,
+  boardGroupAccess: BoardGroupAccessEntry[] | undefined,
+) {
+  const entry = boardGroupAccess?.find((g) => g.boardId === boardId);
+  if (entry && entry.groupIds.length > 0) {
+    await tx.boardMemberGroupAccess.createMany({
+      data: entry.groupIds.map((groupId) => ({ boardMemberId, groupId })),
+    });
+  }
+}
+
 @Injectable()
 export class InvitationsService {
   constructor(
@@ -87,13 +103,22 @@ export class InvitationsService {
           });
         }
 
-        await tx.boardMember.createMany({
-          data: boardsToAdd.map((boardId) => ({
-            boardId,
-            userId: existingUser.id,
-            role: workspaceToBoardRole(dto.role),
-          })),
+        const createdMembers = await tx.boardMember.createManyAndReturn({
+          data: boardsToAdd.map((boardId) => {
+            const entry = dto.boardGroupAccess?.find((g) => g.boardId === boardId);
+            const accessAllGroups = !entry || entry.groupIds.length === 0;
+            return {
+              boardId,
+              userId: existingUser.id,
+              role: workspaceToBoardRole(dto.role),
+              accessAllGroups,
+            };
+          }),
         });
+
+        for (const member of createdMembers) {
+          await applyGroupAccess(tx, member.id, member.boardId, dto.boardGroupAccess);
+        }
       });
 
       try {
@@ -229,6 +254,9 @@ export class InvitationsService {
           invitedById,
           expiresAt,
           status: InvitationStatus.PENDING,
+          ...(dto.boardGroupAccess?.length
+            ? { boardGroupAccess: dto.boardGroupAccess as any }
+            : {}),
         },
       });
 
@@ -284,43 +312,49 @@ export class InvitationsService {
     if (invitation.expiresAt < new Date()) {
       throw new BadRequestException('Invitation has expired.');
     }
-    // return this.prisma.invitation.update({
-    //   where: { id },
-    //   data: {
-    //     status: InvitationStatus.ACCEPTED,
-    //   },
-    // });
 
     return this.prisma.$transaction(async (tx) => {
-      const invitation = await tx.invitation.findUnique({
+      const inv = await tx.invitation.findUnique({
         where: { id },
       });
 
-      if (!invitation) {
+      if (!inv) {
         throw new NotFoundException('Invitation not found');
       }
+
       await tx.workspaceMember.upsert({
         where: {
           workspaceId_userId: {
-            workspaceId: invitation.workspaceId,
+            workspaceId: inv.workspaceId,
             userId: id,
           },
         },
         update: {},
         create: {
-          workspaceId: invitation.workspaceId,
+          workspaceId: inv.workspaceId,
           userId: id,
-          role: invitation.role,
+          role: inv.role,
         },
       });
 
-      await tx.boardMember.createMany({
-        data: invitation.boardIds.map((boardId) => ({
-          boardId,
-          userId: id,
-          role: workspaceToBoardRole(invitation.role),
-        })),
+      const boardGroupAccess = inv.boardGroupAccess as BoardGroupAccessEntry[] | null;
+
+      const createdMembers = await tx.boardMember.createManyAndReturn({
+        data: inv.boardIds.map((boardId) => {
+          const entry = boardGroupAccess?.find((g) => g.boardId === boardId);
+          const accessAllGroups = !entry || entry.groupIds.length === 0;
+          return {
+            boardId,
+            userId: id,
+            role: workspaceToBoardRole(inv.role),
+            accessAllGroups,
+          };
+        }),
       });
+
+      for (const member of createdMembers) {
+        await applyGroupAccess(tx, member.id, member.boardId, boardGroupAccess ?? undefined);
+      }
     });
   }
 }

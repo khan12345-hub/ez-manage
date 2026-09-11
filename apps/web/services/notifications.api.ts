@@ -56,6 +56,13 @@ export async function markAllNotificationsAsRead(): Promise<{
   return response.data;
 }
 
+export async function deleteAllNotifications(): Promise<{
+  success: boolean;
+}> {
+  const response = await api.delete<{ success: boolean }>("/notifications");
+  return response.data;
+}
+
 export async function deleteNotification(
   notificationId: number,
 ): Promise<{ success: boolean }> {

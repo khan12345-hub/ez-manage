@@ -1,0 +1,203 @@
+Error: Redis version needs to be greater or equal than 5.0.0 Current: 3.0.504
+    at RedisConnection.init (D:\Ezmanage\ez-manage\node_modules\.pnpm\bullmq@6.0.6_ioredis@6.0.0_pg@8.22.0\node_modules\bullmq\dist\cjs\classes\redis-connection.js:213:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+(node:8336) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[NotificationsService] Failed to queue email (in-app notification still delivered): Redis version needs to be greater or equal than 5.0.0 Current: 3.0.504
+[NotificationsService] Failed to queue email (in-app notification still delivered): Redis version needs to be greater or equal than 5.0.0 Current: 3.0.504
+[31m[Nest] 8336  - [39m09/12/2026, 1:47:44 AM [31m  ERROR[39m [38;5;3m[ExceptionsHandler] [39mPrismaClientValidationError: 
+Invalid `this.prisma.workspace.update()` invocation in
+D:\Ezmanage\ez-manage\apps\api\src\workspace\workspace.service.ts:191:34
+
+  188 
+  189 data.updatedById = userId;
+  190 
+→ 191 return this.prisma.workspace.update({
+        where: {
+          id: 1
+        },
+        data: {
+          name: "Admin's Workspace",
+          visibility: "PRIVATE",
+          updatedById: 1,
+          ~~~~~~~~~~~
+      ?   description?: String | NullableStringFieldUpdateOperationsInput | Null,
+      ?   createdAt?: DateTime | DateTimeFieldUpdateOperationsInput,
+      ?   updatedAt?: DateTime | DateTimeFieldUpdateOperationsInput,
+      ?   createdBy?: UserUpdateOneRequiredWithoutCreatedWorkspacesNestedInput,
+      ?   boards?: BoardUpdateManyWithoutWorkspaceNestedInput,
+      ?   members?: WorkspaceMemberUpdateManyWithoutWorkspaceNestedInput,
+      ?   invitations?: InvitationUpdateManyWithoutWorkspaceNestedInput
+        },
+        include: {
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true
+                }
+              }
+            }
+          }
+        }
+      })
+
+Unknown argument `updatedById`. Available options are marked with ?.
+    at throwValidationException (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\core\errorRendering\throwValidationException.ts:46:9)
+    at zr.handleRequestError (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:211:7)
+    at zr.handleAndLogRequestError (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:152:12)
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at async a (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\getPrismaClient.ts:963:24)
+    at async D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@nestjs+core@11.1.27_@nestjs+common@11.1.27_class-transformer@0.5.1_class-validator@0.15.1_re_wsdnldvjie3z6fb3oaoqnagn3m\node_modules\[4m@nestjs\core[24m\router\router-execution-context.js:47:62
+    at async D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@nestjs+core@11.1.27_@nestjs+common@11.1.27_class-transformer@0.5.1_class-validator@0.15.1_re_wsdnldvjie3z6fb3oaoqnagn3m\node_modules\[4m@nestjs\core[24m\router\router-proxy.js:9:17 {
+  clientVersion: [32m'7.8.0'[39m
+}
+[31m[Nest] 8336  - [39m09/12/2026, 1:48:32 AM [31m  ERROR[39m [38;5;3m[ExceptionsHandler] [39mPrismaClientValidationError: 
+Invalid `this.prisma.workspace.update()` invocation in
+D:\Ezmanage\ez-manage\apps\api\src\workspace\workspace.service.ts:191:34
+
+  188 
+  189 data.updatedById = userId;
+  190 
+→ 191 return this.prisma.workspace.update({
+        where: {
+          id: 1
+        },
+        data: {
+          name: "Admin's Workspace",
+          visibility: "PRIVATE",
+          updatedById: 1,
+          ~~~~~~~~~~~
+      ?   description?: String | NullableStringFieldUpdateOperationsInput | Null,
+      ?   createdAt?: DateTime | DateTimeFieldUpdateOperationsInput,
+      ?   updatedAt?: DateTime | DateTimeFieldUpdateOperationsInput,
+      ?   createdBy?: UserUpdateOneRequiredWithoutCreatedWorkspacesNestedInput,
+      ?   boards?: BoardUpdateManyWithoutWorkspaceNestedInput,
+      ?   members?: WorkspaceMemberUpdateManyWithoutWorkspaceNestedInput,
+      ?   invitations?: InvitationUpdateManyWithoutWorkspaceNestedInput
+        },
+        include: {
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true
+                }
+              }
+            }
+          }
+        }
+      })
+
+Unknown argument `updatedById`. Available options are marked with ?.
+    at throwValidationException (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\core\errorRendering\throwValidationException.ts:46:9)
+    at zr.handleRequestError (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:211:7)
+    at zr.handleAndLogRequestError (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:152:12)
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at async a (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\getPrismaClient.ts:963:24)
+    at async D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@nestjs+core@11.1.27_@nestjs+common@11.1.27_class-transformer@0.5.1_class-validator@0.15.1_re_wsdnldvjie3z6fb3oaoqnagn3m\node_modules\[4m@nestjs\core[24m\router\router-execution-context.js:47:62
+    at async D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@nestjs+core@11.1.27_@nestjs+common@11.1.27_class-transformer@0.5.1_class-validator@0.15.1_re_wsdnldvjie3z6fb3oaoqnagn3m\node_modules\[4m@nestjs\core[24m\router\router-proxy.js:9:17 {
+  clientVersion: [32m'7.8.0'[39m
+}
+[31m[Nest] 8336  - [39m09/12/2026, 1:52:09 AM [31m  ERROR[39m [38;5;3m[ExceptionsHandler] [39mPrismaClientValidationError: 
+Invalid `prisma.workspace.update()` invocation:
+
+{
+  where: {
+    id: 1
+  },
+  data: {
+    name: "Admin's Workspace",
+    visibility: "PRIVATE",
+    updatedById: 1,
+    ~~~~~~~~~~~
+?   description?: String | NullableStringFieldUpdateOperationsInput | Null,
+?   createdAt?: DateTime | DateTimeFieldUpdateOperationsInput,
+?   updatedAt?: DateTime | DateTimeFieldUpdateOperationsInput,
+?   createdBy?: UserUpdateOneRequiredWithoutCreatedWorkspacesNestedInput,
+?   boards?: BoardUpdateManyWithoutWorkspaceNestedInput,
+?   members?: WorkspaceMemberUpdateManyWithoutWorkspaceNestedInput,
+?   invitations?: InvitationUpdateManyWithoutWorkspaceNestedInput
+  },
+  include: {
+    members: {
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true
+          }
+        }
+      }
+    }
+  }
+}
+
+Unknown argument `updatedById`. Available options are marked with ?.
+    at throwValidationException (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\core\errorRendering\throwValidationException.ts:46:9)
+    at zr.handleRequestError (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:211:7)
+    at zr.handleAndLogRequestError (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:152:12)
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at async a (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\getPrismaClient.ts:963:24)
+    at async D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@nestjs+core@11.1.27_@nestjs+common@11.1.27_class-transformer@0.5.1_class-validator@0.15.1_re_wsdnldvjie3z6fb3oaoqnagn3m\node_modules\[4m@nestjs\core[24m\router\router-execution-context.js:47:62
+    at async D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@nestjs+core@11.1.27_@nestjs+common@11.1.27_class-transformer@0.5.1_class-validator@0.15.1_re_wsdnldvjie3z6fb3oaoqnagn3m\node_modules\[4m@nestjs\core[24m\router\router-proxy.js:9:17 {
+  clientVersion: [32m'7.8.0'[39m
+}
+[31m[Nest] 8336  - [39m09/12/2026, 1:56:00 AM [31m  ERROR[39m [38;5;3m[ExceptionsHandler] [39mPrismaClientValidationError: 
+Invalid `prisma.workspace.update()` invocation:
+
+{
+  where: {
+    id: 1
+  },
+  data: {
+    name: "Admin's Workspace",
+    visibility: "PRIVATE",
+    updatedById: 1,
+    ~~~~~~~~~~~
+?   description?: String | NullableStringFieldUpdateOperationsInput | Null,
+?   createdAt?: DateTime | DateTimeFieldUpdateOperationsInput,
+?   updatedAt?: DateTime | DateTimeFieldUpdateOperationsInput,
+?   createdBy?: UserUpdateOneRequiredWithoutCreatedWorkspacesNestedInput,
+?   boards?: BoardUpdateManyWithoutWorkspaceNestedInput,
+?   members?: WorkspaceMemberUpdateManyWithoutWorkspaceNestedInput,
+?   invitations?: InvitationUpdateManyWithoutWorkspaceNestedInput
+  },
+  include: {
+    members: {
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true
+          }
+        }
+      }
+    }
+  }
+}
+
+Unknown argument `updatedById`. Available options are marked with ?.
+    at throwValidationException (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\core\errorRendering\throwValidationException.ts:46:9)
+    at zr.handleRequestError (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:211:7)
+    at zr.handleAndLogRequestError (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:183:12)
+    at zr.request (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\RequestHandler.ts:152:12)
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at async a (D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@prisma+client@7.8.0_prisma@7.8.0_@types+react-dom@19.2.2_@types+react@19.2.2__@types+react@1_dcrcycbtybk6ilivjawas5i3nu\node_modules\[4m@prisma\client[24m\src\runtime\getPrismaClient.ts:963:24)
+    at async D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@nestjs+core@11.1.27_@nestjs+common@11.1.27_class-transformer@0.5.1_class-validator@0.15.1_re_wsdnldvjie3z6fb3oaoqnagn3m\node_modules\[4m@nestjs\core[24m\router\router-execution-context.js:47:62
+    at async D:\Ezmanage\ez-manage\node_modules\[4m.pnpm[24m\@nestjs+core@11.1.27_@nestjs+common@11.1.27_class-transformer@0.5.1_class-validator@0.15.1_re_wsdnldvjie3z6fb3oaoqnagn3m\node_modules\[4m@nestjs\core[24m\router\router-proxy.js:9:17 {
+  clientVersion: [32m'7.8.0'[39m
+}

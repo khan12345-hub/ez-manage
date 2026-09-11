@@ -201,13 +201,34 @@ export class AuthService {
         },
       });
 
-      await tx.boardMember.createMany({
-        data: invitation.boardIds.map((boardId) => ({
-          boardId,
-          userId: newUser.id,
-          role: workspaceToBoardRole(invitation.role),
-        })),
+      const boardGroupAccess = invitation.boardGroupAccess as
+        | { boardId: number; groupIds: number[] }[]
+        | null;
+
+      const createdMembers = await tx.boardMember.createManyAndReturn({
+        data: invitation.boardIds.map((boardId) => {
+          const entry = boardGroupAccess?.find((g) => g.boardId === boardId);
+          const accessAllGroups = !entry || entry.groupIds.length === 0;
+          return {
+            boardId,
+            userId: newUser.id,
+            role: workspaceToBoardRole(invitation.role),
+            accessAllGroups,
+          };
+        }),
       });
+
+      for (const member of createdMembers) {
+        const entry = boardGroupAccess?.find((g) => g.boardId === member.boardId);
+        if (entry && entry.groupIds.length > 0) {
+          await tx.boardMemberGroupAccess.createMany({
+            data: entry.groupIds.map((groupId) => ({
+              boardMemberId: member.id,
+              groupId,
+            })),
+          });
+        }
+      }
 
       return newUser;
     });

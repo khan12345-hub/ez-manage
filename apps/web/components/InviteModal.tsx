@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { X, Sparkles, UserPlus } from "lucide-react";
+import { X, Sparkles, UserPlus, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "./ui/button";
 import { FormInput } from "./form/FormInput";
 import { FormSelect } from "./form/FormSelect";
@@ -14,10 +14,11 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllWorkspaces } from "@/services/workspace.api";
 import { Board, Workspace } from "@repo/shared";
 import { AppSelect } from "./ui/AppSelect";
-import { getBoards } from "@/services/boards.api";
+import { getBoards, getBoardGroups } from "@/services/boards.api";
 import { FormMultiSelect } from "./form/FormMultiSelect";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { getUserByEmail } from "@/services/users.api";
+import { cn } from "@/lib/utils";
 
 // Zod validation schema
 const inviteSchema = z.object({
@@ -32,6 +33,9 @@ const inviteSchema = z.object({
 });
 
 type InviteFormValues = z.infer<typeof inviteSchema>;
+
+// boardGroupAccess state: boardId → 'all' | number[] (specific group ids)
+type BoardGroupAccessState = Record<number, "all" | number[]>;
 
 interface InviteModalProps {
   isOpen: boolean;
@@ -48,6 +52,120 @@ export const ROLE_OPTIONS = [
   { name: "Guest", value: "GUEST", id: 5 },
 ];
 
+function BoardGroupSelector({
+  boardId,
+  boardName,
+  value,
+  onChange,
+}: {
+  boardId: number;
+  boardName: string;
+  value: "all" | number[];
+  onChange: (v: "all" | number[]) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const { data: groups = [], isLoading } = useQuery({
+    queryKey: ["board-groups", boardId],
+    queryFn: () => getBoardGroups(boardId),
+    staleTime: 60_000,
+  });
+
+  const isAll = value === "all";
+  const selectedIds = isAll ? [] : (value as number[]);
+
+  function toggleGroup(groupId: number) {
+    const current = isAll ? [] : (value as number[]);
+    if (current.includes(groupId)) {
+      const next = current.filter((id) => id !== groupId);
+      onChange(next.length === 0 ? [] : next);
+    } else {
+      onChange([...current, groupId]);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        className="flex w-full items-center justify-between px-3 py-2 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-700 truncate">
+            {boardName}
+          </span>
+          <span className="rounded-full bg-white border border-gray-200 px-2 py-0.5 text-xs text-gray-500">
+            {isAll ? "All groups" : `${selectedIds.length} group${selectedIds.length !== 1 ? "s" : ""}`}
+          </span>
+        </div>
+        {expanded ? (
+          <ChevronUp className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="border-t border-gray-200 bg-white px-3 py-2 space-y-1.5">
+          {isLoading ? (
+            <p className="text-xs text-gray-400 py-1">Loading groups...</p>
+          ) : groups.length === 0 ? (
+            <p className="text-xs text-gray-400 py-1">No groups found</p>
+          ) : (
+            <>
+              {/* All groups option */}
+              <label className="flex items-center gap-2 cursor-pointer py-0.5">
+                <input
+                  type="radio"
+                  checked={isAll}
+                  onChange={() => onChange("all")}
+                  className="accent-indigo-600"
+                />
+                <span className="text-xs text-gray-700 font-medium">All groups</span>
+              </label>
+
+              {/* Specific groups */}
+              <label className="flex items-center gap-2 cursor-pointer py-0.5">
+                <input
+                  type="radio"
+                  checked={!isAll}
+                  onChange={() => onChange([])}
+                  className="accent-indigo-600"
+                />
+                <span className="text-xs text-gray-700 font-medium">Specific groups</span>
+              </label>
+
+              {!isAll && (
+                <div className="pl-5 mt-1 space-y-1">
+                  {groups.map((group) => (
+                    <label
+                      key={group.id}
+                      className="flex items-center gap-2 cursor-pointer py-0.5"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(group.id)}
+                        onChange={() => toggleGroup(group.id)}
+                        className="accent-indigo-600"
+                      />
+                      <span
+                        className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: group.color || "#94a3b8" }}
+                      />
+                      <span className="text-xs text-gray-600 truncate">{group.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InviteModal() {
   const createInvitationMutation = useCreateInvitation();
   const form = useForm<InviteFormValues>({
@@ -62,6 +180,9 @@ export function InviteModal() {
   const { watch, setValue, reset, getValues } = form;
 
   const selectedWorkspaceId = watch("workspaceId");
+  const selectedBoardIds = watch("boardIds");
+
+  const [boardGroupAccess, setBoardGroupAccess] = useState<BoardGroupAccessState>({});
 
   const { data: workspaces = [] } = useQuery({
     queryKey: ["workspaces"],
@@ -85,12 +206,7 @@ export function InviteModal() {
     staleTime: 60_000,
   });
 
-  // Reset boardIds if selected workspace changes
-  // useEffect(() => {
-  //   setValue("boardIds", []);
-  // }, [selectedWorkspaceId, setValue]);
-
-  // Reset form when modal closes or opens
+  // Reset form when modal opens
   useEffect(() => {
     if (!isOpen) return;
 
@@ -101,35 +217,60 @@ export function InviteModal() {
     if (boardId) {
       setValue("boardIds", [boardId]);
     }
-
-    console.log("after setValue", getValues("boardIds"));
   }, [isOpen, workspaceId, boardId]);
 
-  const onSubmit = (values: InviteFormValues) => {
-    createInvitationMutation.mutate(values, {
-      onSuccess: () => {
-        toast.success(existingUser ? `Successfully Added` : `Successfully invited!`);
-        close();
-      },
-      onError: (error: any) => {
-        const errorMsg =
-          error?.response?.data?.message ||
-          "Failed to send invitation. Please try again.";
-        toast.error(errorMsg);
-      },
+  // Clean up boardGroupAccess when board selection changes
+  useEffect(() => {
+    setBoardGroupAccess((prev) => {
+      const next: BoardGroupAccessState = {};
+      for (const id of selectedBoardIds) {
+        next[id] = prev[id] ?? "all";
+      }
+      return next;
     });
+  }, [selectedBoardIds.join(",")]);
+
+  const onSubmit = (values: InviteFormValues) => {
+    // Build boardGroupAccess payload — only include boards with specific group restrictions
+    const boardGroupAccessPayload = Object.entries(boardGroupAccess)
+      .filter(([, v]) => v !== "all" && (v as number[]).length > 0)
+      .map(([boardId, groupIds]) => ({
+        boardId: Number(boardId),
+        groupIds: groupIds as number[],
+      }));
+
+    createInvitationMutation.mutate(
+      {
+        ...values,
+        ...(boardGroupAccessPayload.length > 0
+          ? { boardGroupAccess: boardGroupAccessPayload }
+          : {}),
+      },
+      {
+        onSuccess: () => {
+          toast.success(existingUser ? `Successfully Added` : `Successfully invited!`);
+          close();
+        },
+        onError: (error: any) => {
+          const errorMsg =
+            error?.response?.data?.message ||
+            "Failed to send invitation. Please try again.";
+          toast.error(errorMsg);
+        },
+      },
+    );
   };
 
-  // write tanstack query to get all workspaces
-
-  // Get active boards based on selected workspace
+  const selectedBoardObjects = boards.filter((b: any) =>
+    selectedBoardIds.includes(b.id),
+  );
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl p-6! transition-all animate-in zoom-in-95 duration-200 dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative w-full max-w-md overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl p-6! transition-all animate-in zoom-in-95 duration-200 dark:border-zinc-800 dark:bg-zinc-950 max-h-[90vh] overflow-y-auto"
         role="dialog"
         aria-modal="true"
       >
@@ -229,6 +370,26 @@ export function InviteModal() {
               className="h-9.5 text-sm"
             />
 
+            {/* Group access per board */}
+            {selectedBoardObjects.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-gray-600">
+                  Group Access
+                </p>
+                {selectedBoardObjects.map((board: any) => (
+                  <BoardGroupSelector
+                    key={board.id}
+                    boardId={board.id}
+                    boardName={board.name}
+                    value={boardGroupAccess[board.id] ?? "all"}
+                    onChange={(v) =>
+                      setBoardGroupAccess((prev) => ({ ...prev, [board.id]: v }))
+                    }
+                  />
+                ))}
+              </div>
+            )}
+
             <FormSelect
               name="role"
               label="Access Role"
@@ -250,7 +411,6 @@ export function InviteModal() {
               </Button>
               <Button
                 type="submit"
-                // disabled={createInvitationMutation.isPending}
                 className="h-9.5 px-4 font-semibold text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all flex items-center justify-center gap-1.5"
               >
                 {createInvitationMutation.isPending ? (

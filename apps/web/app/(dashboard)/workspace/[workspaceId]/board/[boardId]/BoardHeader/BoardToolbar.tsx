@@ -85,107 +85,67 @@ export function BoardToolbar({
   };
 
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-1">
-        <AddNewItem
+    <div className="flex flex-wrap items-center gap-1.5">
+      <AddNewItem
+        boardId={boardId}
+        onCreateTask={onCreateTask}
+        onCreateGroup={onCreateGroup}
+      />
+
+      <SearchInput
+        boardId={boardId}
+        value={search}
+        onChange={setSearch}
+      />
+
+      {boardId && (
+        <PersonFilter
           boardId={boardId}
-          onCreateTask={onCreateTask}
-          onCreateGroup={onCreateGroup}
+          value={personFilter}
+          onChange={onPersonFilterChange}
         />
+      )}
 
-        <SearchInput
-          boardId={boardId}
-          value={search}
-          onChange={setSearch}
-        />
-
-        {boardId && (
-          <PersonFilter
-            boardId={boardId}
-            value={personFilter}
-            onChange={onPersonFilterChange}
-          />
-        )}
-
-        {/* <Button variant="ghost">
-          <Funnel className="mr-2 h-4 w-4" />
-          Filter
-          <ChevronDown className="ml-2 h-4 w-4" />
-        </Button> */}
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost">
-              <ArrowUpDown className="mr-2 h-4 w-4" />
-              Sort
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-
-          <DropdownMenuContent
-            align="start"
-            className="w-56"
-          >
-            <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-              Sort groups
-            </div>
-
-            <DropdownMenuSeparator />
-
-            {GROUP_SORT_OPTIONS.map((option, index) => (
-              <div key={option.value}>
-                {index === 1 && (
-                  <DropdownMenuSeparator />
-                )}
-
-                <DropdownMenuItem
-                  className="flex cursor-pointer items-center justify-between"
-                  onClick={() =>
-                    onGroupSortChange(option.value)
-                  }
-                >
-                  <span>{option.label}</span>
-
-                  {groupSort === option.value && (
-                    <Check className="h-4 w-4" />
-                  )}
-                </DropdownMenuItem>
-              </div>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <Button
-          variant="ghost"
-          onClick={onHideColumns}
-        >
-          <EyeOff className="mr-2 h-4 w-4" />
-          Hide
-        </Button>
-
-        {boardId && canExport && (
-          <Button
-            variant="ghost"
-            onClick={handleExport}
-            disabled={exporting}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            {exporting ? "Exporting..." : "Export"}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs sm:px-3 sm:text-sm">
+            <ArrowUpDown className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Sort</span>
+            <ChevronDown className="ml-1 h-3 w-3" />
           </Button>
-        )}
+        </DropdownMenuTrigger>
 
-        {/* <Button variant="ghost">
-          <Rows3 className="mr-2 h-4 w-4" />
-          Group by
-        </Button> */}
+        <DropdownMenuContent align="start" className="w-56">
+          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+            Sort groups
+          </div>
+          <DropdownMenuSeparator />
+          {GROUP_SORT_OPTIONS.map((option, index) => (
+            <div key={option.value}>
+              {index === 1 && <DropdownMenuSeparator />}
+              <DropdownMenuItem
+                className="flex cursor-pointer items-center justify-between"
+                onClick={() => onGroupSortChange(option.value)}
+              >
+                <span>{option.label}</span>
+                {groupSort === option.value && <Check className="h-4 w-4" />}
+              </DropdownMenuItem>
+            </div>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-        {/* <Button
-          variant="ghost"
-          size="icon"
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </Button> */}
-      </div>
+      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs sm:px-3 sm:text-sm" onClick={onHideColumns}>
+        <EyeOff className="h-3.5 w-3.5 sm:mr-1.5" />
+        <span className="hidden sm:inline">Hide</span>
+      </Button>
+
+      {boardId && canExport && (
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs sm:px-3 sm:text-sm" onClick={handleExport} disabled={exporting}>
+          <Download className="h-3.5 w-3.5 sm:mr-1.5" />
+          <span className="hidden sm:inline">{exporting ? "Exporting..." : "Export"}</span>
+        </Button>
+      )}
     </div>
   );
 }

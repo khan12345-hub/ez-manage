@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -258,13 +259,13 @@ export function CreateBoardModal({
     createBoardMutation.isPending ||
     importExcelMutation.isPending;
 
-  if (!isOpen) {
+  if (!isOpen || typeof document === "undefined") {
     return null;
   }
 
-  return (
+  return createPortal(
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
         <div
           className="relative w-full max-w-md overflow-hidden rounded-xl border border-gray-100 bg-white p-6! shadow-2xl transition-all animate-in zoom-in-95 duration-200 dark:border-zinc-800 dark:bg-zinc-950"
           role="dialog"
@@ -473,7 +474,8 @@ export function CreateBoardModal({
         defaultVisibility={form.getValues("visibility")}
         isImporting={importExcelMutation.isPending}
       />
-    </>
+    </>,
+    document.body
   );
 }
 

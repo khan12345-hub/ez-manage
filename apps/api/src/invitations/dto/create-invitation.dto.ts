@@ -4,10 +4,24 @@ import {
   IsEmail,
   IsEnum,
   IsInt,
+  IsOptional,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { WorkspaceMemberRole } from '../../../generated/prisma/client';
+
+export class BoardGroupAccessDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  boardId!: number;
+
+  @IsArray()
+  @IsInt({ each: true })
+  @Type(() => Number)
+  groupIds!: number[];
+}
 
 export class CreateInvitationDto {
   @IsEmail()
@@ -27,4 +41,10 @@ export class CreateInvitationDto {
 
   @IsEnum(WorkspaceMemberRole)
   role!: WorkspaceMemberRole;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BoardGroupAccessDto)
+  boardGroupAccess?: BoardGroupAccessDto[];
 }

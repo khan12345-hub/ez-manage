@@ -87,8 +87,9 @@ model Invitation {
   workspace   Workspace           @relation(fields: [workspaceId], references: [id])
   invitedBy   User                @relation("InvitationSender", fields: [invitedById], references: [id])
 
-  boards      InvitationBoard[]
-  boardIds    Int[]
+  boards           InvitationBoard[]
+  boardIds         Int[]
+  boardGroupAccess Json? @map("board_group_access")
 
   @@map("invitations")
 }
@@ -132,16 +133,36 @@ enum BoardMemberRole {
   VIEWER
 }
 model BoardMember {
-  id      Int @id @default(autoincrement())
-  boardId Int
-  userId  Int
-  role    BoardMemberRole
-  board Board @relation(fields: [boardId], references: [id])
-  user  User  @relation(fields: [userId], references: [id])
-  createdAt   DateTime            @default(now())
+  id              Int     @id @default(autoincrement())
+  boardId         Int
+  userId          Int
+  role            BoardMemberRole
+  accessAllGroups Boolean @default(true) @map("access_all_groups")
+
+  board       Board @relation(fields: [boardId], references: [id])
+  user        User  @relation(fields: [userId], references: [id])
+  groupAccess BoardMemberGroupAccess[]
+
+  createdAt DateTime @default(now())
 
   @@unique([boardId, userId])
   @@map("board_members")
+}
+
+model BoardMemberGroupAccess {
+  id            Int         @id @default(autoincrement())
+  boardMemberId Int         @map("board_member_id")
+  groupId       Int         @map("group_id")
+
+  boardMember BoardMember @relation(fields: [boardMemberId], references: [id], onDelete: Cascade)
+  group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([boardMemberId, groupId])
+  @@index([boardMemberId])
+  @@index([groupId])
+  @@map("board_member_group_access")
 }
 enum BoardVisibility {
     PUBLIC
@@ -229,6 +250,7 @@ model Group {
   activities  ActivityLog[]
 
   automationTargets AutomationRule[] @relation("AutomationTargetGroup")
+  memberGroupAccess BoardMemberGroupAccess[]
 
   @@index([boardId])
   @@index([boardId, order])

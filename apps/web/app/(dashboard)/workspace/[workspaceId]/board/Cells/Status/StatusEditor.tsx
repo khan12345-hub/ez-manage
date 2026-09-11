@@ -51,6 +51,7 @@ export function StatusEditor({
   cancel,
   column,
   usedStatusValues = [],
+  disabled = false,
 }: StatusEditorProps) {
   const statusOptions: StatusOption[] =
     column?.statusOptions ?? [];
@@ -125,22 +126,15 @@ export function StatusEditor({
   /* ---------------------------------------------------------------------- */
 
   if (!editing) {
-    /*
-     * This is only a fallback.
-     *
-     * EditableCell normally does NOT mount this component
-     * when the cell isn't being edited.
-     */
     return (
       <div
-        className="flex absolute left-0 h-full w-full cursor-pointer items-center justify-center overflow-hidden px-2 text-sm font-medium text-white"
-        style={{
-          backgroundColor: currentColor,
-        }}
+        className={cn(
+          "flex absolute left-0 h-full w-full items-center justify-center overflow-hidden px-2 text-sm font-medium text-white",
+          disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer",
+        )}
+        style={{ backgroundColor: currentColor }}
       >
-        <span className="min-w-0 truncate">
-          {currentLabel}
-        </span>
+        <span className="min-w-0 truncate">{currentLabel}</span>
       </div>
     );
   }

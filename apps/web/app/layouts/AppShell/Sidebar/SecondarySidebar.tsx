@@ -169,25 +169,29 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         );
 
         setWorkspaceSwitcherOpen(false);
+        onMobileClose?.();
 
         return;
       }
 
+      onMobileClose?.();
       router.push(`/workspace/${selectedWorkspace.id}`);
     } catch {
+      onMobileClose?.();
       router.push(`/workspace/${selectedWorkspace.id}`);
     }
   };
 
   const handleBoardChange = (board: any) => {
     if (board.id === boardId) {
+      onMobileClose?.();
       return;
     }
 
     setNavigatingBoardId(board.id);
-
     setBoard(board.id);
     setBoardRole(board.role);
+    onMobileClose?.();
 
     startTransition(() => {
       router.push(`/workspace/${workspaceId}/board/${board.id}`);
@@ -217,7 +221,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
           isOpen ? "md:max-w-[270px]" : "md:max-w-0",
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b border-gray-200 px-5">
+        <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
           <Link
             href="/dashboard"
             className="text-sm font-bold tracking-tight text-gray-700"
@@ -225,14 +229,24 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
             Workspace
           </Link>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {workspace?.id && (
               <ManageWorkspaceDropDown
                 workspaceId={workspace.id}
                 workspaceName={workspace.name}
                 workspaceVisibility={(workspace as any).visibility ?? "PRIVATE"}
+                onBeforeOpen={onMobileClose}
               />
             )}
+
+            {/* Desktop collapse button */}
+            <button
+              onClick={onToggle}
+              className="hidden rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 md:flex"
+              aria-label="Collapse sidebar"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
 
             {/* Mobile close button */}
             <button
@@ -269,14 +283,14 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
             <DropdownMenuContent align="end" className="w-max">
               <DropdownMenuItem
                 className="cursor-pointer"
-                onClick={() => setIsCreateWorkspaceOpen(true)}
+                onClick={() => { onMobileClose?.(); setIsCreateWorkspaceOpen(true); }}
               >
                 <Building2 className="mr-2 h-4 w-4" />
                 Create Workspace
               </DropdownMenuItem>
 
               <DropdownMenuItem
-                onClick={() => setIsCreateBoardOpen(true)}
+                onClick={() => { onMobileClose?.(); setIsCreateBoardOpen(true); }}
                 disabled={!workspace}
                 className="cursor-pointer"
               >
@@ -345,6 +359,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                               boardId={item.id}
                               boardName={item.name}
                               workspaceId={workspace.id}
+                              onBeforeOpen={onMobileClose}
                             />
                           )}
                       </div>
@@ -385,9 +400,9 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
       {user && user?.systemRole === "SUPER_ADMIN" && (
         <Link
           href="/system-settings"
-          className="flex gap-2 items-center text-gray-600! mb-4 px-4"
+          className="flex items-center gap-2 border-t border-gray-200 px-4 py-3 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
         >
-          <Cog strokeWidth={1} size={28} />
+          <Cog strokeWidth={1.5} className="h-4 w-4" />
           System Settings
         </Link>
       )}

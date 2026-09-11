@@ -79,11 +79,22 @@ export class BoardsController {
     return new StreamableFile(buffer);
   }
 
+  @Get(':boardId/group-list')
+  @RequireBoardPermission(BoardPermission.VIEW)
+  getGroupList(
+    @Param('boardId', ParseIntPipe) boardId: number,
+  ) {
+    return this.boardsService.getGroupList(boardId);
+  }
+
   @Get(':boardId')
   @RequireBoardPermission(BoardPermission.VIEW)
   async findOne(
     @Param('boardId', ParseIntPipe)
     boardId: number,
+
+    @CurrentUser()
+    user: SessionUser,
 
     @Query('search')
     search?: string,
@@ -91,7 +102,7 @@ export class BoardsController {
     @Query('person')
     person?: string,
   ) {
-    return this.boardsService.findOne(boardId);
+    return this.boardsService.findOne(boardId, user.id);
   }
 
   @Get(':boardId/members')
@@ -148,6 +159,22 @@ export class BoardsController {
       boardId,
       columnId,
       dto,
+      user.id,
+    );
+  }
+
+  @Delete(':boardId/columns/:columnId/permissions/:targetUserId')
+  @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
+  async removeColumnPermission(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+    @Param('targetUserId', ParseIntPipe) targetUserId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.columnAccessService.removeColumnPermission(
+      boardId,
+      columnId,
+      targetUserId,
       user.id,
     );
   }

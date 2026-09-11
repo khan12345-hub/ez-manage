@@ -172,7 +172,7 @@ export default function BoardPage() {
 
   return (
     <>
-      <div className="relative bg-background p-6">
+      <div className="relative bg-background p-3 sm:p-6">
         {/**
          * Keep the previous board visible while the new board
          * is being fetched.

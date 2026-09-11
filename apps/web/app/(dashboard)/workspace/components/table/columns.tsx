@@ -1,8 +1,6 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { AssetVisibility } from "@repo/shared";
 
 export interface Board {
@@ -19,51 +17,34 @@ export const columns: ColumnDef<Board>[] = [
   {
     accessorKey: "name",
     header: "Board",
-    size: 280,
     cell: ({ row }) => (
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-sm">
           📋
         </div>
-
-        <div>
-          <p className="font-medium">{row.original.name}</p>
-          <p className="text-xs text-muted-foreground">
-            {row.original.visibility}
+        <div className="min-w-0">
+          <p className="truncate font-medium text-foreground">{row.original.name}</p>
+          <p className="text-xs text-muted-foreground capitalize">
+            {row.original.visibility.toLowerCase()}
           </p>
         </div>
       </div>
     ),
   },
-
   {
     accessorKey: "owner",
     header: "Owner",
   },
-
   {
     accessorKey: "members",
     header: "Members",
   },
-
   {
     accessorKey: "tasks",
     header: "Tasks",
   },
-
   {
     accessorKey: "updatedAt",
     header: "Updated",
   },
-
-  // {
-  //   id: "actions",
-  //   header: "",
-  //   size: 60,
-  //   cell: () => (
-  //     <Button variant="ghost" size="icon">
-  //       <MoreHorizontal className="h-4 w-4" />
-  //     </Button>
-  //   ),
-  // },
 ];

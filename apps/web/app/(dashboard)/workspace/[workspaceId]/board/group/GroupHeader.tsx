@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Input } from "@/components/ui/input";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -14,6 +14,8 @@ import {
   createGroup,
   updateGroup as updateGroupApi,
 } from "@/services/groups.api";
+
+import { GroupActions } from "./GroupActions";
 
 interface Props {
   group: any;
@@ -36,6 +38,7 @@ export function GroupHeader({ group, focusToken = 0 }: Props) {
   const removeGroup = useGroupStore((state) => state.removeGroup);
 
   const { boardId } = useInviteModalStore();
+  const queryClient = useQueryClient();
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -71,18 +74,12 @@ export function GroupHeader({ group, focusToken = 0 }: Props) {
       };
     }) => createGroup(boardId, data),
 
-    onSuccess: (newGroup) => {
-      /*
-       * IMPORTANT:
-       * Replace temporary group ID with real backend ID.
-       */
-      updateGroup(activeGroup.id, {
-        id: newGroup.id,
-        name: newGroup.name,
-        color: newGroup.color,
-        isNew: false,
-        isEditing: false,
-      });
+    onSuccess: () => {
+      removeGroup(activeGroup.id);
+
+      if (boardId) {
+        queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      }
     },
   });
 
@@ -232,6 +229,10 @@ export function GroupHeader({ group, focusToken = 0 }: Props) {
           }}
         />
       </div>
+
+      {!activeGroup.isNew && (
+        <GroupActions group={activeGroup} />
+      )}
     </div>
   );
 }

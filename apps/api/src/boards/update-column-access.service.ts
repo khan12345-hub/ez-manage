@@ -18,17 +18,17 @@ async updateColumnAccess(
   dto: UpdateColumnAccessDto,
   userId: number,
 ) {
-  const owner = await this.prisma.boardMember.findFirst({
+  const member = await this.prisma.boardMember.findFirst({
     where: {
       boardId,
       userId,
-      role: BoardMemberRole.OWNER,
+      role: { in: [BoardMemberRole.OWNER, BoardMemberRole.ADMIN] },
     },
   });
 
-  if (!owner) {
+  if (!member) {
     throw new ForbiddenException(
-      "Only the board owner can manage column permissions.",
+      "Only board owners and admins can manage column permissions.",
     );
   }
 
@@ -45,33 +45,20 @@ async updateColumnAccess(
 
   return this.prisma.$transaction(async (tx) => {
     const updatedColumn = await tx.boardColumn.update({
-      where: {
-        id: columnId,
-      },
-      data: {
-        accessControlEnabled: dto.enabled,
-      },
+      where: { id: columnId },
+      data: { accessControlEnabled: dto.enabled },
     });
 
-    // When protection is enabled, automatically give
-    // the person enabling it access to the column.
     if (dto.enabled) {
+      // Protection enabled: auto-whitelist the person who enabled it
       await tx.boardColumnPermission.upsert({
-        where: {
-          columnId_userId: {
-            columnId,
-            userId,
-          },
-        },
-        create: {
-          columnId,
-          userId,
-          canEdit: true,
-        },
-        update: {
-          canEdit: true,
-        },
+        where: { columnId_userId: { columnId, userId } },
+        create: { columnId, userId, canEdit: true },
+        update: { canEdit: true },
       });
+    } else {
+      // Protection disabled: clear all permission records → everyone can edit (default)
+      await tx.boardColumnPermission.deleteMany({ where: { columnId } });
     }
 
     return updatedColumn;
@@ -87,13 +74,13 @@ async updateColumnAccess(
       where: {
         boardId,
         userId,
-        role: BoardMemberRole.OWNER,
+        role: { in: [BoardMemberRole.OWNER, BoardMemberRole.ADMIN] },
       },
     });
 
     if (!owner) {
       throw new ForbiddenException(
-        'Only the board owner can manage column permissions.',
+        'Only board owners and admins can manage column permissions.',
       );
     }
 
@@ -146,13 +133,13 @@ async updateColumnAccess(
       where: {
         boardId,
         userId,
-        role: BoardMemberRole.OWNER,
+        role: { in: [BoardMemberRole.OWNER, BoardMemberRole.ADMIN] },
       },
     });
 
     if (!owner) {
       throw new ForbiddenException(
-        'Only the board owner can manage column permissions.',
+        'Only board owners and admins can manage column permissions.',
       );
     }
 

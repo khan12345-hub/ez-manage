@@ -66,12 +66,17 @@ export function EditableCell<T>({
 
   const inputRef = useRef<any>(null);
 
-  const { boardId } = useInviteModalStore();
+  const { boardId, boardRole } = useInviteModalStore();
   const { user } = useAuth();
+
+  const isAdminOrOwner =
+    boardRole === "OWNER" || boardRole === "ADMIN";
+
   const canEdit =
     !column.accessControlEnabled ||
+    isAdminOrOwner ||
     column.permissions?.some(
-      (permission: any) => permission.userId === user.id,
+      (permission: any) => permission.userId === user?.id && permission.canEdit,
     );
 
   useEffect(() => {
@@ -149,6 +154,7 @@ export function EditableCell<T>({
             boardId={boardId}
             isPrimary={column?.isPrimary}
             isDragging={isDragging}
+            disabled={true}
           />
           {/* <Lock strokeWidth={0.75} className="h-7 w-7 text-muted-foreground" /> */}
         </div>

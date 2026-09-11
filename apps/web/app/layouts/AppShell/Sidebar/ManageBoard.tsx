@@ -30,12 +30,14 @@ interface ManageBoardDropdownProps {
   boardId: number;
   boardName: string;
   workspaceId: number;
+  onBeforeOpen?: () => void;
 }
 
 export function ManageBoardDropdown({
   boardId,
   boardName,
   workspaceId,
+  onBeforeOpen,
 }: ManageBoardDropdownProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(boardName);
@@ -140,6 +142,7 @@ export function ManageBoardDropdown({
   };
 
   const handleDeleteClick = () => {
+    onBeforeOpen?.();
     setIsDeleteDialogOpen(true);
   };
 

@@ -85,16 +85,16 @@ try {
       sendEmail: true,
     });
 
-  /**
-   * Send real-time notification
-   * to connected SSE clients.
-   */
-  this.notificationStreamService.emit(
-    event.recipientId,
-    notification,
-  );
-
   if (notification) {
+    /**
+     * Send real-time notification
+     * to connected SSE clients.
+     */
+    this.notificationStreamService.emit(
+      event.recipientId,
+      notification,
+    );
+
     console.log(
       '[Notification Listener] Task assignment notification sent',
       {
@@ -189,17 +189,16 @@ try {
       sendEmail: true,
     });
 
-  /**
-   * Send real-time notification
-   * through SSE.
-   */
-  this.notificationStreamService.emit(
-    event.recipientId,
-
-    notification,
-  );
-
   if (notification) {
+    /**
+     * Send real-time notification
+     * through SSE.
+     */
+    this.notificationStreamService.emit(
+      event.recipientId,
+      notification,
+    );
+
     console.log(
       '[Notification Listener] Comment mention notification sent',
       {

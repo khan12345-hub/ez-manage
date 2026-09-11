@@ -74,6 +74,9 @@ export class NotificationsService {
 
     /**
      * Check duplicate event.
+     *
+     * If the existing notification is unread, return it (no need for a new one).
+     * If it has already been read, clear its eventKey so we can create a fresh notification.
      */
     if (eventKey) {
       console.log('[NotificationsService] Checking eventKey:', eventKey);
@@ -87,12 +90,23 @@ export class NotificationsService {
       console.log('[NotificationsService] Existing notification:', existing);
 
       if (existing) {
+        if (!existing.isRead) {
+          console.log(
+            '[NotificationsService] Unread duplicate found. Returning existing.',
+            existing.id,
+          );
+          return existing;
+        }
+
+        // Already read — clear the old eventKey so we can create a new notification
         console.log(
-          '[NotificationsService] Duplicate notification found. Returning existing.',
+          '[NotificationsService] Read duplicate found. Clearing eventKey to allow re-notification.',
           existing.id,
         );
-
-        return existing;
+        await this.prisma.notification.update({
+          where: { id: existing.id },
+          data: { eventKey: null },
+        });
       }
     }
 
@@ -128,34 +142,44 @@ export class NotificationsService {
 
     /**
      * Queue email.
+     *
+     * Wrapped in try-catch: a queue failure (e.g. incompatible Redis version)
+     * must not block the in-app notification that was already created above.
      */
     if (effectiveSendEmail) {
-      console.log('[NotificationsService] Queueing email:', notification.id);
+      try {
+        console.log('[NotificationsService] Queueing email:', notification.id);
 
-      await this.notificationsQueue.add(
-        'send-email',
-        {
-          notificationId: notification.id,
-        },
-        {
-          jobId: eventKey
-            ? `notification-email-${eventKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`
-            : `notification-email-${notification.id}`,
-
-          attempts: 3,
-
-          backoff: {
-            type: 'exponential',
-            delay: 5000,
+        await this.notificationsQueue.add(
+          'send-email',
+          {
+            notificationId: notification.id,
           },
+          {
+            jobId: eventKey
+              ? `notification-email-${eventKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`
+              : `notification-email-${notification.id}`,
 
-          removeOnComplete: true,
+            attempts: 3,
 
-          removeOnFail: false,
-        },
-      );
+            backoff: {
+              type: 'exponential',
+              delay: 5000,
+            },
 
-      console.log('[NotificationsService] Email queued:', notification.id);
+            removeOnComplete: true,
+
+            removeOnFail: false,
+          },
+        );
+
+        console.log('[NotificationsService] Email queued:', notification.id);
+      } catch (err) {
+        console.error(
+          '[NotificationsService] Failed to queue email (in-app notification still delivered):',
+          err instanceof Error ? err.message : err,
+        );
+      }
     }
 
     return notification;
@@ -266,6 +290,17 @@ export class NotificationsService {
         readAt: new Date(),
       },
     });
+  }
+
+  /**
+   * Delete all notifications for a user.
+   */
+  async removeAll(recipientId: number) {
+    await this.prisma.notification.deleteMany({
+      where: { recipientId },
+    });
+
+    return { success: true };
   }
 
   /**

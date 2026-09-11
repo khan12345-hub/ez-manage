@@ -388,14 +388,13 @@ export class BoardsService {
     }));
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, userId?: number) {
     const board = await this.prisma.board.findUnique({
       where: { id },
       select: {
         id: true,
         name: true,
         workspaceId: true,
-        // description: true,
         visibility: true,
         createdAt: true,
         updatedAt: true,
@@ -412,6 +411,7 @@ export class BoardsService {
             type: true,
             order: true,
             isPrimary: true,
+            accessControlEnabled: true,
 
             statusOptions: {
               where: {
@@ -443,6 +443,7 @@ export class BoardsService {
             id: true,
             role: true,
             userId: true,
+            accessAllGroups: true,
             user: {
               select: {
                 id: true,
@@ -472,8 +473,23 @@ export class BoardsService {
       throw new NotFoundException(`Board with ID ${id} not found.`);
     }
 
+    let groups = board.groups;
+
+    if (userId) {
+      const boardMember = board.members.find((m) => m.userId === userId);
+      if (boardMember && !(boardMember as any).accessAllGroups) {
+        const allowedAccess = await this.prisma.boardMemberGroupAccess.findMany({
+          where: { boardMemberId: boardMember.id },
+          select: { groupId: true },
+        });
+        const allowedGroupIds = new Set(allowedAccess.map((a) => a.groupId));
+        groups = groups.filter((g) => allowedGroupIds.has(g.id));
+      }
+    }
+
     return {
       ...board,
+      groups,
       views: [
         {
           id: 'main',
@@ -491,6 +507,14 @@ export class BoardsService {
           : []),
       ],
     };
+  }
+
+  async getGroupList(boardId: number) {
+    return this.prisma.group.findMany({
+      where: { boardId },
+      orderBy: { order: 'asc' },
+      select: { id: true, name: true, color: true },
+    });
   }
 
   async update(id: number, updateBoardDto: UpdateBoardDto, userId: number) {

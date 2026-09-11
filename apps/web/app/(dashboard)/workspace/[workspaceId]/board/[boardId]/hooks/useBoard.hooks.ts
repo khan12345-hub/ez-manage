@@ -25,11 +25,14 @@ export function useBoard({ board }: UseBoardProps) {
    * Board.tsx attaches the currently loaded/paginated tasks
    * to these groups before calling useBoard().
    *
-   * Fall back to the Zustand groups for draft/new-group states.
+   * Always append draft groups (isNew) from Zustand so that
+   * "Add new group" works even when the board has existing groups.
    */
+  const draftGroups = storeGroups.filter((g: any) => g.isNew);
+
   const groups =
     board?.groups?.length > 0
-      ? board.groups
+      ? [...board.groups, ...draftGroups]
       : storeGroups;
 
   const filters = useBoardFilters({

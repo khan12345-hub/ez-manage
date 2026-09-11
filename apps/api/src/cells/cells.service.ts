@@ -346,7 +346,16 @@ export class CellsService {
     }
 
     if (cell.column.accessControlEnabled) {
-      const hasPermission = cell.column.permissions.length > 0;
+      const boardMember = await this.prisma.boardMember.findFirst({
+        where: { boardId, userId },
+        select: { role: true },
+      });
+
+      const isAdminOrOwner =
+        boardMember?.role === 'OWNER' || boardMember?.role === 'ADMIN';
+
+      const hasPermission =
+        isAdminOrOwner || cell.column.permissions.length > 0;
 
       if (!hasPermission) {
         throw new ForbiddenException(
