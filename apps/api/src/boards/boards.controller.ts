@@ -65,7 +65,7 @@ export class BoardsController {
   }
 
   @Get(':boardId/export')
-  @RequireBoardPermission(BoardPermission.VIEW)
+  @RequireBoardPermission(BoardPermission.EXPORT_BOARD)
   async exportBoard(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Res({ passthrough: true }) res: Response,

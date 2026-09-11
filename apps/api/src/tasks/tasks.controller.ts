@@ -31,6 +31,8 @@ import { TaskCreateService } from './task-create.service';
 import { BulkDeleteTasksDto } from './dto/bulk-delete-tasks.dto';
 import { TaskBulkActionsService } from './tasks-bulk-actions.service';
 import { BulkUpdateDto } from './dto/bulk-update-task.dto';
+import { BulkMoveTasksDto } from './dto/bulk-move-tasks.dto';
+import { BulkDuplicateTasksDto } from './dto/bulk-duplicate-tasks.dto';
 
 @Controller('boards/:boardId/tasks')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -111,5 +113,25 @@ export class TasksController {
   ) {
     console.log("reached");
     return this.taskbulkActions.bulkUpdate(boardId, dto, user.id);
+  }
+
+  @Post('bulk/move')
+  @RequireBoardPermission(BoardPermission.EDIT)
+  bulkMove(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Body() dto: BulkMoveTasksDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.taskbulkActions.bulkMove(boardId, dto, user.id);
+  }
+
+  @Post('bulk/duplicate')
+  @RequireBoardPermission(BoardPermission.EDIT)
+  bulkDuplicate(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Body() dto: BulkDuplicateTasksDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.taskbulkActions.bulkDuplicate(boardId, dto, user.id);
   }
 }

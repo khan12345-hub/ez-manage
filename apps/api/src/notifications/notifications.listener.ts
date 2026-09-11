@@ -94,16 +94,15 @@ try {
     notification,
   );
 
-  console.log(
-    '[Notification Listener] Task assignment notification sent',
-    {
-      recipientId:
-        event.recipientId,
-
-      notificationId:
-        notification.id,
-    },
-  );
+  if (notification) {
+    console.log(
+      '[Notification Listener] Task assignment notification sent',
+      {
+        recipientId: event.recipientId,
+        notificationId: notification.id,
+      },
+    );
+  }
 } catch (error) {
   console.error(
     '[Notification Listener] Failed to process task assignment:',
@@ -200,16 +199,15 @@ try {
     notification,
   );
 
-  console.log(
-    '[Notification Listener] Comment mention notification sent',
-    {
-      recipientId:
-        event.recipientId,
-
-      notificationId:
-        notification.id,
-    },
-  );
+  if (notification) {
+    console.log(
+      '[Notification Listener] Comment mention notification sent',
+      {
+        recipientId: event.recipientId,
+        notificationId: notification.id,
+      },
+    );
+  }
 } catch (error) {
   console.error(
     '[Notification Listener] Failed to process comment mention:',

@@ -17,6 +17,7 @@ import { BoardTasksResponse, getBoardTasks } from "@/services/boards.api";
 
 import { useGroupStore } from "@/store/create-group-store";
 import { useTaskSelection } from "../group/tasks/sub-tasks/useTaskSelection";
+import { useParams } from "next/navigation";
 
 import { BoardContent } from "./BoardContent";
 import { BoardHeader } from "./BoardHeader/BoardHeader";
@@ -37,6 +38,8 @@ export function Board({
   isError,
 }: any) {
   const queryClient = useQueryClient();
+  const params = useParams();
+  const workspaceId = Number(params.workspaceId);
 
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
 
@@ -205,7 +208,7 @@ export function Board({
    * BULK ACTIONS
    * ---------------------------------------------------------
    */
-  const { bulkDelete, bulkUpdate, isDeleting, isUpdating } = useTaskBulkActions(
+  const { bulkDelete, bulkUpdate, bulkMove, bulkDuplicate, isDeleting, isUpdating, isMoving, isDuplicating } = useTaskBulkActions(
     board.id,
     () => {
       selection.setSelectedTaskIds(new Set());
@@ -276,6 +279,24 @@ export function Board({
 
   /**
    * ---------------------------------------------------------
+   * BULK MOVE
+   * ---------------------------------------------------------
+   */
+  const handleBulkMove = (targetGroupId: number) => {
+    bulkMove({ taskIds: [...selection.selectedTaskIds], targetGroupId });
+  };
+
+  /**
+   * ---------------------------------------------------------
+   * BULK DUPLICATE
+   * ---------------------------------------------------------
+   */
+  const handleBulkDuplicate = (withUpdates: boolean) => {
+    bulkDuplicate({ taskIds: [...selection.selectedTaskIds], withUpdates });
+  };
+
+  /**
+   * ---------------------------------------------------------
    * RENDER
    * ---------------------------------------------------------
    */
@@ -334,11 +355,18 @@ export function Board({
       <BulkActionToolbar
         selectedCount={selection.selectedCount}
         columns={board.columns}
+        groups={sortedGroups.map((g: any) => ({ id: g.id, name: g.name }))}
+        workspaceId={workspaceId}
+        currentBoardId={board.id}
         onDelete={handleBulkDelete}
         onUpdate={handleBulkUpdate}
+        onMove={handleBulkMove}
+        onDuplicate={handleBulkDuplicate}
         onClear={() => selection.setSelectedTaskIds(new Set())}
         isDeleting={isDeleting}
         isUpdating={isUpdating}
+        isMoving={isMoving}
+        isDuplicating={isDuplicating}
       />
     </>
   );

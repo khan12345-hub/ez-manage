@@ -44,7 +44,10 @@ async function getNotificationUrl(
 
     if (entityType === "BOARD" && entityId) {
       const board = await getBoardDetail(entityId);
-      return `/workspace/${board.workspaceId}/board/${entityId}`;
+      const baseUrl = `/workspace/${board.workspaceId}/board/${entityId}`;
+      // Form submission notifications store taskId in metadata
+      const taskId = meta.taskId ? Number(meta.taskId) : null;
+      return taskId ? `${baseUrl}?taskId=${taskId}` : baseUrl;
     }
 
     if (
@@ -53,7 +56,17 @@ async function getNotificationUrl(
     ) {
       const boardId = Number(meta.boardId);
       const board = await getBoardDetail(boardId);
-      return `/workspace/${board.workspaceId}/board/${boardId}`;
+      const baseUrl = `/workspace/${board.workspaceId}/board/${boardId}`;
+
+      // Attach taskId so the board page can open the drawer automatically
+      const taskId =
+        entityType === "TASK" && entityId
+          ? entityId
+          : meta.taskId
+          ? Number(meta.taskId)
+          : null;
+
+      return taskId ? `${baseUrl}?taskId=${taskId}` : baseUrl;
     }
   } catch {
     return null;

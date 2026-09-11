@@ -11,6 +11,8 @@ import {
 } from 'generated/prisma/client';
 import { BulkDeleteTasksDto } from './dto/bulk-delete-tasks.dto';
 import { BulkUpdateDto } from './dto/bulk-update-task.dto';
+import { BulkMoveTasksDto } from './dto/bulk-move-tasks.dto';
+import { BulkDuplicateTasksDto } from './dto/bulk-duplicate-tasks.dto';
 import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
 import { AutomationEngineService } from 'src/automations/automation-engine.service';
 
@@ -291,5 +293,117 @@ export class TaskBulkActionsService {
       success: true,
       updated: updatedCount,
     };
+  }
+
+  async bulkMove(boardId: number, dto: BulkMoveTasksDto, userId: number) {
+    const targetGroup = await this.prisma.group.findFirst({
+      where: { id: dto.targetGroupId },
+      select: { id: true, boardId: true },
+    });
+
+    if (!targetGroup) {
+      throw new NotFoundException('Target group not found');
+    }
+
+    const tasks = await this.prisma.task.findMany({
+      where: {
+        id: { in: dto.taskIds },
+        group: { boardId },
+      },
+      select: { id: true, name: true, groupId: true },
+    });
+
+    if (!tasks.length) {
+      throw new NotFoundException('Tasks not found');
+    }
+
+    await this.prisma.task.updateMany({
+      where: { id: { in: tasks.map((t) => t.id) } },
+      data: { groupId: dto.targetGroupId },
+    });
+
+    return { success: true, moved: tasks.length };
+  }
+
+  async bulkDuplicate(boardId: number, dto: BulkDuplicateTasksDto, userId: number) {
+    const baseWhere = {
+      id: { in: dto.taskIds },
+      group: { boardId },
+    };
+
+    const tasks = dto.withUpdates
+      ? await this.prisma.task.findMany({
+          where: baseWhere,
+          select: {
+            id: true,
+            name: true,
+            groupId: true,
+            parentId: true,
+            order: true,
+            cells: { select: { columnId: true, value: true } },
+          },
+        })
+      : await this.prisma.task.findMany({
+          where: baseWhere,
+          select: {
+            id: true,
+            name: true,
+            groupId: true,
+            parentId: true,
+            order: true,
+          },
+        });
+
+    if (!tasks.length) {
+      throw new NotFoundException('Tasks not found');
+    }
+
+    // Find max order per group so duplicates go to the bottom
+    const groupIds = [...new Set(tasks.map((t) => t.groupId))];
+    const maxOrders = await Promise.all(
+      groupIds.map(async (gid) => {
+        const agg = await this.prisma.task.aggregate({
+          where: { groupId: gid },
+          _max: { order: true },
+        });
+        return { groupId: gid, maxOrder: agg._max.order ?? 0 };
+      }),
+    );
+    const maxOrderMap = Object.fromEntries(
+      maxOrders.map((m) => [m.groupId, m.maxOrder]),
+    );
+
+    const created: number[] = [];
+
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      maxOrderMap[task.groupId] += 1000;
+
+      const newTask = await this.prisma.task.create({
+        data: {
+          name: `${task.name} (copy)`,
+          groupId: task.groupId,
+          parentId: task.parentId ?? null,
+          createdById: userId,
+          order: maxOrderMap[task.groupId],
+          ...(dto.withUpdates && (task as any).cells?.length
+            ? {
+                cells: {
+                  createMany: {
+                    data: (task as any).cells.map((cell: any) => ({
+                      columnId: cell.columnId,
+                      value: cell.value,
+                    })),
+                  },
+                },
+              }
+            : {}),
+        },
+        select: { id: true },
+      });
+      created.push(newTask.id);
+    }
+
+    return { success: true, duplicated: created.length };
   }
 }

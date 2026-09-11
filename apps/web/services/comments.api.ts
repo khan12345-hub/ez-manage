@@ -160,3 +160,21 @@ export const deleteCommentFile = async (commentId: number, fileId: number) => {
 
   return response.data;
 };
+
+export interface CommentReaction {
+  id: number;
+  emoji: string;
+  userId: number;
+}
+
+export async function toggleCommentReaction(
+  taskId: number,
+  commentId: number,
+  emoji: string,
+): Promise<CommentReaction[]> {
+  const { data } = await api.post(
+    `/tasks/${taskId}/comments/${commentId}/reactions`,
+    { emoji },
+  );
+  return data;
+}

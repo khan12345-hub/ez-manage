@@ -43,8 +43,6 @@ export const WORKSPACE_ROLE_PERMISSIONS: Record<
 
     BoardPermission.CREATE_GROUP,
     BoardPermission.UPDATE_GROUP,
-
-    BoardPermission.EXPORT_BOARD,
   ],
 
   // Read-only across all boards in the workspace

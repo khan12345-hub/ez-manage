@@ -101,8 +101,8 @@ export class CommentsService {
 
       select: {
         id: true,
-
         name: true,
+        createdById: true,
 
         group: {
           select: {
@@ -115,6 +115,15 @@ export class CommentsService {
     if (!task) {
       throw new NotFoundException('Task not found');
     }
+
+    // Fetch PERSON cells separately to avoid nested relation filter issues
+    const personCells = await this.prisma.taskCell.findMany({
+      where: {
+        taskId,
+        column: { type: 'PERSON' },
+      },
+      select: { value: true },
+    });
 
     /**
 
@@ -216,8 +225,62 @@ export class CommentsService {
     }
 
     /**
+     * 6. Notify task creator + assigned persons about the new comment.
+     *
+     * Skip:
+     *  - the commenter themselves
+     *  - users already notified via @mention (avoid duplicate)
+     */
+    if (mentionedBy) {
+      const actorName = `${mentionedBy.firstName} ${mentionedBy.lastName}`;
 
-* 6. Upload and save files.
+      // Collect assigned user IDs from PERSON cells
+      const assignedUserIds = new Set<number>();
+      for (const cell of personCells) {
+        const val = cell.value as any;
+        if (val && Array.isArray(val.users)) {
+          for (const u of val.users) {
+            const id = typeof u?.id === 'number' ? u.id : Number(u?.id);
+            if (id > 0) assignedUserIds.add(id);
+          }
+        }
+      }
+
+      // Unique recipients: creator + assigned (deduped)
+      const candidateIds = new Set<number>([
+        ...(task.createdById ? [task.createdById] : []),
+        ...assignedUserIds,
+      ]);
+
+      // Remove commenter and already-mentioned users
+      const alreadyNotified = new Set(mentionedUserIds);
+      alreadyNotified.add(userId);
+
+      for (const recipientId of candidateIds) {
+        if (alreadyNotified.has(recipientId)) continue;
+
+        await this.notificationService.notify({
+          recipientId,
+          type: 'COMMENT_CREATED',
+          title: 'New comment on a task',
+          message: `${actorName} commented on "${task.name}"`,
+          entityType: 'TASK',
+          entityId: task.id,
+          metadata: {
+            taskId: task.id,
+            boardId: task.group.boardId,
+            commentId: comment.id,
+            commentedById: userId,
+          },
+          eventKey: `comment-created:${comment.id}:${recipientId}`,
+          sendEmail: false,
+        });
+      }
+    }
+
+    /**
+
+* 7. Upload and save files.
   */
     if (files.length > 0) {
       await Promise.all(
@@ -458,6 +521,25 @@ export class CommentsService {
     });
   }
 
+  async toggleReaction(commentId: number, userId: number, emoji: string) {
+    const existing = await this.prisma.commentReaction.findUnique({
+      where: { commentId_userId_emoji: { commentId, userId, emoji } },
+    });
+
+    if (existing) {
+      await this.prisma.commentReaction.delete({ where: { id: existing.id } });
+    } else {
+      await this.prisma.commentReaction.create({
+        data: { commentId, userId, emoji },
+      });
+    }
+
+    return this.prisma.commentReaction.findMany({
+      where: { commentId },
+      select: { id: true, emoji: true, userId: true },
+    });
+  }
+
   async findAll(boardId: number) {
     return this.prisma.taskComment.findMany({
       where: {
@@ -541,6 +623,10 @@ export class CommentsService {
             },
           },
 
+          reactions: {
+            select: { id: true, emoji: true, userId: true },
+          },
+
           replies: {
             orderBy: {
               createdAt: 'asc',
@@ -562,6 +648,10 @@ export class CommentsService {
                   file: true,
                 },
               },
+
+              reactions: {
+                select: { id: true, emoji: true, userId: true },
+              },
             },
           },
         },
@@ -582,6 +672,7 @@ export class CommentsService {
       replies: comment.replies.map((reply) => ({
         ...reply,
         files: reply.files.map((commentFile) => commentFile.file),
+        reactions: reply.reactions,
       })),
     }));
 

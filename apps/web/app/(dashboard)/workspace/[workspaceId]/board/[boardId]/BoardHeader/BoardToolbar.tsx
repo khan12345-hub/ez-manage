@@ -27,6 +27,7 @@ import { PersonValue } from "../../Cells/Person/PersonPicker";
 import { SearchInput } from "./Search/SearchInput";
 import { AddNewItem } from "./BoardToolbar/AddNewItem";
 import { exportBoard } from "@/services/boards.api";
+import { useInviteModalStore } from "@/store/invite-modal";
 
 import {
   GROUP_SORT_OPTIONS,
@@ -70,6 +71,8 @@ export function BoardToolbar({
   onGroupSortChange,
 }: Props) {
   const [exporting, setExporting] = useState(false);
+  const { workspaceRole } = useInviteModalStore();
+  const canExport = workspaceRole === "OWNER" || workspaceRole === "ADMIN";
 
   const handleExport = async () => {
     if (!boardId) return;
@@ -160,7 +163,7 @@ export function BoardToolbar({
           Hide
         </Button>
 
-        {boardId && (
+        {boardId && canExport && (
           <Button
             variant="ghost"
             onClick={handleExport}

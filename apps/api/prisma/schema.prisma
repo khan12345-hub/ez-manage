@@ -54,6 +54,8 @@ model User {
 
   boardColumnPermissions BoardColumnPermission[]
 
+  commentReactions     CommentReaction[]
+
   @@map("users")
 }
 
@@ -405,6 +407,9 @@ model TaskComment {
   // Attached files
   files TaskCommentFile[]
 
+  // Emoji reactions
+  reactions CommentReaction[]
+
   @@index([taskId])
   @@index([taskId, createdAt])
   @@index([parentId])
@@ -464,8 +469,24 @@ createdAt DateTime @default(now())
   @@index([commentId])
   @@index([userId])
   @@map("task_comment_mentions")
-
 }
+
+model CommentReaction {
+  id        Int    @id @default(autoincrement())
+  commentId Int
+  userId    Int
+  emoji     String @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+
+  comment TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, emoji])
+  @@index([commentId])
+  @@map("comment_reactions")
+}
+
 enum ActivityEntityType {
   BOARD
   GROUP
@@ -547,6 +568,7 @@ enum InvitationStatus {
 }
 enum NotificationType {
   TASK_ASSIGNED
+  COMMENT_CREATED
   COMMENT_MENTION
   COMMENT_REPLY
 

@@ -22,6 +22,7 @@ import type { Express } from 'express';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SessionUser } from 'src/auth/types/session-user.type';
 import { UpdateCommentDto } from './dto/update-comment.dto';
+import { CreateReactionDto } from './dto/create-reaction.dto';
 
 @Controller('tasks')
 export class CommentsController {
@@ -72,6 +73,16 @@ export class CommentsController {
       dto,
       files ?? [],
     );
+  }
+
+  @Post(':taskId/comments/:commentId/reactions')
+  async toggleReaction(
+    @Param('taskId', ParseIntPipe) taskId: number,
+    @Param('commentId', ParseIntPipe) commentId: number,
+    @Body() dto: CreateReactionDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.commentsService.toggleReaction(commentId, user.id, dto.emoji);
   }
 
   @Delete('/comments/:commentId/files/:fileId')

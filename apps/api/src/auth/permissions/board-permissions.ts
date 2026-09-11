@@ -86,8 +86,6 @@ export const WORKSPACE_ROLE_PERMISSIONS: Record<
 
     BoardPermission.CREATE_GROUP,
     BoardPermission.UPDATE_GROUP,
-
-    BoardPermission.EXPORT_BOARD,
   ],
 
   [WorkspaceMemberRole.VIEWER]: [

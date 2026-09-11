@@ -211,7 +211,11 @@ export function SecondarySidebar({ isOpen, onToggle }: SecondarySidebarProps) {
 
           <div className="flex items-center gap-1.5">
             {workspace?.id && (
-              <ManageWorkspaceDropDown workspaceId={workspace.id} />
+              <ManageWorkspaceDropDown
+                workspaceId={workspace.id}
+                workspaceName={workspace.name}
+                workspaceVisibility={(workspace as any).visibility ?? "PRIVATE"}
+              />
             )}
 
             {/* <button

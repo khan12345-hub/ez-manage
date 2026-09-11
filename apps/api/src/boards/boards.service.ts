@@ -394,6 +394,7 @@ export class BoardsService {
       select: {
         id: true,
         name: true,
+        workspaceId: true,
         // description: true,
         visibility: true,
         createdAt: true,

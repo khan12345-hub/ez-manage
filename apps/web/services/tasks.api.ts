@@ -193,6 +193,31 @@ export async function bulkUpdateTasks(
 
   return data;
 }
+
+export async function bulkMoveTasks(
+  boardId: number,
+  taskIds: number[],
+  targetGroupId: number,
+) {
+  const { data } = await api.post(`/boards/${boardId}/tasks/bulk/move`, {
+    taskIds,
+    targetGroupId,
+  });
+  return data;
+}
+
+export async function bulkDuplicateTasks(
+  boardId: number,
+  taskIds: number[],
+  withUpdates: boolean,
+) {
+  const { data } = await api.post(`/boards/${boardId}/tasks/bulk/duplicate`, {
+    taskIds,
+    withUpdates,
+  });
+  return data;
+}
+
 export async function getGroupTasks(
   boardId: number,
   groupId: number,

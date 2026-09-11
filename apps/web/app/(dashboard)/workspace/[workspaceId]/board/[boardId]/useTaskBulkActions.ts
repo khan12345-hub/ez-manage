@@ -1,4 +1,4 @@
-import { bulkDeleteTasks, bulkUpdateTasks } from "@/services/tasks.api";
+import { bulkDeleteTasks, bulkUpdateTasks, bulkMoveTasks, bulkDuplicateTasks } from "@/services/tasks.api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import axios from "axios";
@@ -19,11 +19,10 @@ export function useTaskBulkActions(
     mutationFn: (taskIds: number[]) =>
       bulkDeleteTasks(boardId, taskIds),
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
-
+    onSuccess: (_data, taskIds) => {
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
+      toast.success(`${taskIds.length} task${taskIds.length !== 1 ? "s" : ""} deleted.`);
       onSuccess?.();
     },
 
@@ -40,11 +39,10 @@ export function useTaskBulkActions(
     mutationFn: (payload: BulkUpdateTaskPayload) =>
       bulkUpdateTasks(boardId, payload),
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
-
+    onSuccess: (_data, payload) => {
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
+      toast.success(`${payload.taskIds.length} task${payload.taskIds.length !== 1 ? "s" : ""} updated.`);
       onSuccess?.();
     },
 
@@ -57,11 +55,51 @@ export function useTaskBulkActions(
     },
   });
 
+  const bulkMoveMutation = useMutation({
+    mutationFn: ({ taskIds, targetGroupId }: { taskIds: number[]; targetGroupId: number }) =>
+      bulkMoveTasks(boardId, taskIds, targetGroupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
+      toast.success("Tasks moved successfully.");
+      onSuccess?.();
+    },
+    onError: (error: unknown) => {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message ?? "Failed to move tasks.");
+      } else {
+        toast.error("Failed to move tasks. Please try again.");
+      }
+    },
+  });
+
+  const bulkDuplicateMutation = useMutation({
+    mutationFn: ({ taskIds, withUpdates }: { taskIds: number[]; withUpdates: boolean }) =>
+      bulkDuplicateTasks(boardId, taskIds, withUpdates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
+      toast.success("Tasks duplicated successfully.");
+      onSuccess?.();
+    },
+    onError: (error: unknown) => {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message ?? "Failed to duplicate tasks.");
+      } else {
+        toast.error("Failed to duplicate tasks. Please try again.");
+      }
+    },
+  });
+
   return {
     bulkDelete: bulkDeleteMutation.mutate,
     bulkUpdate: bulkUpdateMutation.mutate,
+    bulkMove: bulkMoveMutation.mutate,
+    bulkDuplicate: bulkDuplicateMutation.mutate,
 
     isDeleting: bulkDeleteMutation.isPending,
     isUpdating: bulkUpdateMutation.isPending,
+    isMoving: bulkMoveMutation.isPending,
+    isDuplicating: bulkDuplicateMutation.isPending,
   };
 }
