@@ -3,8 +3,8 @@
 import { File as FileIcon, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import Image from "next/image";
 import { uploadTaskCellFiles } from "@/services/tasks.api";
+import { createCell } from "@/services/cells.api";
 import { useInviteModalStore } from "@/store/invite-modal";
 import {
   Dialog,
@@ -17,7 +17,10 @@ import { Button } from "@/components/ui/button";
 interface FileUploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  cellId: number;
+  /** Existing cell id. When absent, taskId + columnId are used to create one. */
+  cellId?: number;
+  taskId?: number;
+  columnId?: number;
   onUploadSuccess: () => void;
 }
 
@@ -25,6 +28,8 @@ export function FileUploadModal({
   open,
   onOpenChange,
   cellId,
+  taskId,
+  columnId,
   onUploadSuccess,
 }: FileUploadModalProps) {
   const { boardId } = useInviteModalStore();
@@ -33,7 +38,19 @@ export function FileUploadModal({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const uploadMutation = useMutation({
-    mutationFn: (files: File[]) => uploadTaskCellFiles(boardId, cellId, files),
+    mutationFn: async (files: File[]) => {
+      let resolvedCellId = cellId;
+
+      if (resolvedCellId == null) {
+        if (taskId == null || columnId == null) {
+          throw new Error("Cannot determine cell — missing taskId or columnId.");
+        }
+        const cell = await createCell(boardId, taskId, columnId);
+        resolvedCellId = cell.id;
+      }
+
+      return uploadTaskCellFiles(boardId, resolvedCellId, files);
+    },
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });

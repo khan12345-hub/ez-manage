@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Check,
   ChevronDown,
@@ -232,8 +233,8 @@ export function WorkspaceSwitcher({
         )}
       </button>
 
-      {/* ── Panel — fixed so overflow-hidden ancestors don't clip it ── */}
-      {isOpen && panelPos && (
+      {/* ── Panel — portaled to body so transform ancestors don't trap it ── */}
+      {isOpen && panelPos && typeof document !== "undefined" && createPortal(
         <div
           ref={panelRef}
           style={{
@@ -318,7 +319,8 @@ export function WorkspaceSwitcher({
               Add workspace
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       <CreateWorkspaceModal

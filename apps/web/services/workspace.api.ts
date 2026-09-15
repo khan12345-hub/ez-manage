@@ -38,6 +38,9 @@ export type WorkspaceDetail = {
     _count?: {
       members?: number;
     };
+    groups?: Array<{
+      _count?: { tasks?: number };
+    }>;
   }>;
   _count?: {
     boards?: number;
@@ -74,4 +77,23 @@ export async function updateWorkspace(
 export async function deleteWorkspace(workspaceId: number) {
   const response = await api.delete(`/workspaces/${workspaceId}`);
   return response.data;
+}
+
+export async function updateWorkspaceMemberRole(
+  workspaceId: number,
+  memberId: number,
+  role: string,
+) {
+  const response = await api.patch(
+    `/workspaces/${workspaceId}/members/${memberId}`,
+    { role },
+  );
+  return response.data;
+}
+
+export async function removeWorkspaceMember(
+  workspaceId: number,
+  memberId: number,
+) {
+  await api.delete(`/workspaces/${workspaceId}/members/${memberId}`);
 }

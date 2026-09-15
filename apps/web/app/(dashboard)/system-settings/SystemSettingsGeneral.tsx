@@ -10,13 +10,15 @@ import { UsersTab } from "./general/UsersTab";
 import { WorkspacesTab } from "./general/WorkspacesTab";
 import { BoardsTab } from "./general/BoardsTab";
 import { MediaTab } from "./general/MediaTab";
+import { IntegrationsTab } from "./general/IntegrationsTab";
 
 export type ManagementTab =
   | "overview"
   | "users"
   | "workspaces"
   | "boards"
-  | "media";
+  | "media"
+  | "integrations";
 
 export function GeneralSettings() {
   const [activeTab, setActiveTab] =
@@ -43,7 +45,12 @@ export function GeneralSettings() {
         <GeneralTabs />
 
         <div className="mt-6">
-          
+          <TabsContent value="overview"><OverviewTab /></TabsContent>
+          <TabsContent value="users"><UsersTab /></TabsContent>
+          <TabsContent value="workspaces"><WorkspacesTab /></TabsContent>
+          <TabsContent value="boards"><BoardsTab /></TabsContent>
+          <TabsContent value="media"><MediaTab /></TabsContent>
+          <TabsContent value="integrations"><IntegrationsTab /></TabsContent>
         </div>
       </Tabs>
     </div>

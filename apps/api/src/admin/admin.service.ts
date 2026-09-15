@@ -111,6 +111,33 @@ export class AdminService {
   async deleteWorkspace(id: number) {
     const workspace = await this.prisma.workspace.findUnique({ where: { id } });
     if (!workspace) throw new NotFoundException('Workspace not found');
+
+    // Collect board IDs before deleting
+    const boards = await this.prisma.board.findMany({
+      where: { workspaceId: id },
+      select: { id: true },
+    });
+    const boardIds = boards.map((b) => b.id);
+
+    // InvitationBoard and BoardMember have no cascade from Board — delete first
+    if (boardIds.length > 0) {
+      await this.prisma.invitationBoard.deleteMany({
+        where: { boardId: { in: boardIds } },
+      });
+      await this.prisma.boardMember.deleteMany({
+        where: { boardId: { in: boardIds } },
+      });
+    }
+
+    // Invitations have no cascade from Workspace
+    await this.prisma.invitation.deleteMany({ where: { workspaceId: id } });
+
+    // Boards have no cascade from Workspace (but their children cascade)
+    await this.prisma.board.deleteMany({ where: { workspaceId: id } });
+
+    // WorkspaceMembers have no cascade from Workspace
+    await this.prisma.workspaceMember.deleteMany({ where: { workspaceId: id } });
+
     await this.prisma.workspace.delete({ where: { id } });
     return { message: 'Workspace deleted' };
   }
@@ -121,7 +148,7 @@ export class AdminService {
         id: true,
         name: true,
         createdAt: true,
-        workspace: { select: { name: true } },
+        workspace: { select: { id: true, name: true } },
         _count: { select: { groups: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -136,6 +163,7 @@ export class AdminService {
     return boards.map((b, i) => ({
       id: b.id,
       name: b.name,
+      workspaceId: b.workspace.id,
       workspaceName: b.workspace.name,
       groups: b._count.groups,
       tasks: taskCounts[i],
@@ -145,6 +173,11 @@ export class AdminService {
   async deleteBoard(id: number) {
     const board = await this.prisma.board.findUnique({ where: { id } });
     if (!board) throw new NotFoundException('Board not found');
+
+    // InvitationBoard and BoardMember have no cascade from Board — delete first
+    await this.prisma.invitationBoard.deleteMany({ where: { boardId: id } });
+    await this.prisma.boardMember.deleteMany({ where: { boardId: id } });
+
     await this.prisma.board.delete({ where: { id } });
     return { message: 'Board deleted' };
   }
@@ -195,5 +228,40 @@ export class AdminService {
     if (!file) throw new NotFoundException('File not found');
     await this.prisma.file.delete({ where: { id } });
     return { message: 'File deleted' };
+  }
+
+  async updateWorkspace(id: number, data: { name?: string; visibility?: any }) {
+    const workspace = await this.prisma.workspace.findUnique({ where: { id } });
+    if (!workspace) throw new NotFoundException('Workspace not found');
+    return this.prisma.workspace.update({ where: { id }, data });
+  }
+
+  async updateBoard(id: number, data: { name?: string; visibility?: any }) {
+    const board = await this.prisma.board.findUnique({ where: { id } });
+    if (!board) throw new NotFoundException('Board not found');
+    return this.prisma.board.update({ where: { id }, data });
+  }
+
+  async getIntegrations() {
+    const rows = await this.prisma.systemSetting.findMany({
+      where: { key: { in: ['MONDAY_API_TOKEN'] } },
+    });
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    return {
+      mondayApiToken: map['MONDAY_API_TOKEN'] ?? '',
+    };
+  }
+
+  async updateIntegrations(data: { mondayApiToken?: string }) {
+    if (data.mondayApiToken !== undefined) {
+      await this.prisma.systemSetting.upsert({
+        where: { key: 'MONDAY_API_TOKEN' },
+        create: { key: 'MONDAY_API_TOKEN', value: data.mondayApiToken },
+        update: { value: data.mondayApiToken },
+      });
+      // Keep process.env in sync so FileImportService picks it up without restart
+      process.env.MONDAY_API_TOKEN = data.mondayApiToken;
+    }
+    return { success: true };
   }
 }

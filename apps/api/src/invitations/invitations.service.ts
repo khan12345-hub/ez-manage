@@ -130,7 +130,7 @@ export class InvitationsService {
           entityType: 'WORKSPACE' as any,
           entityId: dto.workspaceId,
           metadata: { workspaceId: dto.workspaceId },
-          sendEmail: false,
+          sendEmail: true,
         });
         this.notificationStreamService.emit(existingUser.id, notification);
       } catch {

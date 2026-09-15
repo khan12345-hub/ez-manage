@@ -147,19 +147,19 @@ export function useBoardDnd({
 
     onMutate: async () => {
       await queryClient.cancelQueries({
-        queryKey: ["board", boardId],
+        queryKey: ["board-tasks", boardId],
       });
     },
 
     onError: () => {
       queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
+        queryKey: ["board-tasks", boardId],
       });
     },
 
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
+        queryKey: ["board-tasks", boardId],
       });
     },
   });
@@ -237,7 +237,7 @@ export function useBoardDnd({
 
     onMutate: async () => {
       await queryClient.cancelQueries({
-        queryKey: ["board", boardId],
+        queryKey: ["board-tasks", boardId],
       });
     },
 
@@ -245,13 +245,13 @@ export function useBoardDnd({
       toast.error("Failed to reorder subtask");
 
       queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
+        queryKey: ["board-tasks", boardId],
       });
     },
 
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
+        queryKey: ["board-tasks", boardId],
       });
     },
   });

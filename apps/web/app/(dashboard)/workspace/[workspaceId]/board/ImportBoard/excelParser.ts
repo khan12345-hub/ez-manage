@@ -20,8 +20,9 @@ export interface StatusOption {
 export interface ExcelRowItem {
   __groupName: string;
   __groupColor: string;
-  // taskName: string;
-  [columnName: string]: string | StatusOption | null;
+  __isSubitem?: boolean;
+  __parentTaskName?: string;
+  [columnName: string]: string | StatusOption | null | boolean | undefined;
 }
 
 export interface ExcelBoardData {
@@ -80,6 +81,12 @@ export const getCellValue = (
   const cell = worksheet[address];
   if (!cell) return "";
 
+  // Monday.com stores file URLs as hyperlinks: display text = filename, actual URL = cell.l.Target
+  // Return the hyperlink URL when it's a valid http/https URL
+  if (cell.l?.Target && /^https?:\/\//i.test(String(cell.l.Target))) {
+    return String(cell.l.Target).trim();
+  }
+
   const val = cell.w ?? cell.v ?? cell.f ?? "";
   return String(val).trim();
 };
@@ -104,7 +111,8 @@ export const findGroupRows = (worksheet: XLSX.WorkSheet): ExcelGroup[] => {
   const groups: ExcelGroup[] = [];
 
   for (let r = range.s.r; r <= range.e.r; r++) {
-    if (r <= 1) {
+    // Only skip the very first row (board name). Row 1+ can be group headers.
+    if (r === range.s.r) {
       continue;
     }
 
@@ -593,16 +601,18 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
     });
 
     /*
-     * IMPORTANT:
+     * State for Monday.com subitem section detection.
      *
-     * Start at headerRow + 1.
-     *
-     * This means:
-     *
-     * group row      -> ignored
-     * header row     -> ignored
-     * task row       -> parsed
+     * Monday.com exports subitems as:
+     *   Row N:     "Subitems" | "Name" | "Owner" | "Status" ... (marker row)
+     *   Row N+1:   (empty)    | Wireframe Creation | ...       (subitem row)
+     *   Row N+2:   (empty)    | Prototype Testing  | ...       (subitem row)
+     *   Row N+3:   Next Task  | ...                            (back to tasks)
      */
+    let lastParentTaskName: string | null = null;
+    let inSubitemSection = false;
+    let subitemNameColIndex = -1;
+
     for (let r = headerRow + 1; r <= sectionEndRow; r++) {
       /*
        * -----------------------------------------------------
@@ -611,40 +621,72 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
        */
       const taskName = getCellValue(worksheet, r, taskColumnIndex);
 
-      console.log("[Excel Import] Task row:", {
-        group: group.name,
-        rowIndex: r,
-        excelRow: r + 1,
-        taskCell: XLSX.utils.encode_cell({
-          r,
-          c: taskColumnIndex,
-        }),
-        taskName,
-      });
+      /*
+       * Detect Monday.com subitem marker row:
+       * The Name column contains the literal text "Subitems".
+       */
+      if (taskName.trim().toLowerCase() === "subitems") {
+        inSubitemSection = true;
+        // Find which column in this row is labeled "Name" — that's where subitem names live
+        subitemNameColIndex = -1;
+        for (const col of fixedColumns) {
+          if (col.index === taskColumnIndex) continue;
+          const markerVal = getCellValue(worksheet, r, col.index);
+          if (markerVal.trim().toLowerCase() === "name") {
+            subitemNameColIndex = col.index;
+            break;
+          }
+        }
+        // Fallback: use first non-taskColumn column
+        if (subitemNameColIndex === -1) {
+          const fallback = fixedColumns.find(
+            (col) => col.index !== taskColumnIndex,
+          );
+          if (fallback) subitemNameColIndex = fallback.index;
+        }
+        continue; // Skip the marker row itself
+      }
+
+      /*
+       * While inside a subitem section, empty Name column = subitem row.
+       */
+      if (inSubitemSection) {
+        if (!taskName.trim()) {
+          if (subitemNameColIndex >= 0 && lastParentTaskName) {
+            const subitemName = getCellValue(
+              worksheet,
+              r,
+              subitemNameColIndex,
+            ).trim();
+            if (subitemName) {
+              parsedRows.push({
+                __groupName: group.name,
+                __groupColor: group.color,
+                __isSubitem: true,
+                __parentTaskName: lastParentTaskName,
+                [taskColumnName]: subitemName,
+              });
+            }
+          }
+          continue;
+        }
+        // Non-empty Name column after a subitem section = back to regular tasks
+        inSubitemSection = false;
+        subitemNameColIndex = -1;
+      }
 
       /*
        * If the Name column is empty, this is not a task row.
-       *
-       * This is important because otherwise a status value
-       * or some other column could accidentally cause an
-       * empty task to be created.
        */
       if (!taskName) {
-        console.log("[Excel Import] Skipping row because task name is empty:", {
-          group: group.name,
-          row: r + 1,
-        });
-
         continue;
       }
+
+      lastParentTaskName = taskName.trim();
 
       const rowItem: ExcelRowItem = {
         __groupName: group.name,
         __groupColor: group.color,
-        // taskName,
-        /*
-         * THE ACTUAL TASK NAME
-         */
         [taskColumnName]: taskName,
       };
 

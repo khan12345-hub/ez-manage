@@ -26,6 +26,7 @@ export interface AdminWorkspace {
 export interface AdminBoard {
   id: number;
   name: string;
+  workspaceId: number;
   workspaceName: string;
   groups: number;
   tasks: number;
@@ -70,4 +71,33 @@ export async function getAllFiles(): Promise<AdminFile[]> {
 
 export async function deleteAdminFile(id: number): Promise<void> {
   await api.delete(`/admin/files/${id}`);
+}
+
+export async function updateAdminWorkspace(
+  id: number,
+  data: { name?: string; visibility?: string },
+) {
+  const { data: res } = await api.patch(`/admin/workspaces/${id}`, data);
+  return res;
+}
+
+export async function updateAdminBoard(
+  id: number,
+  data: { name?: string; visibility?: string },
+) {
+  const { data: res } = await api.patch(`/admin/boards/${id}`, data);
+  return res;
+}
+
+export interface Integrations {
+  mondayApiToken: string;
+}
+
+export async function getIntegrations(): Promise<Integrations> {
+  const { data } = await api.get<Integrations>("/admin/integrations");
+  return data;
+}
+
+export async function updateIntegrations(data: Partial<Integrations>): Promise<void> {
+  await api.patch("/admin/integrations", data);
 }

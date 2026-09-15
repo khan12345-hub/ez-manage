@@ -46,7 +46,6 @@ export function FilePreviewModal({
     onUploadClick?.();
   };
 
-  console.log({ files });
   return (
     <>
       {files && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -26,7 +26,9 @@ export function DateEditor({
   save,
   cancel,
 }: CellEditorProps<DateValue>) {
-  const date = value?.date;
+  const raw = value?.date;
+  const date = raw ? (raw instanceof Date ? raw : new Date(raw as any)) : undefined;
+  const validDate = date && isValid(date) ? date : undefined;
 
   const [open, setOpen] = useState(false);
 
@@ -47,7 +49,7 @@ export function DateEditor({
     return (
       <div className="flex h-full w-full items-center px-2 text-sm">
           <CalendarIcon className="mr-4 h-4 w-4" />
-        {date ? format(date, "dd MMM yyyy") : "-"}
+        {validDate ? format(validDate, "dd MMM yyyy") : "-"}
       </div>
     );
   }
@@ -78,7 +80,7 @@ export function DateEditor({
           }}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "dd MMM yyyy") : "Pick a date"}
+          {validDate ? format(validDate, "dd MMM yyyy") : "Pick a date"}
         </Button>
       </PopoverTrigger>
 
@@ -86,7 +88,7 @@ export function DateEditor({
         <Calendar
           mode="single"
           autoFocus
-          selected={date}
+          selected={validDate}
           onSelect={(selected) => {
             if (!selected) return;
 

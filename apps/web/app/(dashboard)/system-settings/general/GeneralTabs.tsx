@@ -6,6 +6,7 @@ import {
   FolderKanban,
   HardDrive,
   LayoutDashboard,
+  Plug,
   Users,
 } from "lucide-react";
 
@@ -36,6 +37,11 @@ const tabs = [
     id: "media",
     label: "Media",
     icon: HardDrive,
+  },
+  {
+    id: "integrations",
+    label: "Integrations",
+    icon: Plug,
   },
 ] as const;
 

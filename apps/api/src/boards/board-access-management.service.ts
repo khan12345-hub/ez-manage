@@ -131,7 +131,7 @@ export class BoardAccessManagementService {
 
     const board = await this.prisma.board.findUnique({
       where: { id: boardId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, workspaceId: true },
     });
 
     const updatedMember = await this.prisma.boardMember.update({
@@ -165,8 +165,8 @@ export class BoardAccessManagementService {
         message: `Your role in "${board?.name}" has been changed to ${role.toLowerCase()}.`,
         entityType: 'BOARD' as any,
         entityId: boardId,
-        metadata: { boardId, role },
-        sendEmail: false,
+        metadata: { boardId, workspaceId: board?.workspaceId, role },
+        sendEmail: true,
       });
       this.notificationStreamService.emit(member.userId, notification);
     } catch {}
@@ -210,7 +210,7 @@ export class BoardAccessManagementService {
 
     const board = await this.prisma.board.findUnique({
       where: { id: boardId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, workspaceId: true },
     });
 
     await this.prisma.boardMember.delete({
@@ -227,8 +227,8 @@ export class BoardAccessManagementService {
         message: `You have been removed from "${board?.name}".`,
         entityType: 'BOARD' as any,
         entityId: boardId,
-        metadata: { boardId },
-        sendEmail: false,
+        metadata: { boardId, workspaceId: board?.workspaceId },
+        sendEmail: true,
       });
       this.notificationStreamService.emit(member.userId, notification);
     } catch {}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { AlertCircle, Loader2, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -131,9 +131,68 @@ export default function FilePreviewItem({
   if (deleted) {
     return null;
   }
-  console.log({file})
   // @ts-ignore
   const renderedFile = file.file ?? file
+
+  const sk = renderedFile.storageKey ?? "";
+
+  /*
+   * While the background import is running, storageKey is the original
+   * external URL. Show an amber placeholder instead of a broken preview.
+   */
+  const isImporting = sk.startsWith("http://") || sk.startsWith("https://");
+
+  /*
+   * After all retries failed, storageKey is prefixed with "import-failed:".
+   * Show a red placeholder so the user knows this file needs to be re-uploaded.
+   */
+  const isImportFailed = sk.startsWith("import-failed:");
+
+  if (isImporting) {
+    return (
+      <div className="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+        <Loader2 className="h-5 w-5 shrink-0 animate-spin text-amber-500" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-amber-700 dark:text-amber-400">
+            {renderedFile.fileName}
+          </p>
+          <p className="text-[11px] text-amber-600/70 dark:text-amber-500/70">
+            Importing to server…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isImportFailed) {
+    return (
+      <div className="flex items-center gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-900/40 dark:bg-red-950/20">
+        <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-red-700 dark:text-red-400">
+            {renderedFile.fileName}
+          </p>
+          <p className="text-[11px] text-red-600/70 dark:text-red-500/70">
+            Import failed — delete and upload manually
+          </p>
+        </div>
+        {canDelete && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={deleteMutation.isPending}
+            onClick={() => deleteMutation.mutate()}
+            className="shrink-0 text-red-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/40"
+            title="Delete this file record"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
       {/* File Row */}

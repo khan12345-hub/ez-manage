@@ -61,18 +61,10 @@ export class NotificationsProcessor
 
     await this.mailService.sendNotificationEmail({
       to: user.email,
-
-      subject:
-        notification.title,
-
-      title:
-        notification.title,
-
-      message:
-        notification.message,
-
-      // metadata:
-      //   notification.metadata,
+      subject: notification.title,
+      title: notification.title,
+      message: notification.message,
+      metadata: notification.metadata as Record<string, any> | undefined,
     });
   }
 }

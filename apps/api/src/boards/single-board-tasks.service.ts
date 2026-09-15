@@ -142,6 +142,7 @@ export class GetBoardTasksService {
                     id: true,
                     fileName: true,
                     url: true,
+                    storageKey: true,
                     mimeType: true,
                     fileSize: true,
                     uploadedById: true,
@@ -181,6 +182,22 @@ export class GetBoardTasksService {
 
                       orderBy: {
                         order: 'asc',
+                      },
+                    },
+                  },
+                },
+
+                files: {
+                  select: {
+                    file: {
+                      select: {
+                        id: true,
+                        fileName: true,
+                        url: true,
+                        storageKey: true,
+                        mimeType: true,
+                        fileSize: true,
+                        uploadedById: true,
                       },
                     },
                   },
@@ -303,6 +320,7 @@ export class GetBoardTasksService {
                     id: true,
                     fileName: true,
                     url: true,
+                    storageKey: true,
                     mimeType: true,
                     fileSize: true,
                     uploadedById: true,
@@ -332,6 +350,22 @@ export class GetBoardTasksService {
                     statusOptions: {
                       where: {
                         isArchived: false,
+                      },
+                    },
+                  },
+                },
+
+                files: {
+                  select: {
+                    file: {
+                      select: {
+                        id: true,
+                        fileName: true,
+                        url: true,
+                        storageKey: true,
+                        mimeType: true,
+                        fileSize: true,
+                        uploadedById: true,
                       },
                     },
                   },

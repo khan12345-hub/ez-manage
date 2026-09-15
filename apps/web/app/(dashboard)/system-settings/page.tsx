@@ -14,6 +14,7 @@ import { WorkspacesTab } from "./general/WorkspacesTab";
 import { BoardsTab } from "./general/BoardsTab";
 import { MediaTab } from "./general/MediaTab";
 import { NotificationsTab } from "./general/NotificationsTab";
+import { IntegrationsTab } from "./general/IntegrationsTab";
 export default function SettingsPage() {
   return (
     <div className="min-h-full bg-muted/20">
@@ -95,6 +96,10 @@ export default function SettingsPage() {
 
                   <TabsContent value="general-media" className="mt-0">
                     <MediaTab />
+                  </TabsContent>
+
+                  <TabsContent value="general-integrations" className="mt-0">
+                    <IntegrationsTab />
                   </TabsContent>
 
                   <TabsContent

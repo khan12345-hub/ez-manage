@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 
@@ -11,6 +12,7 @@ import { BoardColumnType, BoardMemberRole } from 'generated/prisma/enums';
 import { Prisma } from 'generated/prisma/client';
 
 import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
+import { FileImportService, FileImportJobData } from 'src/file-import/file-import.processor';
 
 type ImportedRow = Record<string, unknown>;
 
@@ -36,10 +38,17 @@ type GroupedRows = {
 
 @Injectable()
 export class BoardImportService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(BoardImportService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly fileImportService: FileImportService,
+  ) {}
 
   async importExcelBoard(dto: ImportExcelBoardDto, userId: number) {
-    return this.prisma.$transaction(
+    const pendingDownloads: FileImportJobData[] = [];
+
+    const result = await this.prisma.$transaction(
       async (tx) => {
         /*
          * ---------------------------------------------------------
@@ -305,7 +314,6 @@ export class BoardImportService {
            * Create group
            * -------------------------------------------------------
            */
-          console.log({ groupData });
           const group = await tx.group.create({
             data: {
               boardId: board.id,
@@ -322,46 +330,77 @@ export class BoardImportService {
            * -------------------------------------------------------
            */
 
-          const validRows = groupData.rows
+          const allParsedRows = groupData.rows
             .map((row) => {
-              console.log('dto.taskColumn', dto.taskColumn);
               const rawTaskValue = this.getFlexibleValue(row, dto.taskColumn);
-
               const taskName = this.getTaskName(rawTaskValue, row);
-              console.log({ taskName });
-              return {
-                row,
-                taskName,
-              };
+              return { row, taskName };
             })
             .filter(
-              (
-                item,
-              ): item is {
-                row: ImportedRow;
-                taskName: string;
-              } => Boolean(item.taskName),
+              (item): item is { row: ImportedRow; taskName: string } =>
+                Boolean(item.taskName),
             );
 
-          if (!validRows.length) {
+          const validRows = allParsedRows.filter(
+            (item) => !item.row['__isSubitem'],
+          );
+
+          const subitemRows = allParsedRows.filter(
+            (item) => Boolean(item.row['__isSubitem']),
+          );
+
+          if (!validRows.length && !subitemRows.length) {
             groupOrder += 1000;
             continue;
           }
 
           /*
            * -------------------------------------------------------
-           * Create tasks
+           * Create regular tasks
            * -------------------------------------------------------
            */
 
-          const tasks = await tx.task.createManyAndReturn({
-            data: validRows.map((item, index) => ({
-              groupId: group.id,
-              name: item.taskName,
-              order: (index + 1) * 1000,
-              createdById: userId,
-            })),
-          });
+          const tasks = validRows.length
+            ? await tx.task.createManyAndReturn({
+                data: validRows.map((item, index) => ({
+                  groupId: group.id,
+                  name: item.taskName,
+                  order: (index + 1) * 1000,
+                  createdById: userId,
+                })),
+              })
+            : [];
+
+          /*
+           * -------------------------------------------------------
+           * Create subitems (parentId → parent task)
+           * -------------------------------------------------------
+           */
+
+          const taskNameToId = new Map<string, number>();
+          for (const task of tasks) {
+            taskNameToId.set(task.name.toLowerCase().trim(), task.id);
+          }
+
+          const subtasks = subitemRows.length
+            ? await tx.task.createManyAndReturn({
+                data: subitemRows.map((item, index) => {
+                  const parentName = String(
+                    item.row['__parentTaskName'] ?? '',
+                  )
+                    .toLowerCase()
+                    .trim();
+                  const parentId = taskNameToId.get(parentName) ?? undefined;
+                  return {
+                    groupId: group.id,
+                    name: item.taskName,
+                    order: (index + 1) * 1000,
+                    createdById: userId,
+                    parentId,
+                  };
+                }),
+              })
+            : [];
 
           /*
            * -------------------------------------------------------
@@ -400,9 +439,18 @@ export class BoardImportService {
             value: Prisma.InputJsonValue;
           }[] = [];
 
-          for (let index = 0; index < tasks.length; index++) {
-            const task = tasks[index];
-            const row = validRows[index].row;
+          const pendingFileCells: {
+            taskId: number;
+            columnId: number;
+            url: string;
+          }[] = [];
+
+          const allTasks = [...tasks, ...subtasks];
+          const allValidRows = [...validRows, ...subitemRows];
+
+          for (let index = 0; index < allTasks.length; index++) {
+            const task = allTasks[index];
+            const row = allValidRows[index].row;
 
             for (const mapping of mappings) {
               /*
@@ -471,6 +519,40 @@ export class BoardImportService {
                 continue;
               }
 
+              /*
+               * FILE columns: store as TaskCellFile so they appear
+               * in the file cell's file list, not as raw text.
+               *
+               * Monday.com exports multiple files in one cell as a
+               * comma-separated list of URLs, e.g.:
+               *   "https://…/file1.pdf, https://…/file2.pdf"
+               * Split on ", " only when followed by http:// so we don't
+               * accidentally split on commas inside a filename.
+               */
+              if (column.type === BoardColumnType.FILE) {
+                const urlStr = this.extractDisplayValue(rawValue).trim();
+                this.logger.log(
+                  `FILE column "${column.name}" raw=${JSON.stringify(rawValue)} urlStr="${urlStr}"`,
+                );
+                if (urlStr) {
+                  const urls = urlStr
+                    .split(/,\s+(?=https?:\/\/)/)
+                    .map((u) => u.trim())
+                    .filter((u) => /^https?:\/\//.test(u));
+                  this.logger.log(
+                    `FILE column "${column.name}" split into ${urls.length} URLs: ${JSON.stringify(urls)}`,
+                  );
+                  for (const u of urls) {
+                    pendingFileCells.push({
+                      taskId: task.id,
+                      columnId: column.id,
+                      url: u,
+                    });
+                  }
+                }
+                continue;
+              }
+
               const normalizedValue = this.normalizeCellValue(
                 rawValue,
                 mapping.type,
@@ -518,6 +600,66 @@ export class BoardImportService {
             await tx.taskCell.createMany({
               data: taskCells,
             });
+          }
+
+          /*
+           * -------------------------------------------------------
+           * Create FILE cells from imported URLs
+           *
+           * Each URL becomes: TaskCell → File → TaskCellFile.
+           * The FILE cell component reads from cell.files (via
+           * TaskCellFile), not from TaskCell.value, so we store
+           * {} as the cell value and attach the file separately.
+           * -------------------------------------------------------
+           */
+          // Cache cells so multiple files in the same cell share one TaskCell row.
+          const fileCellCache = new Map<string, number>();
+
+          for (const pending of pendingFileCells) {
+            const cacheKey = `${pending.taskId}-${pending.columnId}`;
+            let cellId = fileCellCache.get(cacheKey);
+
+            if (cellId === undefined) {
+              // upsert: safe whether or not a non-FILE cell was already created
+              const cell = await tx.taskCell.upsert({
+                where: {
+                  taskId_columnId: {
+                    taskId: pending.taskId,
+                    columnId: pending.columnId,
+                  },
+                },
+                create: {
+                  taskId: pending.taskId,
+                  columnId: pending.columnId,
+                  value: {},
+                },
+                update: {},
+              });
+              cellId = cell.id;
+              fileCellCache.set(cacheKey, cellId);
+            }
+
+            const rawName = decodeURIComponent(
+              (pending.url.split('/').pop() ?? '').split('?')[0],
+            );
+            const fileName = rawName || 'Imported File';
+
+            const file = await tx.file.create({
+              data: {
+                fileName,
+                storageKey: pending.url,
+                mimeType: 'application/octet-stream',
+                fileSize: 0,
+                url: pending.url,
+                uploadedById: userId,
+              },
+            });
+
+            await tx.taskCellFile.create({
+              data: { cellId, fileId: file.id },
+            });
+
+            pendingDownloads.push({ fileId: file.id, url: pending.url });
           }
 
           groupOrder += 1000;
@@ -629,6 +771,16 @@ export class BoardImportService {
         maxWait: 10000,
       },
     );
+
+    /*
+     * Fire file downloads AFTER the transaction commits.
+     * enqueue() handles concurrency (max 5) and retries (3 attempts).
+     */
+    for (const dl of pendingDownloads) {
+      this.fileImportService.enqueue(dl);
+    }
+
+    return result;
   }
 
   /*
@@ -867,6 +1019,14 @@ export class BoardImportService {
     statusOptionsByColumn: Map<string, StatusOptionMap>,
   ): string | null {
     /*
+     * FILE — skip URL text from exports like Monday.com
+     */
+
+    if (columnType === BoardColumnType.FILE) {
+      return null;
+    }
+
+    /*
      * STATUS
      */
 
@@ -1013,6 +1173,17 @@ export class BoardImportService {
     }
 
     /*
+     * FILE
+     *
+     * Monday.com exports file URLs as text, which can't be imported
+     * as real uploaded files. Return null to create an empty FILE cell.
+     */
+
+    if (columnType === BoardColumnType.FILE) {
+      return null;
+    }
+
+    /*
      * PERSON / DROPDOWN / LABEL / anything else
      *
      * Default to text so the imported value
@@ -1104,7 +1275,6 @@ export class BoardImportService {
         String(rawGroupName ?? 'Imported Tasks').trim() || 'Imported Tasks';
 
       const rawGroupColor = row.__groupColor;
-      console.log({ rawGroupColor });
       const groupColor =
         rawGroupColor !== null &&
         rawGroupColor !== undefined &&

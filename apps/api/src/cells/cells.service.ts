@@ -67,42 +67,33 @@ export class CellsService {
 
   private async handleTaskAssignment(params: {
     recipientId: number;
-
     taskId: number;
-
     boardId: number;
-
     taskName: string;
-
     assignedById: number;
   }) {
-    const assignedBy = await this.prisma.user.findUnique({
-      where: {
-        id: params.assignedById,
-      },
-
-      select: {
-        id: true,
-
-        firstName: true,
-        lastName: true,
-      },
-    });
+    const [assignedBy, board] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: params.assignedById },
+        select: { id: true, firstName: true, lastName: true },
+      }),
+      this.prisma.board.findUnique({
+        where: { id: params.boardId },
+        select: { workspaceId: true },
+      }),
+    ]);
 
     if (!assignedBy) {
       return;
     }
+
     const event = new TaskAssignedEvent({
       recipientId: params.recipientId,
-
       taskId: params.taskId,
-
       boardId: params.boardId,
-
+      workspaceId: board?.workspaceId ?? 0,
       taskName: params.taskName,
-
       assignedById: assignedBy.id,
-
       assignedByName: `${assignedBy.firstName} ${assignedBy.lastName}`,
     });
 
@@ -117,13 +108,24 @@ export class CellsService {
     private readonly automationEngineService: AutomationEngineService,
   ) {}
 
-  async create(createCellDto: CreateCellDto, boardId: number, userId: number) {
-    // TODO:
-    // Validate that the task belongs to boardId
-    // Validate that the column belongs to boardId
-    // Then create the cell.
+  async create(createCellDto: CreateCellDto, boardId: number, _userId: number) {
+    const { taskId, columnId } = createCellDto;
 
-    return 'This action adds a new cell';
+    const task = await this.prisma.task.findFirst({
+      where: { id: taskId, group: { boardId } },
+    });
+    if (!task) throw new NotFoundException('Task not found in this board.');
+
+    const column = await this.prisma.boardColumn.findFirst({
+      where: { id: columnId, boardId },
+    });
+    if (!column) throw new NotFoundException('Column not found in this board.');
+
+    return this.prisma.taskCell.upsert({
+      where: { taskId_columnId: { taskId, columnId } },
+      create: { taskId, columnId },
+      update: {},
+    });
   }
 
   async uploadFiles(

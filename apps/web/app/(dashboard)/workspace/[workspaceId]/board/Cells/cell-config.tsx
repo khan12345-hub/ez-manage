@@ -219,9 +219,11 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   FILE: {
     component: FileCell as any,
 
-    getValue: (_, cell) => ({
-      cellId: cell?.id,
-      files: cell?.files ?? [],
+    getValue: (task, cell, column) => ({
+      cellId: cell?.id as number | undefined,
+      taskId: task?.id as number | undefined,
+      columnId: column?.id as number | undefined,
+      files: (cell?.files ?? []).map((f: any) => f?.file ?? f),
     }),
 
     save: async () => Promise.resolve(null),

@@ -71,7 +71,7 @@ export function MyBoards() {
                 </div>
 
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  {workspace.name} ({workspace.description})
+                  {workspace.name}{workspace.description ? ` · ${workspace.description}` : ""}
                 </p>
               </div>
 

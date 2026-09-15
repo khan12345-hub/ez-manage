@@ -801,3 +801,11 @@ model BoardDocument {
 
   @@index([boardId])
 }
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("system_settings")
+}

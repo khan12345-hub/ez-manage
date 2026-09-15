@@ -5,26 +5,27 @@ import { createPortal } from "react-dom";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, Globe2, Lock, X } from "lucide-react";
+import { Globe2, KanbanSquare, Lock, X } from "lucide-react";
 import { toast } from "sonner";
 import * as z from "zod";
 
 import { FormInput } from "./form/FormInput";
 import { FormRadio } from "./form/FormRadio";
 import { Button } from "./ui/button";
-import { updateWorkspace } from "@/services/workspace.api";
+import { updateBoard } from "@/services/boards.api";
 
 const schema = z.object({
-  name: z.string().trim().min(1, "Workspace name is required"),
+  name: z.string().trim().min(1, "Board name is required"),
   visibility: z.enum(["PUBLIC", "PRIVATE"]),
 });
 
 type FormValues = z.infer<typeof schema>;
 
-interface EditWorkspaceModalProps {
+interface EditBoardModalProps {
   isOpen: boolean;
   onClose: () => void;
-  workspaceId: number;
+  workspaceId?: number;
+  boardId: number;
   initialName: string;
   initialVisibility: "PUBLIC" | "PRIVATE";
   onAfterSuccess?: () => void;
@@ -34,25 +35,26 @@ const VISIBILITY_OPTIONS = [
   {
     label: "Private",
     value: "PRIVATE",
-    description: "Only invited members can access this workspace.",
+    description: "Only invited members can access this board.",
     icon: <Lock className="h-4 w-4" />,
   },
   {
     label: "Public",
     value: "PUBLIC",
-    description: "Members can discover and join this workspace.",
+    description: "All workspace members can view this board.",
     icon: <Globe2 className="h-4 w-4" />,
   },
 ] as const;
 
-export function EditWorkspaceModal({
+export function EditBoardModal({
   isOpen,
   onClose,
   workspaceId,
+  boardId,
   initialName,
   initialVisibility,
   onAfterSuccess,
-}: EditWorkspaceModalProps) {
+}: EditBoardModalProps) {
   const queryClient = useQueryClient();
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -66,17 +68,17 @@ export function EditWorkspaceModal({
   }, [isOpen, initialName, initialVisibility]);
 
   const mutation = useMutation({
-    mutationFn: (values: FormValues) => updateWorkspace(workspaceId, values),
-    onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-      queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId] });
-      toast.success(`Workspace "${updated.name}" updated.`);
+    mutationFn: (values: FormValues) => updateBoard(boardId, values),
+    onSuccess: (updated: any) => {
+      if (workspaceId) queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      toast.success(`Board "${updated.name ?? initialName}" updated.`);
       onAfterSuccess?.();
       onClose();
     },
     onError: (error: any) => {
       toast.error(
-        error?.response?.data?.message ?? "Failed to update workspace.",
+        error?.response?.data?.message ?? "Failed to update board.",
       );
     },
   });
@@ -97,19 +99,19 @@ export function EditWorkspaceModal({
           className="absolute top-4 right-4 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-zinc-800"
           aria-label="Close"
         >
-          <X className="h-4.5 w-4.5" />
+          <X className="h-4 w-4" />
         </button>
 
         <div className="mb-6 flex items-start gap-3.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
-            <Building2 className="h-5 w-5" />
+            <KanbanSquare className="h-5 w-5" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-              Edit Workspace
+              Edit Board
             </h2>
             <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-              Update workspace name and visibility.
+              Update board name and visibility.
             </p>
           </div>
         </div>
@@ -121,8 +123,8 @@ export function EditWorkspaceModal({
           >
             <FormInput
               name="name"
-              label="Workspace Name"
-              placeholder="e.g. Product Team"
+              label="Board Name"
+              placeholder="e.g. Sprint Planning"
             />
 
             <FormRadio
@@ -154,6 +156,6 @@ export function EditWorkspaceModal({
         </FormProvider>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

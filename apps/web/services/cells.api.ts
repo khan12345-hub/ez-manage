@@ -17,3 +17,15 @@ export const updateCell = async (
   return data;
 };
 
+export const createCell = async (
+  boardId: number,
+  taskId: number,
+  columnId: number,
+): Promise<{ id: number; taskId: number; columnId: number }> => {
+  const { data } = await api.post(`/boards/${boardId}/cells`, {
+    taskId,
+    columnId,
+  });
+  return data;
+};
+

@@ -156,6 +156,7 @@ export function MediaTab() {
                           <RowActions
                             onEdit={() => {}}
                             onDelete={() => setSelectedFile(file)}
+                            showEdit={false}
                           />
                         </td>
                       </tr>

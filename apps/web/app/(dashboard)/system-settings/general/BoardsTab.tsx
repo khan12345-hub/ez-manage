@@ -1,22 +1,69 @@
 "use client";
 
-import { BarChart3 } from "lucide-react";
+import { BarChart3, X } from "lucide-react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { AdminBoard, deleteAdminBoard, getAllBoards } from "@/services/admin.api";
+import {
+  AdminBoard,
+  deleteAdminBoard,
+  getAllBoards,
+  updateAdminBoard,
+} from "@/services/admin.api";
 import { DeleteDialog } from "./DeleteDialog";
 import { RowActions } from "./RowActions";
 
+function AdminEditForm({
+  initialName,
+  isPending,
+  onCancel,
+  onSubmit,
+}: {
+  initialName: string;
+  isPending: boolean;
+  onCancel: () => void;
+  onSubmit: (name: string) => void;
+}) {
+  const [name, setName] = useState(initialName);
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <label className="text-sm font-medium">Name</label>
+        <input
+          className="mt-1.5 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={isPending}
+        />
+      </div>
+      <div className="flex justify-end gap-2 border-t pt-4 dark:border-zinc-800">
+        <button
+          onClick={onCancel}
+          className="rounded-md border px-4 py-2 text-xs font-semibold hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onSubmit(name.trim())}
+          disabled={isPending || !name.trim()}
+          className="rounded-md bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {isPending ? "Saving..." : "Save Changes"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function BoardsTab() {
   const queryClient = useQueryClient();
-  const router = useRouter();
   const [selectedBoard, setSelectedBoard] = useState<AdminBoard | null>(null);
+  const [editingBoard, setEditingBoard] = useState<AdminBoard | null>(null);
 
   const { data: boards = [], isLoading } = useQuery({
     queryKey: ["admin", "boards"],
@@ -35,6 +82,17 @@ export function BoardsTab() {
     onError: () => {
       toast.error("Failed to delete board");
     },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      updateAdminBoard(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "boards"] });
+      setEditingBoard(null);
+      toast.success("Board updated");
+    },
+    onError: () => toast.error("Failed to update board"),
   });
 
   return (
@@ -100,7 +158,7 @@ export function BoardsTab() {
 
                         <td className="px-5 py-4 text-right">
                           <RowActions
-                            onEdit={() => {}}
+                            onEdit={() => setEditingBoard(board)}
                             onDelete={() => setSelectedBoard(board)}
                           />
                         </td>
@@ -122,6 +180,33 @@ export function BoardsTab() {
         }
         loading={deleteMutation.isPending}
       />
+
+      {/* Admin edit board dialog */}
+      {editingBoard &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+            <div className="relative w-full max-w-sm rounded-xl border bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-t-xl" />
+              <button
+                onClick={() => setEditingBoard(null)}
+                className="absolute top-4 right-4 rounded-full p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <h2 className="mb-4 text-lg font-bold">Edit Board</h2>
+              <AdminEditForm
+                initialName={editingBoard.name}
+                isPending={editMutation.isPending}
+                onCancel={() => setEditingBoard(null)}
+                onSubmit={(name) =>
+                  editMutation.mutate({ id: editingBoard.id, data: { name } })
+                }
+              />
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

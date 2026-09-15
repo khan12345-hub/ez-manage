@@ -69,14 +69,10 @@ try {
         event.taskId,
 
       metadata: {
-        taskId:
-          event.taskId,
-
-        boardId:
-          event.boardId,
-
-        assignedById:
-          event.assignedById,
+        taskId: event.taskId,
+        boardId: event.boardId,
+        workspaceId: event.workspaceId,
+        assignedById: event.assignedById,
       },
 
       eventKey:
@@ -167,20 +163,12 @@ try {
         event.commentId,
 
       metadata: {
-        commentId:
-          event.commentId,
-
-        taskId:
-          event.taskId,
-
-        boardId:
-          event.boardId,
-
-        mentionedById:
-          event.mentionedById,
-
-        commentPreview:
-          event.commentPreview,
+        commentId: event.commentId,
+        taskId: event.taskId,
+        boardId: event.boardId,
+        workspaceId: event.workspaceId,
+        mentionedById: event.mentionedById,
+        commentPreview: event.commentPreview,
       },
 
       eventKey:

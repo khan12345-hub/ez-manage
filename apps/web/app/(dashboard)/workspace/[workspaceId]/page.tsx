@@ -100,6 +100,12 @@ export default function WorkspacePage() {
     );
   }, [workspaceDetail, user?.id]);
 
+  const currentUserRole = useMemo(() => {
+    if (!workspaceDetail || !user?.id) return "";
+    const member = workspaceDetail.members?.find((m) => m.userId === user.id);
+    return member?.role ?? "";
+  }, [workspaceDetail, user?.id]);
+
   /**
    * Workspace UI model.
    */
@@ -153,7 +159,10 @@ export default function WorkspacePage() {
 
         members: board._count?.members ?? 0,
 
-        tasks: 0,
+        tasks: (board.groups ?? []).reduce(
+          (sum: number, g: any) => sum + (g._count?.tasks ?? 0),
+          0,
+        ),
 
         updatedAt: formatUpdatedAt(board.updatedAt),
       })) ?? []
@@ -217,11 +226,13 @@ export default function WorkspacePage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-10">
         <WorkspaceHeader
           workspace={workspace}
+          membersDetail={workspaceDetail.members ?? []}
+          currentUserRole={currentUserRole}
         />
 
         <div className="mt-6">
           {boards.length > 0 ? (
-            <BoardTable boards={boards} />
+            <BoardTable boards={boards} workspaceId={workspace.id} />
           ) : (
             <AddBoardCard workspaceId={workspace.id} />
           )}

@@ -107,6 +107,7 @@ export class CommentsService {
         group: {
           select: {
             boardId: true,
+            board: { select: { workspaceId: true } },
           },
         },
       },
@@ -197,17 +198,12 @@ export class CommentsService {
       for (const recipientId of recipients) {
         const event = new CommentMentionedEvent({
           recipientId,
-
           commentId: comment.id,
-
           taskId: task.id,
-
           boardId: task.group.boardId,
-
+          workspaceId: task.group.board.workspaceId,
           commentPreview: this.getCommentPreview(dto.content),
-
           mentionedById: mentionedBy.id,
-
           mentionedByName: `${mentionedBy.firstName} ${mentionedBy.lastName}`,
         });
 
@@ -269,11 +265,12 @@ export class CommentsService {
           metadata: {
             taskId: task.id,
             boardId: task.group.boardId,
+            workspaceId: task.group.board.workspaceId,
             commentId: comment.id,
             commentedById: userId,
           },
           eventKey: `comment-created:${comment.id}:${recipientId}`,
-          sendEmail: false,
+          sendEmail: true,
         });
       }
     }
@@ -368,6 +365,7 @@ export class CommentsService {
         group: {
           select: {
             boardId: true,
+            board: { select: { workspaceId: true } },
           },
         },
       },
@@ -460,6 +458,7 @@ export class CommentsService {
         metadata: {
           taskId: task.id,
           boardId: task.group.boardId,
+          workspaceId: task.group.board.workspaceId,
           commentId: reply.id,
           parentCommentId: parentComment.id,
           repliedById: userId,
@@ -493,6 +492,7 @@ export class CommentsService {
         metadata: {
           taskId: task.id,
           boardId: task.group.boardId,
+          workspaceId: task.group.board.workspaceId,
           commentId: reply.id,
           parentCommentId: parentComment.id,
           mentionedById: userId,

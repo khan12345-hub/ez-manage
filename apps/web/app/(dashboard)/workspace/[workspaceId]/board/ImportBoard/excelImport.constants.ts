@@ -36,6 +36,10 @@ export const COLUMN_TYPES: {
     value: "LABEL",
     label: "Label",
   },
+  {
+    value: "FILE",
+    label: "File",
+  },
 ];
 
 export const EXCEL_ACCEPT =

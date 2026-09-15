@@ -1,16 +1,11 @@
 export class CommentMentionedEvent {
   recipientId: number;
-
   commentId: number;
-
   taskId: number;
-
   boardId: number;
-
+  workspaceId: number;
   commentPreview: string;
-
   mentionedById: number;
-
   mentionedByName: string;
 
   constructor(params: {
@@ -18,6 +13,7 @@ export class CommentMentionedEvent {
     commentId: number;
     taskId: number;
     boardId: number;
+    workspaceId: number;
     commentPreview: string;
     mentionedById: number;
     mentionedByName: string;
@@ -26,6 +22,7 @@ export class CommentMentionedEvent {
     this.commentId = params.commentId;
     this.taskId = params.taskId;
     this.boardId = params.boardId;
+    this.workspaceId = params.workspaceId;
     this.commentPreview = params.commentPreview;
     this.mentionedById = params.mentionedById;
     this.mentionedByName = params.mentionedByName;

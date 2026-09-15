@@ -30,6 +30,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { InviteModal } from "@/components/InviteModal";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
+import { WorkspaceMembersModal, MemberDetail } from "@/components/WorkspaceMembersModal";
 // interface Workspace {
 //   id: number;
 //   name: string;
@@ -76,16 +77,19 @@ export interface WorkspaceMember {
 }
 interface Props {
   workspace: WorkspaceResponse;
+  membersDetail?: MemberDetail[];
+  currentUserRole?: string;
   onWorkspaceUpdate?: (updatedWorkspace: any) => void;
 }
 
-export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
+export function WorkspaceHeader({ workspace, membersDetail = [], currentUserRole = "", onWorkspaceUpdate }: Props) {
   const params = useParams<{ workspaceId: string }>();
   const router = useRouter();
   const workspaceId = Number(params.workspaceId);
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(workspace.name);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isMembersOpen, setIsMembersOpen] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -244,7 +248,12 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
             )}
             <p className="mt-0.5 text-sm text-muted-foreground truncate">{workspace.description}</p>
             <div className="mt-1.5 flex items-center gap-3 text-xs font-medium text-muted-foreground">
-              <span>{workspace.members} {workspace.members === 1 ? "member" : "members"}</span>
+              <button
+                onClick={() => setIsMembersOpen(true)}
+                className="hover:text-foreground hover:underline transition-colors"
+              >
+                {workspace.members} {workspace.members === 1 ? "member" : "members"}
+              </button>
               {workspace.visibility && (
                 <span className="rounded-full border px-2 py-0.5 capitalize text-[11px]">
                   {workspace.visibility.toLowerCase()}
@@ -293,6 +302,14 @@ export function WorkspaceHeader({ workspace, onWorkspaceUpdate }: Props) {
         isDeleting={isDeleting}
         title="Delete Workspace"
         description="Are you sure you want to delete this workspace? This action cannot be undone. All boards and members associated with this workspace will also be deleted."
+      />
+
+      <WorkspaceMembersModal
+        isOpen={isMembersOpen}
+        onClose={() => setIsMembersOpen(false)}
+        workspaceId={workspaceId}
+        members={membersDetail}
+        currentUserRole={currentUserRole}
       />
     </>
   );

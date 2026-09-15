@@ -6,7 +6,8 @@ export type BoardColumnType =
   | "PERSON"
   | "CHECKBOX"
   | "DROPDOWN"
-  | "LABEL";
+  | "LABEL"
+  | "FILE";
 
 export interface ExcelColumnMappingDto {
   sourceColumn: string;

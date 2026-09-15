@@ -9,6 +9,7 @@ export enum ExcelColumnType {
   CHECKBOX = "CHECKBOX",
   DROPDOWN = "DROPDOWN",
   LABEL = "LABEL",
+  FILE = "FILE",
 }
 
 export class ExcelColumnMappingDto {

@@ -72,7 +72,7 @@ export function GroupTable({
     selection?.getGroupSelectionState(group);
 
   return (
-    <div className="w-full overflow-x-scroll">
+    <div className="w-full overflow-x-auto">
       {isFetching && (
         <div className="px-4 py-2 text-xs text-muted-foreground">
           Updating...

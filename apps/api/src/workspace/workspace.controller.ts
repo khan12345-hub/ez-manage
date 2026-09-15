@@ -8,6 +8,8 @@ import {
   Delete,
   ParseIntPipe,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 
 import { WorkspaceService } from './workspace.service';
@@ -25,6 +27,7 @@ import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 import { WorkspacePermissionGuard } from 'src/auth/guards/workspace-permission.guard';
 
 import { WorkspacePermission } from '@repo/shared';
+import { WorkspaceMemberRole } from 'generated/prisma/enums';
 
 @Controller('workspaces')
 @UseGuards(SessionAuthGuard, WorkspacePermissionGuard)
@@ -82,5 +85,27 @@ export class WorkspaceController {
     @Param('workspaceId', ParseIntPipe) workspaceId: number,
   ) {
     return this.workspaceService.remove(workspaceId);
+  }
+
+  @Patch(':workspaceId/members/:memberId')
+  @RequireWorkspacePermission(WorkspacePermission.CHANGE_MEMBER_ROLE)
+  updateMemberRole(
+    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
+    @Body('role') role: WorkspaceMemberRole,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.workspaceService.updateMemberRole(workspaceId, memberId, role, user.id);
+  }
+
+  @Delete(':workspaceId/members/:memberId')
+  @RequireWorkspacePermission(WorkspacePermission.REMOVE_MEMBERS)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeMember(
+    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.workspaceService.removeMember(workspaceId, memberId, user.id);
   }
 }

@@ -67,14 +67,14 @@ export class MailService {
   private getNotificationUrl(metadata?: Record<string, any>): string {
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-    if (metadata?.boardId) {
-      return `${baseUrl}/boards/${metadata.boardId}`;
+    if (metadata?.workspaceId && metadata?.boardId) {
+      return `${baseUrl}/workspace/${metadata.workspaceId}/board/${metadata.boardId}`;
     }
 
-    if (metadata?.taskId) {
-      return `${baseUrl}/tasks/${metadata.taskId}`;
+    if (metadata?.workspaceId) {
+      return `${baseUrl}/workspace/${metadata.workspaceId}`;
     }
 
-    return baseUrl;
+    return `${baseUrl}/dashboard`;
   }
 }

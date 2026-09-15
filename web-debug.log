@@ -1,0 +1,238 @@
+
+> web@0.1.0 dev D:\Ezmanage\ez-manage\apps\web
+> next dev --port 3000
+
+▲ Next.js 16.2.0 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://172.16.200.105:3000
+- Environments: .env.local
+✓ Ready in 11.2s
+
+ GET / 307 in 3.0s (next.js: 1958ms, application-code: 1071ms)
+ GET /dashboard 200 in 2.9s (next.js: 486ms, application-code: 2.4s)
+ GET / 307 in 384ms (next.js: 76ms, application-code: 308ms)
+ GET /dashboard 200 in 121ms (next.js: 8ms, application-code: 113ms)
+ GET /login 200 in 2.6s (next.js: 2.5s, application-code: 108ms)
+ GET /dashboard 200 in 189ms (next.js: 154ms, application-code: 35ms)
+ GET /workspace/1 200 in 1199ms (next.js: 1052ms, application-code: 147ms)
+ GET /workspace/1 200 in 9.8s (next.js: 9.7s, application-code: 169ms)
+ GET /workspace/1/board/1 200 in 1603ms (next.js: 1540ms, application-code: 64ms)
+ GET /dashboard 200 in 46ms (next.js: 9ms, application-code: 37ms)
+ GET /workspace/1 200 in 54ms (next.js: 20ms, application-code: 34ms)
+✓ Compiled in 10.2s
+✓ Compiled in 29.3s
+✓ Compiled in 7.7s
+ GET /workspace/1 200 in 831ms (next.js: 544ms, application-code: 287ms)
+ GET /workspace/1 200 in 681ms (next.js: 7ms, application-code: 675ms)
+ GET /workspace/1 200 in 617ms (next.js: 8ms, application-code: 610ms)
+✓ Compiled in 1857ms
+✓ Compiled in 420ms
+✓ Compiled in 319ms
+✓ Compiled in 524ms
+✓ Compiled in 299ms
+✓ Compiled in 1328ms
+✓ Compiled in 1439ms
+✓ Finished filesystem cache database compaction in 11.1s
+✓ Compiled in 8.9s
+ GET /workspace/1 200 in 4.0s (next.js: 537ms, application-code: 3.4s)
+ GET /workspace/1/board/1 200 in 564ms (next.js: 392ms, application-code: 173ms)
+✓ Compiled in 2.1s
+ GET /dashboard 200 in 987ms (next.js: 784ms, application-code: 204ms)
+ GET /workspace/1 200 in 499ms (next.js: 357ms, application-code: 143ms)
+ GET /workspace/1/board/1 200 in 140ms (next.js: 74ms, application-code: 66ms)
+ GET /workspace/1/board/1 200 in 55ms (next.js: 19ms, application-code: 36ms)
+ GET /workspace/1/board/1 200 in 55ms (next.js: 17ms, application-code: 37ms)
+ GET /workspace/1 200 in 1468ms (next.js: 22ms, application-code: 1446ms)
+ GET /workspace/1/board/1 200 in 65ms (next.js: 20ms, application-code: 45ms)
+ GET /workspace/1/board/1 200 in 66ms (next.js: 24ms, application-code: 42ms)
+ GET /workspace/1/board/1 200 in 62ms (next.js: 21ms, application-code: 40ms)
+ GET /workspace/1 200 in 190ms (next.js: 21ms, application-code: 169ms)
+ GET /workspace/1/board/1 200 in 56ms (next.js: 18ms, application-code: 38ms)
+ GET /workspace/1/board/1 200 in 57ms (next.js: 20ms, application-code: 37ms)
+✓ Compiled in 316ms
+✓ Compiled in 783ms
+ GET /workspace/1 200 in 1540ms (next.js: 272ms, application-code: 1268ms)
+ GET /workspace/1/board/1 200 in 69ms (next.js: 24ms, application-code: 45ms)
+ GET /workspace/2 200 in 68ms (next.js: 24ms, application-code: 44ms)
+ GET /workspace/2/board/2 200 in 67ms (next.js: 22ms, application-code: 45ms)
+ GET /workspace/1 200 in 60ms (next.js: 23ms, application-code: 38ms)
+ GET /workspace/1/board/1 200 in 63ms (next.js: 24ms, application-code: 39ms)
+ GET /dashboard 200 in 51ms (next.js: 8ms, application-code: 43ms)
+ GET /workspace/2 200 in 67ms (next.js: 25ms, application-code: 42ms)
+ GET /workspace/2/board/2 200 in 61ms (next.js: 22ms, application-code: 39ms)
+✓ Compiled in 464ms
+ GET /workspace/2/board/2 200 in 271ms (next.js: 132ms, application-code: 139ms)
+ GET /workspace/2/board/2 200 in 116ms (next.js: 48ms, application-code: 68ms)
+✓ Compiled in 316ms
+✓ Compiled in 3s
+ GET /workspace/2/board/2 200 in 289ms (next.js: 140ms, application-code: 150ms)
+ GET /workspace/2/board/2 200 in 57ms (next.js: 8ms, application-code: 49ms)
+ GET /workspace/2 200 in 537ms (next.js: 313ms, application-code: 224ms)
+ GET /workspace/2/board/2 200 in 60ms (next.js: 31ms, application-code: 29ms)
+ GET /workspace/2/board/2 200 in 52ms (next.js: 11ms, application-code: 41ms)
+ GET /dashboard 200 in 65ms (next.js: 29ms, application-code: 36ms)
+ GET /workspace/1 200 in 50ms (next.js: 19ms, application-code: 31ms)
+ GET /uploads/profile-pictures/aa7e00bb-00b9-4386-8a5f-166853af8934.jpg 404 in 748ms (next.js: 471ms, application-code: 277ms)
+ GET /workspace/1/board/1 200 in 82ms (next.js: 42ms, application-code: 40ms)
+✓ Compiled in 6.2s
+ GET /workspace/1/board/1 200 in 657ms (next.js: 346ms, application-code: 311ms)
+ GET /workspace/1/board/1 200 in 87ms (next.js: 9ms, application-code: 77ms)
+✓ Compiled in 25.1s
+ GET /workspace/2 200 in 3.1s (next.js: 2.0s, application-code: 1044ms)
+ GET /workspace/2/board/2 200 in 2.9s (next.js: 2.3s, application-code: 621ms)
+ GET /workspace/2/board/2 200 in 432ms (next.js: 186ms, application-code: 246ms)
+ GET /workspace/2/board/2 200 in 89ms (next.js: 16ms, application-code: 73ms)
+ GET /system-settings 200 in 515ms (next.js: 432ms, application-code: 83ms)
+ GET /workspace/1 200 in 113ms (next.js: 36ms, application-code: 77ms)
+ HEAD / 307 in 465ms (next.js: 106ms, application-code: 359ms)
+ HEAD / 307 in 70ms (next.js: 8ms, application-code: 62ms)
+ HEAD / 307 in 1364ms (next.js: 8ms, application-code: 1356ms)
+ HEAD /dashboard 200 in 1368ms (next.js: 292ms, application-code: 1076ms)
+ HEAD /dashboard 200 in 87ms (next.js: 19ms, application-code: 68ms)
+ GET /workspace/3 200 in 72ms (next.js: 30ms, application-code: 42ms)
+ GET /workspace/4 200 in 59ms (next.js: 22ms, application-code: 37ms)
+ GET /dashboard 200 in 36ms (next.js: 6ms, application-code: 30ms)
+ GET /dashboard 200 in 43ms (next.js: 8ms, application-code: 36ms)
+ GET /workspace/3 200 in 60ms (next.js: 19ms, application-code: 40ms)
+ GET /workspace/3 200 in 36ms (next.js: 22ms, application-code: 14ms)
+ GET /workspace/3 200 in 52ms (next.js: 20ms, application-code: 33ms)
+ GET /workspace/3 200 in 379ms (next.js: 188ms, application-code: 191ms)
+ GET /workspace/4 200 in 193ms (next.js: 100ms, application-code: 92ms)
+ GET /workspace/4 200 in 48ms (next.js: 10ms, application-code: 38ms)
+ GET /workspace/3 200 in 196ms (next.js: 52ms, application-code: 144ms)
+✓ Compiled in 4.5s
+✓ Compiled in 2.3s
+ GET /workspace/4 200 in 433ms (next.js: 245ms, application-code: 187ms)
+ GET /workspace/4 200 in 112ms (next.js: 10ms, application-code: 102ms)
+ GET /workspace/4 200 in 174ms (next.js: 13ms, application-code: 160ms)
+ GET /workspace/4 200 in 176ms (next.js: 91ms, application-code: 86ms)
+ GET /dashboard 200 in 308ms (next.js: 238ms, application-code: 69ms)
+✓ Compiled in 708ms
+✓ Compiled in 297ms
+ GET /workspace/3 200 in 65ms (next.js: 23ms, application-code: 42ms)
+ GET /workspace/3 200 in 44ms (next.js: 17ms, application-code: 28ms)
+ GET /workspace/4 200 in 64ms (next.js: 24ms, application-code: 39ms)
+ GET /workspace/4 200 in 45ms (next.js: 13ms, application-code: 33ms)
+ GET /dashboard 200 in 319ms (next.js: 209ms, application-code: 110ms)
+✓ Compiled in 753ms
+✓ Compiled in 12.8s
+✓ Compiled in 1747ms
+✓ Compiled in 297ms
+✓ Compiled in 434ms
+✓ Compiled in 614ms
+✓ Compiled in 323ms
+✓ Compiled in 4.8s
+✓ Compiled in 1485ms
+✓ Compiled in 4.6s
+✓ Finished filesystem cache database compaction in 13.7s
+✓ Compiled in 1825ms
+ GET /dashboard 200 in 4.0s (next.js: 696ms, application-code: 3.3s)
+ GET /system-settings 200 in 401ms (next.js: 318ms, application-code: 82ms)
+ GET /workspace/4 200 in 417ms (next.js: 278ms, application-code: 138ms)
+ GET /dashboard 200 in 52ms (next.js: 9ms, application-code: 43ms)
+ GET /workspace/1 200 in 54ms (next.js: 18ms, application-code: 36ms)
+ GET /uploads/profile-pictures/aa7e00bb-00b9-4386-8a5f-166853af8934.jpg 404 in 341ms (next.js: 72ms, application-code: 269ms)
+ GET /workspace/1/board/1 200 in 512ms (next.js: 373ms, application-code: 138ms)
+ GET /workspace/4 200 in 166ms (next.js: 19ms, application-code: 147ms)
+ GET /workspace/4 200 in 53ms (next.js: 19ms, application-code: 34ms)
+ GET /workspace/3 200 in 51ms (next.js: 21ms, application-code: 31ms)
+ GET /workspace/3 200 in 28ms (next.js: 17ms, application-code: 11ms)
+ GET /workspace/3 200 in 38ms (next.js: 8ms, application-code: 30ms)
+ GET /system-settings 200 in 47ms (next.js: 10ms, application-code: 37ms)
+✓ Finished filesystem cache database compaction in 13.6s
+ GET /workspace/2 200 in 226ms (next.js: 83ms, application-code: 142ms)
+ GET /workspace/2/board/5 200 in 160ms (next.js: 38ms, application-code: 122ms)
+ GET /workspace/2/board/5 200 in 3.3s (next.js: 24ms, application-code: 3.3s)
+ GET / 307 in 9.5s (next.js: 4.7s, application-code: 4.8s)
+ GET /dashboard 200 in 887ms (next.js: 214ms, application-code: 674ms)
+ GET /workspace/2 200 in 370ms (next.js: 193ms, application-code: 177ms)
+ GET /workspace/2/board/5 200 in 207ms (next.js: 94ms, application-code: 113ms)
+ GET /workspace/2/board/6 200 in 85ms (next.js: 27ms, application-code: 58ms)
+✓ Compiled in 35s
+ GET /workspace/2/board/6 200 in 16.7s (next.js: 16.5s, application-code: 214ms)
+ GET /workspace/2/board/6 200 in 17.0s (next.js: 1437ms, application-code: 15.6s)
+✓ Compiled in 4.7s
+ GET /workspace/2/board/6 200 in 635ms (next.js: 339ms, application-code: 296ms)
+ GET /workspace/2/board/6 200 in 122ms (next.js: 24ms, application-code: 97ms)
+✓ Compiled in 3.3s
+ GET /workspace/2/board/6 200 in 653ms (next.js: 365ms, application-code: 288ms)
+ GET /workspace/2/board/6 200 in 156ms (next.js: 73ms, application-code: 83ms)
+ GET /workspace/2/board/5 200 in 59ms (next.js: 20ms, application-code: 40ms)
+ GET /workspace/2/board/6 200 in 59ms (next.js: 19ms, application-code: 40ms)
+ GET /workspace/2/board/6 200 in 338ms (next.js: 173ms, application-code: 165ms)
+ GET /workspace/2/board/6 200 in 68ms (next.js: 10ms, application-code: 58ms)
+✓ Compiled in 329ms
+ GET /workspace/2/board/6 200 in 500ms (next.js: 254ms, application-code: 246ms)
+ GET /workspace/2/board/6 200 in 65ms (next.js: 8ms, application-code: 57ms)
+✓ Finished filesystem cache database compaction in 10.8s
+ GET /workspace/1 200 in 552ms (next.js: 389ms, application-code: 163ms)
+ GET /workspace/1/board/1 200 in 69ms (next.js: 21ms, application-code: 48ms)
+ GET /workspace/3 200 in 49ms (next.js: 19ms, application-code: 30ms)
+ GET /workspace/3 200 in 155ms (next.js: 14ms, application-code: 141ms)
+ GET /workspace/2 200 in 58ms (next.js: 21ms, application-code: 38ms)
+ GET /workspace/2/board/5 200 in 58ms (next.js: 20ms, application-code: 38ms)
+ GET /workspace/2/board/6 200 in 53ms (next.js: 18ms, application-code: 35ms)
+ GET /workspace/2/board/7 200 in 64ms (next.js: 28ms, application-code: 37ms)
+✓ Compiled in 623ms
+ GET /workspace/2/board/7 200 in 541ms (next.js: 312ms, application-code: 229ms)
+ GET /workspace/2/board/7 200 in 128ms (next.js: 9ms, application-code: 119ms)
+ GET /workspace/2/board/8 200 in 149ms (next.js: 50ms, application-code: 99ms)
+✓ Compiled in 6.2s
+ GET /workspace/2/board/8 200 in 827ms (next.js: 436ms, application-code: 392ms)
+ GET /workspace/2/board/8 200 in 281ms (next.js: 7ms, application-code: 274ms)
+ GET /workspace/2/board/8 200 in 176ms (next.js: 8ms, application-code: 168ms)
+ GET /workspace/2/board/8 200 in 301ms (next.js: 69ms, application-code: 232ms)
+✓ Compiled in 9.7s
+ GET /workspace/2/board/8 200 in 495ms (next.js: 300ms, application-code: 195ms)
+ GET /workspace/2/board/8 200 in 92ms (next.js: 8ms, application-code: 84ms)
+ GET /workspace/2/board/8 200 in 266ms (next.js: 126ms, application-code: 139ms)
+ GET /workspace/2/board/8 200 in 157ms (next.js: 98ms, application-code: 59ms)
+✓ Compiled in 1105ms
+ GET /workspace/2/board/8 200 in 633ms (next.js: 464ms, application-code: 169ms)
+ GET /workspace/2/board/8 200 in 67ms (next.js: 10ms, application-code: 57ms)
+ GET /workspace/2/board/8 200 in 7.4s (next.js: 147ms, application-code: 7.2s)
+ GET /login 200 in 1809ms (next.js: 1466ms, application-code: 343ms)
+ GET /login 200 in 1351ms (next.js: 9ms, application-code: 1342ms)
+ GET /dashboard 200 in 1585ms (next.js: 1304ms, application-code: 281ms)
+ GET /dashboard 200 in 1576ms (next.js: 10ms, application-code: 1566ms)
+ GET /workspace/3 200 in 829ms (next.js: 623ms, application-code: 206ms)
+ GET /workspace/3 200 in 95ms (next.js: 23ms, application-code: 72ms)
+ GET /workspace/3/board/9 200 in 136ms (next.js: 49ms, application-code: 87ms)
+✓ Finished filesystem cache database compaction in 13.9s
+ GET /workspace/3? 200 in 1404ms (next.js: 18ms, application-code: 1385ms)
+ GET /workspace/3/board/9 200 in 108ms (next.js: 18ms, application-code: 91ms)
+✓ Compiled in 16.7s
+ GET /workspace/3/board/9 200 in 4.9s (next.js: 342ms, application-code: 4.6s)
+ GET /workspace/1 200 in 394ms (next.js: 250ms, application-code: 143ms)
+ GET /workspace/1/board/1 200 in 81ms (next.js: 34ms, application-code: 47ms)
+ GET /workspace/3 200 in 48ms (next.js: 18ms, application-code: 30ms)
+ GET /workspace/3/board/9 200 in 62ms (next.js: 22ms, application-code: 40ms)
+ GET /workspace/2 200 in 38ms (next.js: 8ms, application-code: 30ms)
+ GET /workspace/2/board/5 200 in 52ms (next.js: 11ms, application-code: 41ms)
+ GET /workspace/2/board/6 200 in 53ms (next.js: 19ms, application-code: 34ms)
+ GET /workspace/3 200 in 53ms (next.js: 20ms, application-code: 33ms)
+ GET /workspace/3/board/9 200 in 120ms (next.js: 31ms, application-code: 90ms)
+✓ Compiled in 1731ms
+ GET /workspace/3/board/9 200 in 6.3s (next.js: 2.8s, application-code: 3.5s)
+✓ Compiled in 9.8s
+ GET /workspace/3/board/9 200 in 11.6s (next.js: 11.6s, application-code: 91ms)
+ GET /workspace/3/board/9 200 in 84ms (next.js: 12ms, application-code: 72ms)
+ GET /workspace/3/board/9 200 in 338ms (next.js: 10ms, application-code: 327ms)
+ GET /workspace/3/board/9 200 in 277ms (next.js: 7ms, application-code: 270ms)
+ GET /workspace/3/board/9 200 in 204ms (next.js: 13ms, application-code: 191ms)
+ GET /workspace/3/board/9 200 in 206ms (next.js: 135ms, application-code: 71ms)
+ GET /workspace/3/board/9 200 in 209ms (next.js: 70ms, application-code: 138ms)
+✓ Compiled in 115.9s
+✓ Finished writing to filesystem cache in 12.1s
+ GET /workspace/3/board/10 200 in 72s (next.js: 71s, application-code: 345ms)
+ GET /workspace/3/board/10 200 in 39.4s (next.js: 39.2s, application-code: 193ms)
+ GET /workspace/3/board/9 200 in 9.5s (next.js: 9ms, application-code: 9.5s)
+✓ Finished filesystem cache database compaction in 18.9s
+ GET /workspace/3/board/10 200 in 1105ms (next.js: 698ms, application-code: 407ms)
+ GET /workspace/2 200 in 638ms (next.js: 437ms, application-code: 202ms)
+ GET /workspace/2/board/5 200 in 95ms (next.js: 38ms, application-code: 57ms)
+ GET /workspace/2/board/6 200 in 54ms (next.js: 17ms, application-code: 37ms)
+ GET /workspace/3 200 in 49ms (next.js: 18ms, application-code: 31ms)
+ GET /workspace/3/board/10 200 in 76ms (next.js: 36ms, application-code: 40ms)
+✓ Finished filesystem cache database compaction in 20.2s
+ GET /workspace/3/board/11 200 in 85ms (next.js: 38ms, application-code: 47ms)

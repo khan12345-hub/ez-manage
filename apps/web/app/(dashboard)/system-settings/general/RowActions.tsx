@@ -14,11 +14,13 @@ import {
 interface RowActionsProps {
   onEdit: () => void;
   onDelete: () => void;
+  showEdit?: boolean;
 }
 
 export function RowActions({
   onEdit,
   onDelete,
+  showEdit = true,
 }: RowActionsProps) {
   return (
     <DropdownMenu>
@@ -33,12 +35,16 @@ export function RowActions({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onEdit}>
-          <Pencil className="mr-2 h-4 w-4" />
-          Edit
-        </DropdownMenuItem>
+        {showEdit && (
+          <>
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
+            <DropdownMenuSeparator />
+          </>
+        )}
 
         <DropdownMenuItem
           onClick={onDelete}

@@ -26,6 +26,7 @@ type WorkspaceFormValues = z.infer<typeof workspaceSchema>;
 interface CreateWorkspaceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: (workspace: any) => void;
 }
 
 const VISIBILITY_OPTIONS = [
@@ -43,10 +44,8 @@ const VISIBILITY_OPTIONS = [
   },
 ] as const;
 
-export function CreateWorkspaceModal({
-  isOpen,
-  onClose,
-}: CreateWorkspaceModalProps) {
+export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
+  const { isOpen, onClose } = props;
   const queryClient = useQueryClient();
   const form = useForm<WorkspaceFormValues>({
     resolver: zodResolver(workspaceSchema),
@@ -63,7 +62,11 @@ export function CreateWorkspaceModal({
     onSuccess: (workspace) => {
       queryClient.invalidateQueries({ queryKey: ["workspaces"] });
       toast.success(`Workspace "${workspace.name}" created.`);
-      router.push(`/workspace/${workspace.id}`)
+      if (props.onSuccess) {
+        props.onSuccess(workspace);
+      } else {
+        router.push(`/workspace/${workspace.id}`);
+      }
       onClose();
     },
     onError: (error: any) => {

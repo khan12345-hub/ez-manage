@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -114,6 +115,13 @@ export class WorkspaceService {
                 members: true,
               },
             },
+            groups: {
+              select: {
+                _count: {
+                  select: { tasks: true },
+                },
+              },
+            },
           },
           orderBy: {
             createdAt: 'asc',
@@ -223,6 +231,61 @@ export class WorkspaceService {
       where: {
         id: workspaceId,
       },
+    });
+  }
+
+  async updateMemberRole(
+    workspaceId: number,
+    memberId: number,
+    role: WorkspaceMemberRole,
+    requesterId: number,
+  ) {
+    const target = await this.prisma.workspaceMember.findUnique({
+      where: { id: memberId },
+    });
+
+    if (!target || target.workspaceId !== workspaceId) {
+      throw new NotFoundException('Member not found.');
+    }
+
+    if (target.role === WorkspaceMemberRole.OWNER) {
+      throw new ForbiddenException('Cannot change the role of the workspace owner.');
+    }
+
+    if (role === WorkspaceMemberRole.OWNER) {
+      throw new ForbiddenException('Cannot assign the OWNER role.');
+    }
+
+    return this.prisma.workspaceMember.update({
+      where: { id: memberId },
+      data: { role },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+        },
+      },
+    });
+  }
+
+  async removeMember(
+    workspaceId: number,
+    memberId: number,
+    requesterId: number,
+  ) {
+    const target = await this.prisma.workspaceMember.findUnique({
+      where: { id: memberId },
+    });
+
+    if (!target || target.workspaceId !== workspaceId) {
+      throw new NotFoundException('Member not found.');
+    }
+
+    if (target.role === WorkspaceMemberRole.OWNER) {
+      throw new ForbiddenException('Cannot remove the workspace owner.');
+    }
+
+    return this.prisma.workspaceMember.delete({
+      where: { id: memberId },
     });
   }
 }

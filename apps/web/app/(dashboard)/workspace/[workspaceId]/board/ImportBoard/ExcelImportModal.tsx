@@ -318,7 +318,8 @@ export function ExcelImportModal({
         )}
 
         <DialogContent
-          className="max-h-[90vh] max-w-5xl! overflow-hidden p-0"
+          className="max-h-[90vh] max-w-5xl! overflow-hidden p-0 z-[70]"
+          overlayClassName="z-[70]"
           onInteractOutside={(event) => {
             if (isImporting) {
               event.preventDefault();
