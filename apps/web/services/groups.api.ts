@@ -126,3 +126,92 @@ export const reorderGroup = async (
 
   return data;
 };
+
+/**
+ * Duplicate a group
+ *
+ * POST /boards/:boardId/groups/:groupId/duplicate
+ */
+export const duplicateGroup = async (
+  boardId: number,
+  groupId: number,
+  withUpdates: boolean,
+) => {
+  const { data } = await api.post(
+    `/boards/${boardId}/groups/${groupId}/duplicate`,
+    { withUpdates },
+  );
+
+  return data;
+};
+
+/**
+ * Archive a group (sets isArchived: true)
+ *
+ * PATCH /boards/:boardId/groups/:groupId
+ */
+export const archiveGroup = async (
+  boardId: number,
+  groupId: number,
+) => {
+  const { data } = await api.patch(
+    `/boards/${boardId}/groups/${groupId}`,
+    { isArchived: true },
+  );
+
+  return data;
+};
+
+/**
+ * Get archived groups for a board
+ *
+ * GET /boards/:boardId/groups/archived
+ */
+export const getArchivedGroups = async (boardId: number) => {
+  const { data } = await api.get<{
+    id: number;
+    name: string;
+    color: string | null;
+    updatedAt: string;
+    _count: { tasks: number };
+  }[]>(`/boards/${boardId}/groups/archived`);
+  return data;
+};
+
+/**
+ * Unarchive a group (sets isArchived: false)
+ *
+ * PATCH /boards/:boardId/groups/:groupId
+ */
+export const unarchiveGroup = async (boardId: number, groupId: number) => {
+  const { data } = await api.patch(
+    `/boards/${boardId}/groups/${groupId}`,
+    { isArchived: false },
+  );
+  return data;
+};
+
+/**
+ * Export a single group to Excel
+ *
+ * GET /boards/:boardId/export?groupId=:groupId
+ */
+export const exportGroupExcel = async (
+  boardId: number,
+  groupId: number,
+  groupName: string,
+) => {
+  const response = await api.get(
+    `/boards/${boardId}/export?groupId=${groupId}`,
+    { responseType: 'blob' },
+  );
+
+  const url = URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${groupName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'group'}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};

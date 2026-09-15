@@ -922,7 +922,9 @@ export class CommentsService {
       mimeType: commentFile.file.mimeType,
       fileSize: commentFile.file.fileSize,
       url: commentFile.file.url,
+      storageKey: commentFile.file.storageKey,
       uploadedAt: commentFile.file.uploadedAt,
+      uploadedById: commentFile.file.uploadedById,
 
       source: 'COMMENT' as const,
 
@@ -939,10 +941,13 @@ export class CommentsService {
       mimeType: cellFile.file.mimeType,
       fileSize: cellFile.file.fileSize,
       url: cellFile.file.url,
+      storageKey: cellFile.file.storageKey,
       uploadedAt: cellFile.file.uploadedAt,
+      uploadedById: cellFile.file.uploadedById,
 
       source: 'TASK_CELL' as const,
 
+      cellId: cellFile.cell.id,
       columnId: cellFile.cell.column.id,
       columnName: cellFile.cell.column.name,
 

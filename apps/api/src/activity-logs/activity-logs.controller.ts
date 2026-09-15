@@ -7,17 +7,13 @@ import { GetActivityLogsDto } from './dto/get-activity-log.dto';
 export class ActivityLogsController {
   constructor(private readonly activityLogsService: ActivityLogsService) {}
 
-  // @Get("boards/:boardId/activity")
-  // findByBoard(
-  //   @Param("boardId", ParseIntPipe) boardId: number,
-  //   @Query() query: GetActivityLogsDto,
-  // ) {
-  //   return this.activityLogsService.findByBoard(
-  //     boardId,
-  //     query.page,
-  //     query.limit,
-  //   );
-  // }
+  @Get('boards/:boardId/activity')
+  findByBoard(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Query() query: GetActivityLogsDto,
+  ) {
+    return this.activityLogsService.findByBoard(boardId, query);
+  }
 
   @Get('tasks/:taskId/activity')
   findByTask(

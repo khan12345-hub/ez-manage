@@ -20,9 +20,18 @@ import { GroupActions } from "./GroupActions";
 interface Props {
   group: any;
   focusToken?: number;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+  onAddGroup?: () => void;
 }
 
-export function GroupHeader({ group, focusToken = 0 }: Props) {
+export function GroupHeader({
+  group,
+  focusToken = 0,
+  isCollapsed = false,
+  onToggleCollapse,
+  onAddGroup,
+}: Props) {
   /*
    * IMPORTANT:
    * Subscribe to the actual group in Zustand.
@@ -231,7 +240,12 @@ export function GroupHeader({ group, focusToken = 0 }: Props) {
       </div>
 
       {!activeGroup.isNew && (
-        <GroupActions group={activeGroup} />
+        <GroupActions
+          group={activeGroup}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={onToggleCollapse ?? (() => {})}
+          onAddGroup={onAddGroup ?? (() => {})}
+        />
       )}
     </div>
   );

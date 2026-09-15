@@ -11,7 +11,7 @@ import { ReplyComposer } from "./ReplyComposer";
 import { ReplyItem } from "./ReplyItem";
 import { CommentEditor } from "./CommentEditor";
 import { format } from "date-fns";
-import FilePreviewItem from "../../../../../Cells/File/Previews/FilePreviewItem";
+import { CommentFilesGallery } from "./CommentFilesGallery";
 import { toggleCommentReaction, CommentReaction } from "@/services/comments.api";
 import { useMe } from "@/services/auth/auth.hooks";
 
@@ -80,16 +80,7 @@ export function CommentItem({
           )}
 
           {comment.files?.length > 0 && (
-            <div className="mt-2 grid grid-cols-6 gap-2">
-              {comment.files.map((file: any, index: number) => (
-                <FilePreviewItem
-                  key={`${file.id}-${file.storageKey}-${index}`}
-                  commentId={comment.id}
-                  file={file}
-                  imageOnlyPreview
-                />
-              ))}
-            </div>
+            <CommentFilesGallery files={comment.files} />
           )}
 
           {/* Reactions row */}

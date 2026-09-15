@@ -7,10 +7,25 @@ export class GetActivityLogsDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 20;
+  limit?: number = 30;
 
   @IsOptional()
   @IsString()
   cursor?: string;
-}
 
+  @IsOptional()
+  @IsString()
+  userIds?: string;
+
+  @IsOptional()
+  @IsString()
+  groupIds?: string;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  since?: string;
+}

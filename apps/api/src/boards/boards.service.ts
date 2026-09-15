@@ -456,6 +456,7 @@ export class BoardsService {
         },
 
         groups: {
+          where: { isArchived: false },
           orderBy: {
             order: 'asc',
           },
@@ -514,6 +515,32 @@ export class BoardsService {
       where: { boardId },
       orderBy: { order: 'asc' },
       select: { id: true, name: true, color: true },
+    });
+  }
+
+  async trackView(boardId: number, userId: number) {
+    await this.prisma.boardView.upsert({
+      where: { boardId_userId: { boardId, userId } },
+      update: { viewedAt: new Date() },
+      create: { boardId, userId },
+    });
+    return { ok: true };
+  }
+
+  async getBoardViews(boardId: number) {
+    return this.prisma.boardView.findMany({
+      where: { boardId },
+      orderBy: { viewedAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+      },
     });
   }
 

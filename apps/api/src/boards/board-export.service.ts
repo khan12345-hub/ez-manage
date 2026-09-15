@@ -10,6 +10,7 @@ export class BoardExportService {
 
   async exportBoard(
     boardId: number,
+    groupId?: number,
   ): Promise<{ buffer: Buffer; filename: string }> {
     const board = await this.prisma.board.findUnique({
       where: { id: boardId },
@@ -30,6 +31,7 @@ export class BoardExportService {
           },
         },
         groups: {
+          where: groupId ? { id: groupId } : { isArchived: false },
           orderBy: { order: 'asc' },
           select: {
             id: true,
@@ -160,8 +162,11 @@ export class BoardExportService {
     }) as Uint8Array;
     const buffer = Buffer.from(u8);
 
-    const safeName = board.name.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_');
-    const filename = `${safeName || 'board'}.xlsx`;
+    const exportName = groupId
+      ? (board.groups[0]?.name ?? board.name)
+      : board.name;
+    const safeName = exportName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_');
+    const filename = `${safeName || 'export'}.xlsx`;
 
     return { buffer, filename };
   }

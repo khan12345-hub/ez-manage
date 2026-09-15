@@ -406,36 +406,43 @@ export class BoardSearchService {
   /**
    * Search a task for a specific person.
    *
+   * Accepts either comma-separated user IDs ("1,3") or a text string.
    * This also searches subtasks recursively.
    */
   taskMatchesPerson(task: any, person: string): boolean {
-    const normalizedPerson = person.trim().toLowerCase();
+    const trimmed = person.trim();
 
-    if (!normalizedPerson) {
+    if (!trimmed) {
       return true;
     }
 
-    /*
-     * Search current task
-     */
-    const currentTaskMatches = (task.cells ?? []).some((cell: any) => {
-      if (cell.column?.type !== BoardColumnType.PERSON) {
-        return false;
+    // Detect comma-separated user IDs (e.g. "1,3,7")
+    const isIdList = /^[\d,]+$/.test(trimmed);
+    const userIds = isIdList
+      ? trimmed.split(',').map(Number).filter(Boolean)
+      : [];
+
+    const cellMatches = (cell: any): boolean => {
+      if (cell.column?.type !== BoardColumnType.PERSON) return false;
+
+      if (isIdList) {
+        return this.personCellMatchesIds(cell, userIds);
       }
+      return this.personCellMatchesSearch(cell, trimmed.toLowerCase());
+    };
 
-      return this.personCellMatchesSearch(cell, normalizedPerson);
-    });
+    const currentTaskMatches = (task.cells ?? []).some(cellMatches);
+    if (currentTaskMatches) return true;
 
-    if (currentTaskMatches) {
-      return true;
-    }
-
-    /*
-     * Search subtasks
-     */
     return (task.subtasks ?? []).some((subtask: any) =>
-      this.taskMatchesPerson(subtask, normalizedPerson),
+      this.taskMatchesPerson(subtask, person),
     );
+  }
+
+  private personCellMatchesIds(cell: any, userIds: number[]): boolean {
+    const personValue = cell.value as { users?: { id?: number }[] } | null;
+    if (!personValue?.users?.length) return false;
+    return personValue.users.some((u) => u.id !== undefined && userIds.includes(u.id));
   }
 
   /**

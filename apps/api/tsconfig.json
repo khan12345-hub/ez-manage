@@ -1,7 +1,8 @@
 
 {
     "include": [
-    "src/**/*"
+    "src/**/*",
+    "generated/**/*"
   ],
   "compilerOptions": {
     // "module": "nodenext",

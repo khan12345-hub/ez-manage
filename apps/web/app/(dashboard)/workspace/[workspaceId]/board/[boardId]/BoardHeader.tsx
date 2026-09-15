@@ -23,6 +23,8 @@ import {
 import { ManageBoardAccessModal } from "./ManageBoardAccessModal";
 import AutomationModal from "./Automation/AutomationModal";
 import { usePermissions } from "@/services/permissions/permissions.hooks";
+import { BoardActivityPanel } from "./BoardActivityPanel";
+import { useAuth } from "@/providers/AuthProvider";
 
 interface BoardHeaderProps {
   board: any;
@@ -32,8 +34,11 @@ export function BoardHeader({ board }: BoardHeaderProps) {
   const queryClient = useQueryClient();
 
   const [manageAccessOpen, setManageAccessOpen] = useState(false);
-
   const [open, setOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
+
+  const { user } = useAuth();
+  const initials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase();
 
   /**
    * Update board visibility
@@ -190,6 +195,20 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-1">
+          {/* Activity log avatar button */}
+          <button
+            type="button"
+            onClick={() => setActivityOpen(true)}
+            title="Board activity log"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 text-[11px] font-bold text-white hover:ring-2 hover:ring-orange-400 hover:ring-offset-1 transition-all"
+          >
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={initials} className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              initials
+            )}
+          </button>
+
           <Button
             type="button"
             variant="ghost"
@@ -251,6 +270,12 @@ export function BoardHeader({ board }: BoardHeaderProps) {
         boardName={board.name}
         columns={board.columns}
         groups={board.groups}
+      />
+
+      <BoardActivityPanel
+        board={board}
+        open={activityOpen}
+        onClose={() => setActivityOpen(false)}
       />
     </>
   );

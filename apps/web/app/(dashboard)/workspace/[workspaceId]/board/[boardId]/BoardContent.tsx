@@ -14,6 +14,7 @@ import { useGroupStore } from "@/store/create-group-store";
 import { SortableGroup } from "../group/SortableGroup";
 import { SortableGroupContainer } from "../group/SortableGroupContainer";
 import { BoardSkeleton } from "./BoardSkeleton";
+import { ArchivedGroupsPanel } from "../group/ArchivedGroupsPanel";
 
 
 interface BoardContentProps {
@@ -189,6 +190,8 @@ export function BoardContent({
         <Plus className="h-4 w-4" />
         Add New Group
       </Button>
+
+      {board?.id && <ArchivedGroupsPanel boardId={board.id} />}
 
       <HideColumnModal
         open={filters.hideColumnOpen}

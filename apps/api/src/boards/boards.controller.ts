@@ -68,9 +68,13 @@ export class BoardsController {
   @RequireBoardPermission(BoardPermission.EXPORT_BOARD)
   async exportBoard(
     @Param('boardId', ParseIntPipe) boardId: number,
+    @Query('groupId') groupId: string | undefined,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { buffer, filename } = await this.boardExportService.exportBoard(boardId);
+    const { buffer, filename } = await this.boardExportService.exportBoard(
+      boardId,
+      groupId ? Number(groupId) : undefined,
+    );
     res.set({
       'Content-Type':
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -239,6 +243,23 @@ export class BoardsController {
     );
   }
 
+  @Post(':boardId/view')
+  @RequireBoardPermission(BoardPermission.VIEW)
+  trackView(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.boardsService.trackView(boardId, user.id);
+  }
+
+  @Get(':boardId/views')
+  @RequireBoardPermission(BoardPermission.VIEW)
+  getBoardViews(
+    @Param('boardId', ParseIntPipe) boardId: number,
+  ) {
+    return this.boardsService.getBoardViews(boardId);
+  }
+
   @Post('import/excel')
   async importExcelBoard(
     @Body() dto: ImportExcelBoardDto,
@@ -291,5 +312,14 @@ async findAllBoardFiles(
   @Param('boardId', ParseIntPipe) boardId: number,
 ) {
   return this.boardAllFilesService.findAllBoardFiles(boardId);
+}
+
+@Delete(':boardId/files/:fileId')
+@RequireBoardPermission(BoardPermission.EDIT)
+async deleteBoardFile(
+  @Param('boardId', ParseIntPipe) boardId: number,
+  @Param('fileId', ParseIntPipe) fileId: number,
+) {
+  return this.boardAllFilesService.deleteBoardFile(boardId, fileId);
 }
 }

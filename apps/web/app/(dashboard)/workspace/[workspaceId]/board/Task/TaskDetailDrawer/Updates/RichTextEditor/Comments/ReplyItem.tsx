@@ -8,9 +8,7 @@ import { DeleteCommentModal } from "./DeleteCommentModal";
 import { CommentEditor } from "./CommentEditor";
 import { format } from "date-fns";
 import { Avatar } from "./CommentItem";
-import { FilePreviewModal } from "../../../../../Cells/File/Previews/FilePreviewModal";
-import { Button } from "@/components/ui/button";
-import { Paperclip } from "lucide-react";
+import { CommentFilesGallery } from "./CommentFilesGallery";
 import { toggleCommentReaction, CommentReaction } from "@/services/comments.api";
 import { useMe } from "@/services/auth/auth.hooks";
 
@@ -26,7 +24,6 @@ interface ReplyItemProps {
 export function ReplyItem({ reply, taskId, onEdit, onDelete }: ReplyItemProps) {
   const [editing, setEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const queryClient = useQueryClient();
@@ -84,15 +81,7 @@ export function ReplyItem({ reply, taskId, onEdit, onDelete }: ReplyItemProps) {
         )}
 
         {reply.files?.length > 0 && (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setPreviewOpen(true)}
-          >
-            <Paperclip className="mr-2 h-4 w-4" />
-            {reply.files.length}{" "}
-            {reply.files.length > 1 ? "files" : "file"}
-          </Button>
+          <CommentFilesGallery files={reply.files} />
         )}
 
         {/* Reply reactions */}
@@ -157,12 +146,6 @@ export function ReplyItem({ reply, taskId, onEdit, onDelete }: ReplyItemProps) {
           )}
         </div>
 
-        <FilePreviewModal
-          open={previewOpen}
-          onOpenChange={setPreviewOpen}
-          files={reply.files}
-          commentId={reply.id}
-        />
       </div>
 
       <DeleteCommentModal

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
@@ -122,6 +122,36 @@ export class boardAllFilesService {
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
+  }
+
+  async deleteBoardFile(boardId: number, fileId: number) {
+    // Try cell file first
+    const cellFile = await this.prisma.taskCellFile.findFirst({
+      where: {
+        fileId,
+        cell: { task: { group: { boardId } } },
+      },
+    });
+
+    if (cellFile) {
+      await this.prisma.file.delete({ where: { id: fileId } });
+      return { message: 'File deleted.' };
+    }
+
+    // Try comment file
+    const commentFile = await this.prisma.taskCommentFile.findFirst({
+      where: {
+        fileId,
+        comment: { task: { group: { boardId } } },
+      },
+    });
+
+    if (commentFile) {
+      await this.prisma.file.delete({ where: { id: fileId } });
+      return { message: 'File deleted.' };
+    }
+
+    throw new ForbiddenException('File not found on this board.');
   }
 
   private getFileType(mimeType: string): string {

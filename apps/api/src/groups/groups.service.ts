@@ -112,9 +112,127 @@ export class GroupsService {
             color: updateGroupDto.color,
           }),
 
+          ...(updateGroupDto.isArchived !== undefined && {
+            isArchived: updateGroupDto.isArchived,
+          }),
+
           updatedById: userId,
         },
       });
+    });
+  }
+
+  async duplicate(
+    groupId: number,
+    boardId: number,
+    userId: number,
+    withUpdates: boolean,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const sourceGroup = await tx.group.findFirst({
+        where: { id: groupId, boardId },
+        include: {
+          tasks: {
+            where: { parentId: null },
+            orderBy: { order: 'asc' },
+            include: {
+              cells: true,
+              subtasks: {
+                orderBy: { order: 'asc' },
+                include: { cells: true },
+              },
+              ...(withUpdates
+                ? {
+                    comments: {
+                      where: { parentId: null },
+                      orderBy: { createdAt: 'asc' },
+                      select: {
+                        content: true,
+                        userId: true,
+                      },
+                    },
+                  }
+                : {}),
+            },
+          },
+        },
+      });
+
+      if (!sourceGroup) {
+        throw new NotFoundException('Group not found for the specified board.');
+      }
+
+      const lastGroup = await tx.group.findFirst({
+        where: { boardId },
+        orderBy: { order: 'desc' },
+      });
+
+      const newGroup = await tx.group.create({
+        data: {
+          boardId,
+          name: `${sourceGroup.name} (Copy)`,
+          color: sourceGroup.color,
+          createdById: userId,
+          order: lastGroup ? lastGroup.order + 1000 : 1000,
+        },
+      });
+
+      for (const task of sourceGroup.tasks) {
+        const newTask = await tx.task.create({
+          data: {
+            name: task.name,
+            groupId: newGroup.id,
+            createdById: userId,
+            order: task.order,
+          },
+        });
+
+        for (const cell of task.cells) {
+          await tx.taskCell.create({
+            data: {
+              taskId: newTask.id,
+              columnId: cell.columnId,
+              value: cell.value as any,
+            },
+          });
+        }
+
+        for (const subtask of task.subtasks) {
+          const newSubtask = await tx.task.create({
+            data: {
+              name: subtask.name,
+              groupId: newGroup.id,
+              parentId: newTask.id,
+              createdById: userId,
+              order: subtask.order,
+            },
+          });
+
+          for (const cell of subtask.cells) {
+            await tx.taskCell.create({
+              data: {
+                taskId: newSubtask.id,
+                columnId: cell.columnId,
+                value: cell.value as any,
+              },
+            });
+          }
+        }
+
+        if (withUpdates && (task as any).comments) {
+          for (const comment of (task as any).comments) {
+            await tx.taskComment.create({
+              data: {
+                taskId: newTask.id,
+                content: comment.content,
+                userId: comment.userId,
+              },
+            });
+          }
+        }
+      }
+
+      return newGroup;
     });
   }
 
@@ -233,6 +351,27 @@ export class GroupsService {
       },
       orderBy: {
         order: 'asc',
+      },
+    });
+  }
+
+  async findArchived(boardId: number) {
+    return this.prisma.group.findMany({
+      where: {
+        boardId,
+        isArchived: true,
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      select: {
+        id: true,
+        name: true,
+        color: true,
+        updatedAt: true,
+        _count: {
+          select: { tasks: true },
+        },
       },
     });
   }

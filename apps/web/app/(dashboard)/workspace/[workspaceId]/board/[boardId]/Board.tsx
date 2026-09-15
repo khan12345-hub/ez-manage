@@ -104,7 +104,9 @@ export function Board({
         cursor: pageParam ?? undefined,
         limit: 50,
         search: debouncedSearch.trim() || undefined,
-        person: personFilter || undefined,
+        person: personFilter?.users?.length
+          ? personFilter.users.map((u) => u.id).join(",")
+          : undefined,
       }),
 
     initialPageParam: null,

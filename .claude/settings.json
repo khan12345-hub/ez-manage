@@ -90,7 +90,16 @@
       "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d ezmanage -c \"SELECT id, \\\\\"fileName\\\\\", CASE WHEN \\\\\"storageKey\\\\\" LIKE 'import-failed:%' THEN 'FAILED' WHEN \\\\\"storageKey\\\\\" LIKE 'http%' THEN 'PENDING' ELSE 'OK' END as status, LEFT\\(\\\\\"storageKey\\\\\", 80\\) as key_preview FROM files ORDER BY id DESC LIMIT 20;\")",
       "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d ezmanage -f \"C:\\\\Users\\\\RFP\\\\AppData\\\\Local\\\\Temp\\\\check_files.sql\")",
       "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d ezmanage -f \"C:\\\\Users\\\\RFP\\\\AppData\\\\Local\\\\Temp\\\\check_files2.sql\")",
-      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d ezmanage -f \"C:\\\\Users\\\\RFP\\\\AppData\\\\Local\\\\Temp\\\\check_boards.sql\")"
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d ezmanage -f \"C:\\\\Users\\\\RFP\\\\AppData\\\\Local\\\\Temp\\\\check_boards.sql\")",
+      "Bash(npx tsc *)",
+      "PowerShell(cd \"D:\\\\Ezmanage\\\\ez-manage\"; $result = npx tsc --noEmit -p apps/web/tsconfig.json 2>&1; $result | Where-Object { $_ -match \"file-gallery|FileGallery|FilePreview\" })",
+      "Bash(grep -r \"tasks.*files\\\\|\\\\/tasks\\\\/\\\\|task-files\\\\|taskId.*files\" \"D:/Ezmanage/ez-manage/apps/api/src\" --include=\"*.ts\" -l)",
+      "Bash(grep -r \"Get.*tasks\\\\|tasks.*Get\\\\|\\\\/tasks\\\\/\" \"D:/Ezmanage/ez-manage/apps/api/src\" --include=\"*.ts\" -n)",
+      "Bash(xargs grep -l \"MoreVertical\\\\|three.*dot\\\\|context.*menu\")",
+      "Bash(xargs grep -l \"Group.*Menu\\\\|GroupContext\")",
+      "Bash(echo \"exit: $?\")",
+      "PowerShell(cd \"D:\\\\Ezmanage\\\\ez-manage\\\\apps\\\\api\"; npx nest build 2>&1; Write-Host \"EXIT: $LASTEXITCODE\")",
+      "Bash(xargs grep -l \"person\")"
     ]
   }
 }

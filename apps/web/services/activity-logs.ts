@@ -64,6 +64,46 @@ export interface TaskActivitiesResponse {
   meta: { limit: number; nextCursor: string | null; hasNextPage: boolean };
 }
 
+export interface BoardActivitiesResponse {
+  data: TaskActivity[];
+  meta: { limit: number; nextCursor: string | null; hasNextPage: boolean };
+}
+
+export interface BoardViewEntry {
+  id: number;
+  boardId: number;
+  userId: number;
+  viewedAt: string;
+  user: { id: number; firstName: string; lastName: string; avatarUrl?: string | null };
+}
+
+export async function trackBoardView(boardId: number) {
+  await api.post(`/boards/${boardId}/view`).catch(() => {});
+}
+
+export async function getBoardViews(boardId: number): Promise<BoardViewEntry[]> {
+  const response = await api.get<BoardViewEntry[]>(`/boards/${boardId}/views`);
+  return response.data;
+}
+
+export async function getBoardActivities(
+  boardId: number,
+  params?: {
+    cursor?: string;
+    limit?: number;
+    userIds?: string;
+    groupIds?: string;
+    search?: string;
+    since?: string;
+  },
+) {
+  const response = await api.get<BoardActivitiesResponse>(
+    `/boards/${boardId}/activity`,
+    { params },
+  );
+  return response.data;
+}
+
 export async function getTaskActivities(
   taskId: number,
   cursor?: string,

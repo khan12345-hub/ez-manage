@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { useInviteModalStore } from "@/store/invite-modal";
+import { useGroupStore } from "@/store/create-group-store";
 
 import { GroupTable } from "./GroupTable";
 import { GroupHeader } from "./GroupHeader";
@@ -20,10 +21,12 @@ export function Group({
   ...props
 }: any) {
   const { boardId } = useInviteModalStore();
+  const addNewGroup = useGroupStore((s) => s.addNewGroup);
 
   const [open, setOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   const createColumnMutation = useMutation({
     mutationFn: (type: BoardColumnType) => createColumn(boardId || 0, type),
@@ -35,16 +38,6 @@ export function Group({
         queryKey: ["board", boardId],
       });
 
-      console.log(
-        "GROUP TASKS:",
-        group.tasks.map((task: any) => ({
-          id: task.id,
-          name: task.name,
-          parentTaskId: task.parentTaskId,
-          parentId: task.parentId,
-        })),
-      );
-
       setOpen(false);
     },
 
@@ -53,30 +46,34 @@ export function Group({
     },
   });
 
-  // Tasks are already loaded and assigned to this group
-  // by Board.tsx.
   const hydratedGroup = group;
 
   return (
     <>
-    <div className="overflow-hidden">
-      <GroupHeader
-        group={group}
-        // focusToken={focusToken}
-      />
-      <GroupTable
-        group={hydratedGroup}
-        columns={columns}
-        selection={selection}
-        showSelection={false}
-        showNewTaskRow
-        showAddColumn={false}
-        setOpen={setOpen}
-        newTaskFocusToken={newTaskFocusToken}
-        members={members}
-      />
-    </div>
-    <ColumnTypeModal
+      <div className="overflow-hidden">
+        <GroupHeader
+          group={group}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => setIsCollapsed((v) => !v)}
+          onAddGroup={addNewGroup}
+        />
+
+        {!isCollapsed && (
+          <GroupTable
+            group={hydratedGroup}
+            columns={columns}
+            selection={selection}
+            showSelection={false}
+            showNewTaskRow
+            showAddColumn={false}
+            setOpen={setOpen}
+            newTaskFocusToken={newTaskFocusToken}
+            members={members}
+          />
+        )}
+      </div>
+
+      <ColumnTypeModal
         open={open}
         onOpenChange={setOpen}
         onSelect={(type) => {
@@ -86,4 +83,3 @@ export function Group({
     </>
   );
 }
-

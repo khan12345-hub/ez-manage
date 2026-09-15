@@ -41,6 +41,14 @@ export class GroupsController {
     return this.groupsService.findAll(boardId);
   }
 
+  @Get('archived')
+  @RequireBoardPermission(BoardPermission.VIEW)
+  findArchived(
+    @Param('boardId', ParseIntPipe) boardId: number,
+  ) {
+    return this.groupsService.findArchived(boardId);
+  }
+
   @Post()
   @RequireBoardPermission(BoardPermission.EDIT)
   create(
@@ -82,6 +90,22 @@ export class GroupsController {
       updateGroupDto,
       user.id,
       boardId,
+    );
+  }
+
+  @Post(':id/duplicate')
+  @RequireBoardPermission(BoardPermission.EDIT)
+  duplicate(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { withUpdates?: boolean },
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.groupsService.duplicate(
+      id,
+      boardId,
+      user.id,
+      body.withUpdates ?? false,
     );
   }
 

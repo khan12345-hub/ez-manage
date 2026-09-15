@@ -69,60 +69,66 @@ export class ActivityLogsService {
     });
   }
 
-  async findByBoard(boardId: number, page = 1, limit = 20) {
-    const skip = (page - 1) * limit;
+  async findByBoard(
+    boardId: number,
+    query: {
+      cursor?: string;
+      limit?: number;
+      userIds?: string;
+      groupIds?: string;
+      search?: string;
+      since?: string;
+    } = {},
+  ) {
+    const limit = query.limit ?? 30;
 
-    const [activities, total] = await this.prisma.$transaction([
-      this.prisma.activityLog.findMany({
-        where: {
-          boardId,
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        skip,
-        take: limit,
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-          task: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          group: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      }),
+    const userIdList = query.userIds
+      ? query.userIds.split(',').map(Number).filter(Boolean)
+      : [];
 
-      this.prisma.activityLog.count({
-        where: {
-          boardId,
-        },
-      }),
-    ]);
+    const groupIdList = query.groupIds
+      ? query.groupIds.split(',').map(Number).filter(Boolean)
+      : [];
 
-    return {
-      data: activities,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page * limit < total,
-        hasPreviousPage: page > 1,
+    const where: any = { boardId };
+
+    if (userIdList.length) where.userId = { in: userIdList };
+    if (groupIdList.length) where.groupId = { in: groupIdList };
+    if (query.since) where.createdAt = { gte: new Date(query.since) };
+    if (query.search?.trim()) {
+      where.OR = [
+        { task: { name: { contains: query.search, mode: 'insensitive' } } },
+        { group: { name: { contains: query.search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const activities = await this.prisma.activityLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit + 1,
+      ...(query.cursor
+        ? { cursor: { id: Number(query.cursor) }, skip: 1 }
+        : {}),
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+        task: { select: { id: true, name: true } },
+        group: { select: { id: true, name: true } },
       },
-    };
+    });
+
+    const hasNextPage = activities.length > limit;
+    const data = hasNextPage ? activities.slice(0, limit) : activities;
+    const nextCursor =
+      hasNextPage && data.length > 0 ? String(data[data.length - 1].id) : null;
+
+    return { data, meta: { limit, nextCursor, hasNextPage } };
   }
 
   async findByTask(taskId: number, cursor?: string, limit = 20) {

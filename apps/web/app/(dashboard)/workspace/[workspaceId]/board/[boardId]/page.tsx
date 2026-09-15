@@ -5,6 +5,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { getBoardDetail } from "@/services/boards.api";
+import { trackBoardView } from "@/services/activity-logs";
 import { getTask } from "@/services/tasks.api";
 import { useGroupStore } from "@/store/create-group-store";
 import { useTaskDetailsStore } from "@/store/task-details-store";
@@ -83,6 +84,13 @@ export default function BoardPage() {
       setGroups(board.groups);
     }
   }, [board, setGroups]);
+
+  // Track that this user viewed the board
+  useEffect(() => {
+    if (board?.id) {
+      trackBoardView(board.id);
+    }
+  }, [board?.id]);
 
   /**
    * If the URL has ?taskId=X (e.g. clicked from a notification),

@@ -56,6 +56,8 @@ model User {
 
   commentReactions     CommentReaction[]
 
+  boardViews BoardView[]
+
   @@map("users")
 }
 
@@ -202,6 +204,7 @@ model Board {
   automations AutomationRule[]
 
   documents BoardDocument[]
+  views     BoardView[]
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
@@ -235,6 +238,7 @@ model Group {
   name        String
   color       String?
   order       Float @default(1000)
+  isArchived  Boolean @default(false)
 
   boardId     Int
 
@@ -573,6 +577,21 @@ model ActivityLog {
 
   @@map("activity_logs")
 }
+
+model BoardView {
+  id       Int      @id @default(autoincrement())
+  boardId  Int      @map("board_id")
+  userId   Int      @map("user_id")
+  viewedAt DateTime @default(now()) @map("viewed_at") @db.Timestamptz(6)
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, userId])
+  @@index([boardId, viewedAt])
+  @@map("board_views")
+}
+
 enum UserStatus {
   ACTIVE
   INACTIVE

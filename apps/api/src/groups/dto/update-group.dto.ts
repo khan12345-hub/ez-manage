@@ -1,13 +1,15 @@
-import { PartialType, OmitType } from '@nestjs/mapped-types';
-import { IsInt, IsOptional, IsString } from 'class-validator';
-import { CreateGroupDto } from './create-group.dto';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class UpdateGroupDto {
-  
   @IsOptional()
   @IsString()
   name?: string;
+
   @IsOptional()
   @IsString()
   color?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isArchived?: boolean;
 }

@@ -302,3 +302,10 @@ export async function getBoardFiles(
 
   return data;
 }
+
+export async function deleteBoardFile(
+  boardId: number,
+  fileId: number,
+): Promise<void> {
+  await api.delete(`/boards/${boardId}/files/${fileId}`);
+}
