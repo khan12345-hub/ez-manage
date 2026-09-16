@@ -226,10 +226,10 @@ export function TimeTrackingTab({ taskId, boardId }: TimeTrackingTabProps) {
           {completedEntries.map((entry) => (
             <div
               key={entry.id}
-              className="flex items-center justify-between rounded-md border px-3 py-2"
+              className="flex flex-col gap-2 rounded-md border px-2 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-3 sm:gap-0"
             >
               <div className="flex items-center gap-3">
-                <Avatar className="h-6 w-6">
+                <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
                   <AvatarImage src={entry.user.avatarUrl ?? undefined} />
                   <AvatarFallback className="text-xs">
                     {entry.user.firstName[0]}
@@ -282,7 +282,7 @@ export function TimeTrackingTab({ taskId, boardId }: TimeTrackingTabProps) {
                     placeholder="0"
                     value={manualHours}
                     onChange={(e) => setManualHours(e.target.value)}
-                    className="w-16 text-center"
+                    className="w-12 text-center sm:w-16"
                   />
                   <span className="text-center text-xs text-muted-foreground">h</span>
                 </div>
@@ -295,7 +295,7 @@ export function TimeTrackingTab({ taskId, boardId }: TimeTrackingTabProps) {
                     placeholder="0"
                     value={manualMinutes}
                     onChange={(e) => setManualMinutes(e.target.value)}
-                    className="w-16 text-center"
+                    className="w-12 text-center sm:w-16"
                   />
                   <span className="text-center text-xs text-muted-foreground">m</span>
                 </div>
@@ -308,7 +308,7 @@ export function TimeTrackingTab({ taskId, boardId }: TimeTrackingTabProps) {
                     placeholder="0"
                     value={manualSeconds}
                     onChange={(e) => setManualSeconds(e.target.value)}
-                    className="w-16 text-center"
+                    className="w-12 text-center sm:w-16"
                   />
                   <span className="text-center text-xs text-muted-foreground">s</span>
                 </div>

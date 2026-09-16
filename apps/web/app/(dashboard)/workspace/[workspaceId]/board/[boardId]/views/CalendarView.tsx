@@ -72,7 +72,7 @@ function CreateTaskModal({ dateLabel, groups, onClose, onSubmit, isSubmitting }:
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-80 rounded-xl border bg-background shadow-xl">
+      <div className="w-[calc(100vw-32px)] max-w-sm rounded-xl border bg-background shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div>
@@ -312,14 +312,14 @@ export function CalendarView({ board }: CalendarViewProps) {
         {isLoading ? (
           <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
             {Array.from({ length: 35 }).map((_, i) => (
-              <div key={i} className="h-28 bg-background animate-pulse" />
+              <div key={i} className="h-20 bg-background animate-pulse sm:h-28" />
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
             {cells.map((cell, i) => {
               if (!cell.day) {
-                return <div key={i} className="h-28 bg-muted/30" />;
+                return <div key={i} className="h-20 bg-muted/30 sm:h-28" />;
               }
               const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`;
               const dayTasks = tasksByDate.get(key) ?? [];
@@ -328,7 +328,7 @@ export function CalendarView({ board }: CalendarViewProps) {
               return (
                 <div
                   key={i}
-                  className="group relative h-28 bg-background p-1 flex flex-col overflow-hidden"
+                  className="group relative h-20 bg-background p-1 flex flex-col overflow-hidden sm:h-28"
                 >
                   {/* Day number */}
                   <div className="flex items-start justify-between mb-0.5">
@@ -345,7 +345,7 @@ export function CalendarView({ board }: CalendarViewProps) {
                     {/* + Add button — visible on hover */}
                     <button
                       onClick={() => setCreatingForDate({ key, day: cell.day! })}
-                      className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+                      className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
                     >
                       <Plus className="h-2.5 w-2.5" />
                       Add

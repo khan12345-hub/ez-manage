@@ -29,7 +29,8 @@ const valueClassName = `
   border-slate-400
   bg-transparent
   px-0
-  text-[25px]
+  text-lg
+  sm:text-[25px]
   text-slate-400
   outline-none
 `;
@@ -47,7 +48,7 @@ export default function AutomationActionRow({
 }: Props) {
   if (isPlaceholder) {
     return (
-      <div className="flex items-center gap-2 text-[25px] leading-[34px] text-slate-700">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-lg leading-snug text-slate-700 sm:text-[25px] sm:leading-[34px]">
         <span>and then</span>
         <AutomationActionPicker disabled={!hasTrigger} placeholder="do this" onSelect={onAdd} />
       </div>
@@ -60,7 +61,7 @@ export default function AutomationActionRow({
   );
 
   return (
-    <div className="group flex items-center gap-2 text-[25px] leading-[34px] text-slate-700">
+    <div className="group flex flex-wrap items-center gap-x-2 gap-y-2 text-lg leading-snug text-slate-700 sm:text-[25px] sm:leading-[34px]">
       <span>Then</span>
 
       {/* ── Move to group ──────────────────────────────────────────── */}

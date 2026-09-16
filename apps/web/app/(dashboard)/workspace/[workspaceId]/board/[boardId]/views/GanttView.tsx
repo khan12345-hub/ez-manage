@@ -159,7 +159,8 @@ export function GanttView({ board }: GanttViewProps) {
   const queryClient = useQueryClient();
   const today = startOfDay(new Date());
 
-  const [numWeeks, setNumWeeks] = useState(10);
+  const [leftW] = useState(() => typeof window !== "undefined" && window.innerWidth < 640 ? 140 : LEFT_W);
+  const [numWeeks, setNumWeeks] = useState(() => typeof window !== "undefined" && window.innerWidth < 640 ? 2 : 6);
   const [windowMonday, setWindowMonday] = useState(() => addDays(getMondayOf(today), -7));
   const [popup, setPopup] = useState<PopupInfo | null>(null);
 
@@ -331,19 +332,19 @@ export function GanttView({ board }: GanttViewProps) {
       {/* Controls */}
       <div className="flex items-center gap-2 flex-wrap mb-3">
         <div className="flex items-center gap-1">
-          <button onClick={() => setWindowMonday(d => addDays(d, -7))} className="rounded p-1.5 hover:bg-muted transition-colors">
+          <button onClick={() => setWindowMonday(d => addDays(d, -7))} className="flex h-9 w-9 items-center justify-center rounded hover:bg-muted transition-colors sm:h-8 sm:w-8">
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button onClick={() => setWindowMonday(addDays(getMondayOf(today), -7))} className="rounded px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors">
             Today
           </button>
-          <button onClick={() => setWindowMonday(d => addDays(d, 7))} className="rounded p-1.5 hover:bg-muted transition-colors">
+          <button onClick={() => setWindowMonday(d => addDays(d, 7))} className="flex h-9 w-9 items-center justify-center rounded hover:bg-muted transition-colors sm:h-8 sm:w-8">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
 
         <div className="flex gap-1 ml-auto">
-          {([6, 10, 16] as const).map((n) => (
+          {([2, 6, 10] as const).map((n) => (
             <button
               key={n}
               onClick={() => setNumWeeks(n)}
@@ -359,11 +360,11 @@ export function GanttView({ board }: GanttViewProps) {
 
       {/* Gantt table */}
       <div className="overflow-x-auto rounded-xl border select-none" onMouseLeave={() => { if (!dragRef.current) setPopup(null); }}>
-        <div style={{ minWidth: `${totalWidth + LEFT_W}px` }}>
+        <div style={{ minWidth: `${totalWidth + leftW}px` }}>
 
           {/* ── Header row 1: Months ── */}
           <div className="flex border-b bg-muted/40 sticky top-0 z-20">
-            <div style={{ width: LEFT_W }} className="shrink-0 border-r px-3 py-2 text-xs font-semibold text-muted-foreground">
+            <div style={{ width: leftW }} className="shrink-0 border-r px-3 py-2 text-xs font-semibold text-muted-foreground">
               Task
             </div>
             <div className="flex" style={{ width: totalWidth }}>
@@ -381,7 +382,7 @@ export function GanttView({ board }: GanttViewProps) {
 
           {/* ── Header row 2: Weeks ── */}
           <div className="flex border-b bg-muted/20 sticky top-[33px] z-20">
-            <div style={{ width: LEFT_W }} className="shrink-0 border-r" />
+            <div style={{ width: leftW }} className="shrink-0 border-r" />
             <div className="flex" style={{ width: totalWidth }}>
               {weeks.map((w, i) => {
                 const isThisWeek = today >= w.monday && today <= addDays(w.monday, 6);
@@ -424,7 +425,7 @@ export function GanttView({ board }: GanttViewProps) {
                 >
                   {/* Left panel */}
                   <div
-                    style={{ width: LEFT_W }}
+                    style={{ width: leftW }}
                     className="shrink-0 border-r px-3 flex items-center gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
                     onClick={() => open({ taskId: task.id, boardId: board.id, groupId: task.groupId })}
                   >
@@ -492,8 +493,8 @@ export function GanttView({ board }: GanttViewProps) {
                               groupName:  group?.name ?? "",
                               groupColor: color,
                               dateRange,
-                              x: rect.left,
-                              y: rect.bottom + 8,
+                              x: Math.min(rect.left, window.innerWidth - 248),
+                              y: Math.max(8, rect.bottom + 8),
                             });
                           }
                         }}

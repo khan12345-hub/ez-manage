@@ -42,8 +42,8 @@ export default function AutomationCreateTab({
 
   return (
     <div className="flex h-full flex-1">
-      {/* Sidebar */}
-      <aside className="w-[252px] shrink-0 border-r bg-slate-50/80 px-3 py-5">
+      {/* Sidebar — hidden on mobile */}
+      <aside className="hidden w-[180px] shrink-0 border-r bg-slate-50/80 px-3 py-5 sm:block sm:w-[220px]">
         <div className="mb-3 px-3 text-[15px] font-semibold">
           Categories
         </div>
@@ -86,7 +86,7 @@ export default function AutomationCreateTab({
       </aside>
 
       {/* Main */}
-      <main className="min-w-0 flex-1 overflow-auto px-[52px] py-[14px]">
+      <main className="min-w-0 flex-1 overflow-auto px-4 py-4 sm:px-[52px] sm:py-[14px]">
         <div className="flex items-center gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
@@ -118,7 +118,7 @@ export default function AutomationCreateTab({
             Start with the basics
           </h2>
 
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             {/* Create from scratch */}
             {/* <button
               type="button"
@@ -164,15 +164,7 @@ export default function AutomationCreateTab({
                 return (
                   <div
                     key={template.id}
-                    className="
-                      flex
-                      h-[212px]
-                      flex-col
-                      rounded-md
-                      border
-                      bg-white
-                      p-3.5
-                    "
+                    className="flex h-[160px] flex-col rounded-md border bg-white p-3 sm:h-[212px] sm:p-3.5"
                   >
                     <div className="flex h-7 w-7 items-center justify-center rounded-md border">
                       <Icon className="h-4 w-4 text-slate-600" />

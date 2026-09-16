@@ -34,36 +34,21 @@ export default function AutomationGallery({
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
-      <div className="flex h-[72px] shrink-0 items-center border-b px-5">
+      <div className="flex min-h-[56px] shrink-0 items-center gap-3 border-b px-4 py-3 sm:h-[72px] sm:px-5">
         {/* Board / title */}
-        <div className="min-w-[300px] text-[16px]">
-          <span className="font-semibold">
-            Automations
-          </span>{" "}
-          <span className="text-muted-foreground">
-            {boardName}
-          </span>
+        <div className="min-w-0 flex-1 text-sm sm:text-[16px]">
+          <span className="font-semibold">Automations</span>{" "}
+          <span className="hidden text-muted-foreground sm:inline">{boardName}</span>
         </div>
 
         {/* Tabs */}
-        <div className="mx-auto flex h-[34px] overflow-hidden rounded-md border">
+        <div className="flex h-[34px] shrink-0 overflow-hidden rounded-md border">
           <button
             type="button"
-            onClick={() =>
-              setActiveTab("create")
-            }
+            onClick={() => setActiveTab("create")}
             className={`
-              min-w-[120px]
-              border-r
-              px-6
-              text-sm
-              font-medium
-              transition
-              ${
-                activeTab === "create"
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-muted-foreground hover:bg-muted"
-              }
+              border-r px-4 text-sm font-medium transition sm:px-6
+              ${activeTab === "create" ? "bg-blue-50 text-blue-600" : "text-muted-foreground hover:bg-muted"}
             `}
           >
             Create
@@ -71,28 +56,15 @@ export default function AutomationGallery({
 
           <button
             type="button"
-            onClick={() =>
-              setActiveTab("manage")
-            }
+            onClick={() => setActiveTab("manage")}
             className={`
-              min-w-[120px]
-              px-6
-              text-sm
-              font-medium
-              transition
-              ${
-                activeTab === "manage"
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-muted-foreground hover:bg-muted"
-              }
+              px-4 text-sm font-medium transition sm:px-6
+              ${activeTab === "manage" ? "bg-blue-50 text-blue-600" : "text-muted-foreground hover:bg-muted"}
             `}
           >
             Manage
           </button>
         </div>
-
-        {/* Right spacer */}
-        <div className="ml-auto min-w-[300px]" />
       </div>
 
       {/* Tab content */}

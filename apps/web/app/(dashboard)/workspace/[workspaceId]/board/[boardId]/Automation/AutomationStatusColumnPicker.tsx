@@ -35,7 +35,7 @@ export default function AutomationStatusColumnPicker({
         onSelect(Number(nextValue));
       }}
     >
-      <SelectTrigger className="h-auto w-auto min-w-[150px] border-0 bg-transparent px-1 py-0 text-[25px] shadow-none focus:ring-0">
+      <SelectTrigger className="h-auto w-auto min-w-[150px] border-0 bg-transparent px-1 py-0 text-lg sm:text-[25px] shadow-none focus:ring-0">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
 

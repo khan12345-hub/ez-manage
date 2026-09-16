@@ -184,27 +184,26 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
   return (
     <>
-      <header className="flex h-16 w-full items-center justify-between bg-background">
+      <header className="flex h-16 w-full items-center justify-between gap-2 bg-background">
         {/* Board name */}
-        <button type="button" className="flex items-center gap-1.5 text-left">
-          <span className="text-2xl font-semibold capitalize tracking-[-0.02em]">
+        <button type="button" className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+          <span className="truncate text-xl font-semibold capitalize tracking-[-0.02em] sm:text-2xl">
             {board.name}
           </span>
-
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
 
         {/* Actions */}
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           {/* Activity log avatar button */}
           <button
             type="button"
             onClick={() => setActivityOpen(true)}
             title="Board activity log"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 text-[11px] font-bold text-white hover:ring-2 hover:ring-orange-400 hover:ring-offset-1 transition-all"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[11px] font-bold text-white transition-all hover:ring-2 hover:ring-orange-400 hover:ring-offset-1"
           >
             {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={initials} className="h-8 w-8 rounded-full object-cover" />
+              <img src={user.avatarUrl} alt={initials} className="h-9 w-9 rounded-full object-cover" />
             ) : (
               initials
             )}
@@ -212,15 +211,26 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
           <ActiveTimerBadge />
 
+          {/* Automate — text on sm+, icon-only on mobile */}
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-9 gap-2 px-3 font-normal"
+            className="hidden h-9 gap-2 px-3 font-normal sm:inline-flex"
             onClick={() => setOpen(!open)}
           >
             <Bot className="h-4 w-4" />
             Automate
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 sm:hidden"
+            title="Automate"
+            onClick={() => setOpen(!open)}
+          >
+            <Bot className="h-4 w-4" />
           </Button>
           {canManageBoard(board.role === "OWNER") && (
             <DropdownMenu>

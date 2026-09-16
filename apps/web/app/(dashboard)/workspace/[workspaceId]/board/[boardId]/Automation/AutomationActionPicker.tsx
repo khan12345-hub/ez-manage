@@ -126,7 +126,7 @@ export default function AutomationActionPicker({
               border-b
               bg-transparent
               px-0
-              text-[25px]
+              text-lg sm:text-[25px]
               outline-none
               transition-colors
 

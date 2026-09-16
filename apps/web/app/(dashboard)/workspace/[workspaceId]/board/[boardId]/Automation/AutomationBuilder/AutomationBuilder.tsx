@@ -62,7 +62,7 @@ export default function AutomationBuilder({
 
       {/* Content */}
       <div className="flex flex-1 overflow-auto">
-        <div className="mx-auto w-full max-w-[1100px] px-8 py-[58px]">
+        <div className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-8 sm:py-[58px]">
 
           {/* Trigger */}
           <div className="space-y-4">

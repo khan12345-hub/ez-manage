@@ -37,9 +37,12 @@ export function ActiveTimerBadge() {
 
   if (!entry) return null;
 
-  // Truncate long task names
-  const taskName =
-    entry.task.name.length > 22 ? entry.task.name.slice(0, 22) + "…" : entry.task.name;
+  const shortName = entry.task.name.length > 12
+    ? entry.task.name.slice(0, 12) + "…"
+    : entry.task.name;
+  const longName = entry.task.name.length > 22
+    ? entry.task.name.slice(0, 22) + "…"
+    : entry.task.name;
 
   return (
     <button
@@ -48,7 +51,7 @@ export function ActiveTimerBadge() {
         open({ taskId: entry.taskId, boardId: entry.boardId, groupId: entry.task.groupId })
       }
       title={`Timer running on "${entry.task.name}" — click to open task`}
-      className="flex items-center gap-2 rounded-full border border-green-300 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 shadow-sm transition-colors hover:bg-green-100 cursor-pointer"
+      className="flex min-h-[36px] items-center gap-1.5 rounded-full border border-green-300 bg-green-50 px-2 py-1 text-xs font-medium text-green-700 shadow-sm transition-colors hover:bg-green-100 cursor-pointer sm:gap-2 sm:px-3 sm:py-1.5"
     >
       {/* Pulsing dot */}
       <span className="relative flex h-2 w-2 shrink-0">
@@ -58,7 +61,9 @@ export function ActiveTimerBadge() {
 
       <Timer className="h-3.5 w-3.5 shrink-0" />
 
-      <span className="hidden sm:inline max-w-[140px] truncate">{taskName}</span>
+      {/* Short name on mobile, full on sm+ */}
+      <span className="inline max-w-[60px] truncate sm:hidden">{shortName}</span>
+      <span className="hidden max-w-[140px] truncate sm:inline">{longName}</span>
 
       <span className="font-mono font-semibold tabular-nums">{elapsed}</span>
     </button>

@@ -28,7 +28,7 @@ function TaskCard({ task, columns, boardId, groupName, groupColor }: any) {
       onClick={() => open({ taskId: task.id, boardId, groupId: task.groupId })}
       className="cursor-pointer rounded-lg border bg-background p-3 shadow-sm hover:shadow-md transition-shadow space-y-2"
     >
-      <p className="text-sm font-medium leading-snug">{task.name}</p>
+      <p className="text-xs font-medium leading-snug sm:text-sm">{task.name}</p>
 
       <div className="flex items-center justify-between">
         {/* Group pill */}
@@ -41,23 +41,23 @@ function TaskCard({ task, columns, boardId, groupName, groupColor }: any) {
 
         {/* Assignee avatars */}
         {assignees.length > 0 && (
-          <div className="flex -space-x-1">
+          <div className="flex -space-x-0.5 sm:-space-x-1">
             {assignees.slice(0, 3).map((u: any) => {
               const initials = `${u.firstName?.[0] ?? ""}${u.lastName?.[0] ?? ""}`.toUpperCase();
               const colors = ["bg-orange-500","bg-blue-500","bg-green-500","bg-purple-500","bg-rose-500"];
               const color = colors[(u.id ?? 0) % colors.length];
               return u.avatarUrl ? (
                 <img key={u.id} src={u.avatarUrl} alt={initials}
-                  className="h-5 w-5 rounded-full border border-background object-cover" />
+                  className="h-4 w-4 rounded-full border border-background object-cover sm:h-5 sm:w-5" />
               ) : (
                 <div key={u.id}
-                  className={`flex h-5 w-5 items-center justify-center rounded-full border border-background text-[8px] font-bold text-white ${color}`}>
+                  className={`flex h-4 w-4 items-center justify-center rounded-full border border-background text-[7px] font-bold text-white sm:h-5 sm:w-5 sm:text-[8px] ${color}`}>
                   {initials}
                 </div>
               );
             })}
             {assignees.length > 3 && (
-              <div className="flex h-5 w-5 items-center justify-center rounded-full border border-background bg-muted text-[8px] font-medium">
+              <div className="flex h-4 w-4 items-center justify-center rounded-full border border-background bg-muted text-[7px] font-medium sm:h-5 sm:w-5 sm:text-[8px]">
                 +{assignees.length - 3}
               </div>
             )}
@@ -91,7 +91,7 @@ export function KanbanView({ board }: KanbanViewProps) {
     return (
       <div className="flex gap-4 overflow-x-auto p-4">
         {[1,2,3,4].map(i => (
-          <div key={i} className="w-64 shrink-0 space-y-3 rounded-xl border bg-muted/30 p-3">
+          <div key={i} className="w-[calc(100vw-32px)] shrink-0 space-y-3 rounded-xl border bg-muted/30 p-3 sm:w-64">
             <div className="h-5 w-24 animate-pulse rounded bg-muted" />
             {[1,2].map(j => (
               <div key={j} className="h-20 animate-pulse rounded-lg bg-muted" />
@@ -147,7 +147,7 @@ export function KanbanView({ board }: KanbanViewProps) {
   return (
     <div className="flex gap-4 overflow-x-auto pb-6 pt-2 px-1">
       {displayCols.map((col) => (
-        <div key={col.label} className="flex w-64 shrink-0 flex-col rounded-xl border bg-muted/20">
+        <div key={col.label} className="flex w-[calc(100vw-32px)] shrink-0 flex-col rounded-xl border bg-muted/20 sm:w-64">
           {/* Column header */}
           <div className="flex items-center gap-2 border-b px-3 py-2.5">
             <span

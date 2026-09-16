@@ -29,7 +29,7 @@ export default function AutomationTriggerRow({
     (col) => String(col.id) === String(step.columnId),
   );
 
-  const rowCls = "group flex items-center gap-2 text-[25px] leading-[34px] text-slate-700";
+  const rowCls = "group flex flex-wrap items-center gap-x-2 gap-y-2 text-lg leading-snug text-slate-700 sm:text-[25px] sm:leading-[34px]";
 
   return (
     <div className={rowCls}>

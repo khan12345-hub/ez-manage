@@ -20,7 +20,7 @@ function PieChart({ slices }: { slices: { label: string; color: string; count: n
   }
 
   return (
-    <svg viewBox="0 0 160 160" className="w-40 h-40 shrink-0">
+    <svg viewBox="0 0 160 160" className="h-28 w-28 shrink-0 sm:h-40 sm:w-40">
       {slices.map((s, i) => {
         if (s.pct === 0) return null;
         const start = polarToCartesian(cumulativePct);
@@ -52,7 +52,7 @@ function BarChart({ items }: { items: { label: string; color: string; count: num
             }}
           />
           <span className="text-[9px] text-muted-foreground truncate w-full text-center" title={item.label}>
-            {item.label.length > 8 ? item.label.slice(0, 7) + "…" : item.label}
+            {item.label.length > 5 ? item.label.slice(0, 4) + "…" : item.label}
           </span>
         </div>
       ))}
@@ -198,7 +198,7 @@ export function ChartView({ board }: ChartViewProps) {
       {/* Summary card */}
       <div className="rounded-xl border p-5 space-y-3 md:col-span-2">
         <h3 className="text-sm font-semibold">Summary</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
           {[
             { label: "Total Tasks", value: totalTasks },
             { label: "Groups", value: groups.length },

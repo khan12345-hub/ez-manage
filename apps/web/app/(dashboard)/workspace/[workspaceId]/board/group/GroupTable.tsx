@@ -72,7 +72,7 @@ export function GroupTable({
     selection?.getGroupSelectionState(group);
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
       {isFetching && (
         <div className="px-4 py-2 text-xs text-muted-foreground">
           Updating...
@@ -90,7 +90,7 @@ export function GroupTable({
                 }}
               />
 
-              <th className="sticky left-1.5 z-30 w-[450px] bg-white">
+              <th className="sticky left-1.5 z-30 w-[200px] bg-white sm:w-[450px]">
                 <div className="flex justify-end">
                   {!!selection && (
                     <Checkbox

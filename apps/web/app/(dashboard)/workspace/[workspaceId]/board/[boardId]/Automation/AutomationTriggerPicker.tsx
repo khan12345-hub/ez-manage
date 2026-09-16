@@ -44,7 +44,7 @@ export default function AutomationTriggerPicker({
             border-slate-400
             bg-transparent
             px-0
-            text-[25px]
+            text-lg sm:text-[25px]
             text-slate-400
             outline-none
             hover:border-blue-500

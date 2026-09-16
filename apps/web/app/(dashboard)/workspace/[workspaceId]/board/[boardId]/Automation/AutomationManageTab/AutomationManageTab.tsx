@@ -77,7 +77,7 @@ export default function AutomationManageTab({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Toolbar */}
-      <div className="flex h-[58px] shrink-0 items-center justify-between border-b px-7">
+      <div className="flex h-[58px] shrink-0 items-center justify-between border-b px-4 sm:px-7">
         <div>
           <h2 className="text-[15px] font-semibold text-slate-700">
             Your automations
@@ -93,7 +93,7 @@ export default function AutomationManageTab({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto px-7 py-6">
+      <div className="flex-1 overflow-auto px-4 py-4 sm:px-7 sm:py-6">
         {automations.length === 0 ? (
           <EmptyAutomations />
         ) : (

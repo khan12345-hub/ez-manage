@@ -50,7 +50,7 @@ export function Group({
 
   return (
     <>
-      <div className="overflow-hidden">
+      <div>
         <GroupHeader
           group={group}
           isCollapsed={isCollapsed}
