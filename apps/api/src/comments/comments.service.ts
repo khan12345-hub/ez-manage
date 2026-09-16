@@ -13,6 +13,9 @@ import { LocalStorageService } from 'src/storage/local-storage.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CommentMentionedEvent } from 'src/notifications/events/comment-mentioned.event';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
+import { ActivityAction, ActivityEntityType } from 'generated/prisma/enums';
+
 @Injectable()
 export class CommentsService {
   constructor(
@@ -23,6 +26,8 @@ export class CommentsService {
     private readonly eventEmitter: EventEmitter2,
 
     private readonly notificationService: NotificationsService,
+
+    private readonly activityLogsService: ActivityLogsService,
   ) {}
 
   private extractMentionedUserIds(content: string): number[] {
@@ -103,9 +108,11 @@ export class CommentsService {
         id: true,
         name: true,
         createdById: true,
+        groupId: true,
 
         group: {
           select: {
+            id: true,
             boardId: true,
             board: { select: { workspaceId: true } },
           },
@@ -138,6 +145,17 @@ export class CommentsService {
 
         content: dto.content,
       },
+    });
+
+    await this.activityLogsService.log({
+      boardId: task.group.boardId,
+      taskId,
+      groupId: task.group.id,
+      userId,
+      entityType: ActivityEntityType.COMMENT,
+      entityId: comment.id,
+      action: ActivityAction.COMMENT_ADDED,
+      metadata: { taskName: task.name, preview: this.getCommentPreview(dto.content) },
     });
 
     /**
@@ -362,8 +380,10 @@ export class CommentsService {
       select: {
         id: true,
         name: true,
+        groupId: true,
         group: {
           select: {
+            id: true,
             boardId: true,
             board: { select: { workspaceId: true } },
           },
@@ -431,6 +451,17 @@ export class CommentsService {
         }),
       );
     }
+
+    await this.activityLogsService.log({
+      boardId: task.group.boardId,
+      taskId,
+      groupId: task.group.id,
+      userId,
+      entityType: ActivityEntityType.REPLY,
+      entityId: reply.id,
+      action: ActivityAction.REPLY_ADDED,
+      metadata: { taskName: task.name, preview: this.getCommentPreview(dto.content) },
+    });
 
     const actor = await this.prisma.user.findUnique({
       where: {
@@ -738,7 +769,11 @@ export class CommentsService {
   ) {
     const comment = await this.prisma.taskComment.findFirst({
       where: { id: commentId, taskId },
-      select: { id: true, userId: true },
+      select: {
+        id: true,
+        userId: true,
+        task: { select: { name: true, groupId: true, group: { select: { id: true, boardId: true } } } },
+      },
     });
     if (!comment) {
       throw new NotFoundException('Comment not found');
@@ -749,7 +784,7 @@ export class CommentsService {
     if (!dto.content?.trim()) {
       throw new BadRequestException('Comment content cannot be empty');
     }
-    return this.prisma.taskComment.update({
+    const updated = await this.prisma.taskComment.update({
       where: { id: commentId },
       data: { content: dto.content.trim() },
       include: {
@@ -764,12 +799,29 @@ export class CommentsService {
         files: { include: { file: true } },
       },
     });
+
+    await this.activityLogsService.log({
+      boardId: comment.task.group.boardId,
+      taskId,
+      groupId: comment.task.group.id,
+      userId,
+      entityType: ActivityEntityType.COMMENT,
+      entityId: commentId,
+      action: ActivityAction.COMMENT_UPDATED,
+      metadata: { taskName: comment.task.name },
+    });
+
+    return updated;
   }
 
   async remove(taskId: number, commentId: number, userId: number) {
     const comment = await this.prisma.taskComment.findFirst({
       where: { id: commentId, taskId },
-      select: { id: true, userId: true },
+      select: {
+        id: true,
+        userId: true,
+        task: { select: { name: true, groupId: true, group: { select: { id: true, boardId: true } } } },
+      },
     });
     if (!comment) {
       throw new NotFoundException('Comment not found');
@@ -779,6 +831,18 @@ export class CommentsService {
         'You are not allowed to delete this comment',
       );
     }
+
+    await this.activityLogsService.log({
+      boardId: comment.task.group.boardId,
+      taskId,
+      groupId: comment.task.group.id,
+      userId,
+      entityType: ActivityEntityType.COMMENT,
+      entityId: commentId,
+      action: ActivityAction.COMMENT_DELETED,
+      metadata: { taskName: comment.task.name },
+    });
+
     await this.prisma.taskComment.delete({ where: { id: commentId } });
     return { message: 'Comment deleted successfully' };
   }

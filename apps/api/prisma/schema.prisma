@@ -49,6 +49,7 @@ model User {
 
   activityLogs         ActivityLog[]      @relation("ActivityActor")
   undoneActivities     ActivityLog[]      @relation("ActivityUndoneBy")
+  timeEntries          TimeEntry[]        @relation("TimeEntryUser")
 
   boardDocuments       BoardDocument[]
 
@@ -202,6 +203,7 @@ model Board {
   template   BoardTemplate? @relation(fields: [templateId], references: [id])
 
   automations AutomationRule[]
+  timeEntries TimeEntry[]
 
   documents BoardDocument[]
   views     BoardView[]
@@ -354,11 +356,37 @@ model Task {
   comments    TaskComment[]
 
   activities  ActivityLog[]
+  timeEntries TimeEntry[]
 
   @@index([groupId])
   @@index([groupId, order])
 
   @@map("tasks")
+}
+
+model TimeEntry {
+  id          Int       @id @default(autoincrement())
+
+  taskId      Int
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  userId      Int
+  user        User      @relation("TimeEntryUser", fields: [userId], references: [id])
+
+  boardId     Int
+  board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  startedAt   DateTime
+  endedAt     DateTime?
+  durationMs  Int?      // computed when timer stops; also set for manual entries
+  note        String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([boardId])
 }
 model TaskCell {
   id        Int @id @default(autoincrement())
@@ -626,6 +654,8 @@ enum NotificationType {
   LEAVE_REQUEST_REJECTED
 
   FORM_SUBMITTED
+
+  AUTOMATION
 }
 
 enum NotificationEntityType {
@@ -766,10 +796,17 @@ model BoardColumnPermission {
 }
 enum AutomationTriggerType {
   STATUS_CHANGED
+  TASK_CREATED
+  DATE_ARRIVED
 }
 
 enum AutomationActionType {
   MOVE_TO_GROUP
+  NOTIFY_MEMBER
+  ASSIGN_PERSON
+  CHANGE_STATUS
+  CREATE_SUBITEM
+  SET_DATE
 }
 
 model AutomationRule {
@@ -794,6 +831,17 @@ model AutomationRule {
   // MOVE_TO_GROUP action
   targetGroupId Int?
   targetGroup   Group? @relation("AutomationTargetGroup",fields: [targetGroupId],references: [id],onDelete: Cascade)
+
+  // Flexible metadata for new trigger/action types
+  // Trigger metadata: { dateColumnId: number } for DATE_ARRIVED
+  // Action metadata:
+  //   NOTIFY_MEMBER:  { userIds: number[] }
+  //   ASSIGN_PERSON:  { userId: number, columnId: number }
+  //   CHANGE_STATUS:  { columnId: number, statusOptionId: number }
+  //   CREATE_SUBITEM: { name: string }
+  //   SET_DATE:       { columnId: number, offsetDays: number }
+  triggerMetadata Json?
+  actionMetadata  Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

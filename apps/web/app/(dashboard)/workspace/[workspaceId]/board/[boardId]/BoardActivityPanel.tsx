@@ -64,33 +64,117 @@ const ACTION_LABEL: Record<string, string> = {
   ASSIGNED:        "Assigned",
   UNASSIGNED:      "Unassigned",
   STATUS_CHANGED:  "Status changed",
-  FILE_ADDED:      "Files",
-  FILE_DELETED:    "Files",
-  COMMENT_ADDED:   "Comment",
-  COMMENT_UPDATED: "Comment",
-  COMMENT_DELETED: "Comment",
-  REPLY_ADDED:     "Reply",
+  FILE_ADDED:      "File added",
+  FILE_DELETED:    "File deleted",
+  COMMENT_ADDED:   "Commented",
+  COMMENT_UPDATED: "Edited comment",
+  COMMENT_DELETED: "Deleted comment",
+  REPLY_ADDED:     "Replied",
   MEMBER_ADDED:    "Member added",
   MEMBER_REMOVED:  "Member removed",
 };
 
-function getActionDetail(a: TaskActivity): string {
-  const m = a.metadata;
-  if (!m) return "";
-  if (a.action === "STATUS_CHANGED") {
-    return m.newLabel ? `→ ${m.newLabel}` : "";
+interface ActionDetail {
+  columnName?: string;
+  oldDisplay?: string;
+  newDisplay?: string;
+}
+
+function formatCellValue(columnType: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  switch (columnType) {
+    case "STATUS": {
+      const v = value as { label?: string };
+      return v?.label ?? "—";
+    }
+    case "PERSON": {
+      if (Array.isArray(value)) {
+        return value.length ? `${value.length} person${value.length > 1 ? "s" : ""}` : "—";
+      }
+      const v = value as { users?: unknown[] };
+      const count = v?.users?.length ?? 0;
+      return count ? `${count} person${count > 1 ? "s" : ""}` : "—";
+    }
+    case "DATE": {
+      if (!value) return "—";
+      try {
+        return format(new Date(String(value)), "MMM d, yyyy");
+      } catch {
+        return String(value);
+      }
+    }
+    case "NUMBER":
+      return String(value);
+    default: {
+      const s = String(value).trim();
+      return s ? (s.length > 20 ? s.slice(0, 20) + "…" : s) : "—";
+    }
   }
+}
+
+function getActionDetail(a: TaskActivity): ActionDetail {
+  const m = a.metadata;
+  if (!m) return {};
+
+  // Cell value change — show column name and old→new value
+  if (a.action === "UPDATED" && a.entityType === "TASK_CELL" && (m.columnName || m.columnType)) {
+    const columnName = m.columnName as string | undefined;
+    const columnType = (m.columnType as string | undefined) ?? "";
+    const oldDisplay = formatCellValue(columnType, m.oldValue);
+    const newDisplay = formatCellValue(columnType, m.newValue);
+    return { columnName, oldDisplay, newDisplay };
+  }
+
+  // Task rename
+  if (a.action === "UPDATED" && a.entityType === "TASK" && m.oldName) {
+    return { columnName: "Name", oldDisplay: m.oldName as string, newDisplay: m.newName as string };
+  }
+
+  // Group rename / archive
+  if (a.entityType === "GROUP" && a.action === "UPDATED") {
+    if (m.oldName) return { columnName: "Name", oldDisplay: m.oldName as string, newDisplay: m.newName as string };
+    if (m.isArchived !== undefined) return { columnName: m.isArchived ? "Archived" : "Restored" };
+  }
+
+  // Group created with duplicatedFrom
+  if (a.entityType === "GROUP" && a.action === "CREATED" && m.duplicatedFrom) {
+    return { columnName: `Copy of ${m.duplicatedFrom}` };
+  }
+
+  // Board rename
+  if (a.entityType === "BOARD" && a.action === "UPDATED" && m.oldName) {
+    return { columnName: "Name", oldDisplay: m.oldName as string, newDisplay: m.newName as string };
+  }
+
+  // Column rename
+  if (a.entityType === "COLUMN" && a.action === "UPDATED" && m.oldName) {
+    return { columnName: "Name", oldDisplay: m.oldName as string, newDisplay: m.newName as string };
+  }
+
+  // Column created/deleted — show type
+  if (a.entityType === "COLUMN" && (a.action === "CREATED" || a.action === "DELETED")) {
+    const type = m.columnType as string | undefined;
+    return { columnName: type ? type.charAt(0) + type.slice(1).toLowerCase() : undefined };
+  }
+
+  // Comment / reply — show preview
+  if ((a.action === "COMMENT_ADDED" || a.action === "REPLY_ADDED") && m.preview) {
+    const preview = m.preview as string;
+    return { columnName: preview.length > 40 ? preview.slice(0, 40) + "…" : preview };
+  }
+
+  // Member added — show role
+  if (a.action === "MEMBER_ADDED" && m.role) {
+    return { columnName: `as ${String(m.role).toLowerCase()}` };
+  }
+
+  // File
   if (a.action === "FILE_ADDED" || a.action === "FILE_DELETED") {
     const name = m.fileName as string | undefined;
-    return name ? `Added ${name.length > 14 ? name.slice(0, 14) + "…" : name}` : "";
+    return { columnName: name ? (name.length > 18 ? name.slice(0, 18) + "…" : name) : undefined };
   }
-  if (a.action === "UPDATED" && m.columnName) {
-    return String(m.columnName);
-  }
-  if ((a.action === "ASSIGNED" || a.action === "UNASSIGNED") && m.memberName) {
-    return String(m.memberName);
-  }
-  return "";
+
+  return {};
 }
 
 function Avatar({ user }: { user: TaskActivity["user"] }) {
@@ -114,9 +198,30 @@ function Avatar({ user }: { user: TaskActivity["user"] }) {
   );
 }
 
+function getEntityLabel(item: TaskActivity): string {
+  const m = item.metadata as Record<string, unknown> | null;
+  switch (item.entityType) {
+    case "TASK":
+    case "TASK_CELL":
+    case "COMMENT":
+    case "REPLY":
+      return item.task?.name ?? (m?.taskName as string | undefined) ?? "";
+    case "GROUP":
+      return item.group?.name ?? (m?.groupName as string | undefined) ?? "Group";
+    case "BOARD":
+      return (m?.boardName as string | undefined) ?? "Board";
+    case "COLUMN":
+      return (m?.columnName as string | undefined) ?? "Column";
+    case "MEMBER":
+      return item.user.firstName + " " + item.user.lastName;
+    default:
+      return item.task?.name ?? item.group?.name ?? "";
+  }
+}
+
 function ActivityRow({ item }: { item: TaskActivity }) {
-  const label = item.task?.name ?? item.group?.name ?? "";
-  const detail = getActionDetail(item);
+  const label = getEntityLabel(item);
+  const { columnName, oldDisplay, newDisplay } = getActionDetail(item);
   const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: false });
   const shortTime = timeAgo
     .replace(" minutes", "m").replace(" minute", "m")
@@ -126,6 +231,8 @@ function ActivityRow({ item }: { item: TaskActivity }) {
     .replace(" years", "y").replace(" year", "y")
     .replace("about ", "").replace("less than a", "<1").trim();
 
+  const hasValueChange = oldDisplay !== undefined && newDisplay !== undefined && oldDisplay !== newDisplay;
+
   return (
     <div className="flex gap-2.5 border-b px-4 py-3 hover:bg-muted/40 transition-colors">
       <span className="mt-0.5 w-7 shrink-0 text-right text-[11px] text-muted-foreground">
@@ -133,6 +240,7 @@ function ActivityRow({ item }: { item: TaskActivity }) {
       </span>
       <Avatar user={item.user} />
       <div className="min-w-0 flex-1">
+        {/* Line 1: task name + action + column name */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm font-medium truncate max-w-[120px]" title={label}>
             {label || item.user.firstName}
@@ -141,12 +249,25 @@ function ActivityRow({ item }: { item: TaskActivity }) {
             {ACTION_ICON[item.action]}
             {ACTION_LABEL[item.action] ?? item.action}
           </span>
-          {detail && (
-            <span className="text-xs text-muted-foreground truncate max-w-[100px]" title={detail}>
-              {detail}
+          {columnName && (
+            <span className="text-xs font-medium text-foreground/70 truncate max-w-[90px]" title={columnName}>
+              {columnName}
             </span>
           )}
         </div>
+        {/* Line 2: old → new value */}
+        {hasValueChange && (
+          <div className="mt-0.5 flex items-center gap-1 text-[11px]">
+            <span className="max-w-[90px] truncate text-muted-foreground line-through" title={oldDisplay}>
+              {oldDisplay}
+            </span>
+            <span className="text-muted-foreground/50">→</span>
+            <span className="max-w-[90px] truncate font-medium text-foreground/80" title={newDisplay}>
+              {newDisplay}
+            </span>
+          </div>
+        )}
+        {/* Line 3: group */}
         {item.group && (
           <div className="mt-0.5 text-[11px] text-muted-foreground">
             Group: <span className="text-primary">{item.group.name}</span>

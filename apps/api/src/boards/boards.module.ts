@@ -12,6 +12,7 @@ import { boardAllFilesService } from './board-all-files.service';
 import { BoardExportService } from './board-export.service';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { FileImportModule } from 'src/file-import/file-import.module';
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
 
 @Module({
   imports: [NotificationsModule, FileImportModule],
@@ -27,6 +28,7 @@ import { FileImportModule } from 'src/file-import/file-import.module';
     GetBoardTasksService,
     boardAllFilesService,
     BoardExportService,
+    ActivityLogsService,
   ],
 })
 export class BoardsModule {}

@@ -397,6 +397,10 @@ export default function AutomationModal({
     (column: any) => column.type === "STATUS",
   );
 
+  const dateColumns = columns
+    .filter((column: any) => column.type === "DATE" || column.type === "TIMELINE")
+    .map((column: any) => ({ id: column.id, name: column.name, statusOptions: [] }));
+
   /*
    * ---------------------------------------------------------
    * Render
@@ -442,6 +446,7 @@ export default function AutomationModal({
             boardName={boardName}
             steps={steps}
             statusColumns={statusColumns}
+            dateColumns={dateColumns}
             groups={groups}
             automationId={editingAutomationId ?? undefined}
             onBack={() => {

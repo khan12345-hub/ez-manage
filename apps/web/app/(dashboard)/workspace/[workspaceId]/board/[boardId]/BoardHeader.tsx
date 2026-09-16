@@ -22,6 +22,7 @@ import {
 
 import { ManageBoardAccessModal } from "./ManageBoardAccessModal";
 import AutomationModal from "./Automation/AutomationModal";
+import { ActiveTimerBadge } from "./ActiveTimerBadge";
 import { usePermissions } from "@/services/permissions/permissions.hooks";
 import { BoardActivityPanel } from "./BoardActivityPanel";
 import { useAuth } from "@/providers/AuthProvider";
@@ -208,6 +209,8 @@ export function BoardHeader({ board }: BoardHeaderProps) {
               initials
             )}
           </button>
+
+          <ActiveTimerBadge />
 
           <Button
             type="button"

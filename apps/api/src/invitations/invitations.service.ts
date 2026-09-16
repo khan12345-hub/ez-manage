@@ -32,6 +32,8 @@ import 'dotenv';
 import { invitationTemplate } from 'src/mail/templates/invitation.template';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { NotificationStreamService } from 'src/notifications/notification-stream.service';
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
+import { ActivityAction, ActivityEntityType } from 'generated/prisma/enums';
 
 type BoardGroupAccessEntry = { boardId: number; groupIds: number[] };
 
@@ -57,6 +59,7 @@ export class InvitationsService {
     private readonly mailService: MailService,
     private readonly notificationsService: NotificationsService,
     private readonly notificationStreamService: NotificationStreamService,
+    private readonly activityLogsService: ActivityLogsService,
   ) {}
 
   async create(dto: CreateInvitationDto, invitedById: number) {
@@ -354,6 +357,15 @@ export class InvitationsService {
 
       for (const member of createdMembers) {
         await applyGroupAccess(tx, member.id, member.boardId, boardGroupAccess ?? undefined);
+
+        await this.activityLogsService.log({
+          boardId: member.boardId,
+          userId: id,
+          entityType: ActivityEntityType.MEMBER,
+          entityId: member.id,
+          action: ActivityAction.MEMBER_ADDED,
+          metadata: { role: member.role, invitedById: inv.invitedById },
+        }, tx);
       }
     });
   }

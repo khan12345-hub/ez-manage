@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from 'prisma/prisma.service';
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
+import { ActivityAction, ActivityEntityType } from 'generated/prisma/enums';
 
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
@@ -12,7 +14,10 @@ import { ReorderGroupDto } from './dto/reorder-group.dto';
 
 @Injectable()
 export class GroupsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activityLogsService: ActivityLogsService,
+  ) {}
 
   async create(
     createGroupDto: CreateGroupDto,
@@ -44,7 +49,7 @@ export class GroupsService {
         },
       });
 
-      return tx.group.create({
+      const group = await tx.group.create({
         data: {
           boardId,
           name: createGroupDto.name,
@@ -55,6 +60,18 @@ export class GroupsService {
             : ORDER_GAP,
         },
       });
+
+      await this.activityLogsService.log({
+        boardId,
+        groupId: group.id,
+        userId,
+        entityType: ActivityEntityType.GROUP,
+        entityId: group.id,
+        action: ActivityAction.CREATED,
+        metadata: { groupName: group.name },
+      }, tx);
+
+      return group;
     });
   }
 
@@ -99,7 +116,7 @@ export class GroupsService {
         }
       }
 
-      return tx.group.update({
+      const updated = await tx.group.update({
         where: {
           id,
         },
@@ -119,6 +136,22 @@ export class GroupsService {
           updatedById: userId,
         },
       });
+
+      await this.activityLogsService.log({
+        boardId,
+        groupId: id,
+        userId,
+        entityType: ActivityEntityType.GROUP,
+        entityId: id,
+        action: ActivityAction.UPDATED,
+        metadata: {
+          groupName: group.name,
+          ...(updateGroupDto.name !== undefined ? { oldName: group.name, newName: updateGroupDto.name } : {}),
+          ...(updateGroupDto.isArchived !== undefined ? { isArchived: updateGroupDto.isArchived } : {}),
+        },
+      }, tx);
+
+      return updated;
     });
   }
 
@@ -232,6 +265,16 @@ export class GroupsService {
         }
       }
 
+      await this.activityLogsService.log({
+        boardId,
+        groupId: newGroup.id,
+        userId,
+        entityType: ActivityEntityType.GROUP,
+        entityId: newGroup.id,
+        action: ActivityAction.CREATED,
+        metadata: { groupName: newGroup.name, duplicatedFrom: sourceGroup.name },
+      }, tx);
+
       return newGroup;
     });
   }
@@ -254,6 +297,16 @@ export class GroupsService {
           'Group not found for the specified board.',
         );
       }
+
+      // Log before delete so group name is still in metadata; no groupId to avoid cascade deletion of log
+      await this.activityLogsService.log({
+        boardId,
+        userId,
+        entityType: ActivityEntityType.GROUP,
+        entityId: id,
+        action: ActivityAction.DELETED,
+        metadata: { groupName: group.name },
+      }, tx);
 
       await tx.group.delete({
         where: {

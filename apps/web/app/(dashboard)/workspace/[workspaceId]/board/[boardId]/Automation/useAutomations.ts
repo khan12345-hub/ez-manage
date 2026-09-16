@@ -24,21 +24,7 @@ export function useUpdateAutomation(
       data,
     }: {
       automationId: number;
-
-      data: {
-        name: string;
-
-        trigger: {
-          type: string;
-          columnId: number;
-          statusId: number;
-        };
-
-        action: {
-          type: string;
-          groupId: number;
-        };
-      };
+      data: CreateAutomationPayload;
     }) =>
       updateAutomation(
         boardId,

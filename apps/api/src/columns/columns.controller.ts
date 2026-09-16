@@ -17,18 +17,19 @@ import { ColumnsService } from './columns.service';
 import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
 import { ReorderColumnDto } from './dto/reorder-column.dto';
-
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { SessionUser } from 'src/auth/types/session-user.type';
 
 @Controller('columns')
 export class ColumnsController {
   constructor(
     private readonly columnsService: ColumnsService,
-    
+
   ) {}
 
   @Post()
-  create(@Body() createColumnDto: CreateColumnDto) {
-    return this.columnsService.create(createColumnDto);
+  create(@Body() createColumnDto: CreateColumnDto, @CurrentUser() user: SessionUser) {
+    return this.columnsService.create(createColumnDto, user.id);
   }
 
   @Get()
@@ -47,13 +48,13 @@ export class ColumnsController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateColumnDto) {
-    return this.columnsService.update(id, dto);
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateColumnDto, @CurrentUser() user: SessionUser) {
+    return this.columnsService.update(id, dto, user.id);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.columnsService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: SessionUser) {
+    return this.columnsService.remove(id, user.id);
   }
 
 

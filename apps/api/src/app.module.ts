@@ -27,6 +27,7 @@ import { BoardTemplatesModule } from './board-templates/board-templates.module';
 import { AutomationsModule } from './automations/automations.module';
 import { BoardDocumentsModule } from './board-documents/board-documents.module';
 import { AdminModule } from './admin/admin.module';
+import { TimeTrackingModule } from './time-tracking/time-tracking.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { AdminModule } from './admin/admin.module';
     AutomationsModule,
     BoardDocumentsModule,
     AdminModule,
+    TimeTrackingModule,
     ],
   controllers: [AppController],
   providers: [

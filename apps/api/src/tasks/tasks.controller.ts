@@ -72,14 +72,23 @@ export class TasksController {
 
   @Patch(':id')
   @RequireBoardPermission(BoardPermission.EDIT)
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTaskDto) {
-    return this.taskMutationService.update(id, dto);
+  update(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTaskDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.taskMutationService.update(id, dto, user.id, boardId);
   }
 
   @Delete(':id')
   @RequireBoardPermission(BoardPermission.DELETE_TASK)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.taskMutationService.remove(id);
+  remove(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.taskMutationService.remove(id, user.id, boardId);
   }
 
   @Patch(':taskId/reorder-subtask')

@@ -396,6 +396,7 @@ export class CellsService {
       action: ActivityAction.UPDATED,
       metadata: {
         columnId: cell.columnId,
+        columnName: cell.column.name,
         columnType,
         oldValue: previousValue,
         newValue: dto.value,

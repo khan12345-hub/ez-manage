@@ -7,18 +7,20 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ActivityAction, ActivityEntityType } from 'generated/prisma/client';
+import { AutomationEngineService } from 'src/automations/automation-engine.service';
 
 @Injectable()
 export class TaskCreateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activityLogsService: ActivityLogsService,
+    private readonly automationEngineService: AutomationEngineService,
   ) {}
 
     async create(createTaskDto: CreateTaskDto, userId: number, boardId: number) {
       const ORDER_GAP = 1000;
-  
-      return this.prisma.$transaction(async (tx) => {
+
+      const task = await this.prisma.$transaction(async (tx) => {
         const group = await tx.group.findUnique({
           where: {
             id: createTaskDto.groupId,
@@ -139,8 +141,15 @@ export class TaskCreateService {
         console.log({
           'Activity is being created': activityLog,
         });
-  
+
         return task;
       });
+
+      // Fire TASK_CREATED automations after transaction commits
+      this.automationEngineService.handleTaskCreated(task.id, boardId).catch((err) => {
+        console.error('[Automation] TASK_CREATED trigger error:', err);
+      });
+
+      return task;
     }
 }

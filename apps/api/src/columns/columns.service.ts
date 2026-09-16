@@ -7,15 +7,17 @@ import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
 import { ReorderColumnDto } from './dto/reorder-column.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
+import { ActivityAction, ActivityEntityType } from 'generated/prisma/enums';
 
 @Injectable()
 export class ColumnsService {
   constructor(
     private readonly prisma: PrismaService,
-    // private readonly boardsAccessService: BoardAccessService,
+    private readonly activityLogsService: ActivityLogsService,
   ) {}
 
-  async create(dto: CreateColumnDto) {
+  async create(dto: CreateColumnDto, userId: number) {
     const ORDER_GAP = 1000
     return this.prisma.$transaction(async (tx) => {
       const board = await tx.board.findUnique({
@@ -84,6 +86,15 @@ export class ColumnsService {
         });
       }
 
+      await this.activityLogsService.log({
+        boardId: dto.boardId,
+        userId,
+        entityType: ActivityEntityType.COLUMN,
+        entityId: column.id,
+        action: ActivityAction.CREATED,
+        metadata: { columnName: column.name, columnType: column.type },
+      }, tx);
+
       return column;
     });
   }
@@ -96,7 +107,7 @@ export class ColumnsService {
     return `This action returns a #${id} column`;
   }
 
-  async update(columnId: number, dto: UpdateColumnDto) {
+  async update(columnId: number, dto: UpdateColumnDto, userId: number) {
     return this.prisma.$transaction(async (tx) => {
       const column = await tx.boardColumn.findUnique({
         where: {
@@ -124,7 +135,7 @@ export class ColumnsService {
         );
       }
 
-      return tx.boardColumn.update({
+      const updated = await tx.boardColumn.update({
         where: {
           id: columnId,
         },
@@ -132,6 +143,17 @@ export class ColumnsService {
           name: dto.name,
         },
       });
+
+      await this.activityLogsService.log({
+        boardId: column.boardId,
+        userId,
+        entityType: ActivityEntityType.COLUMN,
+        entityId: columnId,
+        action: ActivityAction.UPDATED,
+        metadata: { oldName: column.name, newName: dto.name },
+      }, tx);
+
+      return updated;
     });
   }
 
@@ -213,7 +235,7 @@ export class ColumnsService {
     };
   }
 
-  async remove(columnId: number) {
+  async remove(columnId: number, userId: number) {
     return this.prisma.$transaction(async (tx) => {
       const column = await tx.boardColumn.findUnique({
         where: {
@@ -228,6 +250,15 @@ export class ColumnsService {
       if (column.isPrimary) {
         throw new BadRequestException('This column cannot be deleted.');
       }
+
+      await this.activityLogsService.log({
+        boardId: column.boardId,
+        userId,
+        entityType: ActivityEntityType.COLUMN,
+        entityId: columnId,
+        action: ActivityAction.DELETED,
+        metadata: { columnName: column.name, columnType: column.type },
+      }, tx);
 
       // Remove task cells first if cascade isn't configured
       await tx.taskCell.deleteMany({

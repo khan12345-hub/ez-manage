@@ -7,11 +7,12 @@ import { BoardAccessService } from 'src/boards/board-access.service';
 import { BoardSearchService } from 'src/boards/board-search.service';
 import { BoardImportService } from 'src/boards/board-import.service';
 import { FileImportModule } from 'src/file-import/file-import.module';
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
 
 @Module({
   imports: [FileImportModule],
   controllers: [WorkspaceController],
-  providers: [WorkspaceService, BoardsService, WorkspaceAccessService, BoardAccessService, BoardSearchService, BoardImportService],
+  providers: [WorkspaceService, BoardsService, WorkspaceAccessService, BoardAccessService, BoardSearchService, BoardImportService, ActivityLogsService],
 
 })
 export class WorkspaceModule {}

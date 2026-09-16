@@ -15,7 +15,10 @@ import {
   BoardColumnType,
   BoardMemberRole,
   WorkspaceMemberRole,
+  ActivityAction,
+  ActivityEntityType,
 } from 'generated/prisma/enums';
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
 
 import { getDefaultCellValue } from './defaults/default-cell-value.template';
 
@@ -31,6 +34,7 @@ export class BoardsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly boardSearchService: BoardSearchService,
+    private readonly activityLogsService: ActivityLogsService,
   ) {}
 
   async create(createBoardDto: CreateBoardDto, userId: number) {
@@ -242,7 +246,7 @@ export class BoardsService {
         }
       }
 
-      return tx.board.findUniqueOrThrow({
+      const created = await tx.board.findUniqueOrThrow({
         where: {
           id: board.id,
         },
@@ -320,6 +324,17 @@ export class BoardsService {
           },
         },
       });
+
+      await this.activityLogsService.log({
+        boardId: created.id,
+        userId,
+        entityType: ActivityEntityType.BOARD,
+        entityId: created.id,
+        action: ActivityAction.CREATED,
+        metadata: { boardName: created.name },
+      }, tx);
+
+      return created;
     });
   }
 
@@ -584,7 +599,7 @@ export class BoardsService {
         }
       }
 
-      return tx.board.update({
+      const updated = await tx.board.update({
         where: {
           id,
         },
@@ -616,6 +631,20 @@ export class BoardsService {
           },
         },
       });
+
+      await this.activityLogsService.log({
+        boardId: id,
+        userId,
+        entityType: ActivityEntityType.BOARD,
+        entityId: id,
+        action: ActivityAction.UPDATED,
+        metadata: {
+          ...(updateBoardDto.name !== undefined ? { oldName: board.name, newName: updateBoardDto.name.trim() } : {}),
+          ...(updateBoardDto.visibility !== undefined ? { visibility: updateBoardDto.visibility } : {}),
+        },
+      });
+
+      return updated;
     });
   }
 
