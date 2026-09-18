@@ -9,8 +9,10 @@ import { TaskQueryService } from './task-search.service';
 import { TaskMutationService } from './task-mutation.service';
 import { TaskBulkActionsService } from './tasks-bulk-actions.service';
 import { AutomationEngineService } from 'src/automations/automation-engine.service';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
+  imports: [NotificationsModule],
   controllers: [TasksController],
   providers: [
     TaskCreateService,
@@ -21,7 +23,7 @@ import { AutomationEngineService } from 'src/automations/automation-engine.servi
     PrismaService,
     BoardAccessService,
     ActivityLogsService,
-    AutomationEngineService
+    AutomationEngineService,
   ],
 })
 export class TasksModule {}

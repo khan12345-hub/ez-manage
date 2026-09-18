@@ -60,6 +60,32 @@ type NameRule = {
 
 const NAME_RULES: NameRule[] = [
   /*
+   * LINK — URL / website columns
+   * Checked early so "url" beats TEXT fallback.
+   */
+  {
+    exact: [
+      "link", "links", "url", "urls", "website", "websites",
+      "web", "href", "source", "reference", "ref", "site",
+    ],
+    contains: ["link", "url", "website"],
+    type: "LINK",
+  },
+
+  /*
+   * LONG_TEXT — multi-line notes / descriptions (not comments)
+   */
+  {
+    exact: [
+      "details", "detail", "info", "information",
+      "body", "content", "summary", "about",
+      "background", "context", "instructions",
+    ],
+    contains: ["detail", "info"],
+    type: "LONG_TEXT",
+  },
+
+  /*
    * FILE — attachment / file upload columns
    */
   {
@@ -124,6 +150,19 @@ const NAME_RULES: NameRule[] = [
   },
 
   /*
+   * COMMENT — notes / comments / remarks columns
+   * Checked before STATUS so "comment" keyword wins.
+   */
+  {
+    exact: [
+      "comment", "comments", "note", "notes",
+      "remark", "remarks", "feedback", "description", "desc",
+    ],
+    contains: ["comment", "note", "remark", "feedback"],
+    type: "COMMENT",
+  },
+
+  /*
    * STATUS — status / workflow / priority columns
    *
    * NOTE: This rule is checked LAST among named rules so that
@@ -165,6 +204,10 @@ export const getDefaultColumnType = (
   const nonEmpty = getNonEmpty(values);
 
   if (!nonEmpty.length) return "TEXT";
+
+  // All look like URLs?
+  const allUrls = nonEmpty.every((v) => /^https?:\/\//i.test(v) || /^www\./i.test(v));
+  if (allUrls) return "LINK";
 
   // All numeric?
   const allNumbers = nonEmpty.every(

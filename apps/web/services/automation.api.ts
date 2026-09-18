@@ -8,18 +8,20 @@ type DateArrivedTrigger   = { type: "DATE_ARRIVED"; metadata: { dateColumnId: nu
 export type TriggerPayload = StatusChangedTrigger | TaskCreatedTrigger | DateArrivedTrigger;
 
 // ── Action payloads ─────────────────────────────────────────────────────────
-type MoveToGroupAction   = { type: "MOVE_TO_GROUP"; groupId: number };
-type NotifyMemberAction  = { type: "NOTIFY_MEMBER";  metadata: { target?: string; userIds?: number[] } };
-type ChangeStatusAction  = { type: "CHANGE_STATUS";  metadata: { columnId: number; statusOptionId: number } };
-type CreateSubitemAction = { type: "CREATE_SUBITEM"; metadata: { name: string } };
-type SetDateAction       = { type: "SET_DATE";       metadata: { columnId: number } };
+type MoveToGroupAction    = { type: "MOVE_TO_GROUP"; groupId: number };
+type NotifyMemberAction   = { type: "NOTIFY_MEMBER";   metadata: { target?: string; userIds?: number[] } };
+type ChangeStatusAction   = { type: "CHANGE_STATUS";   metadata: { columnId: number; statusOptionId: number } };
+type CreateSubitemAction  = { type: "CREATE_SUBITEM";  metadata: { name: string } };
+type SetDateAction        = { type: "SET_DATE";        metadata: { columnId: number } };
+type SendWhatsappAction   = { type: "SEND_WHATSAPP";   metadata: { target: string; message?: string } };
 
 export type ActionPayload =
   | MoveToGroupAction
   | NotifyMemberAction
   | ChangeStatusAction
   | CreateSubitemAction
-  | SetDateAction;
+  | SetDateAction
+  | SendWhatsappAction;
 
 export type CreateAutomationPayload = {
   name: string;

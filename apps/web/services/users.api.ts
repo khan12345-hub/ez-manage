@@ -72,6 +72,74 @@ export async function updateNotificationPreferences(
   return data;
 }
 
+export interface WhatsappSettings {
+  whatsappPhone: string | null;
+  whatsappEnabled: boolean;
+  whatsappPhoneVerified: boolean;
+  whatsappOnAssigned: boolean;
+  whatsappOnStatus: boolean;
+  whatsappOnDate: boolean;
+  whatsappOnComment: boolean;
+  whatsappOnMention: boolean;
+  whatsappOnAutomation: boolean;
+}
+
+export type WhatsappSettingsUpdatePayload = Partial<
+  Pick<WhatsappSettings,
+    | 'whatsappPhone'
+    | 'whatsappEnabled'
+    | 'whatsappOnAssigned'
+    | 'whatsappOnStatus'
+    | 'whatsappOnDate'
+    | 'whatsappOnComment'
+    | 'whatsappOnMention'
+    | 'whatsappOnAutomation'
+  >
+>;
+
+export async function getWhatsappSettings(): Promise<WhatsappSettings> {
+  const { data } = await api.get<WhatsappSettings>('/users/me/whatsapp-settings');
+  return data;
+}
+
+export async function updateWhatsappSettings(
+  payload: WhatsappSettingsUpdatePayload,
+): Promise<WhatsappSettings> {
+  const { data } = await api.patch<WhatsappSettings>('/users/me/whatsapp-settings', payload);
+  return data;
+}
+
+export interface WhatsappLog {
+  id: number;
+  userId: number;
+  direction: 'OUT' | 'IN';
+  body: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface WhatsappLogPage {
+  data: WhatsappLog[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export async function getWhatsappLogs(page = 1, limit = 30): Promise<WhatsappLogPage> {
+  const { data } = await api.get<WhatsappLogPage>('/users/me/whatsapp-logs', {
+    params: { page, limit },
+  });
+  return data;
+}
+
+export async function sendWhatsappOtp(): Promise<{ message: string }> {
+  const { data } = await api.post('/users/me/whatsapp-settings/send-otp');
+  return data;
+}
+
+export async function verifyWhatsappOtp(otp: string): Promise<{ verified: boolean; message: string }> {
+  const { data } = await api.post('/users/me/whatsapp-settings/verify-otp', { otp });
+  return data;
+}
+
 export const getUserByEmail = async (email: string) => {
   const { data } = await api.get("/users/by-email", {
     params: {

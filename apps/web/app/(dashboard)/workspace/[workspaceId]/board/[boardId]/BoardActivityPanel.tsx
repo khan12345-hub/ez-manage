@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+
+const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow, format } from "date-fns";
 import {
@@ -178,16 +180,18 @@ function getActionDetail(a: TaskActivity): ActionDetail {
 }
 
 function Avatar({ user }: { user: TaskActivity["user"] }) {
+  const [imgError, setImgError] = useState(false);
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase();
   const colors = ["bg-orange-500","bg-blue-500","bg-green-500","bg-purple-500","bg-rose-500"];
   const color = colors[user.id % colors.length];
 
-  if (user.avatarUrl) {
+  if (user.avatarUrl && !imgError) {
     return (
       <img
-        src={user.avatarUrl}
+        src={`${BASE_URL}${user.avatarUrl}`}
         alt={initials}
         className="h-7 w-7 shrink-0 rounded-full object-cover"
+        onError={() => setImgError(true)}
       />
     );
   }
@@ -279,11 +283,19 @@ function ActivityRow({ item }: { item: TaskActivity }) {
 }
 
 function UserAvatar({ user }: { user: BoardViewEntry["user"] }) {
+  const [imgError, setImgError] = useState(false);
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase();
   const colors = ["bg-orange-500", "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-rose-500"];
   const color = colors[user.id % colors.length];
-  if (user.avatarUrl) {
-    return <img src={user.avatarUrl} alt={initials} className="h-9 w-9 shrink-0 rounded-full object-cover" />;
+  if (user.avatarUrl && !imgError) {
+    return (
+      <img
+        src={`${BASE_URL}${user.avatarUrl}`}
+        alt={initials}
+        className="h-9 w-9 shrink-0 rounded-full object-cover"
+        onError={() => setImgError(true)}
+      />
+    );
   }
   return (
     <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${color}`}>
@@ -530,7 +542,7 @@ export function BoardActivityPanel({ board, open, onClose }: Props) {
                             >
                               {m.user.avatarUrl ? (
                                 <img
-                                  src={m.user.avatarUrl}
+                                  src={`${BASE_URL}${m.user.avatarUrl}`}
                                   alt={initials}
                                   className="h-9 w-9 rounded-full object-cover"
                                 />

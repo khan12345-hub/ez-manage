@@ -649,42 +649,23 @@ export class BoardsService {
   }
 
   async remove(id: number, userId: number) {
-    return this.prisma.$transaction(async (tx) => {
-      const board = await tx.board.findUnique({
-        where: {
-          id,
-        },
-
-        select: {
-          id: true,
-          workspaceId: true,
-        },
-      });
-
-      if (!board) {
-        throw new NotFoundException('Board not found.');
-      }
-
-      // Delete related records if
-      // cascade is not configured
-      await tx.boardMember.deleteMany({
-        where: {
-          boardId: id,
-        },
-      });
-
-      await tx.invitationBoard.deleteMany({
-        where: {
-          boardId: id,
-        },
-      });
-
-      return tx.board.delete({
-        where: {
-          id,
-        },
-      });
+    const board = await this.prisma.board.findUnique({
+      where: { id },
+      select: { id: true, workspaceId: true },
     });
+
+    if (!board) {
+      throw new NotFoundException('Board not found.');
+    }
+
+    // Use raw SQL so the cascade runs at the DB level without
+    // Prisma's transaction wrapper interfering (works around a
+    // PrismaPg adapter timeout on large boards with many rows).
+    await this.prisma.$executeRaw`DELETE FROM board_members WHERE "boardId" = ${id}`;
+    await this.prisma.$executeRaw`DELETE FROM invitation_boards WHERE "boardId" = ${id}`;
+    await this.prisma.$executeRaw`DELETE FROM boards WHERE id = ${id}`;
+
+    return board;
   }
 
   async findMembers(boardId: number, userId: number, search?: string) {

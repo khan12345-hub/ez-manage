@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import {
   NotificationEntityType,
   NotificationType,
@@ -6,6 +6,8 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+// WhatsApp hook — remove this import to disable WhatsApp notifications
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 @Injectable()
 export class NotificationsService {
@@ -15,6 +17,9 @@ export class NotificationsService {
 
     @InjectQueue('notifications')
     private readonly notificationsQueue: Queue,
+
+    // WhatsApp hook — remove this param + @Optional() to disable
+    @Optional() private readonly whatsapp: WhatsappService,
   ) {}
 
   /**
@@ -139,6 +144,48 @@ export class NotificationsService {
       '[NotificationsService] Notification successfully created:',
       notification,
     );
+
+    // ── WhatsApp hook ─────────────────────────────────────────────────────────
+    if (this.whatsapp && entityId && metadata?.boardId) {
+      void (async () => {
+        try {
+          const prefs = await this.prisma.user.findUnique({
+            where: { id: recipientId },
+            select: {
+              whatsappOnAssigned: true,
+              whatsappOnStatus: true,
+              whatsappOnDate: true,
+              whatsappOnComment: true,
+              whatsappOnMention: true,
+              whatsappOnAutomation: true,
+            },
+          });
+
+          const allowed =
+            !prefs ||
+            (type === NotificationType.TASK_ASSIGNED       && (prefs.whatsappOnAssigned   ?? true)) ||
+            (type === NotificationType.TASK_STATUS_CHANGED && (prefs.whatsappOnStatus     ?? true)) ||
+            (type === NotificationType.TASK_DUE_SOON       && (prefs.whatsappOnDate       ?? true)) ||
+            (type === NotificationType.COMMENT_CREATED     && (prefs.whatsappOnComment    ?? true)) ||
+            (type === NotificationType.COMMENT_REPLY       && (prefs.whatsappOnComment    ?? true)) ||
+            (type === NotificationType.COMMENT_MENTION     && (prefs.whatsappOnMention    ?? true)) ||
+            (type === NotificationType.AUTOMATION          && (prefs.whatsappOnAutomation ?? true)) ||
+            // For other types (board membership etc.) always send if WhatsApp is enabled
+            !(([
+              NotificationType.TASK_ASSIGNED, NotificationType.TASK_STATUS_CHANGED,
+              NotificationType.TASK_DUE_SOON, NotificationType.COMMENT_CREATED,
+              NotificationType.COMMENT_REPLY, NotificationType.COMMENT_MENTION,
+              NotificationType.AUTOMATION,
+            ] as NotificationType[]).includes(type));
+
+          if (allowed) {
+            await this.whatsapp.sendToUser(recipientId, `📋 ${title}\n${message}`).catch(() => {});
+            await this.whatsapp.updateSession(recipientId, entityId, Number(metadata.boardId)).catch(() => {});
+          }
+        } catch { /* non-critical */ }
+      })();
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Queue email.

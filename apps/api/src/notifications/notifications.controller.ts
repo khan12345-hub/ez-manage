@@ -124,14 +124,10 @@ export class NotificationsController {
      * Listen for new notifications.
      */
     const subscription = observable.subscribe({
-      next: (notification) => {
-        console.log(
-          `[SSE] Sending notification ${notification.id} to user ${userId}`,
-        );
-
-        res.write(
-          `event: notification\n` + `data: ${JSON.stringify(notification)}\n\n`,
-        );
+      next: (event) => {
+        const eventType: string = event.__sse_event_type ?? 'notification';
+        const { __sse_event_type: _type, ...data } = event;
+        res.write(`event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`);
       },
 
       error: (error) => {

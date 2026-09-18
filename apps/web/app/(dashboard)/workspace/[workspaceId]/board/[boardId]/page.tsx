@@ -20,6 +20,7 @@ import { BoardHeader } from "./BoardHeader";
 import { BoardSkeleton } from "./BoardSkeleton";
 import { BoardDocuments } from "./(board-features)/documents/BoardDocuments";
 import { FileGallery } from "./(board-features)/file-gallery/FileGallery";
+import { ImportProgressBanner } from "./ImportProgressBanner";
 
 export default function BoardPage() {
   const { setGroups } = useGroupStore();
@@ -193,6 +194,8 @@ export default function BoardPage() {
           }
         >
           <BoardHeader board={board} />
+
+          <ImportProgressBanner boardId={boardId} />
 
           <BoardViewsTabs
             board={board}

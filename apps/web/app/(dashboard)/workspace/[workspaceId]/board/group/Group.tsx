@@ -47,6 +47,7 @@ export function Group({
   });
 
   const hydratedGroup = group;
+  const rootTaskCount = (group.tasks ?? []).filter((t: any) => !t.parentId).length;
 
   return (
     <>
@@ -56,6 +57,7 @@ export function Group({
           isCollapsed={isCollapsed}
           onToggleCollapse={() => setIsCollapsed((v) => !v)}
           onAddGroup={addNewGroup}
+          taskCount={rootTaskCount}
         />
 
         {!isCollapsed && (

@@ -9,6 +9,10 @@ export const COLUMN_TYPES: {
     label: "Text",
   },
   {
+    value: "LONG_TEXT",
+    label: "📝 Long Text",
+  },
+  {
     value: "NUMBER",
     label: "Number",
   },
@@ -39,6 +43,18 @@ export const COLUMN_TYPES: {
   {
     value: "FILE",
     label: "File",
+  },
+  {
+    value: "LINK",
+    label: "🔗 Link",
+  },
+  {
+    value: "COMMENT",
+    label: "💬 Comment",
+  },
+  {
+    value: "SKIP",
+    label: "⊘ Skip",
   },
 ];
 

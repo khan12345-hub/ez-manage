@@ -11,7 +11,7 @@ export class TimeTrackingService {
 
   async getEntries(boardId: number, taskId: number) {
     return this.prisma.timeEntry.findMany({
-      where: { taskId, boardId },
+      where: { taskId },
       include: {
         user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
       },

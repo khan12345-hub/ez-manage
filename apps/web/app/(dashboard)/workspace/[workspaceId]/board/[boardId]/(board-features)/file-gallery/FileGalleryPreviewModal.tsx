@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,6 +11,7 @@ import {
   Image as ImageIcon,
   Info,
   LayoutGrid,
+  Loader2,
   Printer,
   Trash2,
   X,
@@ -135,27 +137,7 @@ export function FilePreviewModal({
         }`}
         style={{ paddingLeft: "4rem", paddingRight: "4rem" }}
       >
-        {isImage ? (
-          <img
-            src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL + file.url}
-            alt={file.name}
-            className="max-h-full max-w-full select-none object-contain"
-            draggable={false}
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-4 text-muted-foreground">
-            <FileIcon className="h-20 w-20" />
-            <p className="text-sm">{file.name}</p>
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="flex items-center gap-2 rounded-md border px-4 py-2 text-sm hover:bg-muted"
-            >
-              <Download className="h-4 w-4" />
-              Download to view
-            </button>
-          </div>
-        )}
+        <FileViewer file={file} onDownload={handleDownload} />
       </div>
 
       {/* ================================================== */}
@@ -265,6 +247,216 @@ export function FilePreviewModal({
       )}
     </div>
   );
+}
+
+/* ================================================== */
+/* DOCX VIEWER — mammoth converts .docx → HTML       */
+/* ================================================== */
+
+function DocxViewer({ src, onDownload }: { src: string; onDownload: () => void }) {
+  const [html, setHtml] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setLoading(true); setHtml(null); setError(false);
+    // dynamic import so mammoth is only loaded when needed
+    import("mammoth/mammoth.browser")
+      .then((mammoth) =>
+        fetch(src)
+          .then((r) => r.arrayBuffer())
+          .then((buf) => mammoth.convertToHtml({ arrayBuffer: buf }))
+          .then((result) => setHtml(result.value))
+      )
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [src]);
+
+  if (loading) return <ViewerLoader label="Loading document…" />;
+  if (error || !html) return <DownloadFallback type="document" onDownload={onDownload} />;
+
+  return (
+    <div className="h-full w-full overflow-auto rounded-lg border bg-white shadow-inner">
+      <div
+        className="prose prose-sm max-w-none p-10 text-gray-800 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:p-1.5 [&_th]:border [&_th]:border-gray-300 [&_th]:bg-gray-100 [&_th]:p-1.5"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </div>
+  );
+}
+
+/* ================================================== */
+/* XLSX VIEWER — SheetJS renders Excel as HTML table */
+/* ================================================== */
+
+function XlsxViewer({ src, onDownload }: { src: string; onDownload: () => void }) {
+  const [sheets, setSheets] = useState<string[]>([]);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [htmlMap, setHtmlMap] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setLoading(true); setSheets([]); setHtmlMap({}); setActiveIdx(0); setError(false);
+    fetch(src)
+      .then((r) => r.arrayBuffer())
+      .then((buf) => {
+        const wb = XLSX.read(buf, { type: "array" });
+        const map: Record<string, string> = {};
+        wb.SheetNames.forEach((name) => {
+          const ws = wb.Sheets[name];
+          map[name] = XLSX.utils.sheet_to_html(ws ?? {}, { editable: false });
+        });
+        setSheets(wb.SheetNames);
+        setHtmlMap(map);
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [src]);
+
+  if (loading) return <ViewerLoader label="Loading spreadsheet…" />;
+  if (error || sheets.length === 0) return <DownloadFallback type="excel" onDownload={onDownload} />;
+
+  const activeSheet = sheets[activeIdx] ?? "";
+  const activeHtml = htmlMap[activeSheet] ?? "";
+
+  return (
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-lg border bg-white shadow-inner">
+      {/* Sheet tabs */}
+      {sheets.length > 1 && (
+        <div className="flex shrink-0 gap-0.5 overflow-x-auto border-b bg-muted/40 px-2 pt-2">
+          {sheets.map((name, i) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setActiveIdx(i)}
+              className={`rounded-t-md border px-4 py-1.5 text-xs font-medium transition-colors ${
+                i === activeIdx
+                  ? "border-b-white bg-white text-primary"
+                  : "border-transparent text-muted-foreground hover:bg-background"
+              }`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Table */}
+      <div className="flex-1 overflow-auto">
+        <div
+          className="excel-preview min-w-max p-2"
+          dangerouslySetInnerHTML={{ __html: activeHtml }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ================================================== */
+/* SHARED HELPERS                                     */
+/* ================================================== */
+
+function ViewerLoader({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+      <Loader2 className="h-8 w-8 animate-spin" />
+      <p className="text-sm">{label}</p>
+    </div>
+  );
+}
+
+function DownloadFallback({ type, onDownload }: { type: string; onDownload: () => void }) {
+  const typeColors: Record<string, string> = {
+    document: "text-blue-700",
+    excel: "text-emerald-600",
+    archive: "text-amber-500",
+  };
+  return (
+    <div className={`flex flex-col items-center gap-4 ${typeColors[type] ?? "text-muted-foreground"}`}>
+      <FileIcon className="h-20 w-20" />
+      <p className="text-xs text-muted-foreground uppercase">{type}</p>
+      <button
+        type="button"
+        onClick={onDownload}
+        className="mt-2 flex items-center gap-2 rounded-md border px-4 py-2 text-sm text-foreground hover:bg-muted"
+      >
+        <Download className="h-4 w-4" />
+        Download to view
+      </button>
+    </div>
+  );
+}
+
+/* ================================================== */
+/* FILE VIEWER — inline PDF, video, audio, image     */
+/* ================================================== */
+
+function FileViewer({
+  file,
+  onDownload,
+}: {
+  file: BoardGalleryFile;
+  onDownload: () => void;
+}) {
+  const src = process.env.NEXT_PUBLIC_BACKEND_BASE_URL + file.url;
+
+  if (file.type === "image") {
+    return (
+      <img
+        src={src}
+        alt={file.name}
+        className="max-h-full max-w-full select-none object-contain"
+        draggable={false}
+      />
+    );
+  }
+
+  if (file.type === "pdf") {
+    return (
+      <iframe
+        src={src}
+        title={file.name}
+        className="h-full w-full rounded border-0"
+        style={{ minHeight: "calc(100vh - 140px)" }}
+      />
+    );
+  }
+
+  if (file.type === "video") {
+    return (
+      <video
+        src={src}
+        controls
+        className="max-h-full max-w-full rounded"
+        style={{ maxHeight: "calc(100vh - 140px)" }}
+      >
+        Your browser does not support video playback.
+      </video>
+    );
+  }
+
+  if (file.type === "audio") {
+    return (
+      <div className="flex flex-col items-center gap-6 text-muted-foreground">
+        <FileIcon className="h-20 w-20 text-green-500" />
+        <p className="max-w-xs truncate text-sm font-medium text-foreground">{file.name}</p>
+        <audio src={src} controls className="w-full max-w-md">
+          Your browser does not support audio playback.
+        </audio>
+      </div>
+    );
+  }
+
+  if (file.type === "document") {
+    return <DocxViewer src={src} onDownload={onDownload} />;
+  }
+
+  if (file.type === "excel") {
+    return <XlsxViewer src={src} onDownload={onDownload} />;
+  }
+
+  /* Fallback: archive, unknown */
+  return <DownloadFallback type={file.type} onDownload={onDownload} />;
 }
 
 /* ================================================== */

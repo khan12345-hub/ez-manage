@@ -464,10 +464,9 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
 
   const groups = findGroupRows(worksheet);
 
+  // If no Monday.com-style groups detected, fall back to flat table parsing
   if (!groups.length) {
-    throw new Error(
-      "Could not detect any valid groups or column headers in the file.",
-    );
+    return parseFlatTable(worksheet, range, file);
   }
 
   /*
@@ -770,11 +769,116 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
     JSON.stringify(parsedRows, null, 2),
   );
 
+  // Groups were detected but zero task rows came out — likely a false-positive
+  // group detection on a non-Monday.com file. Fall back to flat table.
+  if (!parsedRows.length) {
+    return parseFlatTable(worksheet, range, file);
+  }
+
   return {
     boardName,
     groups,
     columns: uniqueColumns,
     rows: parsedRows,
+    taskColumn: taskColumnName,
+  };
+}
+
+/**
+ * Flat-table fallback parser for standard Excel files that don't follow
+ * the Monday.com group-header structure.
+ *
+ * Expects:
+ *   Row N   → column headers (first row with ≥ 2 non-empty cells)
+ *   Row N+1 → data rows
+ *
+ * All tasks land in one default group "Imported Tasks".
+ */
+function parseFlatTable(
+  worksheet: XLSX.WorkSheet,
+  range: XLSX.Range,
+  file: File,
+): ExcelBoardData {
+  // Find the header row — first row that has at least 2 non-empty cells
+  let headerRowIndex = range.s.r;
+  for (let r = range.s.r; r <= Math.min(range.s.r + 10, range.e.r); r++) {
+    let nonEmpty = 0;
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      if (getCellValue(worksheet, r, c)) nonEmpty++;
+    }
+    if (nonEmpty >= 2) {
+      headerRowIndex = r;
+      break;
+    }
+  }
+
+  // Read column headers from that row
+  const columns: ExcelColumn[] = [];
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const name = getCellValue(worksheet, headerRowIndex, c);
+    if (name) columns.push({ name: name.trim(), index: c });
+  }
+
+  if (!columns.length) {
+    return {
+      boardName: file.name.replace(/\.(xlsx|xls)$/i, "").trim(),
+      groups: [],
+      columns: [],
+      rows: [],
+      taskColumn: "",
+    };
+  }
+
+  // Task column = first column (or first one named "name" / "task")
+  const nameCol =
+    columns.find((c) =>
+      ["name", "task", "task name", "title", "item"].includes(
+        c.name.toLowerCase(),
+      ),
+    ) ?? columns[0]!;
+
+  const taskColumnName = nameCol.name;
+  const taskColumnIndex = nameCol.index;
+
+  // Parse data rows
+  const rows: ExcelRowItem[] = [];
+  for (let r = headerRowIndex + 1; r <= range.e.r; r++) {
+    const taskName = getCellValue(worksheet, r, taskColumnIndex);
+    if (!taskName.trim()) continue; // skip blank rows
+
+    const rowItem: ExcelRowItem = {
+      __groupName: "Imported Tasks",
+      __groupColor: "#579BFC",
+      [taskColumnName]: taskName,
+    };
+
+    for (const col of columns) {
+      if (col.index === taskColumnIndex) continue;
+      const val = getCellValue(worksheet, r, col.index);
+      const fill = getCellFillColor(worksheet, r, col.index);
+      if (val) {
+        rowItem[col.name] = fill ? { label: val, color: fill } : val;
+      } else {
+        rowItem[col.name] = null;
+      }
+    }
+
+    rows.push(rowItem);
+  }
+
+  // Deduplicate columns
+  const uniqueColumns = columns.filter(
+    (col, idx, arr) =>
+      arr.findIndex(
+        (c) => c.name.toLowerCase() === col.name.toLowerCase(),
+      ) === idx,
+  );
+
+  return {
+    boardName: file.name.replace(/\.(xlsx|xls)$/i, "").trim(),
+    groups: [],
+    columns: uniqueColumns,
+    rows,
     taskColumn: taskColumnName,
   };
 }

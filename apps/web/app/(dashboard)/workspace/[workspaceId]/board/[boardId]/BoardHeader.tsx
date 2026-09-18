@@ -3,6 +3,8 @@
 import { Bot, ChevronDown, MoreHorizontal, Users } from "lucide-react";
 import { useState } from "react";
 
+const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,7 @@ export function BoardHeader({ board }: BoardHeaderProps) {
   const [manageAccessOpen, setManageAccessOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
   const { user } = useAuth();
   const initials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase();
@@ -202,8 +205,13 @@ export function BoardHeader({ board }: BoardHeaderProps) {
             title="Board activity log"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[11px] font-bold text-white transition-all hover:ring-2 hover:ring-orange-400 hover:ring-offset-1"
           >
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={initials} className="h-9 w-9 rounded-full object-cover" />
+            {user?.avatarUrl && !avatarError ? (
+              <img
+                src={`${BASE_URL}${user.avatarUrl}`}
+                alt={initials}
+                className="h-9 w-9 rounded-full object-cover"
+                onError={() => setAvatarError(true)}
+              />
             ) : (
               initials
             )}

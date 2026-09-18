@@ -4,6 +4,8 @@ import { QueryClient } from "@tanstack/react-query";
 import { CellEditorProps } from "../EditableCells/EditableCell";
 
 import { TextEditor } from "../EditableCells/TextEditor";
+import { LongTextEditor } from "../EditableCells/LongTextEditor";
+import { LinkEditor } from "../EditableCells/LinkEditor";
 import { NumberEditor } from "../EditableCells/NumberEditor";
 import { PersonEditor } from "../EditableCells/PersonEditor";
 import { DateEditor } from "../EditableCells/DateEditor";
@@ -101,6 +103,45 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
           text: value,
         },
       });
+    },
+  },
+
+  LONG_TEXT: {
+    component: LongTextEditor,
+
+    getValue: (_, cell) => cell?.value?.text ?? "",
+
+    save: ({ cell, value, boardId }) => {
+      if (!cell?.id) return Promise.resolve(null);
+      return updateCell(boardId!, cell.id, { value: { text: value } });
+    },
+  },
+
+  LINK: {
+    component: LinkEditor,
+
+    getValue: (_, cell) => cell?.value?.url ?? "",
+
+    renderValue: (value: string) => {
+      if (!value) return null;
+      const href = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="flex min-w-0 items-center gap-1 truncate text-[13px] text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+          title={value}
+        >
+          {value}
+        </a>
+      );
+    },
+
+    save: ({ cell, value, boardId }) => {
+      if (!cell?.id) return Promise.resolve(null);
+      return updateCell(boardId!, cell.id, { value: { url: value } });
     },
   },
 

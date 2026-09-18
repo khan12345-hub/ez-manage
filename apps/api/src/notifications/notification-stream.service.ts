@@ -143,4 +143,13 @@ export class NotificationStreamService {
       stream.next(notification);
     }
   }
+
+  /** Emit a typed non-notification event (e.g. file_import_progress). */
+  emitRaw(userId: number, eventType: string, data: Record<string, any>) {
+    const userStreams = this.streams.get(userId);
+    if (!userStreams) return;
+    for (const stream of userStreams) {
+      stream.next({ __sse_event_type: eventType, ...data });
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import {
   AutomationActionType,
   AutomationTriggerType,
@@ -6,10 +6,14 @@ import {
   NotificationType,
 } from 'generated/prisma/enums';
 import { PrismaService } from 'prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AutomationEngineService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly notificationsService: NotificationsService,
+  ) {}
 
   // ── STATUS_CHANGED trigger ──────────────────────────────────────────────────
   async handleStatusChanged(
@@ -92,6 +96,10 @@ export class AutomationEngineService {
         case AutomationActionType.SET_DATE:
           await this.actionSetDate(automation, taskId, boardId);
           break;
+
+        case AutomationActionType.SEND_WHATSAPP:
+          await this.actionSendWhatsapp(automation, taskId, boardId);
+          break;
       }
     } catch (err) {
       console.error(`[Automation] Error executing action ${automation.actionType} for rule ${automation.id}:`, err);
@@ -112,15 +120,14 @@ export class AutomationEngineService {
     const meta = automation.actionMetadata as any;
     let userIds: number[] = Array.isArray(meta?.userIds) ? meta.userIds : [];
 
-    // Special targets: look up user IDs from board membership
-    if (userIds.length === 0 && (meta?.target === "board-members" || meta?.target === "creator")) {
-      if (meta.target === "board-members") {
+    if (userIds.length === 0 && (meta?.target === 'board-members' || meta?.target === 'creator')) {
+      if (meta.target === 'board-members') {
         const members = await this.prisma.boardMember.findMany({
           where: { boardId },
           select: { userId: true },
         });
         userIds = members.map((m) => m.userId);
-      } else if (meta.target === "creator") {
+      } else if (meta.target === 'creator') {
         const task = await this.prisma.task.findUnique({
           where: { id: taskId },
           select: { createdById: true },
@@ -136,20 +143,127 @@ export class AutomationEngineService {
       select: { name: true },
     });
 
+    const title   = `Automation: ${automation.name}`;
+    const message = `Automation triggered on task "${task?.name ?? 'Unknown'}"`;
+
     for (const userId of userIds) {
-      await this.prisma.notification.create({
-        data: {
+      if (this.notificationsService) {
+        // Uses NotificationsService so the WhatsApp hook fires automatically
+        await this.notificationsService.notify({
           recipientId: userId,
           type: NotificationType.AUTOMATION,
-          title: `Automation: ${automation.name}`,
-          message: `Automation triggered on task "${task?.name ?? 'Unknown'}"`,
+          title,
+          message,
           entityType: NotificationEntityType.TASK,
           entityId: taskId,
-          isRead: false,
+          metadata: { boardId },
+          sendEmail: false,
+        }).catch((err: unknown) => {
+          console.error('[Automation] Failed to notify:', err);
+        });
+      } else {
+        // Fallback (WhatsappModule context — no NotificationsService available)
+        await this.prisma.notification.create({
+          data: {
+            recipientId: userId,
+            type: NotificationType.AUTOMATION,
+            title,
+            message,
+            entityType: NotificationEntityType.TASK,
+            entityId: taskId,
+            metadata: { boardId },
+            isRead: false,
+          },
+        }).catch((err: unknown) => {
+          console.error('[Automation] Failed to create notification:', err);
+        });
+      }
+    }
+  }
+
+  // ── SEND_WHATSAPP ──────────────────────────────────────────────────────────
+  private async actionSendWhatsapp(automation: any, taskId: number, boardId: number) {
+    const meta = automation.actionMetadata as any;
+    let userIds: number[] = Array.isArray(meta?.userIds) ? meta.userIds : [];
+
+    // Resolve target
+    if (userIds.length === 0) {
+      if (meta?.target === 'board-members') {
+        const members = await this.prisma.boardMember.findMany({
+          where: { boardId },
+          select: { userId: true },
+        });
+        userIds = members.map((m) => m.userId);
+      } else if (meta?.target === 'creator') {
+        const task = await this.prisma.task.findUnique({
+          where: { id: taskId },
+          select: { createdById: true },
+        });
+        if (task?.createdById) userIds = [task.createdById];
+      } else if (meta?.target === 'assignees') {
+        const cells = await this.prisma.taskCell.findMany({
+          where: {
+            taskId,
+            column: { type: 'PERSON' },
+          },
+          select: { value: true },
+        });
+        for (const cell of cells) {
+          const users = (cell.value as any)?.users ?? [];
+          userIds.push(...users.map((u: any) => u.id));
+        }
+        userIds = [...new Set(userIds)];
+      }
+    }
+
+    if (userIds.length === 0) return;
+
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      select: { name: true },
+    });
+
+    const customMessage: string = meta?.message?.trim()
+      ? meta.message
+      : `📋 Automation: ${automation.name}\nTask: "${task?.name ?? 'Unknown'}"`;
+
+    for (const userId of userIds) {
+      await this.sendWhatsappDirect(userId, customMessage);
+    }
+  }
+
+  // Inline WhatsApp send — avoids circular dep with WhatsappService
+  private async sendWhatsappDirect(userId: number, message: string) {
+    const phoneId = process.env.WHATSAPP_PHONE_ID ?? '';
+    const token   = process.env.WHATSAPP_TOKEN ?? '';
+    if (!phoneId || !token) return;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { whatsappPhone: true, whatsappEnabled: true, whatsappOnAutomation: true },
+    });
+    if (!user?.whatsappEnabled || !user.whatsappPhone || user.whatsappOnAutomation === false) return;
+
+    try {
+      await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-      }).catch((err: unknown) => {
-        console.error('[Automation] Failed to create notification:', err);
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: user.whatsappPhone.replace(/\D/g, ''),
+          type: 'text',
+          text: { body: message },
+        }),
       });
+
+      await this.prisma.whatsappLog.create({
+        data: { userId, direction: 'OUT', body: message, status: 'sent' },
+      }).catch(() => {});
+    } catch (err) {
+      console.error('[Automation] WhatsApp send failed:', err);
     }
   }
 
@@ -163,7 +277,6 @@ export class AutomationEngineService {
     });
     if (!cell) return;
 
-    // Get current assignees and add the new user if not already assigned
     const current = (cell.value as any)?.users ?? [];
     const alreadyAssigned = current.some((u: any) => u.id === meta.userId);
     if (alreadyAssigned) return;
@@ -219,7 +332,6 @@ export class AutomationEngineService {
     });
     if (!task) return;
 
-    // Get max order for subtasks
     const lastSubtask = await this.prisma.task.findFirst({
       where: { parentId: taskId },
       orderBy: { order: 'desc' },

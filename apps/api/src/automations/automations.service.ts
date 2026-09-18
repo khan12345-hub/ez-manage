@@ -64,8 +64,21 @@ export class AutomationsService {
 
     if (action.type === AutomationActionType.NOTIFY_MEMBER) {
       const meta = action.metadata ?? {};
-      if (!Array.isArray(meta.userIds) || (meta.userIds as number[]).length === 0)
-        throw new BadRequestException('NOTIFY_MEMBER action requires metadata.userIds (array)');
+      const validTargets = ['board-members', 'creator', 'assignees'];
+      const hasTarget = typeof meta.target === 'string' && validTargets.includes(meta.target as string);
+      const hasUserIds = Array.isArray(meta.userIds) && (meta.userIds as number[]).length > 0;
+      if (!hasTarget && !hasUserIds)
+        throw new BadRequestException('NOTIFY_MEMBER requires metadata.target (board-members|creator|assignees) or metadata.userIds');
+      data.actionMetadata = meta;
+    }
+
+    if (action.type === AutomationActionType.SEND_WHATSAPP) {
+      const meta = action.metadata ?? {};
+      const validTargets = ['board-members', 'creator', 'assignees'];
+      const hasTarget = typeof meta.target === 'string' && validTargets.includes(meta.target as string);
+      const hasUserIds = Array.isArray(meta.userIds) && (meta.userIds as number[]).length > 0;
+      if (!hasTarget && !hasUserIds)
+        throw new BadRequestException('SEND_WHATSAPP requires metadata.target (board-members|creator|assignees) or metadata.userIds');
       data.actionMetadata = meta;
     }
 

@@ -42,6 +42,7 @@ import { GetBoardTasksDto } from './dto/get-single-board.dto';
 import { GetBoardTasksService } from './single-board-tasks.service';
 import { boardAllFilesService } from './board-all-files.service';
 import { BoardExportService } from './board-export.service';
+import { FileImportService } from 'src/file-import/file-import.processor';
 
 @Controller('boards')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -54,6 +55,7 @@ export class BoardsController {
     private readonly getBoardTasksService: GetBoardTasksService,
     private readonly boardAllFilesService: boardAllFilesService,
     private readonly boardExportService: BoardExportService,
+    private readonly fileImportService: FileImportService,
   ) {}
 
   @Post()
@@ -62,6 +64,23 @@ export class BoardsController {
     @CurrentUser() user: SessionUser,
   ) {
     return this.boardsService.create(createBoardDto, user.id);
+  }
+
+  @Get(':boardId/import-progress')
+  async getImportProgress(@Param('boardId', ParseIntPipe) boardId: number) {
+    return this.fileImportService.getProgress(boardId);
+  }
+
+  @Delete(':boardId/import')
+  async pauseImport(@Param('boardId', ParseIntPipe) boardId: number) {
+    await this.fileImportService.pause(boardId);
+    return { paused: true };
+  }
+
+  @Post(':boardId/import/resume')
+  async resumeImport(@Param('boardId', ParseIntPipe) boardId: number) {
+    await this.fileImportService.resume(boardId);
+    return { resumed: true };
   }
 
   @Get(':boardId/export')
@@ -265,7 +284,15 @@ export class BoardsController {
     @Body() dto: ImportExcelBoardDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.boardImportService.importExcelBoard(dto, user.id);
+    return this.boardImportService.startImport(dto, user.id);
+  }
+
+  @Get('import-jobs/:jobId')
+  async getImportJob(
+    @Param('jobId', ParseIntPipe) jobId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.boardImportService.getImportJob(jobId, user.id);
   }
 
   @Get(':boardId/tasks')
@@ -310,8 +337,17 @@ export class BoardsController {
 @RequireBoardPermission(BoardPermission.VIEW)
 async findAllBoardFiles(
   @Param('boardId', ParseIntPipe) boardId: number,
+  @Query('type') type?: string,
+  @Query('search') search?: string,
+  @Query('page') page?: string,
+  @Query('limit') limit?: string,
 ) {
-  return this.boardAllFilesService.findAllBoardFiles(boardId);
+  return this.boardAllFilesService.findAllBoardFiles(boardId, {
+    type,
+    search,
+    page: page ? Number(page) : 1,
+    limit: limit ? Math.min(Number(limit), 200) : 80,
+  });
 }
 
 @Delete(':boardId/files/:fileId')

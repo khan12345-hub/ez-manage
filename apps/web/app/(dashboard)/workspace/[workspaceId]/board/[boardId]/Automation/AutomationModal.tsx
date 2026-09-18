@@ -205,7 +205,8 @@ export default function AutomationModal({
       | "create-subitem"
       | "set-date"
       | "send-email"
-      | "assign",
+      | "assign"
+      | "send-whatsapp",
   ) => {
     setSteps((current) => [
       ...current,

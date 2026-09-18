@@ -178,7 +178,7 @@ export function CalendarView({ board }: CalendarViewProps) {
   const open = useTaskDetailsStore((s) => s.open);
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useInfiniteQuery({
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["board-tasks-calendar", board.id],
     queryFn: ({ pageParam }) =>
       getBoardTasks(board.id, { cursor: pageParam ?? undefined, limit: 500 }),
@@ -187,7 +187,16 @@ export function CalendarView({ board }: CalendarViewProps) {
     enabled: !!board.id,
   });
 
-  const allTasks: any[] = data?.pages.flatMap((p: any) => p.tasks) ?? [];
+  /* Auto-fetch all pages so calendar always shows complete data */
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const allTasks: any[] = Array.from(
+    new Map((data?.pages.flatMap((p: any) => p.tasks) ?? []).map((t: any) => [t.id, t])).values()
+  );
   const columns: any[] = board.columns ?? [];
   const groups: any[] = board.groups ?? [];
   const dateCol = columns.find((c: any) => c.type === "DATE");

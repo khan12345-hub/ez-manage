@@ -26,7 +26,7 @@ export class GetBoardTasksService {
     search,
     person,
   }: GetBoardTasksParams) {
-    const take = Math.min(limit, 100);
+    const take = Math.min(limit, 1000);
 
     const board = await this.prisma.board.findUnique({
       where: {
@@ -51,20 +51,14 @@ export class GetBoardTasksService {
     const hasFilters =
       Boolean(search?.trim()) || Boolean(person?.trim());
 
-    const tasks = await this.prisma.task.findMany({
-      where: {
-        parentId: null,
+    const whereBase = {
+      parentId: null,
+      group: { boardId },
+      ...(groupId ? { groupId } : {}),
+    };
 
-        group: {
-          boardId,
-        },
-
-        ...(groupId
-          ? {
-              groupId,
-            }
-          : {}),
-      },
+    const [tasks, total] = await Promise.all([
+      this.prisma.task.findMany({ where: whereBase,
 
       orderBy: {
         order: 'asc',
@@ -207,7 +201,9 @@ export class GetBoardTasksService {
           },
         },
       },
-    });
+    }),
+      this.prisma.task.count({ where: whereBase }),
+    ]);
 
     /*
      * No filters:
@@ -226,6 +222,7 @@ export class GetBoardTasksService {
         tasks: result,
         nextCursor,
         hasMore,
+        total,
       };
     }
 
@@ -250,6 +247,7 @@ export class GetBoardTasksService {
       tasks: result,
       nextCursor,
       hasMore,
+      total: filteredTasks.length,
     };
   }
 

@@ -1,6 +1,7 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { LocalStorageService } from 'src/storage/local-storage.service';
+import { NotificationStreamService } from 'src/notifications/notification-stream.service';
 
 export interface FileImportJobData {
   fileId: number;
@@ -39,15 +40,15 @@ class Semaphore {
 export class FileImportService implements OnModuleInit {
   private readonly logger = new Logger(FileImportService.name);
 
-  /*
-   * At most 5 files download simultaneously.
-   * The rest queue up and run as slots free.
-   */
   private readonly sem = new Semaphore(5);
+
+  /** Board IDs whose pending downloads should be skipped (paused). */
+  private readonly pausedBoards = new Set<number>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: LocalStorageService,
+    @Optional() private readonly stream: NotificationStreamService,
   ) {}
 
   /*
@@ -87,6 +88,83 @@ export class FileImportService implements OnModuleInit {
     })();
   }
 
+  /** Pause all pending downloads for a board (preserves URLs for resume). */
+  async pause(boardId: number): Promise<void> {
+    this.pausedBoards.add(boardId);
+
+    // Prefix pending files with import-paused: so the original URL is preserved
+    const pendingFiles = await this.prisma.file.findMany({
+      where: {
+        storageKey: { startsWith: 'http' },
+        cells: { some: { cell: { task: { group: { boardId } } } } },
+      },
+      select: { id: true, storageKey: true },
+    });
+
+    for (const file of pendingFiles) {
+      await this.prisma.file.update({
+        where: { id: file.id },
+        data: { storageKey: `import-paused:${file.storageKey}` },
+      });
+    }
+
+    await this.emitProgress(boardId);
+  }
+
+  /** Resume paused downloads for a board. */
+  async resume(boardId: number): Promise<void> {
+    this.pausedBoards.delete(boardId);
+
+    const pausedFiles = await this.prisma.file.findMany({
+      where: {
+        storageKey: { startsWith: 'import-paused:' },
+        cells: { some: { cell: { task: { group: { boardId } } } } },
+      },
+      select: { id: true, storageKey: true },
+    });
+
+    for (const file of pausedFiles) {
+      const originalUrl = file.storageKey.replace(/^import-paused:/, '');
+      await this.prisma.file.update({
+        where: { id: file.id },
+        data: { storageKey: originalUrl },
+      });
+      this.enqueue({ fileId: file.id, url: originalUrl });
+    }
+
+    await this.emitProgress(boardId);
+  }
+
+  /** Return current { pending, paused, done, total, isPaused } for a board's imported files. */
+  async getProgress(boardId: number): Promise<{ pending: number; paused: number; done: number; total: number; isPaused: boolean }> {
+    const boardFilter = { cells: { some: { cell: { task: { group: { boardId } } } } } };
+    const [total, pending, paused] = await Promise.all([
+      this.prisma.file.count({ where: boardFilter }),
+      this.prisma.file.count({ where: { storageKey: { startsWith: 'http' }, ...boardFilter } }),
+      this.prisma.file.count({ where: { storageKey: { startsWith: 'import-paused:' }, ...boardFilter } }),
+    ]);
+    return { pending, paused, done: total - pending - paused, total, isPaused: paused > 0 };
+  }
+
+  /** Emit SSE progress update to the board owner. */
+  private async emitProgress(boardId: number): Promise<void> {
+    if (!this.stream) return;
+    try {
+      const board = await this.prisma.board.findUnique({
+        where: { id: boardId },
+        select: { createdById: true },
+      });
+      if (!board) return;
+      const progress = await this.getProgress(boardId);
+      this.stream.emitRaw(board.createdById, 'file_import_progress', {
+        boardId,
+        ...progress,
+      });
+    } catch {
+      // non-critical — swallow
+    }
+  }
+
   /*
    * Retry wrapper — up to 3 attempts with exponential back-off.
    * Delays: 5 s → 10 s → give up.
@@ -97,9 +175,24 @@ export class FileImportService implements OnModuleInit {
     data: FileImportJobData,
     maxAttempts = 3,
   ): Promise<void> {
+    // Resolve boardId once for cancel check + SSE
+    let boardId: number | null = null;
+    try {
+      const link = await this.prisma.taskCellFile.findFirst({
+        where: { fileId: data.fileId },
+        select: { cell: { select: { task: { select: { group: { select: { boardId: true } } } } } } },
+      });
+      boardId = link?.cell?.task?.group?.boardId ?? null;
+    } catch { /* non-critical */ }
+
+    // Skip if board is paused
+    if (boardId && this.pausedBoards.has(boardId)) return;
+
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         await this.downloadAndUpload(data);
+        // Emit progress after successful download
+        if (boardId) void this.emitProgress(boardId);
         return;
       } catch (err) {
         if (attempt === maxAttempts) {
@@ -110,6 +203,7 @@ export class FileImportService implements OnModuleInit {
             where: { id: data.fileId },
             data: { storageKey: `import-failed:${data.url}` },
           }).catch(() => {/* ignore if file was already deleted */});
+          if (boardId) void this.emitProgress(boardId);
           return;
         }
 

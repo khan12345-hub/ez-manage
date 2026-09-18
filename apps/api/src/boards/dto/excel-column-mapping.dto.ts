@@ -2,6 +2,7 @@ import { IsEnum, IsString } from "class-validator";
 
 export enum ExcelColumnType {
   TEXT = "TEXT",
+  LONG_TEXT = "LONG_TEXT",
   NUMBER = "NUMBER",
   DATE = "DATE",
   STATUS = "STATUS",
@@ -10,6 +11,9 @@ export enum ExcelColumnType {
   DROPDOWN = "DROPDOWN",
   LABEL = "LABEL",
   FILE = "FILE",
+  LINK = "LINK",
+  COMMENT = "COMMENT",
+  SKIP = "SKIP",
 }
 
 export class ExcelColumnMappingDto {

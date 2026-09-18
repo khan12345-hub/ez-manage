@@ -20,11 +20,12 @@ const TRIGGER_NAMES: Record<string, string> = {
 };
 
 const ACTION_NAMES: Record<string, string> = {
-  move:            "Move to group",
-  notify:          "Notify member",
-  "change-status": "Change status",
-  "create-subitem":"Create subitem",
-  "set-date":      "Set date",
+  move:             "Move to group",
+  notify:           "Notify member",
+  "change-status":  "Change status",
+  "create-subitem": "Create subitem",
+  "set-date":       "Set date",
+  "send-whatsapp":  "Send WhatsApp",
 };
 
 function buildTrigger(trigger: AutomationStep): TriggerPayload | null {
@@ -62,6 +63,10 @@ function buildAction(action: AutomationStep): ActionPayload | null {
   if (action.field === "set-date") {
     if (!action.columnId) return null;
     return { type: "SET_DATE", metadata: { columnId: Number(action.columnId) } };
+  }
+  if (action.field === "send-whatsapp") {
+    if (!action.value) return null;
+    return { type: "SEND_WHATSAPP", metadata: { target: action.value } };
   }
   return null;
 }

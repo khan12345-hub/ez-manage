@@ -1,4 +1,5 @@
 import { ProfileSettings } from "./ProfileSettings";
+import { WhatsappSettingsSection } from "./WhatsappSettingsSection";
 import { NotificationsTab } from "../system-settings/general/NotificationsTab";
 
 export default function SettingsPage() {
@@ -13,6 +14,7 @@ export default function SettingsPage() {
 
       <div className="flex flex-col gap-8">
         <ProfileSettings />
+        <WhatsappSettingsSection />
         <div className="mb-20">
           <NotificationsTab />
         </div>

@@ -2,10 +2,7 @@
 
 import { useState } from "react";
 
-import {
-  Search,
-  Sparkles,
-} from "lucide-react";
+import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,40 +117,35 @@ export default function AutomationCreateTab({
 
           <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             {/* Create from scratch */}
-            {/* <button
+            <button
               type="button"
-              onClick={
-                onCreateFromScratch
-              }
+              onClick={onCreateFromScratch}
               className="
                 group
                 flex
-                h-[212px]
+                h-[160px]
                 flex-col
                 items-center
                 justify-center
                 rounded-md
-                border
+                border-2
+                border-dashed
+                border-slate-200
                 bg-white
                 transition
                 hover:border-blue-400
                 hover:shadow-sm
+                sm:h-[212px]
               "
             >
-              <div className="mb-3 text-4xl font-light text-slate-700">
+              <div className="mb-3 text-4xl font-light text-slate-400 group-hover:text-blue-500">
                 +
               </div>
 
-              <div className="text-[15px] text-slate-600">
+              <div className="text-[14px] font-medium text-slate-600 group-hover:text-blue-600">
                 Create from scratch
               </div>
-
-              <div className="mt-3 flex items-center gap-1 text-[12px] text-slate-500">
-                <Sparkles className="h-3.5 w-3.5 text-purple-500" />
-
-                or create with AI
-              </div>
-            </button> */}
+            </button>
 
             {/* Templates */}
             {filteredTemplates.map(

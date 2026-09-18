@@ -21,6 +21,7 @@ import {
   logManualTime,
   deleteTimeEntry,
   getActiveTimer,
+  getMyActiveTimer,
   type TimeEntry,
 } from "@/services/time-tracking.api";
 
@@ -93,6 +94,14 @@ export function TimeTrackingTab({ taskId, boardId }: TimeTrackingTabProps) {
 
   const activeEntry = entries.find((e) => e.endedAt === null) ?? null;
   const totalMs = entries.reduce((sum, e) => sum + (e.durationMs ?? 0), 0);
+
+  // Fallback: detect active timer via global query (handles boardId mismatch in DB)
+  const { data: myActiveTimer } = useQuery({
+    queryKey: ["my-active-timer"],
+    queryFn: getMyActiveTimer,
+    staleTime: 5_000,
+  });
+  const crossBoardActive = !activeEntry && myActiveTimer?.taskId === taskId ? myActiveTimer : null;
 
   const startMutation = useMutation({
     mutationFn: () => startTimer(boardId, taskId),
@@ -175,7 +184,7 @@ export function TimeTrackingTab({ taskId, boardId }: TimeTrackingTabProps) {
             <Plus className="mr-1 h-3 w-3" />
             Log time
           </Button>
-          {activeEntry ? (
+          {activeEntry || crossBoardActive ? (
             <Button
               size="sm"
               variant="destructive"
@@ -199,16 +208,16 @@ export function TimeTrackingTab({ taskId, boardId }: TimeTrackingTabProps) {
       </div>
 
       {/* Active timer banner */}
-      {activeEntry && (
+      {(activeEntry || crossBoardActive) && (
         <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-3 py-2">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
             <span className="text-sm text-green-700">Timer running</span>
-            {activeEntry.note && (
-              <span className="text-xs text-green-600">— {activeEntry.note}</span>
+            {(activeEntry?.note || crossBoardActive?.note) && (
+              <span className="text-xs text-green-600">— {activeEntry?.note ?? crossBoardActive?.note}</span>
             )}
           </div>
-          <LiveTimer startedAt={activeEntry.startedAt} />
+          <LiveTimer startedAt={(activeEntry?.startedAt ?? crossBoardActive?.startedAt)!} />
         </div>
       )}
 

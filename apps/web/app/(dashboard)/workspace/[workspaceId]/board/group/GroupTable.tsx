@@ -72,7 +72,7 @@ export function GroupTable({
     selection?.getGroupSelectionState(group);
 
   return (
-    <div className="w-full overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+    <div className="board-scroll-pane w-full overflow-x-auto" style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
       {isFetching && (
         <div className="px-4 py-2 text-xs text-muted-foreground">
           Updating...

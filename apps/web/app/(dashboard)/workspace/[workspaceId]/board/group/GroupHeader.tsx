@@ -23,6 +23,7 @@ interface Props {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   onAddGroup?: () => void;
+  taskCount?: number;
 }
 
 export function GroupHeader({
@@ -31,6 +32,7 @@ export function GroupHeader({
   isCollapsed = false,
   onToggleCollapse,
   onAddGroup,
+  taskCount,
 }: Props) {
   /*
    * IMPORTANT:
@@ -237,6 +239,12 @@ export function GroupHeader({
             color: activeGroup.color ?? undefined,
           }}
         />
+
+        {taskCount !== undefined && (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {taskCount} {taskCount === 1 ? "item" : "items"}
+          </span>
+        )}
       </div>
 
       {!activeGroup.isNew && (

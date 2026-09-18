@@ -7,6 +7,7 @@ import { useInviteModalStore } from "@/store/invite-modal";
 import { Searchbar } from "./Searchbar";
 import { Notifications } from "./Notifications";
 import UserProfile from "./UserProfile";
+import { ImportJobBadge } from "@/components/ImportJobBadge";
 import { GlobalSearchModal } from "@/app/(dashboard)/workspace/[workspaceId]/board/[boardId]/BoardHeader/GlobalSearch/GlobalSearchModal";
 
 interface TopNavbarProps {
@@ -37,6 +38,7 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
 
         {/* Right controls */}
         <div className="flex items-center gap-2 sm:gap-3.5">
+          <ImportJobBadge />
           <Notifications />
 
           <button

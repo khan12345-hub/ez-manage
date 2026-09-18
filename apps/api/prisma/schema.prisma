@@ -25,6 +25,24 @@ model User {
   emailNotificationsEnabled Boolean @default(true) @map("email_notifications_enabled")
   inAppNotificationsEnabled  Boolean @default(true) @map("in_app_notifications_enabled")
 
+  whatsappPhone         String?   @map("whatsapp_phone") @db.VarChar(20)
+  whatsappEnabled       Boolean   @default(false) @map("whatsapp_enabled")
+  whatsappPhoneVerified Boolean   @default(false) @map("whatsapp_phone_verified")
+  whatsappOtp           String?   @map("whatsapp_otp") @db.VarChar(6)
+  whatsappOtpExpiry     DateTime? @map("whatsapp_otp_expiry") @db.Timestamptz(6)
+
+  // Per-event WhatsApp notification preferences
+  whatsappOnAssigned    Boolean @default(true) @map("whatsapp_on_assigned")
+  whatsappOnStatus      Boolean @default(true) @map("whatsapp_on_status")
+  whatsappOnDate        Boolean @default(true) @map("whatsapp_on_date")
+  whatsappOnComment     Boolean @default(true) @map("whatsapp_on_comment")
+  whatsappOnMention     Boolean @default(true) @map("whatsapp_on_mention")
+  whatsappOnAutomation  Boolean @default(true) @map("whatsapp_on_automation")
+
+  whatsappSession WhatsappSession?
+  whatsappLogs    WhatsappLog[]
+  boardImportJobs BoardImportJob[]
+
   lastLoginAt          DateTime?         @map("last_login_at") @db.Timestamptz(6)
   createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -267,6 +285,7 @@ model Group {
 
 enum BoardColumnType {
   TEXT
+  LONG_TEXT
   NUMBER
   DATE
   STATUS
@@ -276,6 +295,7 @@ enum BoardColumnType {
   LABEL
   TIMELINE
   FILE
+  LINK
 }
 model StatusOption {
   id          Int         @id @default(autoincrement())
@@ -807,6 +827,7 @@ enum AutomationActionType {
   CHANGE_STATUS
   CREATE_SUBITEM
   SET_DATE
+  SEND_WHATSAPP
 }
 
 model AutomationRule {
@@ -875,4 +896,51 @@ model SystemSetting {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("system_settings")
+}
+
+// ─── Board Import Jobs ───────────────────────────────────────────────────────
+
+model BoardImportJob {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boardName   String   @map("board_name")
+  status      String   @default("processing") @map("status") // processing | done | failed
+  totalRows   Int      @default(0) @map("total_rows")
+  boardId     Int?     @map("board_id")
+  error       String?  @map("error")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("board_import_jobs")
+}
+
+// ─── WhatsApp Integration ───────────────────────────────────────────────────
+// To remove: delete these 2 models + whatsappPhone/whatsappEnabled/whatsappSession/whatsappLogs from User
+
+model WhatsappSession {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastTaskId  Int?     @map("last_task_id")
+  lastBoardId Int?     @map("last_board_id")
+  state       String?  @map("state")       // null | "selecting-task" | "selecting-board"
+  taskList    Json?    @map("task_list")   // [{id,name,boardId,boardName,groupName,statusLabel,dueDate}]
+  boardList   Json?    @map("board_list")  // [{id,name}]
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("whatsapp_sessions")
+}
+
+model WhatsappLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  direction String   @db.VarChar(3)   // "OUT" | "IN"
+  body      String
+  status    String   @db.VarChar(20)  // "sent" | "delivered" | "failed"
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("whatsapp_logs")
 }

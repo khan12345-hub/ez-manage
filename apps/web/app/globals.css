@@ -10,6 +10,11 @@ body {
   overflow-x: hidden;
 }
 
+/* Hide individual group scrollbars — unified bottom scrollbar handles it */
+.board-scroll-pane::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   font-family: var(--font-poppins), sans-serif;
 

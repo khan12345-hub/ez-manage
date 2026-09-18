@@ -30,6 +30,8 @@ import {
   ImportExcelBoardDto,
 } from "@/services/boards.api";
 
+import { useImportJobs } from "@/providers/ImportJobContext";
+
 import { ExcelImportModal } from "@/app/(dashboard)/workspace/[workspaceId]/board/ImportBoard/ExcelImportModal";
 
 import {
@@ -74,6 +76,7 @@ export function CreateBoardModal({
 }: CreateBoardModalProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { startJob } = useImportJobs();
 
   const form = useForm<BoardFormValues>({
     resolver: zodResolver(boardSchema),
@@ -147,41 +150,22 @@ export function CreateBoardModal({
    * Excel board import.
    */
   const importExcelMutation = useMutation({
-    mutationFn: (dto: ImportExcelBoardDto) =>
-      importExcelBoard(dto),
+    mutationFn: (dto: ImportExcelBoardDto) => importExcelBoard(dto),
 
-    onSuccess: (board) => {
-      queryClient.invalidateQueries({
-        queryKey: ["boards", workspaceId],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: ["workspaces"],
-      });
-
-      toast.success(
-        `Board "${board.name}" imported successfully.`,
-      );
-
+    onSuccess: (result, variables) => {
       setExcelModalOpen(false);
       setExcelFile(null);
-
-      router.push(
-        `/workspace/${workspaceId}/board/${board.id}`,
-      );
-
       onClose();
+      startJob(result.jobId, variables.boardName, workspaceId);
     },
 
     onError: (error: any) => {
       const errorMsg =
         error?.response?.data?.message ||
-        "Failed to import Excel board. Please try again.";
+        "Failed to start import. Please try again.";
 
       toast.error(
-        Array.isArray(errorMsg)
-          ? errorMsg.join(", ")
-          : errorMsg,
+        Array.isArray(errorMsg) ? errorMsg.join(", ") : errorMsg,
       );
     },
   });
@@ -474,8 +458,11 @@ export function CreateBoardModal({
         defaultVisibility={form.getValues("visibility")}
         isImporting={importExcelMutation.isPending}
       />
+
     </>,
     document.body
   );
 }
+
+
 

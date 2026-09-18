@@ -1,5 +1,6 @@
 export type BoardColumnType =
   | "TEXT"
+  | "LONG_TEXT"
   | "NUMBER"
   | "DATE"
   | "STATUS"
@@ -7,7 +8,10 @@ export type BoardColumnType =
   | "CHECKBOX"
   | "DROPDOWN"
   | "LABEL"
-  | "FILE";
+  | "FILE"
+  | "LINK"
+  | "COMMENT"
+  | "SKIP";
 
 export interface ExcelColumnMappingDto {
   sourceColumn: string;

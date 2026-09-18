@@ -28,6 +28,7 @@ import { AutomationsModule } from './automations/automations.module';
 import { BoardDocumentsModule } from './board-documents/board-documents.module';
 import { AdminModule } from './admin/admin.module';
 import { TimeTrackingModule } from './time-tracking/time-tracking.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { TimeTrackingModule } from './time-tracking/time-tracking.module';
     BoardDocumentsModule,
     AdminModule,
     TimeTrackingModule,
+    WhatsappModule,
     ],
   controllers: [AppController],
   providers: [

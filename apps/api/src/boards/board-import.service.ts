@@ -36,6 +36,13 @@ type GroupedRows = {
   rows: ImportedRow[];
 };
 
+type SkippedItem = {
+  rowIndex: number;
+  taskName?: string;
+  column?: string;
+  reason: string;
+};
+
 @Injectable()
 export class BoardImportService {
   private readonly logger = new Logger(BoardImportService.name);
@@ -45,8 +52,36 @@ export class BoardImportService {
     private readonly fileImportService: FileImportService,
   ) {}
 
-  async importExcelBoard(dto: ImportExcelBoardDto, userId: number) {
+  // ── Public entry point: creates job & fires background import ───────────────
+
+  async startImport(dto: ImportExcelBoardDto, userId: number): Promise<{ jobId: number }> {
+    const job = await this.prisma.boardImportJob.create({
+      data: { userId, boardName: dto.boardName, totalRows: dto.rows.length },
+    });
+
+    // Fire and forget — do NOT await
+    void this.importExcelBoard(job.id, dto, userId).catch(async (err) => {
+      await this.prisma.boardImportJob.update({
+        where: { id: job.id },
+        data: { status: 'failed', error: err?.message ?? 'Import failed' },
+      }).catch(() => {});
+    });
+
+    return { jobId: job.id };
+  }
+
+  async getImportJob(jobId: number, userId: number) {
+    return this.prisma.boardImportJob.findFirst({
+      where: { id: jobId, userId },
+      select: { id: true, boardName: true, status: true, totalRows: true, boardId: true, error: true, createdAt: true },
+    });
+  }
+
+  // ── Actual import (runs in background) ──────────────────────────────────────
+
+  async importExcelBoard(jobId: number, dto: ImportExcelBoardDto, userId: number) {
     const pendingDownloads: FileImportJobData[] = [];
+    const skippedItems: SkippedItem[] = [];
 
     const result = await this.prisma.$transaction(
       async (tx) => {
@@ -163,6 +198,15 @@ export class BoardImportService {
           return true;
         });
 
+        // Separate comment mappings — these become TaskComments, not board columns
+        // SKIP mappings are dropped entirely
+        const commentMappings = mappings.filter(
+          (m) => (m.type as string) === 'COMMENT',
+        );
+        const cellMappings = mappings.filter(
+          (m) => (m.type as string) !== 'COMMENT' && (m.type as string) !== 'SKIP',
+        );
+
         /*
          * ---------------------------------------------------------
          * Find primary/task mapping
@@ -193,7 +237,7 @@ export class BoardImportService {
             isPrimary: true,
           },
 
-          ...mappings
+          ...cellMappings
             .filter((mapping) => {
               const targetName = mapping.targetColumn?.trim();
 
@@ -234,7 +278,7 @@ export class BoardImportService {
           data: uniqueColumnDefinitions.map((column, index) => ({
             boardId: board.id,
             name: column.name,
-            type: column.type,
+            type: column.type as unknown as BoardColumnType,
             isPrimary: column.isPrimary,
             order: (index + 1) * 1000,
           })),
@@ -248,7 +292,7 @@ export class BoardImportService {
 
         const statusOptionsByColumn = new Map<string, StatusOptionMap>();
 
-        for (const mapping of mappings) {
+        for (const mapping of cellMappings) {
           if (mapping.type !== BoardColumnType.STATUS) {
             continue;
           }
@@ -292,6 +336,76 @@ export class BoardImportService {
 
         /*
          * ---------------------------------------------------------
+         * 7b. Build lookup map for PERSON columns
+         *
+         * Supports:
+         *  - Email lookup  (e.g. john@company.com)
+         *  - Full-name lookup (e.g. "Pankhuri Sharma" from Monday.com)
+         *  - First-name-only lookup (e.g. "Radhika")
+         *  - Comma-separated multi-person cells
+         * ---------------------------------------------------------
+         */
+
+        const personEmailToUserId = new Map<string, number>();
+
+        const personMappings = cellMappings.filter(
+          (m) => m.type === BoardColumnType.PERSON,
+        );
+
+        if (personMappings.length > 0) {
+          const allEmails = new Set<string>();
+          const allDisplayNames = new Set<string>();
+
+          for (const mapping of personMappings) {
+            for (const row of dto.rows) {
+              const raw = this.getFlexibleValue(row, mapping.sourceColumn);
+              const display = this.extractDisplayValue(raw).toLowerCase().trim();
+              if (!display) continue;
+
+              // Support comma-separated multi-person cells
+              const tokens = display.split(/,\s*/).map((s) => s.trim()).filter(Boolean);
+              for (const token of tokens) {
+                if (token.includes('@')) {
+                  allEmails.add(token);
+                } else {
+                  allDisplayNames.add(token);
+                }
+              }
+            }
+          }
+
+          // 1. Email-based lookup
+          if (allEmails.size > 0) {
+            const emailUsers = await tx.user.findMany({
+              where: { email: { in: Array.from(allEmails) }, deletedAt: null },
+              select: { id: true, email: true },
+            });
+            for (const u of emailUsers) {
+              personEmailToUserId.set(u.email.toLowerCase(), u.id);
+            }
+          }
+
+          // 2. Name-based lookup (full name + first name)
+          if (allDisplayNames.size > 0) {
+            const workspaceUsers = await tx.user.findMany({
+              where: { deletedAt: null },
+              select: { id: true, firstName: true, lastName: true },
+            });
+            for (const u of workspaceUsers) {
+              const fullName = `${u.firstName} ${u.lastName}`.toLowerCase().trim();
+              const firstName = u.firstName.toLowerCase().trim();
+              if (allDisplayNames.has(fullName)) {
+                personEmailToUserId.set(fullName, u.id);
+              }
+              if (allDisplayNames.has(firstName)) {
+                personEmailToUserId.set(firstName, u.id);
+              }
+            }
+          }
+        }
+
+        /*
+         * ---------------------------------------------------------
          * 8. Group imported rows
          * ---------------------------------------------------------
          */
@@ -299,6 +413,7 @@ export class BoardImportService {
         const groupedRows = this.groupImportedRows(dto.rows);
 
         let groupOrder = 1000;
+        let globalRowCounter = 0;
 
         /*
          * ---------------------------------------------------------
@@ -330,16 +445,27 @@ export class BoardImportService {
            * -------------------------------------------------------
            */
 
-          const allParsedRows = groupData.rows
-            .map((row) => {
-              const rawTaskValue = this.getFlexibleValue(row, dto.taskColumn);
-              const taskName = this.getTaskName(rawTaskValue, row);
-              return { row, taskName };
-            })
-            .filter(
-              (item): item is { row: ImportedRow; taskName: string } =>
-                Boolean(item.taskName),
-            );
+          const allParsedRowsRaw = groupData.rows.map((row) => {
+            const rowIdx = globalRowCounter++;
+            const rawTaskValue = this.getFlexibleValue(row, dto.taskColumn);
+            const taskName = this.getTaskName(rawTaskValue, row);
+            return { row, taskName, rowIdx };
+          });
+
+          // Track rows dropped because no task name could be extracted
+          for (const item of allParsedRowsRaw) {
+            if (!item.taskName) {
+              skippedItems.push({
+                rowIndex: item.rowIdx,
+                reason: 'No task name found — row skipped',
+              });
+            }
+          }
+
+          const allParsedRows = allParsedRowsRaw.filter(
+            (item): item is { row: ImportedRow; taskName: string; rowIdx: number } =>
+              Boolean(item.taskName),
+          );
 
           const validRows = allParsedRows.filter(
             (item) => !item.row['__isSubitem'],
@@ -452,7 +578,7 @@ export class BoardImportService {
             const task = allTasks[index];
             const row = allValidRows[index].row;
 
-            for (const mapping of mappings) {
+            for (const mapping of cellMappings) {
               /*
                * Never create a cell for the primary column.
                */
@@ -531,22 +657,67 @@ export class BoardImportService {
                */
               if (column.type === BoardColumnType.FILE) {
                 const urlStr = this.extractDisplayValue(rawValue).trim();
-                this.logger.log(
-                  `FILE column "${column.name}" raw=${JSON.stringify(rawValue)} urlStr="${urlStr}"`,
-                );
                 if (urlStr) {
-                  const urls = urlStr
-                    .split(/,\s+(?=https?:\/\/)/)
+                  const parts = urlStr
+                    .split(/,\s+(?=https?:\/\/|\/\/)/)
                     .map((u) => u.trim())
-                    .filter((u) => /^https?:\/\//.test(u));
-                  this.logger.log(
-                    `FILE column "${column.name}" split into ${urls.length} URLs: ${JSON.stringify(urls)}`,
-                  );
-                  for (const u of urls) {
-                    pendingFileCells.push({
+                    .filter(Boolean);
+
+                  for (const u of parts) {
+                    if (/^https?:\/\//.test(u)) {
+                      // Standard absolute URL
+                      pendingFileCells.push({ taskId: task.id, columnId: column.id, url: u });
+                    } else if (u.startsWith('//')) {
+                      // Protocol-relative URL → normalize to https
+                      pendingFileCells.push({ taskId: task.id, columnId: column.id, url: `https:${u}` });
+                    } else {
+                      // Not a valid URL — track as skipped
+                      skippedItems.push({
+                        rowIndex: allValidRows[index]!.rowIdx,
+                        taskName: task.name,
+                        column: column.name,
+                        reason: `Invalid file URL skipped: "${u.length > 60 ? u.slice(0, 60) + '…' : u}"`,
+                      });
+                    }
+                  }
+                }
+                continue;
+              }
+
+              /*
+               * PERSON — supports comma-separated multi-person cells
+               * and name-based lookup (Monday.com exports display names).
+               */
+              if (column.type === BoardColumnType.PERSON) {
+                const rawDisplay = this.extractDisplayValue(rawValue).toLowerCase().trim();
+                if (rawDisplay) {
+                  const tokens = rawDisplay.split(/,\s*/).map((s) => s.trim()).filter(Boolean);
+                  const resolvedIds: number[] = [];
+                  const notFound: string[] = [];
+
+                  for (const token of tokens) {
+                    const resolvedId = personEmailToUserId.get(token);
+                    if (resolvedId !== undefined) {
+                      resolvedIds.push(resolvedId);
+                    } else {
+                      notFound.push(token);
+                    }
+                  }
+
+                  if (resolvedIds.length > 0) {
+                    taskCells.push({
                       taskId: task.id,
                       columnId: column.id,
-                      url: u,
+                      value: { users: resolvedIds.map((id) => ({ id })) },
+                    });
+                  }
+
+                  for (const name of notFound) {
+                    skippedItems.push({
+                      rowIndex: allValidRows[index]!.rowIdx,
+                      taskName: task.name,
+                      column: column.name,
+                      reason: `Person '${name}' not found in workspace — assignment skipped`,
                     });
                   }
                 }
@@ -555,7 +726,7 @@ export class BoardImportService {
 
               const normalizedValue = this.normalizeCellValue(
                 rawValue,
-                mapping.type,
+                mapping.type as unknown as BoardColumnType,
                 mapping.sourceColumn,
                 statusOptionsByColumn,
               );
@@ -571,7 +742,7 @@ export class BoardImportService {
 
               const cellValue = this.buildCellValue(
                 normalizedValue ?? '',
-                mapping.type,
+                mapping.type as unknown as BoardColumnType,
                 mapping.sourceColumn,
                 statusOptionsByColumn,
               );
@@ -639,9 +810,13 @@ export class BoardImportService {
               fileCellCache.set(cacheKey, cellId);
             }
 
-            const rawName = decodeURIComponent(
-              (pending.url.split('/').pop() ?? '').split('?')[0],
-            );
+            const rawSegment = (pending.url.split('/').pop() ?? '').split('?')[0];
+            let rawName: string;
+            try {
+              rawName = decodeURIComponent(rawSegment);
+            } catch {
+              rawName = rawSegment;
+            }
             const fileName = rawName || 'Imported File';
 
             const file = await tx.file.create({
@@ -660,6 +835,38 @@ export class BoardImportService {
             });
 
             pendingDownloads.push({ fileId: file.id, url: pending.url });
+          }
+
+          /*
+           * -------------------------------------------------------
+           * Create task comments from COMMENT-type mappings
+           * -------------------------------------------------------
+           */
+          if (commentMappings.length > 0) {
+            const commentData: { taskId: number; userId: number; content: string }[] = [];
+
+            for (let index = 0; index < allTasks.length; index++) {
+              const task = allTasks[index];
+              const row  = allValidRows[index].row;
+
+              for (const mapping of commentMappings) {
+                const rawValue = this.getFlexibleValue(row, mapping.sourceColumn);
+                const text = this.extractDisplayValue(rawValue).trim();
+                if (!text) continue;
+
+                // Each comment mapping column becomes a separate comment.
+                // When there are multiple comment columns extract the commenter
+                // name from the column header (e.g. "Comments-Salman" → "Salman:").
+                const commenter = this.extractCommenterName(mapping.sourceColumn);
+                const content = commenter ? `${commenter}: ${text}` : text;
+
+                commentData.push({ taskId: task.id, userId, content });
+              }
+            }
+
+            if (commentData.length) {
+              await tx.taskComment.createMany({ data: commentData });
+            }
           }
 
           groupOrder += 1000;
@@ -780,7 +987,22 @@ export class BoardImportService {
       this.fileImportService.enqueue(dl);
     }
 
-    return result;
+    // Mark job as done
+    if (jobId) {
+      await this.prisma.boardImportJob.update({
+        where: { id: jobId },
+        data: { status: 'done', boardId: result.id },
+      }).catch(() => {});
+    }
+
+    return {
+      board: result,
+      importSummary: {
+        totalRows: dto.rows.length,
+        skipped: skippedItems.length,
+        skippedItems,
+      },
+    };
   }
 
   /*
@@ -953,6 +1175,34 @@ export class BoardImportService {
     return String(value).trim();
   }
 
+  /**
+   * Extracts a human-readable commenter name from a comment column header.
+   *
+   * "Comments-Salman"  → "Salman"
+   * "Comment-Employee" → "Employee"
+   * "Remarks-HR"       → "HR"
+   * "Notes"            → ""   (generic — no prefix added)
+   * "Comments"         → ""
+   */
+  private extractCommenterName(columnHeader: string): string {
+    const GENERIC_WORDS = [
+      'comments', 'comment', 'notes', 'note',
+      'remarks', 'remark', 'feedback', 'description', 'desc',
+    ];
+
+    // Split on common separators: dash, underscore, space
+    const parts = columnHeader.trim().split(/[-_\s]+/);
+
+    // Remove every leading part that is a generic comment word (case-insensitive)
+    const remaining = [...parts];
+    while (remaining.length && GENERIC_WORDS.includes(remaining[0].toLowerCase())) {
+      remaining.shift();
+    }
+
+    // What's left is the commenter name (re-join in case it was "Comments HR Team")
+    return remaining.join(' ');
+  }
+
   /*
    * ============================================================================
    * STATUS OPTIONS
@@ -1103,9 +1353,23 @@ export class BoardImportService {
      * cell?.value?.text
      */
 
-    if (columnType === BoardColumnType.TEXT) {
+    if (columnType === BoardColumnType.TEXT || columnType === BoardColumnType.LONG_TEXT) {
       return {
         text: normalizedValue,
+      };
+    }
+
+    /*
+     * LINK
+     *
+     * Frontend:
+     *
+     * cell?.value?.url
+     */
+
+    if (columnType === BoardColumnType.LINK) {
+      return {
+        url: normalizedValue,
       };
     }
 

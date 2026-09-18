@@ -21,6 +21,7 @@ import { useParams } from "next/navigation";
 
 import { BoardContent } from "./BoardContent";
 import { BoardHeader } from "./BoardHeader/BoardHeader";
+import { BoardHorizontalScrollbar } from "./BoardHorizontalScrollbar";
 import { useBoard } from "./hooks/useBoard.hooks";
 import { useTaskBulkActions } from "./useTaskBulkActions";
 
@@ -102,7 +103,7 @@ export function Board({
     queryFn: ({ pageParam }) =>
       getBoardTasks(board.id, {
         cursor: pageParam ?? undefined,
-        limit: 50,
+        limit: 100,
         search: debouncedSearch.trim() || undefined,
         person: personFilter?.users?.length
           ? personFilter.users.map((u) => u.id).join(",")
@@ -114,6 +115,7 @@ export function Board({
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextCursor : null,
   });
+
 
   /**
    * ---------------------------------------------------------
@@ -127,6 +129,9 @@ export function Board({
       ),
     ).values(),
   );
+
+  const totalTaskCount = tasksData?.pages[0]?.total ?? 0;
+  const remainingTasks = Math.max(0, totalTaskCount - loadedTasks.length);
 
   /**
    * ---------------------------------------------------------
@@ -341,15 +346,28 @@ export function Board({
         isFetchingNextPage={isFetchingNextPage}
       />
 
+      <BoardHorizontalScrollbar />
+
       {hasNextPage && (
         <div className="flex justify-center py-4">
           <button
             type="button"
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="rounded-md border px-4 py-2 text-sm"
+            className="flex items-center gap-2 rounded-md border px-5 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
           >
-            {isFetchingNextPage ? "Loading..." : "Load more"}
+            {isFetchingNextPage ? (
+              "Loading..."
+            ) : (
+              <>
+                Load more
+                {remainingTasks > 0 && (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                    {remainingTasks.toLocaleString()} remaining
+                  </span>
+                )}
+              </>
+            )}
           </button>
         </div>
       )}

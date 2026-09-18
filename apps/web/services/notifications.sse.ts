@@ -1,56 +1,35 @@
+export interface FileImportProgress {
+  boardId: number;
+  pending: number;
+  done: number;
+  total: number;
+}
+
 export function connectNotificationStream(
   onNotification: (notification: any) => void,
+  onFileImportProgress?: (progress: FileImportProgress) => void,
 ) {
-  const url =
-    `${process.env.NEXT_PUBLIC_API_URL}/notifications/stream`;
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/notifications/stream`;
 
-  console.log("[SSE] Connecting to:", url);
-
-  const eventSource = new EventSource(url, {
-    withCredentials: true,
-  });
-
-  eventSource.onopen = () => {
-    console.log("[SSE] Connection opened");
-  };
+  const eventSource = new EventSource(url, { withCredentials: true });
 
   eventSource.addEventListener("notification", (event) => {
-    console.log(
-      "[SSE] Raw event received:",
-      event.data,
-    );
-
     try {
-      const notification = JSON.parse(event.data);
-      onNotification(notification);
-    } catch (error) {
-      console.error(
-        "[SSE] Failed to parse notification:",
-        error,
-      );
-    }
+      onNotification(JSON.parse(event.data));
+    } catch {}
   });
 
-  // fallback for unnamed events
+  eventSource.addEventListener("file_import_progress", (event) => {
+    try {
+      onFileImportProgress?.(JSON.parse(event.data));
+    } catch {}
+  });
+
   eventSource.onmessage = (event) => {
     try {
-      const notification = JSON.parse(event.data);
-      onNotification(notification);
+      onNotification(JSON.parse(event.data));
     } catch {}
   };
 
-  eventSource.onerror = (error) => {
-    console.error(
-      "[SSE] Connection error:",
-      error,
-    );
-  };
-
-  return () => {
-    console.log(
-      "[SSE] Closing connection",
-    );
-
-    eventSource.close();
-  };
+  return () => eventSource.close();
 }

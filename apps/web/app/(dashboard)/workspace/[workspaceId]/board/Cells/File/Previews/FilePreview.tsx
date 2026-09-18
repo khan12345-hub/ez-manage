@@ -2,6 +2,7 @@
 import ImagePreview from "./ImagePreview";
 import PdfPreview from "./PdfPreview";
 import ExcelPreview from "./ExcelPreview/ExcelPreview";
+import DocxPreview from "./DocxPreview";
 import VideoPreview from "./VideoPreview";
 import AudioPreview from "./AudioPreview";
 import TextPreview from "./TextPreview";
@@ -59,6 +60,16 @@ export default function FilePreview({
         fileName={file.fileName}
       />
     );
+  }
+
+  // Word documents (.docx, .doc)
+  if (
+    file.mimeType.includes("wordprocessingml") ||
+    file.mimeType.includes("msword") ||
+    file.fileName.endsWith(".docx") ||
+    file.fileName.endsWith(".doc")
+  ) {
+    return <DocxPreview url={fileUrl} fileName={file.fileName} />;
   }
 
   // Video

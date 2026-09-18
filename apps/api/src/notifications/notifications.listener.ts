@@ -6,6 +6,7 @@ import { NotificationStreamService } from './notification-stream.service';
 
 import { TaskAssignedEvent } from './events/task-assigned.event';
 import { CommentMentionedEvent } from './events/comment-mentioned.event';
+import { WhatsappTaskUpdatedEvent } from '../whatsapp/whatsapp-task-updated.event';
 
 @Injectable()
 export class NotificationsListener {
@@ -204,4 +205,42 @@ try {
 
 
 }
+
+  /**
+   * WhatsApp board change — notify all board members + SSE
+   */
+  @OnEvent('whatsapp.task.updated')
+  async handleWhatsappTaskUpdated(event: WhatsappTaskUpdatedEvent) {
+    try {
+      const members = await (this.notificationsService as any).prisma.boardMember.findMany({
+        where: { boardId: event.boardId },
+        select: { userId: true },
+      });
+
+      const recipientIds: number[] = members
+        .map((m: any) => m.userId)
+        .filter((id: number) => id !== event.actorUserId);
+
+      for (const recipientId of recipientIds) {
+        const notification = await this.notificationsService.notify({
+          recipientId,
+          type: 'TASK_ASSIGNED',
+          title: 'Board updated via WhatsApp',
+          message: event.description,
+          entityType: 'TASK',
+          entityId: event.taskId,
+          // no boardId in metadata — prevents WhatsApp re-send loop
+          metadata: { taskId: event.taskId, source: 'whatsapp' },
+          eventKey: `whatsapp-update:${event.taskId}:${recipientId}`,
+          sendEmail: false,
+        });
+
+        if (notification) {
+          this.notificationStreamService.emit(recipientId, notification);
+        }
+      }
+    } catch (err) {
+      console.error('[Notification Listener] WhatsApp task update event failed:', err);
+    }
+  }
 }

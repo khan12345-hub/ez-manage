@@ -100,12 +100,12 @@ function ExcelImportProgress({
       </div>
 
       <h2 className="text-xl font-bold tracking-tight">
-        Creating your board
+        Starting import…
       </h2>
 
       <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
-        We're importing your Excel data and building your board.
-        Please don't close this window.
+        Setting up your board. Import will continue in the background —
+        you can navigate freely once this closes.
       </p>
 
       {/* Progress */}
@@ -305,6 +305,9 @@ export function ExcelImportModal({
           url: previewUrl,
           uploadedById: 0,
           storageKey: "",
+          uploadedAt: new Date().toISOString(),
+          source: "TASK_CELL" as const,
+          uploadedBy: null,
         }
       : null;
 
@@ -345,11 +348,11 @@ export function ExcelImportModal({
 
                   <div className="min-w-0">
                     <DialogTitle className="text-lg font-bold">
-                      Importing Excel
+                      Starting Import
                     </DialogTitle>
 
                     <DialogDescription className="mt-1 text-xs">
-                      Your board is being created...
+                      Queuing background import…
                     </DialogDescription>
                   </div>
                 </div>
@@ -476,11 +479,12 @@ export function ExcelImportModal({
         </DialogContent>
       </Dialog>
 
-      {previewFile && (
+      {previewFile && previewOpen && (
         <SingleFilePreviewModal
-          open={previewOpen}
-          onOpenChange={setPreviewOpen}
           file={previewFile}
+          files={[previewFile]}
+          onClose={() => setPreviewOpen(false)}
+          onNavigate={() => {}}
         />
       )}
     </>

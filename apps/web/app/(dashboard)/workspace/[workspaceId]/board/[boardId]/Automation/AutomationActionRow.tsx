@@ -143,8 +143,25 @@ export default function AutomationActionRow({
         </>
       )}
 
+      {/* ── Send WhatsApp ─────────────────────────────────────────── */}
+      {step.field === "send-whatsapp" && (
+        <>
+          <span className="text-slate-500">send WhatsApp to</span>
+          <select
+            value={step.value}
+            onChange={(e) => onUpdate(step.id, "value", e.target.value)}
+            className={valueClassName}
+          >
+            <option value="">select...</option>
+            <option value="board-members">all board members</option>
+            <option value="creator">the item creator</option>
+            <option value="assignees">the assignees</option>
+          </select>
+        </>
+      )}
+
       {/* ── Unknown / unselected action ────────────────────────────── */}
-      {!["move","notify","change-status","create-subitem","set-date"].includes(step.field) && (
+      {!["move","notify","change-status","create-subitem","set-date","send-whatsapp"].includes(step.field) && (
         <AutomationActionPicker
           disabled={!hasTrigger}
           placeholder={step.field || "choose action"}

@@ -195,10 +195,24 @@ export interface ImportExcelBoardDto {
   rows: Record<string, unknown>[];
 }
 
+export interface ImportSkippedItem {
+  rowIndex: number;
+  taskName?: string;
+  column?: string;
+  reason: string;
+}
+
 export interface ImportExcelBoardResponse {
+  jobId: number;
+}
+
+export interface ImportJobStatus {
   id: number;
-  name: string;
-  workspaceId: number;
+  boardName: string;
+  status: "processing" | "done" | "failed";
+  totalRows: number;
+  boardId?: number | null;
+  error?: string | null;
 }
 
 export const importExcelBoard = async (
@@ -209,6 +223,11 @@ export const importExcelBoard = async (
     dto,
   );
 
+  return data;
+};
+
+export const getImportJob = async (jobId: number): Promise<ImportJobStatus> => {
+  const { data } = await api.get<ImportJobStatus>(`/boards/import-jobs/${jobId}`);
   return data;
 };
 
@@ -249,10 +268,10 @@ export async function getGroups(boardId: number): Promise<Group[]> {
 }
 
 export interface BoardTasksResponse {
-  // tasks: Task[];
-  tasks:any[];
+  tasks: any[];
   nextCursor: number | null;
   hasMore: boolean;
+  total: number;
 }
 
 export const getBoardTasks = async (
@@ -293,13 +312,18 @@ export interface BoardGalleryFile {
   taskName: string;
 }
 
+export interface BoardFilesResponse {
+  files: BoardGalleryFile[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
 export async function getBoardFiles(
   boardId: number,
-): Promise<BoardGalleryFile[]> {
-  const { data } = await api.get<BoardGalleryFile[]>(
-    `/boards/${boardId}/files`,
-  );
-
+  params?: { type?: string; search?: string; page?: number; limit?: number },
+): Promise<BoardFilesResponse> {
+  const { data } = await api.get<BoardFilesResponse>(`/boards/${boardId}/files`, { params });
   return data;
 }
 
@@ -308,4 +332,25 @@ export async function deleteBoardFile(
   fileId: number,
 ): Promise<void> {
   await api.delete(`/boards/${boardId}/files/${fileId}`);
+}
+
+export interface ImportProgress {
+  pending: number;
+  paused: number;
+  done: number;
+  total: number;
+  isPaused: boolean;
+}
+
+export async function getImportProgress(boardId: number): Promise<ImportProgress> {
+  const { data } = await api.get<ImportProgress>(`/boards/${boardId}/import-progress`);
+  return data;
+}
+
+export async function pauseImport(boardId: number): Promise<void> {
+  await api.delete(`/boards/${boardId}/import`);
+}
+
+export async function resumeImport(boardId: number): Promise<void> {
+  await api.post(`/boards/${boardId}/import/resume`);
 }

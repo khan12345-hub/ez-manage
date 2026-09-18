@@ -5,6 +5,7 @@ import {
   FileText,
   FolderKanban,
   Mail,
+  MessageCircle,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -16,7 +17,8 @@ export type AutomationActionType =
   | "create-subitem"
   | "set-date"
   | "send-email"
-  | "assign";
+  | "assign"
+  | "send-whatsapp";
 
 export type AutomationAction = {
   value: AutomationActionType;
@@ -68,5 +70,10 @@ export const AUTOMATION_ACTIONS = [
     icon: Mail,
     category: "Featured",
   },
-  
+  {
+    value: "send-whatsapp",
+    label: "send WhatsApp message",
+    icon: MessageCircle,
+    category: "Featured",
+  },
 ] as const satisfies readonly AutomationAction[];

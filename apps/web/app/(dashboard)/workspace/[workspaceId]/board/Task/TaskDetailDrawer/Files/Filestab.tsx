@@ -163,9 +163,11 @@ export function FilesTab({ taskId }: FilesTabProps) {
 
       {/* Direct file preview */}
       <SingleFilePreviewModal
-        open={previewFile !== null}
-        onOpenChange={(open) => { if (!open) setPreviewFile(null); }}
         file={previewFile}
+        files={files}
+        onClose={() => setPreviewFile(null)}
+        onNavigate={(f) => setPreviewFile(f)}
+        onDelete={(f) => setFileToDelete(f)}
       />
 
       {/* Delete confirmation */}

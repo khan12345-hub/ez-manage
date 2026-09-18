@@ -1,25 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { UpdateUserSettingsDto } from './dto/update-user.dto';
 import { AdminUpdateUserDto } from './dto/admin-update-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
+import { UpdateWhatsappSettingsDto } from './dto/update-whatsapp-settings.dto';
+import { VerifyWhatsappOtpDto } from './dto/verify-whatsapp-otp.dto';
 import { Prisma } from 'generated/prisma/client';
 import { SystemRole } from 'generated/prisma/enums';
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
 import { LocalStorageService } from 'src/storage/local-storage.service';
+import { WhatsappService } from 'src/whatsapp/whatsapp.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: LocalStorageService,
+    @Optional() private readonly whatsapp: WhatsappService,
   ) {}
-  // users.service.ts
 
   private readonly adminSelect = {
     id: true,
@@ -38,9 +37,7 @@ export class UsersService {
     const active = await this.prisma.user.findFirst({
       where: { email: emailLower, deletedAt: null },
     });
-    if (active) {
-      throw new BadRequestException('A user with this email already exists');
-    }
+    if (active) throw new BadRequestException('A user with this email already exists');
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
@@ -76,9 +73,7 @@ export class UsersService {
   }
 
   async adminUpdateUser(id: number, dto: AdminUpdateUserDto) {
-    const user = await this.prisma.user.findFirst({
-      where: { id, deletedAt: null },
-    });
+    const user = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
     if (!user) throw new NotFoundException('User not found');
 
     const data: Prisma.UserUpdateInput = {};
@@ -88,30 +83,18 @@ export class UsersService {
     if (dto.systemRole !== undefined) data.systemRole = dto.systemRole as SystemRole;
     if (dto.newPassword) data.password = await bcrypt.hash(dto.newPassword, 10);
 
-    return this.prisma.user.update({
-      where: { id },
-      data,
-      select: this.adminSelect,
-    });
+    return this.prisma.user.update({ where: { id }, data, select: this.adminSelect });
   }
 
   async deleteUser(id: number) {
-    const user = await this.prisma.user.findFirst({
-      where: { id, deletedAt: null },
-    });
+    const user = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
     if (!user) throw new NotFoundException('User not found');
-
-    await this.prisma.user.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-
+    await this.prisma.user.update({ where: { id }, data: { deletedAt: new Date() } });
     return { message: 'User deleted successfully' };
   }
 
   async findAll(search?: string) {
     const where: Prisma.UserWhereInput = { deletedAt: null };
-
     if (search) {
       where.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },
@@ -119,145 +102,211 @@ export class UsersService {
         { email: { contains: search, mode: 'insensitive' } },
       ];
     }
-
-    return this.prisma.user.findMany({
-      where,
-      select: this.adminSelect,
-      orderBy: { createdAt: 'asc' },
-    });
+    return this.prisma.user.findMany({ where, select: this.adminSelect, orderBy: { createdAt: 'asc' } });
   }
 
   async getNotificationPreferences(userId: number) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
-      select: {
-        emailNotificationsEnabled: true,
-        inAppNotificationsEnabled: true,
-      },
+      select: { emailNotificationsEnabled: true, inAppNotificationsEnabled: true },
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
 
-  async updateNotificationPreferences(
-    userId: number,
-    dto: UpdateNotificationPreferencesDto,
-  ) {
-    const user = await this.prisma.user.findFirst({
-      where: { id: userId, deletedAt: null },
-    });
+  async updateNotificationPreferences(userId: number, dto: UpdateNotificationPreferencesDto) {
+    const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
     if (!user) throw new NotFoundException('User not found');
-
     return this.prisma.user.update({
       where: { id: userId },
       data: {
         emailNotificationsEnabled: dto.emailNotificationsEnabled,
         inAppNotificationsEnabled: dto.inAppNotificationsEnabled,
       },
-      select: {
-        emailNotificationsEnabled: true,
-        inAppNotificationsEnabled: true,
-      },
+      select: { emailNotificationsEnabled: true, inAppNotificationsEnabled: true },
     });
   }
 
   async findByEmailForInvite(email: string) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        email: email.toLowerCase(),
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        avatarUrl: true,
-      },
+    return this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true },
     });
-
-    return user;
   }
-  async updateSettings(
-    userId: number,
-    dto: UpdateUserSettingsDto,
-    profilePicture?: Express.Multer.File,
-  ) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        id: true,
-        password: true,
-        avatarUrl: true,
-      },
-    });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+  async updateSettings(userId: number, dto: UpdateUserSettingsDto, profilePicture?: Express.Multer.File) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, password: true, avatarUrl: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
 
     const data: Prisma.UserUpdateInput = {};
 
-    // Update first name
-    if (dto.firstName !== undefined) {
-      data.firstName = dto.firstName.trim();
-    }
+    if (dto.firstName !== undefined) data.firstName = dto.firstName.trim();
+    if (dto.lastName !== undefined) data.lastName = dto.lastName.trim();
 
-    // Update last name
-    if (dto.lastName !== undefined) {
-      data.lastName = dto.lastName.trim();
-    }
-
-    // Upload new profile picture
     if (profilePicture) {
-      const uploadedFile = await this.storageService.upload(
-        profilePicture,
-        'profile-pictures',
-      );
-
+      const uploadedFile = await this.storageService.upload(profilePicture, 'profile-pictures');
       data.avatarUrl = this.storageService.getUrl(uploadedFile.storageKey);
     }
 
-    // Update password
     if (dto.newPassword) {
-      // Current password is required
       if (!dto.currentPassword) {
-        throw new BadRequestException(
-          'Current password is required to change your password',
-        );
+        throw new BadRequestException('Current password is required to change your password');
       }
-
-      // Verify current password
-      const isPasswordValid = await bcrypt.compare(
-        dto.currentPassword,
-        user.password,
-      );
-
-      if (!isPasswordValid) {
-        throw new BadRequestException('Current password is incorrect');
-      }
-
-      // Hash new password
-      const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
-
-      data.password = hashedPassword;
+      const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
+      if (!isPasswordValid) throw new BadRequestException('Current password is incorrect');
+      data.password = await bcrypt.hash(dto.newPassword, 10);
     }
 
-    const updatedUser = await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
+    return this.prisma.user.update({
+      where: { id: userId },
       data,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        avatarUrl: true,
+      select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true },
+    });
+  }
+
+  private readonly whatsappSettingsSelect = {
+    whatsappPhone: true,
+    whatsappEnabled: true,
+    whatsappPhoneVerified: true,
+    whatsappOnAssigned: true,
+    whatsappOnStatus: true,
+    whatsappOnDate: true,
+    whatsappOnComment: true,
+    whatsappOnMention: true,
+    whatsappOnAutomation: true,
+  } as const;
+
+  async getWhatsappSettings(userId: number) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: this.whatsappSettingsSelect,
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  async updateWhatsappSettings(userId: number, dto: UpdateWhatsappSettingsDto) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, whatsappPhone: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const newPhone = dto.whatsappPhone?.replace(/\s/g, '') || null;
+    const phoneChanged = newPhone !== user.whatsappPhone;
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(dto.whatsappPhone !== undefined && { whatsappPhone: newPhone }),
+        ...(phoneChanged && {
+          whatsappPhoneVerified: false,
+          whatsappEnabled: false,
+          whatsappOtp: null,
+          whatsappOtpExpiry: null,
+        }),
+        ...(dto.whatsappEnabled !== undefined && !phoneChanged && { whatsappEnabled: dto.whatsappEnabled }),
+        ...(dto.whatsappOnAssigned  !== undefined && { whatsappOnAssigned:  dto.whatsappOnAssigned }),
+        ...(dto.whatsappOnStatus    !== undefined && { whatsappOnStatus:    dto.whatsappOnStatus }),
+        ...(dto.whatsappOnDate      !== undefined && { whatsappOnDate:      dto.whatsappOnDate }),
+        ...(dto.whatsappOnComment   !== undefined && { whatsappOnComment:   dto.whatsappOnComment }),
+        ...(dto.whatsappOnMention   !== undefined && { whatsappOnMention:   dto.whatsappOnMention }),
+        ...(dto.whatsappOnAutomation !== undefined && { whatsappOnAutomation: dto.whatsappOnAutomation }),
+      },
+      select: this.whatsappSettingsSelect,
+    });
+  }
+
+  async getWhatsappLogs(userId: number, page = 1, limit = 30) {
+    const skip = (page - 1) * limit;
+    const [logs, total] = await Promise.all([
+      this.prisma.whatsappLog.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.whatsappLog.count({ where: { userId } }),
+    ]);
+    return { data: logs, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async sendWhatsappOtp(userId: number) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, whatsappPhone: true, whatsappOtpExpiry: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    if (!user.whatsappPhone) throw new BadRequestException('Please save a phone number first.');
+
+    // Rate limit: 1 OTP per minute
+    if (user.whatsappOtpExpiry) {
+      const secondsLeft = (user.whatsappOtpExpiry.getTime() - Date.now()) / 1000;
+      if (secondsLeft > 540) { // more than 9 min left = sent within last 1 min
+        throw new BadRequestException('Please wait before requesting another OTP.');
+      }
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { whatsappOtp: otp, whatsappOtpExpiry: expiry },
+    });
+
+    if (this.whatsapp) {
+      try {
+        await this.whatsapp.send(
+          user.whatsappPhone,
+          `Your Ez-Manage verification code is: *${otp}*\n\nThis code expires in 10 minutes.`,
+        );
+      } catch (err: any) {
+        // Clear the OTP so it can be retried
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { whatsappOtp: null, whatsappOtpExpiry: null },
+        });
+        const detail = err?.response?.data?.error?.message ?? err?.message ?? 'Unknown error';
+        throw new BadRequestException(`Failed to send WhatsApp OTP: ${detail}`);
+      }
+    } else {
+      throw new BadRequestException('WhatsApp service is not configured. Please contact support.');
+    }
+
+    return { message: 'OTP sent to your WhatsApp number.' };
+  }
+
+  async verifyWhatsappOtp(userId: number, dto: VerifyWhatsappOtpDto) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, whatsappOtp: true, whatsappOtpExpiry: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    if (!user.whatsappOtp || !user.whatsappOtpExpiry) {
+      throw new BadRequestException('No OTP found. Please request a new one.');
+    }
+    if (new Date() > user.whatsappOtpExpiry) {
+      throw new BadRequestException('OTP expired. Please request a new one.');
+    }
+    if (user.whatsappOtp !== dto.otp) {
+      throw new BadRequestException('Incorrect OTP. Please try again.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        whatsappPhoneVerified: true,
+        whatsappEnabled: true,
+        whatsappOtp: null,
+        whatsappOtpExpiry: null,
       },
     });
 
-    return updatedUser;
+    return { verified: true, message: 'WhatsApp number verified and notifications enabled.' };
   }
 }
