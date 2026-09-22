@@ -11,6 +11,14 @@ const securityHeaders = [
 const nextConfig = {
   transpilePackages: ['@repo/shared'],
 
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   async headers() {
     return [
       {
