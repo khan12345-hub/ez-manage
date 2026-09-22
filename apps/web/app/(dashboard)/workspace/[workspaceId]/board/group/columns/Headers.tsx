@@ -16,8 +16,8 @@ export const Headers = ({ column, members }: any) => {
       columnName: column.name,
     });
 
-  const DEFAULT_WIDTH = column.isPrimary ? 300 : 180;
-  const MIN_WIDTH = column.isPrimary ? 250 : 120;
+  const DEFAULT_WIDTH = column.isPrimary ? 300 : 200;
+  const MIN_WIDTH = column.isPrimary ? 250 : 140;
 
   const [width, setWidth] = useState(DEFAULT_WIDTH);
 
@@ -141,6 +141,7 @@ export const Headers = ({ column, members }: any) => {
             onBlur={save}
             onKeyDown={handleKeyDown}
             disabled={isSaving}
+            title={name}
             className="
               h-8
               min-w-0

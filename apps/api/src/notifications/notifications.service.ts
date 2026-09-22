@@ -170,12 +170,13 @@ export class NotificationsService {
             (type === NotificationType.COMMENT_REPLY       && (prefs.whatsappOnComment    ?? true)) ||
             (type === NotificationType.COMMENT_MENTION     && (prefs.whatsappOnMention    ?? true)) ||
             (type === NotificationType.AUTOMATION          && (prefs.whatsappOnAutomation ?? true)) ||
+            (type === NotificationType.FILE_COMMENT        && (prefs.whatsappOnComment    ?? true)) ||
             // For other types (board membership etc.) always send if WhatsApp is enabled
             !(([
               NotificationType.TASK_ASSIGNED, NotificationType.TASK_STATUS_CHANGED,
               NotificationType.TASK_DUE_SOON, NotificationType.COMMENT_CREATED,
               NotificationType.COMMENT_REPLY, NotificationType.COMMENT_MENTION,
-              NotificationType.AUTOMATION,
+              NotificationType.AUTOMATION, NotificationType.FILE_COMMENT,
             ] as NotificationType[]).includes(type));
 
           if (allowed) {

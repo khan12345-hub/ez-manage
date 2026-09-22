@@ -11,6 +11,8 @@ export type BoardColumnType =
   | "FILE"
   | "LINK"
   | "COMMENT"
+  | "FILE_FEEDBACK"
+  | "CREATION_LOG"
   | "SKIP";
 
 export interface ExcelColumnMappingDto {

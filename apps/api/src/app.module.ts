@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -6,7 +8,6 @@ import { DatabaseModule } from './database/database.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { BoardsModule } from './boards/boards.module';
-import { APP_GUARD } from '@nestjs/core';
 import { SessionAuthGuard } from './auth/guards/session.guard';
 import { GroupsModule } from './groups/groups.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -29,9 +30,16 @@ import { BoardDocumentsModule } from './board-documents/board-documents.module';
 import { AdminModule } from './admin/admin.module';
 import { TimeTrackingModule } from './time-tracking/time-tracking.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { FileCommentsModule } from './file-comments/file-comments.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot({
+      throttlers: [
+        { name: 'default', ttl: 60_000, limit: 120 },   // 120 req/min globally
+        { name: 'auth',    ttl: 60_000, limit: 10  },   // 10 req/min on auth routes
+      ],
+    }),
     BullModule.forRoot({
       connection: {
         host: process.env.REDIS_HOST || 'localhost',
@@ -63,14 +71,13 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     AdminModule,
     TimeTrackingModule,
     WhatsappModule,
+    FileCommentsModule,
     ],
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_GUARD,
-      useClass: SessionAuthGuard,
-    },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: SessionAuthGuard },
   ],
   exports: [AppService],
 })

@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import PersonPicker from "./Person/PersonPicker";
 import { PersonCell } from "./Person/PersonCell";
 import { StatusCell } from "./Status/StatusCell";
+import { CreationLogCell } from "./CreationLog/CreationLogCell";
 
 export interface CellConfig<T = any> {
   /**
@@ -265,6 +266,17 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       taskId: task?.id as number | undefined,
       columnId: column?.id as number | undefined,
       files: (cell?.files ?? []).map((f: any) => f?.file ?? f),
+    }),
+
+    save: async () => Promise.resolve(null),
+  },
+
+  CREATION_LOG: {
+    component: CreationLogCell as any,
+
+    getValue: (task) => ({
+      user: task?.createdBy ?? null,
+      date: task?.createdAt ?? null,
     }),
 
     save: async () => Promise.resolve(null),

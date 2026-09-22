@@ -9,7 +9,8 @@ export type BoardColumnType =
   | "NUMBER"
   | "FILE"
   | "TIMELINE"
-  | "CHECKBOX";
+  | "CHECKBOX"
+  | "CREATION_LOG";
 
 export const createColumn = async (boardId: number, type: BoardColumnType) => {
   const { data } = await api.post("/columns", {

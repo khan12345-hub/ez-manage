@@ -73,15 +73,32 @@ const NAME_RULES: NameRule[] = [
   },
 
   /*
+   * FILE_FEEDBACK — feedback/notes that attach directly to files, not the task drawer.
+   * Columns like "Image Feedback", "File Notes", "Photo Review", "Asset Feedback".
+   */
+  {
+    exact: [
+      "feedback", "file feedback", "image feedback", "image notes",
+      "file notes", "file comment", "file review", "asset feedback",
+      "asset notes", "photo feedback", "photo notes", "attachment feedback",
+    ],
+    contains: ["file feedback", "image feedback", "file notes", "image notes", "asset feedback"],
+    type: "FILE_FEEDBACK",
+  },
+
+  /*
    * LONG_TEXT — multi-line notes / descriptions (not comments)
+   * Note/Remarks/Description are board columns, not task comments.
    */
   {
     exact: [
       "details", "detail", "info", "information",
       "body", "content", "summary", "about",
       "background", "context", "instructions",
+      "note", "notes", "remark", "remarks",
+      "description", "desc",
     ],
-    contains: ["detail", "info"],
+    contains: ["detail", "info", "description", "remark"],
     type: "LONG_TEXT",
   },
 
@@ -110,6 +127,19 @@ const NAME_RULES: NameRule[] = [
       "schedule", "start date", "end date", "time",
     ],
     type: "DATE",
+  },
+
+  /*
+   * CREATION_LOG — who created the task and when (Monday.com "Creation log" column).
+   * Must come before PERSON to take precedence.
+   */
+  {
+    exact: [
+      "creation log", "creation_log", "created by", "created_by",
+      "creator", "task creator", "created", "created by (log)",
+    ],
+    contains: ["creation log", "created by"],
+    type: "CREATION_LOG",
   },
 
   /*
@@ -150,15 +180,14 @@ const NAME_RULES: NameRule[] = [
   },
 
   /*
-   * COMMENT — notes / comments / remarks columns
-   * Checked before STATUS so "comment" keyword wins.
+   * COMMENT — columns that represent person-attributed comments.
+   * Only "comment/comments" (with or without a name suffix like
+   * "Comments-Salman") go here. Notes/Remarks/Description go to
+   * LONG_TEXT as board columns instead.
    */
   {
-    exact: [
-      "comment", "comments", "note", "notes",
-      "remark", "remarks", "feedback", "description", "desc",
-    ],
-    contains: ["comment", "note", "remark", "feedback"],
+    exact: ["comment", "comments"],
+    contains: ["comment"],
     type: "COMMENT",
   },
 

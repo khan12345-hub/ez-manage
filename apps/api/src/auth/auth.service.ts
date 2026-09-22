@@ -58,12 +58,19 @@ export class AuthService {
       );
     }
 
-    // 5. Create session
+    // 5. Rotate session ID to prevent session fixation attacks
+    await new Promise<void>((resolve, reject) => {
+      req.session.regenerate((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
     req.session.user = {
       id: user.id,
+      systemRole: user.systemRole,
     };
 
-    // Optional but recommended
     await new Promise<void>((resolve, reject) => {
       req.session.save((err) => {
         if (err) return reject(err);
@@ -233,8 +240,16 @@ export class AuthService {
       return newUser;
     });
 
+    await new Promise<void>((resolve, reject) => {
+      req.session.regenerate((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
     req.session.user = {
       id: user.id,
+      systemRole: user.systemRole,
     };
 
     await new Promise<void>((resolve, reject) => {

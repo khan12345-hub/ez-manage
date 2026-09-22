@@ -5,6 +5,25 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+const ALLOWED_MIME_TYPES = new Set([
+  // Images
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+  // Documents
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  // Spreadsheets
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  // Presentations
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  // Text / CSV
+  'text/plain', 'text/csv',
+  // Archives
+  'application/zip', 'application/x-zip-compressed',
+]);
+
 import { PrismaService } from 'prisma/prisma.service';
 
 import { CreateCellDto } from './dto/create-cell.dto';
@@ -136,6 +155,14 @@ export class CellsService {
   ) {
     if (!files?.length) {
       return [];
+    }
+
+    for (const file of files) {
+      if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+        throw new BadRequestException(
+          `File type "${file.mimetype}" is not allowed. Allowed types: images, PDF, Office documents, text, CSV, ZIP.`,
+        );
+      }
     }
 
     const cell = await this.prisma.taskCell.findFirst({

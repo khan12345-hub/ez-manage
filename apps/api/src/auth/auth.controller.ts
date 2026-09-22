@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Req, Res, UseGuards, Param } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SessionAuthGuard } from './guards/session.guard';
@@ -14,6 +15,7 @@ import { Public } from './decorators/public.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
   @Public()
+  @Throttle({ auth: { ttl: 60_000, limit: 5 } })
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: any) {
     const user = this.authService.login(dto, req);

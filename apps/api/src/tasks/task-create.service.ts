@@ -105,7 +105,7 @@ export class TaskCreateService {
             name: createTaskDto.name,
             parentId,
             order: lastTask ? lastTask.order + ORDER_GAP : ORDER_GAP,
-  
+
             cells: {
               create: columns.map((column) => ({
                 column: {
@@ -118,6 +118,9 @@ export class TaskCreateService {
           },
           include: {
             cells: true,
+            createdBy: {
+              select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+            },
           },
         });
   

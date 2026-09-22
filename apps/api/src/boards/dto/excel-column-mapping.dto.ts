@@ -13,6 +13,8 @@ export enum ExcelColumnType {
   FILE = "FILE",
   LINK = "LINK",
   COMMENT = "COMMENT",
+  FILE_FEEDBACK = "FILE_FEEDBACK",
+  CREATION_LOG = "CREATION_LOG",
   SKIP = "SKIP",
 }
 

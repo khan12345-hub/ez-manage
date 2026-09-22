@@ -199,12 +199,24 @@ export class BoardImportService {
         });
 
         // Separate comment mappings — these become TaskComments, not board columns
+        // FILE_FEEDBACK mappings become FileComments only (not TaskComments, not board columns)
+        // CREATION_LOG mappings set createdBy/createdAt on the task — no board column created
         // SKIP mappings are dropped entirely
         const commentMappings = mappings.filter(
           (m) => (m.type as string) === 'COMMENT',
         );
+        const fileFeedbackMappings = mappings.filter(
+          (m) => (m.type as string) === 'FILE_FEEDBACK',
+        );
+        const creationLogMappings = mappings.filter(
+          (m) => (m.type as string) === 'CREATION_LOG',
+        );
         const cellMappings = mappings.filter(
-          (m) => (m.type as string) !== 'COMMENT' && (m.type as string) !== 'SKIP',
+          (m) =>
+            (m.type as string) !== 'COMMENT' &&
+            (m.type as string) !== 'FILE_FEEDBACK' &&
+            (m.type as string) !== 'CREATION_LOG' &&
+            (m.type as string) !== 'SKIP',
         );
 
         /*
@@ -284,6 +296,23 @@ export class BoardImportService {
           })),
         });
 
+        // Column used to attach URLs extracted from COMMENT column text.
+        // Re-use the imported FILE column when available; otherwise create one.
+        let urlFileColumn: { id: number } | null =
+          columns.find((c) => c.type === (BoardColumnType.FILE as any)) ?? null;
+        if (!urlFileColumn && commentMappings.length > 0) {
+          urlFileColumn = await tx.boardColumn.create({
+            data: {
+              boardId: board.id,
+              name: 'Files',
+              type: BoardColumnType.FILE as any,
+              isPrimary: false,
+              order: (columns.length + 1) * 1000,
+            },
+            select: { id: true },
+          });
+        }
+
         /*
          * ---------------------------------------------------------
          * 7. Create status options
@@ -352,7 +381,7 @@ export class BoardImportService {
           (m) => m.type === BoardColumnType.PERSON,
         );
 
-        if (personMappings.length > 0) {
+        if (personMappings.length > 0 || creationLogMappings.length > 0) {
           const allEmails = new Set<string>();
           const allDisplayNames = new Set<string>();
 
@@ -371,6 +400,17 @@ export class BoardImportService {
                   allDisplayNames.add(token);
                 }
               }
+            }
+          }
+
+          // Collect creator names from CREATION_LOG columns for user lookup
+          for (const mapping of creationLogMappings) {
+            for (const row of dto.rows) {
+              const raw = this.getFlexibleValue(row, mapping.sourceColumn);
+              const display = this.extractDisplayValue(raw).trim();
+              if (!display) continue;
+              const { nameStr } = this.parseCreationLog(display);
+              if (nameStr) allDisplayNames.add(nameStr.toLowerCase());
             }
           }
 
@@ -488,12 +528,28 @@ export class BoardImportService {
 
           const tasks = validRows.length
             ? await tx.task.createManyAndReturn({
-                data: validRows.map((item, index) => ({
-                  groupId: group.id,
-                  name: item.taskName,
-                  order: (index + 1) * 1000,
-                  createdById: userId,
-                })),
+                data: validRows.map((item, index) => {
+                  const base: { groupId: number; name: string; order: number; createdById: number; createdAt?: Date } = {
+                    groupId: group.id,
+                    name: item.taskName,
+                    order: (index + 1) * 1000,
+                    createdById: userId,
+                  };
+                  // Override creator/date from CREATION_LOG column when present
+                  if (creationLogMappings.length > 0) {
+                    for (const clm of creationLogMappings) {
+                      const raw = this.getFlexibleValue(item.row, clm.sourceColumn);
+                      const text = this.extractDisplayValue(raw).trim();
+                      if (!text) continue;
+                      const { nameStr, date } = this.parseCreationLog(text);
+                      const creatorId = nameStr ? personEmailToUserId.get(nameStr.toLowerCase()) : undefined;
+                      if (creatorId !== undefined) base.createdById = creatorId;
+                      if (date) base.createdAt = date;
+                      break; // use first CREATION_LOG mapping only
+                    }
+                  }
+                  return base;
+                }),
               })
             : [];
 
@@ -517,13 +573,26 @@ export class BoardImportService {
                     .toLowerCase()
                     .trim();
                   const parentId = taskNameToId.get(parentName) ?? undefined;
-                  return {
+                  const base: { groupId: number; name: string; order: number; createdById: number; parentId?: number; createdAt?: Date } = {
                     groupId: group.id,
                     name: item.taskName,
                     order: (index + 1) * 1000,
                     createdById: userId,
                     parentId,
                   };
+                  if (creationLogMappings.length > 0) {
+                    for (const clm of creationLogMappings) {
+                      const raw = this.getFlexibleValue(item.row, clm.sourceColumn);
+                      const text = this.extractDisplayValue(raw).trim();
+                      if (!text) continue;
+                      const { nameStr, date } = this.parseCreationLog(text);
+                      const creatorId = nameStr ? personEmailToUserId.get(nameStr.toLowerCase()) : undefined;
+                      if (creatorId !== undefined) base.createdById = creatorId;
+                      if (date) base.createdAt = date;
+                      break;
+                    }
+                  }
+                  return base;
                 }),
               })
             : [];
@@ -569,6 +638,7 @@ export class BoardImportService {
             taskId: number;
             columnId: number;
             url: string;
+            rowIndex: number;
           }[] = [];
 
           const allTasks = [...tasks, ...subtasks];
@@ -666,10 +736,10 @@ export class BoardImportService {
                   for (const u of parts) {
                     if (/^https?:\/\//.test(u)) {
                       // Standard absolute URL
-                      pendingFileCells.push({ taskId: task.id, columnId: column.id, url: u });
+                      pendingFileCells.push({ taskId: task.id, columnId: column.id, url: u, rowIndex: index });
                     } else if (u.startsWith('//')) {
                       // Protocol-relative URL → normalize to https
-                      pendingFileCells.push({ taskId: task.id, columnId: column.id, url: `https:${u}` });
+                      pendingFileCells.push({ taskId: task.id, columnId: column.id, url: `https:${u}`, rowIndex: index });
                     } else {
                       // Not a valid URL — track as skipped
                       skippedItems.push({
@@ -759,6 +829,27 @@ export class BoardImportService {
             }
           }
 
+          // Extract URLs embedded in COMMENT column text and attach them as files.
+          if (urlFileColumn && commentMappings.length > 0) {
+            for (let index = 0; index < allTasks.length; index++) {
+              const task = allTasks[index];
+              const row = allValidRows[index].row;
+              for (const mapping of commentMappings) {
+                const rawValue = this.getFlexibleValue(row, mapping.sourceColumn);
+                const text = this.extractDisplayValue(rawValue).trim();
+                if (!text) continue;
+                for (const url of this.extractUrlsFromText(text)) {
+                  pendingFileCells.push({
+                    taskId: task.id,
+                    columnId: urlFileColumn.id,
+                    url,
+                    rowIndex: index,
+                  });
+                }
+              }
+            }
+          }
+
           /*
            * -------------------------------------------------------
            * Insert all cells for this group
@@ -833,6 +924,25 @@ export class BoardImportService {
             await tx.taskCellFile.create({
               data: { cellId, fileId: file.id },
             });
+
+            // FILE_FEEDBACK columns go ONLY to FileComments (never to task drawer)
+            if (fileFeedbackMappings.length > 0) {
+              const taskRow = allValidRows[pending.rowIndex]?.row;
+              if (taskRow) {
+                for (const mapping of fileFeedbackMappings) {
+                  const rawValue = this.getFlexibleValue(taskRow, mapping.sourceColumn);
+                  const text = this.extractDisplayValue(rawValue).trim();
+                  if (!text) continue;
+
+                  const commenter = this.extractCommenterName(mapping.sourceColumn);
+                  const content = commenter ? `**${commenter}:** ${text}` : text;
+
+                  await tx.fileComment.create({
+                    data: { fileId: file.id, userId, content },
+                  });
+                }
+              }
+            }
 
             pendingDownloads.push({ fileId: file.id, url: pending.url });
           }
@@ -1201,6 +1311,41 @@ export class BoardImportService {
 
     // What's left is the commenter name (re-join in case it was "Comments HR Team")
     return remaining.join(' ');
+  }
+
+  /** Extract all http/https URLs from a plain-text string. */
+  private extractUrlsFromText(text: string): string[] {
+    const matches = text.match(/https?:\/\/[^\s,)'"<>]+/g) ?? [];
+    return matches.map((u) => u.replace(/[.,;:!?)]+$/, ''));
+  }
+
+  /**
+   * Parses a Monday.com "Creation log" cell value such as
+   * "Anmol Verma Mar 19, 2026 6:30 PM" → { nameStr: "Anmol Verma", date: Date }
+   * or "AB Jul 23, 2026" → { nameStr: "AB", date: Date }
+   */
+  private parseCreationLog(text: string): { nameStr: string; date: Date | null } {
+    const MONTHS = 'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec';
+    const dateRegex = new RegExp(`(${MONTHS})\\s+\\d{1,2},?\\s+\\d{4}`, 'i');
+    const match = text.match(dateRegex);
+
+    if (!match) {
+      return { nameStr: text.trim(), date: null };
+    }
+
+    const dateStart = text.indexOf(match[0]);
+    const nameStr = text.slice(0, dateStart).trim();
+    const dateStr = text.slice(dateStart).trim();
+
+    let date: Date | null = null;
+    try {
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) date = parsed;
+    } catch {
+      // leave date as null
+    }
+
+    return { nameStr, date };
   }
 
   /*

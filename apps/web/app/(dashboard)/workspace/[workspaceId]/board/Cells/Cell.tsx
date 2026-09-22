@@ -96,6 +96,7 @@ export function Cell({
             cell={cell}
             column={column}
             isDragging={isDragging}
+            editable={column.type !== "CREATION_LOG"}
             onSave={(value) =>
               config.save({
                 task,

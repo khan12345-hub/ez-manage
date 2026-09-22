@@ -15,6 +15,7 @@ import {
   Clock3,
   Type,
   Search,
+  History,
 } from "lucide-react";
 
 import {
@@ -34,6 +35,7 @@ export type ColumnType =
   | "FILE"
   | "TIMELINE"
   | "CHECKBOX"
+  | "CREATION_LOG"
 
 interface ColumnTypeItem {
   label: string;
@@ -101,7 +103,13 @@ const COLUMN_TYPES: ColumnTypeItem[] = [
     icon: CheckSquare,
     color: "bg-orange-400",
   },
-
+  {
+    label: "Creation Log",
+    type: "CREATION_LOG",
+    category: "Super useful",
+    icon: History,
+    color: "bg-teal-500",
+  },
 ];
 
 interface Props {

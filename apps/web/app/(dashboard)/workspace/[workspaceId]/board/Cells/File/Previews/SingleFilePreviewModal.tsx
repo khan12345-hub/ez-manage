@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react";
 import {
   ChevronLeft, ChevronRight, Download,
-  Info, LayoutGrid, Printer, Trash2, X,
+  Info, LayoutGrid, MessageSquare, Printer, Trash2, X,
 } from "lucide-react";
 import { format } from "date-fns";
 
 import { TaskFile } from "@/app/(dashboard)/workspace/[workspaceId]/board/Task/TaskDetailDrawer/Files/FileItem";
 import FilePreview from "./FilePreview";
 import FileThumbnail from "./FilePreviewItemThumbnail";
+import { FileCommentPanel } from "./FileCommentPanel";
 
-type SidePanel = "gallery" | "info" | null;
+type SidePanel = "gallery" | "info" | "comments" | null;
 
 interface Props {
   file: TaskFile | null;
@@ -125,6 +126,7 @@ export default function SingleFilePreviewModal({ file, files, onClose, onNavigat
           {sidePanel === "gallery" && (
             <GalleryPanel files={files} currentFile={file} onSelect={onNavigate} />
           )}
+          {sidePanel === "comments" && <FileCommentPanel fileId={file.id} onCollapse={() => togglePanel("comments")} />}
         </div>
       )}
 
@@ -141,6 +143,12 @@ export default function SingleFilePreviewModal({ file, files, onClose, onNavigat
           label="Info"
           active={sidePanel === "info"}
           onClick={() => togglePanel("info")}
+        />
+        <SideBtn
+          icon={<MessageSquare className="h-5 w-5" />}
+          label="Comments"
+          active={sidePanel === "comments"}
+          onClick={() => togglePanel("comments")}
         />
       </div>
 

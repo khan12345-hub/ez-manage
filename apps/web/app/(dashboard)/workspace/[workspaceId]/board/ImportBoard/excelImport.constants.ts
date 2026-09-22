@@ -53,6 +53,14 @@ export const COLUMN_TYPES: {
     label: "💬 Comment",
   },
   {
+    value: "FILE_FEEDBACK",
+    label: "🖼️ File Feedback",
+  },
+  {
+    value: "CREATION_LOG",
+    label: "📋 Creation Log",
+  },
+  {
     value: "SKIP",
     label: "⊘ Skip",
   },

@@ -60,7 +60,7 @@ export function NewTaskRow({
       toast.success(parentId ? "Subtask created" : "Task created");
 
       queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
+        queryKey: ["board-tasks", boardId],
       });
     },
 

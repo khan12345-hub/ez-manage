@@ -4,14 +4,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  MessageSquare,
   Upload,
   X,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import FilePreview from "./FilePreview";
 import FileThumbnail from "./FilePreviewItemThumbnail";
+import { FileCommentPanel } from "./FileCommentPanel";
 import type { FileItem } from "../FileCell";
 
 interface CellFileGalleryModalProps {
@@ -31,7 +33,7 @@ export function CellFileGalleryModal({
   onOpenChange,
   onUploadClick,
 }: CellFileGalleryModalProps) {
-
+  const [showComments, setShowComments] = useState(false);
   const file = files[selectedIndex];
   const canGoPrev = selectedIndex > 0;
   const canGoNext = selectedIndex < files.length - 1;
@@ -117,6 +119,16 @@ export function CellFileGalleryModal({
         )}
 
         <Button
+          variant={showComments ? "secondary" : "ghost"}
+          size="icon"
+          className="h-8 w-8"
+          title="Toggle comments"
+          onClick={() => setShowComments((v) => !v)}
+        >
+          <MessageSquare className="h-4 w-4" />
+        </Button>
+
+        <Button
           variant="ghost"
           size="icon"
           className="h-8 w-8"
@@ -127,32 +139,42 @@ export function CellFileGalleryModal({
         </Button>
       </div>
 
-      {/* ── Preview area ── */}
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden">
-        <div className="h-full w-full max-w-5xl overflow-auto px-16">
-          <FilePreview file={previewFile} />
+      {/* ── Preview + Comments split ── */}
+      <div className="relative flex flex-1 overflow-hidden">
+        {/* Preview area */}
+        <div className="relative flex flex-1 items-center justify-center overflow-hidden">
+          <div className="h-full w-full overflow-auto px-16">
+            <FilePreview file={previewFile} />
+          </div>
+
+          {canGoPrev && (
+            <button
+              type="button"
+              onClick={() => onSelectIndex(selectedIndex - 1)}
+              className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border bg-background/90 text-foreground shadow-md transition hover:bg-background"
+              title="Previous (←)"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
+
+          {canGoNext && (
+            <button
+              type="button"
+              onClick={() => onSelectIndex(selectedIndex + 1)}
+              className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border bg-background/90 text-foreground shadow-md transition hover:bg-background"
+              title="Next (→)"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
-        {canGoPrev && (
-          <button
-            type="button"
-            onClick={() => onSelectIndex(selectedIndex - 1)}
-            className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border bg-background/90 text-foreground shadow-md transition hover:bg-background"
-            title="Previous (←)"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        )}
-
-        {canGoNext && (
-          <button
-            type="button"
-            onClick={() => onSelectIndex(selectedIndex + 1)}
-            className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border bg-background/90 text-foreground shadow-md transition hover:bg-background"
-            title="Next (→)"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+        {/* Comments panel */}
+        {showComments && (
+          <div className="w-80 shrink-0">
+            <FileCommentPanel fileId={file.id} onCollapse={() => setShowComments(false)} />
+          </div>
         )}
       </div>
 

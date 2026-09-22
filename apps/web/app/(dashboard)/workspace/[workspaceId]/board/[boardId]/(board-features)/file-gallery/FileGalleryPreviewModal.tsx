@@ -12,14 +12,16 @@ import {
   Info,
   LayoutGrid,
   Loader2,
+  MessageSquare,
   Printer,
   Trash2,
   X,
 } from "lucide-react";
 
 import { BoardGalleryFile } from "@/services/boards.api";
+import { FileCommentPanel } from "@/app/(dashboard)/workspace/[workspaceId]/board/Cells/File/Previews/FileCommentPanel";
 
-type SidePanel = "gallery" | "info" | null;
+type SidePanel = "gallery" | "info" | "comments" | null;
 
 interface FilePreviewModalProps {
   file: BoardGalleryFile | null;
@@ -171,7 +173,7 @@ export function FilePreviewModal({
       {/* ================================================== */}
 
       {sidebarOpen && (
-        <div className="absolute bottom-0 right-[72px] top-16 z-20 flex w-[320px] flex-col border-l bg-background">
+        <div className="absolute bottom-0 right-[72px] top-16 z-20 flex w-[320px] flex-col border-l bg-background overflow-y-auto">
           {sidePanel === "info" && <InfoPanel file={file} />}
           {sidePanel === "gallery" && (
             <GalleryPanel
@@ -180,6 +182,7 @@ export function FilePreviewModal({
               onSelect={onNavigate}
             />
           )}
+          {sidePanel === "comments" && <FileCommentPanel fileId={file.id} onCollapse={() => togglePanel("comments")} />}
         </div>
       )}
 
@@ -199,6 +202,12 @@ export function FilePreviewModal({
           label="Info"
           active={sidePanel === "info"}
           onClick={() => togglePanel("info")}
+        />
+        <SideButton
+          icon={<MessageSquare className="h-5 w-5" />}
+          label="Comments"
+          active={sidePanel === "comments"}
+          onClick={() => togglePanel("comments")}
         />
       </div>
 

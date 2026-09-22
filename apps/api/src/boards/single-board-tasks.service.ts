@@ -93,6 +93,10 @@ export class GetBoardTasksService {
           },
         },
 
+        createdBy: {
+          select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+        },
+
         cells: {
           orderBy: {
             column: {
@@ -281,6 +285,10 @@ export class GetBoardTasksService {
         order: true,
         createdAt: true,
         updatedAt: true,
+
+        createdBy: {
+          select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+        },
 
         _count: {
           select: {

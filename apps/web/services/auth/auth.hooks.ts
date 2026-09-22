@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe, login, logout } from "./auth.api";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 export function useLogin() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   return useMutation({
     mutationFn: login,
@@ -13,7 +14,8 @@ export function useLogin() {
       queryClient.invalidateQueries({
         queryKey: ["me"],
       });
-      router.push("/workspace/1");
+      const redirect = searchParams.get("redirect");
+      router.push(redirect && redirect.startsWith("/") ? redirect : "/workspace/1");
     },
     onError: (error: any) => {
       const errorMsg =

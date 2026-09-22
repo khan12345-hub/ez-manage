@@ -45,7 +45,7 @@ export function AddSubtaskRow({ groupId, parentId, columns, color }: Props) {
       setIsEditing(false);
 
       queryClient.invalidateQueries({
-        queryKey: ["board"],
+        queryKey: ["board-tasks", boardId],
       });
     },
 

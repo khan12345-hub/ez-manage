@@ -92,7 +92,10 @@ export class CellsController {
 
   @Post(':cellId/files')
   @RequireBoardPermission(BoardPermission.EDIT)
-  @UseInterceptors(FilesInterceptor('files', 10))
+  @UseInterceptors(FilesInterceptor('files', 10, {
+    storage: memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB per file
+  }))
   uploadFiles(
     @Param('boardId', ParseIntPipe)
     boardId: number,

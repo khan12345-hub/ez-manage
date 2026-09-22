@@ -10,9 +10,10 @@ import {
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { SessionAuthGuard } from 'src/auth/guards/session.guard';
+import { AdminGuard } from 'src/auth/guards/admin.guard';
 
 @Controller('admin')
-@UseGuards(SessionAuthGuard)
+@UseGuards(SessionAuthGuard, AdminGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
