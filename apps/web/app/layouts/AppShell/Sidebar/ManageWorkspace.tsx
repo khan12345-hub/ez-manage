@@ -49,6 +49,7 @@ export function ManageWorkspaceDropDown({
   const deleteMutation = useMutation({
     mutationFn: () => deleteWorkspace(workspaceId),
     onSuccess: () => {
+      setDeleteOpen(false);
       queryClient.invalidateQueries({ queryKey: ["workspaces"] });
       toast.success("Workspace deleted.");
       router.push("/dashboard");

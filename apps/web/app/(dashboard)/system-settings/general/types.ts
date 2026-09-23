@@ -5,6 +5,7 @@ export interface User {
   email: string;
   role: string;
   status: string;
+  createdAt?: string;
 }
 
 export interface Workspace {

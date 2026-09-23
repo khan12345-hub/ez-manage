@@ -13,17 +13,38 @@ export type WorkspaceDetail = {
   createdAt: string;
   updatedAt: string;
   createdById: number;
-  role:string;
+  role: string;
+  createdBy?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string | null;
+  };
   members: Array<{
     id: number;
     role: string;
+    createdAt: string;
     user: {
       id: number;
       firstName: string;
       lastName: string;
       avatarUrl: string | null;
     };
-    userId:number;
+    userId: number;
+  }>;
+  invitations?: Array<{
+    id: number;
+    email: string;
+    role: string;
+    status: string;
+    createdAt: string;
+    expiresAt: string;
+    invitedBy: {
+      id: number;
+      firstName: string;
+      lastName: string;
+      avatarUrl: string | null;
+    };
   }>;
   boards: Array<{
     id: number;

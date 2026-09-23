@@ -227,6 +227,7 @@ export default function WorkspacePage() {
         <WorkspaceHeader
           workspace={workspace}
           membersDetail={workspaceDetail.members ?? []}
+          invitations={(workspaceDetail.invitations ?? []) as any}
           currentUserRole={currentUserRole}
         />
 

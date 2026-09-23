@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Plus, Loader2 } from "lucide-react";
+import { Search, Plus, Loader2, Clock } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -22,6 +22,17 @@ import {
   deleteUser,
 } from "@/services/users.api";
 
+function formatDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
 function toUser(u: AdminUser): User {
   return {
     id: u.id,
@@ -34,6 +45,7 @@ function toUser(u: AdminUser): User {
         : u.status === "INACTIVE"
           ? "Inactive"
           : "Suspended",
+    createdAt: u.createdAt,
   };
 }
 
@@ -167,6 +179,7 @@ export function UsersTab() {
                   <th className="px-5 py-3">User</th>
                   <th className="px-5 py-3">Role</th>
                   <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Created</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -174,13 +187,13 @@ export function UsersTab() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-10 text-center text-muted-foreground">
+                    <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">
                       <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-10 text-center text-muted-foreground">
+                    <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">
                       No users found.
                     </td>
                   </tr>
@@ -212,6 +225,13 @@ export function UsersTab() {
                         >
                           {user.status}
                         </Badge>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3 shrink-0" />
+                          {formatDate(user.createdAt)}
+                        </div>
                       </td>
 
                       <td className="px-5 py-4 text-right">

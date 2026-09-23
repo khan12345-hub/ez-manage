@@ -22,7 +22,7 @@ export function GuestWrapper({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return null;
+    return <FullScreenLoader />;
   }
 
   return (

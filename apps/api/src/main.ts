@@ -84,6 +84,9 @@ async function bootstrap() {
         sameSite: process.env.NODE_ENV === 'production'
           ? 'none'
           : 'lax',
+        domain: process.env.NODE_ENV === 'production'
+          ? '.ezify.pk'
+          : undefined,
       },
     }),
   );

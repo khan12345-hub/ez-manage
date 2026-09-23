@@ -30,7 +30,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { InviteModal } from "@/components/InviteModal";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
-import { WorkspaceMembersModal, MemberDetail } from "@/components/WorkspaceMembersModal";
+import { WorkspaceMembersModal, MemberDetail, InvitationDetail } from "@/components/WorkspaceMembersModal";
 // interface Workspace {
 //   id: number;
 //   name: string;
@@ -78,11 +78,12 @@ export interface WorkspaceMember {
 interface Props {
   workspace: WorkspaceResponse;
   membersDetail?: MemberDetail[];
+  invitations?: InvitationDetail[];
   currentUserRole?: string;
   onWorkspaceUpdate?: (updatedWorkspace: any) => void;
 }
 
-export function WorkspaceHeader({ workspace, membersDetail = [], currentUserRole = "", onWorkspaceUpdate }: Props) {
+export function WorkspaceHeader({ workspace, membersDetail = [], invitations = [], currentUserRole = "", onWorkspaceUpdate }: Props) {
   const params = useParams<{ workspaceId: string }>();
   const router = useRouter();
   const workspaceId = Number(params.workspaceId);
@@ -309,6 +310,7 @@ export function WorkspaceHeader({ workspace, membersDetail = [], currentUserRole
         onClose={() => setIsMembersOpen(false)}
         workspaceId={workspaceId}
         members={membersDetail}
+        invitations={invitations}
         currentUserRole={currentUserRole}
       />
     </>

@@ -134,6 +134,21 @@ export class WorkspaceService {
             members: true,
           },
         },
+
+        invitations: {
+          where: { status: 'PENDING' },
+          include: {
+            invitedBy: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
 
@@ -218,19 +233,29 @@ export class WorkspaceService {
 
   async remove(workspaceId: number) {
     const workspace = await this.prisma.workspace.findUnique({
-      where: {
-        id: workspaceId,
-      },
+      where: { id: workspaceId },
     });
 
     if (!workspace) {
       throw new NotFoundException('Workspace not found.');
     }
 
-    return this.prisma.workspace.delete({
-      where: {
-        id: workspaceId,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const boards = await tx.board.findMany({
+        where: { workspaceId },
+        select: { id: true },
+      });
+      const boardIds = boards.map((b) => b.id);
+
+      // Delete junction tables that lack onDelete Cascade (order matters)
+      if (boardIds.length > 0) {
+        await tx.invitationBoard.deleteMany({ where: { boardId: { in: boardIds } } });
+        await tx.boardMember.deleteMany({ where: { boardId: { in: boardIds } } });
+      }
+      await tx.invitation.deleteMany({ where: { workspaceId } });
+      await tx.board.deleteMany({ where: { workspaceId } });
+      await tx.workspaceMember.deleteMany({ where: { workspaceId } });
+      return tx.workspace.delete({ where: { id: workspaceId } });
     });
   }
 
