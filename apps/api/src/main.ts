@@ -20,6 +20,9 @@ const isProd = process.env.NODE_ENV === 'production';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Trust nginx reverse proxy — lets Express read X-Forwarded-Proto: https
+  app.set('trust proxy', 1);
+
   // ── Helmet: HTTP security headers ──────────────────────────────────────────
   app.use(
     helmet({
@@ -37,9 +40,7 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) {
-        if (isProd) {
-          return callback(new Error('Direct API access is not allowed'), false);
-        }
+        // Allow server-to-server requests (webhooks, health checks, etc.)
         return callback(null, true);
       }
 
@@ -77,6 +78,7 @@ async function bootstrap() {
         createTableIfMissing: true,
       }),
       secret: process.env.SESSION_SECRET!,
+      proxy: true,
       resave: false,
       saveUninitialized: false,
       cookie: {

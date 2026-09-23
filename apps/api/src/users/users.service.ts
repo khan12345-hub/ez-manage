@@ -297,7 +297,7 @@ export class UsersService {
       throw new BadRequestException('Incorrect OTP. Please try again.');
     }
 
-    await this.prisma.user.update({
+    const verified = await this.prisma.user.update({
       where: { id: userId },
       data: {
         whatsappPhoneVerified: true,
@@ -305,7 +305,26 @@ export class UsersService {
         whatsappOtp: null,
         whatsappOtpExpiry: null,
       },
+      select: { whatsappPhone: true },
     });
+
+    if (this.whatsapp && verified.whatsappPhone) {
+      this.whatsapp.send(
+        verified.whatsappPhone,
+        [
+          '✅ *Ez-Manage se connected ho gaye!*',
+          '',
+          'In commands se shuru karo:',
+          '📋 *BOARDS* — apne boards dekho',
+          '📅 *TODAY* — aaj ki tasks',
+          '👤 *MY* — meri tasks',
+          '➕ *NEW {naam}* — nai task banao',
+          '❓ *HELP* — sab commands',
+          '',
+          'Reply karo shuru karne ke liye.',
+        ].join('\n'),
+      ).catch(() => {});
+    }
 
     return { verified: true, message: 'WhatsApp number verified and notifications enabled.' };
   }
