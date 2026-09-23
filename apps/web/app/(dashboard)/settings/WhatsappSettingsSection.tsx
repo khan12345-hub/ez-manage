@@ -19,12 +19,11 @@ import { cn } from "@/lib/utils";
 // ── Country list ──────────────────────────────────────────────────────────────
 const COUNTRIES = [
   { code: "+92",  flag: "🇵🇰", name: "Pakistan" },
-  { code: "+1",   flag: "🇺🇸", name: "United States" },
+  { code: "+1",   flag: "🇨🇦", name: "Canada / US" },
   { code: "+44",  flag: "🇬🇧", name: "United Kingdom" },
   { code: "+971", flag: "🇦🇪", name: "UAE" },
   { code: "+966", flag: "🇸🇦", name: "Saudi Arabia" },
   { code: "+91",  flag: "🇮🇳", name: "India" },
-  { code: "+1",   flag: "🇨🇦", name: "Canada" },
   { code: "+61",  flag: "🇦🇺", name: "Australia" },
 ] as const;
 
