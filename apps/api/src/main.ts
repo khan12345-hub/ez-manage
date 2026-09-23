@@ -7,13 +7,13 @@ import helmet from 'helmet';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import cookieParser from 'cookie-parser';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import * as express from 'express';
 
 import { AppModule } from './app.module';
 import { postgresProvider } from './database/postgres.provider';
 
-dotenv.config();
+dotenv.config({ override: true, path: resolve(__dirname, '../../.env') });
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -74,6 +74,7 @@ async function bootstrap() {
       store: new PgSession({
         pool: postgresProvider.useFactory(),
         tableName: 'sessions',
+        createTableIfMissing: true,
       }),
       secret: process.env.SESSION_SECRET!,
       resave: false,
