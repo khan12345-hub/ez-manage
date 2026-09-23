@@ -53,65 +53,35 @@ export function NotificationStreamProvider({
 
     const disconnect = connectNotificationStream(
       (notification: Notification) => {
-        console.log(
-          "[SSE] New notification received:",
-          notification,
-        );
+        console.log("[SSE] New notification received:", notification);
 
-        /**
-         * Update unread count immediately.
-         */
         queryClient.setQueryData<{ count: number }>(
           ["notifications", "unread-count"],
-          (oldData) => {
-            console.log(
-              "[SSE] Previous unread count:",
-              oldData,
-            );
-
-            return {
-              count: (oldData?.count ?? 0) + 1,
-            };
-          },
+          (oldData) => ({ count: (oldData?.count ?? 0) + 1 }),
         );
 
-        /**
-         * Update notification list immediately
-         * if it already exists in React Query cache.
-         */
         queryClient.setQueryData<NotificationsResponse>(
           ["notifications", "list"],
           (oldData) => {
-            if (!oldData) {
-              return oldData;
-            }
-
-            /**
-             * Prevent duplicate notifications.
-             */
-            const alreadyExists = oldData.data.some(
-              (item) => item.id === notification.id,
-            );
-
-            if (alreadyExists) {
-              return oldData;
-            }
-
+            if (!oldData) return oldData;
+            const alreadyExists = oldData.data.some((item) => item.id === notification.id);
+            if (alreadyExists) return oldData;
             return {
               ...oldData,
-
-              data: [
-                notification,
-                ...oldData.data,
-              ],
-
-              meta: {
-                ...oldData.meta,
-                total: oldData.meta.total + 1,
-              },
+              data: [notification, ...oldData.data],
+              meta: { ...oldData.meta, total: oldData.meta.total + 1 },
             };
           },
         );
+      },
+      undefined, // onFileImportProgress handled by ImportJobContext
+      // board_update: automation moved a task — refetch the affected board
+      ({ boardId }) => {
+        queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      },
+      // boards_updated: a board was deleted — refetch all boards lists
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["boards"] });
       },
     );
 

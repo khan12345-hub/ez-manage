@@ -277,17 +277,23 @@ export class InvitationsService {
 
     // ------------------------------------------------------------
     // 9. Send invitation email AFTER successful DB creation
+    // Email failure must not roll back the invitation.
     // ------------------------------------------------------------
     const inviteUrl = `${process.env.FRONTEND_URL}/setup-account?token=${token}`;
 
     const template = invitationTemplate(inviteUrl);
 
-    await this.mailService.sendMail({
-      to: dto.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
+    try {
+      await this.mailService.sendMail({
+        to: dto.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+    } catch (mailError) {
+      // Log but don't throw — invitation is already saved
+      console.error('[InvitationsService] Failed to send invitation email:', mailError?.message ?? mailError);
+    }
 
     // ------------------------------------------------------------
     // 10. Return response

@@ -6,6 +6,7 @@ import { TopNavbar } from "./TopNavbar/TopNavbar";
 import { NotificationStreamProvider } from "@/providers/NotificationStreamProvider";
 import { ImportJobProvider } from "@/providers/ImportJobContext";
 import { useAuth } from "@/providers/AuthProvider";
+import { OnboardingTour } from "@/components/OnboardingTour";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -21,6 +22,7 @@ export function AppShell({ children }: AppShellProps) {
       {user && (
         <ImportJobProvider>
           <NotificationStreamProvider userId={user?.id}>
+            <OnboardingTour />
             {/* Mobile backdrop */}
             {isMobileOpen && (
               <div

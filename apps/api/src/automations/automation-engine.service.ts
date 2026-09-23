@@ -7,12 +7,14 @@ import {
 } from 'generated/prisma/enums';
 import { PrismaService } from 'prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationStreamService } from '../notifications/notification-stream.service';
 
 @Injectable()
 export class AutomationEngineService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly notificationsService: NotificationsService,
+    @Optional() private readonly notificationStreamService: NotificationStreamService,
   ) {}
 
   // ── STATUS_CHANGED trigger ──────────────────────────────────────────────────
@@ -35,6 +37,10 @@ export class AutomationEngineService {
     for (const automation of automations) {
       await this.executeAction(automation, taskId, boardId);
     }
+
+    if (automations.length > 0) {
+      await this.emitBoardUpdate(boardId);
+    }
   }
 
   // ── TASK_CREATED trigger ────────────────────────────────────────────────────
@@ -50,6 +56,10 @@ export class AutomationEngineService {
     for (const automation of automations) {
       await this.executeAction(automation, taskId, boardId);
     }
+
+    if (automations.length > 0) {
+      await this.emitBoardUpdate(boardId);
+    }
   }
 
   // ── DATE_ARRIVED trigger — called by a cron job ─────────────────────────────
@@ -62,10 +72,16 @@ export class AutomationEngineService {
       },
     });
 
+    let ran = false;
     for (const automation of automations) {
       const meta = automation.triggerMetadata as any;
       if (meta?.dateColumnId !== dateColumnId) continue;
       await this.executeAction(automation, taskId, boardId);
+      ran = true;
+    }
+
+    if (ran) {
+      await this.emitBoardUpdate(boardId);
     }
   }
 
@@ -368,5 +384,21 @@ export class AutomationEngineService {
       where: { id: cell.id },
       data: { value: { date: targetDate.toISOString() } },
     });
+  }
+
+  // ── Board update SSE broadcast ─────────────────────────────────────────────
+  private async emitBoardUpdate(boardId: number) {
+    if (!this.notificationStreamService) return;
+    try {
+      const members = await this.prisma.boardMember.findMany({
+        where: { boardId },
+        select: { userId: true },
+      });
+      for (const { userId } of members) {
+        this.notificationStreamService.emitRaw(userId, 'board_update', { boardId });
+      }
+    } catch {
+      // Non-critical — board will update on next manual refresh if this fails
+    }
   }
 }

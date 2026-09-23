@@ -279,7 +279,14 @@
       "Bash(mkdir -p \"D:/Ezmanage/ez-manage/apps/web/app/\\(dashboard\\)/workspace/[workspaceId]/board/Cells/CreationLog\")",
       "PowerShell(cd D:\\\\Ezmanage\\\\ez-manage\\\\apps\\\\api; node_modules\\\\.bin\\\\tsc --noEmit 2>&1 | Where-Object { $_ -notmatch \"spec.ts\" } | Select-Object -First 20)",
       "PowerShell(cd D:\\\\Ezmanage\\\\ez-manage\\\\apps\\\\api; node_modules\\\\.bin\\\\tsc --noEmit 2>&1 | Where-Object { $_ -notmatch \"spec.ts\" } | Select-Object -First 15)",
-      "Bash(dir \"D:\\\\Ezmanage\\\\ez-manage\\\\apps\\\\web\\\\app\" /b)"
+      "Bash(dir \"D:\\\\Ezmanage\\\\ez-manage\\\\apps\\\\web\\\\app\" /b)",
+      "Bash(pnpm dev *)",
+      "Bash(echo \"PID: $!\")",
+      "PowerShell(Get-Process -Id 2540)",
+      "PowerShell(Get-WmiObject Win32_Process -Filter \"ProcessId=2540\")",
+      "PowerShell(Stop-Process -Id 2540 -Force)",
+      "PowerShell(Stop-Process -Id 768 -Force -ErrorAction SilentlyContinue)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/login)"
     ],
     "additionalDirectories": [
       "D:\\Ezmanage\\ez-manage\\apps\\web\\app\\(dashboard)\\workspace\\[workspaceId]\\board\\Cells"

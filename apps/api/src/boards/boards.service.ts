@@ -4,6 +4,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 
 import { PrismaService } from 'prisma/prisma.service';
@@ -19,6 +20,7 @@ import {
   ActivityEntityType,
 } from 'generated/prisma/enums';
 import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
+import { NotificationStreamService } from 'src/notifications/notification-stream.service';
 
 import { getDefaultCellValue } from './defaults/default-cell-value.template';
 
@@ -35,6 +37,7 @@ export class BoardsService {
     private readonly prisma: PrismaService,
     private readonly boardSearchService: BoardSearchService,
     private readonly activityLogsService: ActivityLogsService,
+    @Optional() private readonly notificationStreamService: NotificationStreamService,
   ) {}
 
   async create(createBoardDto: CreateBoardDto, userId: number) {
@@ -658,12 +661,24 @@ export class BoardsService {
       throw new NotFoundException('Board not found.');
     }
 
+    // Capture member IDs BEFORE the delete so we can notify them after.
+    const memberUserIds = this.notificationStreamService
+      ? (await this.prisma.boardMember.findMany({ where: { boardId: id }, select: { userId: true } })).map((m) => m.userId)
+      : [];
+
     // Use raw SQL so the cascade runs at the DB level without
     // Prisma's transaction wrapper interfering (works around a
     // PrismaPg adapter timeout on large boards with many rows).
     await this.prisma.$executeRaw`DELETE FROM board_members WHERE "boardId" = ${id}`;
     await this.prisma.$executeRaw`DELETE FROM invitation_boards WHERE "boardId" = ${id}`;
     await this.prisma.$executeRaw`DELETE FROM boards WHERE id = ${id}`;
+
+    // Notify all former board members so their sidebar refreshes immediately.
+    for (const memberId of memberUserIds) {
+      try {
+        this.notificationStreamService!.emitRaw(memberId, 'boards_updated', { workspaceId: board.workspaceId });
+      } catch {}
+    }
 
     return board;
   }

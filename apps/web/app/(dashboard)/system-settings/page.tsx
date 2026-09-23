@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/providers/AuthProvider";
 import { ChevronRight, Settings2 } from "lucide-react";
 
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -16,6 +19,17 @@ import { MediaTab } from "./general/MediaTab";
 import { NotificationsTab } from "./general/NotificationsTab";
 import { IntegrationsTab } from "./general/IntegrationsTab";
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user && user.systemRole !== "SUPER_ADMIN") {
+      router.replace("/dashboard");
+    }
+  }, [user, router]);
+
+  if (!user || user.systemRole !== "SUPER_ADMIN") return null;
+
   return (
     <div className="min-h-full bg-muted/20">
       <Tabs

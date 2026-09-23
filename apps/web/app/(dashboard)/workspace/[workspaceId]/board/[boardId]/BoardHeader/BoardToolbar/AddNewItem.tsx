@@ -32,7 +32,7 @@ export function AddNewItem({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button disabled={!boardId}>
+        <Button data-tour="new-item-btn" disabled={!boardId}>
           <Plus className="mr-2 h-4 w-4" />
           New item
           <ChevronDown className="ml-2 h-4 w-4" />

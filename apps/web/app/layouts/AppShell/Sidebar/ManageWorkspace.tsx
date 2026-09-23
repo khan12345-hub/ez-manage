@@ -25,6 +25,7 @@ import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog"
 import { EditWorkspaceModal } from "@/components/EditWorkspaceModal";
 import { CreateWorkspaceModal } from "@/components/CreateWorkspaceModal";
 import { deleteWorkspace } from "@/services/workspace.api";
+import { useInviteModalStore } from "@/store/invite-modal";
 
 interface ManageWorkspaceDropDownProps {
   workspaceId: number;
@@ -41,6 +42,8 @@ export function ManageWorkspaceDropDown({
 }: ManageWorkspaceDropDownProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { workspaceRole } = useInviteModalStore();
+  const isOwnerOrAdmin = workspaceRole === "OWNER" || workspaceRole === "ADMIN";
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -80,33 +83,38 @@ export function ManageWorkspaceDropDown({
             </Link>
           </DropdownMenuItem>
 
-          {/* Edit */}
-          <DropdownMenuItem
-            className="cursor-pointer gap-2"
-            onSelect={(e) => {
-              e.preventDefault();
-              onBeforeOpen?.();
-              setEditOpen(true);
-            }}
-          >
-            <Pencil className="h-4 w-4" />
-            Edit workspace
-          </DropdownMenuItem>
+          {/* Edit — Owner/Admin only */}
+          {isOwnerOrAdmin && (
+            <DropdownMenuItem
+              className="cursor-pointer gap-2"
+              onSelect={(e) => {
+                e.preventDefault();
+                onBeforeOpen?.();
+                setEditOpen(true);
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+              Edit workspace
+            </DropdownMenuItem>
+          )}
 
-          <DropdownMenuSeparator />
-
-          {/* Delete */}
-          <DropdownMenuItem
-            className="cursor-pointer gap-2 text-destructive focus:text-destructive"
-            onSelect={(e) => {
-              e.preventDefault();
-              onBeforeOpen?.();
-              setDeleteOpen(true);
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete workspace
-          </DropdownMenuItem>
+          {/* Delete — Owner/Admin only */}
+          {isOwnerOrAdmin && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  onBeforeOpen?.();
+                  setDeleteOpen(true);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete workspace
+              </DropdownMenuItem>
+            </>
+          )}
 
           <DropdownMenuSeparator />
 

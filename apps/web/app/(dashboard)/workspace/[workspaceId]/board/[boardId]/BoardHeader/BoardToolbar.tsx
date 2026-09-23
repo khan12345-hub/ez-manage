@@ -71,8 +71,10 @@ export function BoardToolbar({
   onGroupSortChange,
 }: Props) {
   const [exporting, setExporting] = useState(false);
-  const { workspaceRole } = useInviteModalStore();
+  const { workspaceRole, boardRole } = useInviteModalStore();
   const canExport = workspaceRole === "OWNER" || workspaceRole === "ADMIN";
+  const effectiveRole = boardRole || workspaceRole;
+  const canCreateItems = effectiveRole !== "VIEWER" && effectiveRole !== "GUEST";
 
   const handleExport = async () => {
     if (!boardId) return;
@@ -86,11 +88,13 @@ export function BoardToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <AddNewItem
-        boardId={boardId}
-        onCreateTask={onCreateTask}
-        onCreateGroup={onCreateGroup}
-      />
+      {canCreateItems && (
+        <AddNewItem
+          boardId={boardId}
+          onCreateTask={onCreateTask}
+          onCreateGroup={onCreateGroup}
+        />
+      )}
 
       <SearchInput
         boardId={boardId}

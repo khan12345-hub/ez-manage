@@ -189,17 +189,20 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     getValue: (_, cell) => cell?.value ?? null,
 
-    save: ({ cell, value, boardId, queryClient }) => {
-      if (!cell?.id) {
-        return Promise.resolve(null);
+    save: async ({ cell, value, boardId, queryClient }) => {
+      if (!cell?.id) return null;
+
+      const result = await updateCell(boardId!, cell.id, {
+        value: { label: value.label, color: value.color },
+      });
+
+      // Automation may have moved the task to a different group.
+      // Refetch the board so the UI reflects the new position.
+      if (boardId) {
+        queryClient?.invalidateQueries({ queryKey: ["board", boardId] });
       }
 
-      return updateCell(boardId!, cell.id, {
-        value: {
-          label: value.label,
-          color: value.color,
-        },
-      })
+      return result;
     },
   },
 

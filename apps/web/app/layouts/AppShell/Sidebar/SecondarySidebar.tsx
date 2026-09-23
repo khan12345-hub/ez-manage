@@ -12,6 +12,7 @@ import {
   Building2,
   Cog,
   SquareKanban,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -260,17 +261,20 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         </div>
 
         <div className="flex items-center gap-2.5 px-4 py-5">
-          <WorkspaceSwitcher
-            workspaces={workspaces}
-            workspace={workspace}
-            onWorkspaceChange={handleWorkspaceChange}
-            open={workspaceSwitcherOpen}
-            setOpen={setWorkspaceSwitcherOpen}
-          />
+          <div data-tour="workspace-switcher" className="flex-1 min-w-0">
+            <WorkspaceSwitcher
+              workspaces={workspaces}
+              workspace={workspace}
+              onWorkspaceChange={handleWorkspaceChange}
+              open={workspaceSwitcherOpen}
+              setOpen={setWorkspaceSwitcherOpen}
+            />
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
+                data-tour="create-btn"
                 variant="outline"
                 size="icon"
                 className="h-9 w-9"
@@ -318,7 +322,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
             </button>
 
             {isContentExpanded && (
-              <div className="mt-2 flex flex-col gap-1.5">
+              <div data-tour="boards-list" className="mt-2 flex flex-col gap-1.5">
                 {isBoardsLoading ? (
                   <div className="px-3.5 py-2.5 text-xs text-gray-400">
                     Loading boards...
@@ -397,6 +401,15 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
           workspaceId={workspace.id}
         />
       )}
+      <Link
+        href="/help"
+        data-tour="help-link"
+        className="flex items-center gap-2 border-t border-gray-200 px-4 py-3 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+      >
+        <HelpCircle strokeWidth={1.5} className="h-4 w-4" />
+        Help & Guide
+      </Link>
+
       {user && user?.systemRole === "SUPER_ADMIN" && (
         <Link
           href="/system-settings"

@@ -24,26 +24,29 @@ import { SessionUser } from 'src/auth/types/session-user.type';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SessionAuthGuard } from 'src/auth/guards/session.guard';
+import { AdminGuard } from 'src/auth/guards/admin.guard';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-  // users.controller.ts
 
+  // List all users — SUPER_ADMIN only (system settings)
   @Get()
-  @UseGuards(SessionAuthGuard)
+  @UseGuards(SessionAuthGuard, AdminGuard)
   async findAll(@Query('search') search?: string) {
     return this.usersService.findAll(search);
   }
 
+  // Create user directly — SUPER_ADMIN only
   @Post()
-  @UseGuards(SessionAuthGuard)
+  @UseGuards(SessionAuthGuard, AdminGuard)
   async createUser(@Body() dto: CreateUserDto) {
     return this.usersService.createUser(dto);
   }
 
+  // Admin update (role, status) — SUPER_ADMIN only
   @Patch(':id')
-  @UseGuards(SessionAuthGuard)
+  @UseGuards(SessionAuthGuard, AdminGuard)
   async updateUser(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: AdminUpdateUserDto,
@@ -51,8 +54,9 @@ export class UsersController {
     return this.usersService.adminUpdateUser(id, dto);
   }
 
+  // Delete user — SUPER_ADMIN only
   @Delete(':id')
-  @UseGuards(SessionAuthGuard)
+  @UseGuards(SessionAuthGuard, AdminGuard)
   async deleteUser(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.deleteUser(id);
   }

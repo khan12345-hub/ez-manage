@@ -7,7 +7,6 @@ import { StorageModule } from 'src/storage/storage.module';
 import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
 import { AutomationEngineService } from 'src/automations/automation-engine.service';
 import { NotificationsModule } from 'src/notifications/notifications.module';
-
 @Module({
   imports: [StorageModule, NotificationsModule],
   controllers: [CellsController],
