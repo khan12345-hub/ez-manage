@@ -312,16 +312,19 @@ export class UsersService {
       this.whatsapp.send(
         verified.whatsappPhone,
         [
-          '✅ *Ez-Manage se connected ho gaye!*',
+          '✅ *Welcome to Ez-Manage!*',
           '',
-          'In commands se shuru karo:',
-          '📋 *BOARDS* — apne boards dekho',
-          '📅 *TODAY* — aaj ki tasks',
-          '👤 *MY* — meri tasks',
-          '➕ *NEW {naam}* — nai task banao',
-          '❓ *HELP* — sab commands',
+          'Your WhatsApp has been successfully connected. You can now manage your tasks and boards directly from this chat.',
           '',
-          'Reply karo shuru karne ke liye.',
+          '*Quick Commands:*',
+          '📋 *BOARDS* — View your boards',
+          '📅 *TODAY* — Tasks due today',
+          '👤 *MY* — Tasks assigned to you',
+          '✅ *DONE* — Mark a task complete',
+          '➕ *NEW {task name}* — Create a new task',
+          '❓ *HELP* — View all available commands',
+          '',
+          'Reply with any command to get started.',
         ].join('\n'),
       ).catch(() => {});
     }
