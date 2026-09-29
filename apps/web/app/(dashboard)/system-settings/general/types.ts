@@ -6,6 +6,7 @@ export interface User {
   role: string;
   status: string;
   createdAt?: string;
+  createdBy?: { id: number; name: string } | null;
 }
 
 export interface Workspace {

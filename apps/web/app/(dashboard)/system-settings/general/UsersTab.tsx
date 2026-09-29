@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Plus, Loader2, Clock } from "lucide-react";
+import { Search, Plus, Loader2, Clock, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -46,6 +46,7 @@ function toUser(u: AdminUser): User {
           ? "Inactive"
           : "Suspended",
     createdAt: u.createdAt,
+    createdBy: u.createdBy ?? null,
   };
 }
 
@@ -180,6 +181,7 @@ export function UsersTab() {
                   <th className="px-5 py-3">Role</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Created</th>
+                  <th className="px-5 py-3">Invited By</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -187,13 +189,13 @@ export function UsersTab() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
                       <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
                       No users found.
                     </td>
                   </tr>
@@ -232,6 +234,19 @@ export function UsersTab() {
                           <Clock className="h-3 w-3 shrink-0" />
                           {formatDate(user.createdAt)}
                         </div>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {user.createdBy ? (
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <UserCheck className="h-3 w-3 shrink-0 text-green-500" />
+                            <span className="font-medium text-gray-700">
+                              {user.createdBy.name}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </td>
 
                       <td className="px-5 py-4 text-right">

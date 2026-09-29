@@ -8,7 +8,7 @@ import { UpdateNotificationPreferencesDto } from './dto/update-notification-pref
 import { UpdateWhatsappSettingsDto } from './dto/update-whatsapp-settings.dto';
 import { VerifyWhatsappOtpDto } from './dto/verify-whatsapp-otp.dto';
 import { Prisma } from 'generated/prisma/client';
-import { SystemRole } from 'generated/prisma/enums';
+import { SystemRole, InvitationStatus } from 'generated/prisma/enums';
 import { LocalStorageService } from 'src/storage/local-storage.service';
 import { WhatsappService } from 'src/whatsapp/whatsapp.service';
 
@@ -102,7 +102,37 @@ export class UsersService {
         { email: { contains: search, mode: 'insensitive' } },
       ];
     }
-    return this.prisma.user.findMany({ where, select: this.adminSelect, orderBy: { createdAt: 'asc' } });
+
+    const users = await this.prisma.user.findMany({
+      where,
+      select: this.adminSelect,
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Find who invited each user (one batch query, not N+1)
+    const emails = users.map((u) => u.email);
+    const invitations = await this.prisma.invitation.findMany({
+      where: { email: { in: emails }, status: InvitationStatus.ACCEPTED },
+      select: {
+        email: true,
+        invitedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    const inviterByEmail = new Map<string, { id: number; name: string }>();
+    for (const inv of invitations) {
+      if (!inviterByEmail.has(inv.email)) {
+        inviterByEmail.set(inv.email, {
+          id: inv.invitedBy.id,
+          name: `${inv.invitedBy.firstName} ${inv.invitedBy.lastName}`.trim(),
+        });
+      }
+    }
+
+    return users.map((u) => ({
+      ...u,
+      createdBy: inviterByEmail.get(u.email) ?? null,
+    }));
   }
 
   async getNotificationPreferences(userId: number) {

@@ -11,6 +11,7 @@ export interface AdminUser {
   systemRole: "USER" | "SUPER_ADMIN";
   status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
   createdAt: string;
+  createdBy: { id: number; name: string } | null;
 }
 
 export async function getAllUsers(search?: string): Promise<AdminUser[]> {
