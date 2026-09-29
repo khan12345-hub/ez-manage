@@ -222,7 +222,7 @@ export function AskAiWidget() {
                   Ask AI
                 </p>
                 <p className="mt-0.5 text-[10px] text-white/70 leading-none">
-                  Powered by Llama 3.1 · EzManage
+                  Powered by Llama 3 · EzManage
                 </p>
               </div>
             </div>
@@ -361,7 +361,7 @@ export function AskAiWidget() {
               </button>
             </form>
             <p className="mt-2 text-center text-[10px] text-slate-300">
-              Open source · Llama 3.1 via Groq
+              Open source · Llama 3 via Groq
             </p>
           </div>
         </div>
