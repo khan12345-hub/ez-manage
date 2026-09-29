@@ -428,7 +428,7 @@ export class PublicBoardFormsService {
             workspaceId: board.workspaceId,
             taskId,
           },
-          sendEmail: false,
+          sendEmail: true,
         });
 
         this.notificationStreamService.emit(recipientId, notification);

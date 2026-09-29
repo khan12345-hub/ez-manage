@@ -173,7 +173,7 @@ export class AutomationEngineService {
           entityType: NotificationEntityType.TASK,
           entityId: taskId,
           metadata: { boardId },
-          sendEmail: false,
+          sendEmail: true,
         }).catch((err: unknown) => {
           console.error('[Automation] Failed to notify:', err);
         });

@@ -8,6 +8,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 // WhatsApp hook — remove this import to disable WhatsApp notifications
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class NotificationsService {
@@ -20,6 +21,8 @@ export class NotificationsService {
 
     // WhatsApp hook — remove this param + @Optional() to disable
     @Optional() private readonly whatsapp: WhatsappService,
+
+    @Optional() private readonly mailService: MailService,
   ) {}
 
   /**
@@ -70,12 +73,37 @@ export class NotificationsService {
       },
     });
 
-    if (userPrefs && !userPrefs.inAppNotificationsEnabled) {
-      console.log('[NotificationsService] In-app notifications disabled for user', recipientId);
+    const shouldSendInApp = !userPrefs || userPrefs.inAppNotificationsEnabled;
+    const effectiveSendEmail = sendEmailParam && (!userPrefs || userPrefs.emailNotificationsEnabled);
+
+    // Both channels disabled — nothing to do
+    if (!shouldSendInApp && !effectiveSendEmail) {
+      console.log('[NotificationsService] Both in-app and email disabled for user', recipientId);
       return null;
     }
 
-    const effectiveSendEmail = sendEmailParam && (userPrefs?.emailNotificationsEnabled ?? true);
+    // In-app OFF but email ON — send email directly, skip DB notification
+    if (!shouldSendInApp && effectiveSendEmail && this.mailService) {
+      console.log('[NotificationsService] In-app disabled, sending email-only for user', recipientId);
+      try {
+        const recipient = await this.prisma.user.findUnique({
+          where: { id: recipientId },
+          select: { email: true },
+        });
+        if (recipient?.email) {
+          await this.mailService.sendNotificationEmail({
+            to: recipient.email,
+            subject: title,
+            title,
+            message,
+            metadata,
+          });
+        }
+      } catch (err) {
+        console.error('[NotificationsService] Email-only send failed:', err instanceof Error ? err.message : err);
+      }
+      return null;
+    }
 
     /**
      * Check duplicate event.
