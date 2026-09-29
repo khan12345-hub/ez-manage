@@ -266,6 +266,7 @@ export function ChartView({ board }: ChartViewProps) {
     initialPageParam: null as number | null,
     getNextPageParam: (last: any) => (last.hasMore ? last.nextCursor : null),
     enabled: !!board.id,
+    staleTime: 120_000, // cache for 2 min — re-switching to Chart tab is instant
   });
 
   /* Auto-fetch all pages so chart always shows complete data */

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import {
   SortableContext,
   horizontalListSortingStrategy,
@@ -7,6 +8,7 @@ import {
 } from "@dnd-kit/sortable";
 
 import { useDroppable } from "@dnd-kit/core";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -15,6 +17,8 @@ import { TaskHierarchyRow } from "./tasks/TaskRowHierarchy";
 import { NewTaskRow } from "./tasks/AddNewTaskRow";
 
 import { Plus } from "lucide-react";
+
+const VIRTUALIZE_THRESHOLD = 50;
 
 interface Props {
   group: any;
@@ -67,6 +71,38 @@ export function GroupTable({
   const rootTasks = (group.tasks ?? []).filter(
     (task: any) => !task.parentId,
   );
+
+  const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
+
+  const shouldVirtualize = rootTasks.length > VIRTUALIZE_THRESHOLD;
+
+  const rowVirtualizer = useWindowVirtualizer({
+    count: rootTasks.length,
+    estimateSize: () => 41,
+    overscan: 10,
+    scrollMargin: tbodyRef.current?.offsetTop ?? 0,
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
+  const paddingTop =
+    shouldVirtualize && virtualItems.length > 0
+      ? Math.max(0, virtualItems[0].start - rowVirtualizer.options.scrollMargin)
+      : 0;
+
+  const paddingBottom =
+    shouldVirtualize && virtualItems.length > 0
+      ? Math.max(
+          0,
+          rowVirtualizer.getTotalSize() -
+            virtualItems[virtualItems.length - 1].end,
+        )
+      : 0;
+
+  const setCombinedRef = (el: HTMLTableSectionElement | null) => {
+    tbodyRef.current = el;
+    setNodeRef(el);
+  };
 
   const groupSelection =
     selection?.getGroupSelectionState(group);
@@ -134,14 +170,25 @@ export function GroupTable({
           </thead>
         )}
 
+        {/* SortableContext always receives ALL task ids so DND logic is unaffected */}
         <SortableContext
           items={rootTasks.map(
             (task: any) => `task-${task.id}`,
           )}
           strategy={verticalListSortingStrategy}
         >
-          <tbody ref={setNodeRef}>
-            {rootTasks.map((task: any) => (
+          <tbody ref={setCombinedRef}>
+            {/* Top spacer — fills the virtual space above visible rows */}
+            {paddingTop > 0 && (
+              <tr aria-hidden>
+                <td colSpan={999} style={{ height: paddingTop }} />
+              </tr>
+            )}
+
+            {(shouldVirtualize
+              ? virtualItems.map((vRow) => rootTasks[vRow.index])
+              : rootTasks
+            ).map((task: any) => (
               <TaskHierarchyRow
                 key={task.id}
                 task={task}
@@ -152,6 +199,13 @@ export function GroupTable({
                 showSelection={showSelection}
               />
             ))}
+
+            {/* Bottom spacer — fills the virtual space below visible rows */}
+            {paddingBottom > 0 && (
+              <tr aria-hidden>
+                <td colSpan={999} style={{ height: paddingBottom }} />
+              </tr>
+            )}
 
             {showNewTaskRow && (
               <NewTaskRow

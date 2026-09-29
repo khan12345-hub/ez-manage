@@ -15,12 +15,12 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 
 import { getAllWorkspaces } from "@/services/workspace.api";
 import type { Workspace } from "@repo/shared";
-import { getBoards } from "@/services/boards.api";
+import { getBoards, getBoardDetail } from "@/services/boards.api";
 
 import { CreateWorkspaceModal } from "@/components/CreateWorkspaceModal";
 import { CreateBoardModal } from "@/components/CreateBoardModal";
@@ -87,12 +87,14 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
     queryKey: ["workspaces"],
     queryFn: getAllWorkspaces,
     retry: false,
+    staleTime: 60_000,
   });
 
   const { data: boards = [], isLoading: isBoardsLoading } = useQuery({
     queryKey: ["boards", workspaceId],
     queryFn: () => getBoards(workspaceId),
     enabled: Number.isInteger(workspaceId) && workspaceId > 0,
+    staleTime: 60_000,
   });
 
   useEffect(() => {
@@ -151,13 +153,20 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
     setBoardRole(currentBoard.role);
   }, [boardId, boards, setBoardRole]);
 
+  const queryClient = useQueryClient();
+
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
   const handleWorkspaceChange = async (selectedWorkspace: Workspace) => {
     setWorkspace(selectedWorkspace);
     setWorkspaceID(selectedWorkspace.id);
 
     try {
-      const workspaceBoards = await getBoards(selectedWorkspace.id);
+      // Use cache-first: returns instantly if boards were fetched within staleTime
+      const workspaceBoards = await queryClient.ensureQueryData({
+        queryKey: ["boards", selectedWorkspace.id],
+        queryFn: () => getBoards(selectedWorkspace.id),
+        staleTime: 60_000,
+      });
 
       if (workspaceBoards.length > 0) {
         const firstBoard = workspaceBoards[0];
@@ -339,6 +348,15 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                           isActive &&
                             "bg-blue-50 font-semibold text-blue-600 shadow-sm hover:bg-blue-100",
                         )}
+                        onMouseEnter={() => {
+                          if (item.id !== boardId) {
+                            queryClient.prefetchQuery({
+                              queryKey: ["board", item.id, "", ""],
+                              queryFn: () => getBoardDetail(item.id),
+                              staleTime: 30_000,
+                            });
+                          }
+                        }}
                       >
                         <button
                           type="button"

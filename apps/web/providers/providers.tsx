@@ -8,7 +8,16 @@ import { AuthProvider, useAuth } from "./AuthProvider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NotificationStreamProvider } from "./NotificationStreamProvider";
 export default function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 60_000, // show cached data for 60s before background refetch
+          },
+        },
+      }),
+  );
   return (
     <QueryClientProvider client={queryClient}>
       {/* <ThemeProvider

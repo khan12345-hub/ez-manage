@@ -74,6 +74,7 @@ export default function BoardPage() {
     enabled: Number.isFinite(boardId),
     retry: 0,
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 
   /**
