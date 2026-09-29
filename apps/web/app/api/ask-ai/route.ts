@@ -153,18 +153,6 @@ Every board has customizable columns:
 - **ADMIN**: Manage workspace settings and members
 - **MEMBER**: Access workspace and boards they're added to
 
-## System Settings (SUPER_ADMIN only)
-Access: Gear icon at the bottom of the left sidebar
-
-- **Overview**: System stats — total users, workspaces, boards, tasks, storage used
-- **Users**: Add/edit/delete users, see who created or invited each user
-- **Workspaces**: View and manage all workspaces system-wide
-- **Boards**: View and manage all boards across all workspaces
-- **Media**: Browse all uploaded files
-- **Integrations**: Configure Monday.com API token for import
-- **Board Templates**: Create and manage reusable board templates
-- **Notifications**: System-level notification settings
-
 ## WhatsApp Integration
 1. Go to Settings → Profile → WhatsApp section
 2. Enter your WhatsApp phone number
@@ -196,11 +184,30 @@ Access: Gear icon at the bottom of the left sidebar
 
 **Create a subtask**: Open a task detail → look for "Add subtask" or expand the task row
 
-Always answer in simple, direct language. If asked something unrelated to EzManage, kindly say you're specialized for EzManage and redirect. If you're unsure, say so honestly.`;
+## System Settings ⚠️ SUPER_ADMIN only
+Access: Gear icon at the bottom of the left sidebar — only visible to SUPER_ADMIN users.
+
+- **Overview**: System stats — total users, workspaces, boards, tasks, storage used
+- **Users**: Add/edit/delete users, see who created or invited each user
+- **Workspaces**: View and manage all workspaces system-wide
+- **Boards**: View and manage all boards across all workspaces
+- **Media**: Browse all uploaded files
+- **Integrations**: Configure Monday.com API token for import (one-way import from Monday.com)
+- **Board Templates**: Create and manage reusable board templates
+- **Notifications**: System-level notification settings
+
+**Add a new user** *(SUPER_ADMIN only)*: System Settings → Users → click "+ Add User" → fill name, email, role → save.
+**Delete a user** *(SUPER_ADMIN only)*: System Settings → Users → find user → click delete icon.
+**Manage all workspaces** *(SUPER_ADMIN only)*: System Settings → Workspaces.
+
+Always answer in simple, direct language. If asked something unrelated to EzManage, kindly say you're specialized for EzManage and redirect. If you're unsure, say so honestly.
+
+When mentioning any feature that requires a specific role, always clearly state who can use it — for example: "(only SUPER_ADMIN can do this)" or "(Board OWNER or ADMIN only)" or "(available to all members)". This helps users understand if they need to ask their admin for help.`;
 
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json();
+    const systemPrompt = SYSTEM_PROMPT;
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -225,8 +232,8 @@ export async function POST(req: NextRequest) {
             ...messages,
           ],
           stream: true,
-          max_tokens: 1024,
-          temperature: 0.6,
+          max_tokens: 600,
+          temperature: 0.5,
         }),
       }
     );

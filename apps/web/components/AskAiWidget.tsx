@@ -76,6 +76,7 @@ export function AskAiWidget() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
+  const [lastFailedMsg, setLastFailedMsg] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -126,7 +127,9 @@ export function AskAiWidget() {
         { role: "assistant", content: "" },
       ]);
 
+      setLastFailedMsg(null);
       abortRef.current = new AbortController();
+      const timeoutId = setTimeout(() => abortRef.current?.abort(), 30000);
 
       try {
         const response = await fetch("/api/ask-ai", {
@@ -192,15 +195,14 @@ export function AskAiWidget() {
         }
       } catch (err: any) {
         if (err?.name !== "AbortError") {
+          setLastFailedMsg(userMsg);
           setMessages((prev) => [
             ...prev.slice(0, -1),
-            {
-              role: "assistant",
-              content: "Connection error. Please try again.",
-            },
+            { role: "assistant", content: "__error__" },
           ]);
         }
       } finally {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     },
@@ -369,6 +371,18 @@ export function AskAiWidget() {
                         <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "150ms" }} />
                         <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "300ms" }} />
                       </span>
+                    ) : msg.role === "assistant" && msg.content === "__error__" ? (
+                      <div className="flex flex-col gap-2">
+                        <span className="text-red-500 text-xs">Connection error — response timed out.</span>
+                        {lastFailedMsg && (
+                          <button
+                            onClick={() => sendMessage(lastFailedMsg)}
+                            className="self-start rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+                          >
+                            ↺ Retry
+                          </button>
+                        )}
+                      </div>
                     ) : msg.role === "assistant" ? (
                       <div
                         className="md-content"
