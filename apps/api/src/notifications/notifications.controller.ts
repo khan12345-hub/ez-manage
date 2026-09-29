@@ -8,6 +8,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { Request, Response } from 'express';
 
@@ -21,6 +22,7 @@ import { GetNotificationsDto } from './dto/get-notifications.dto';
 
 import { SessionUser } from 'src/auth/types/session-user.type';
 
+@SkipThrottle() // SSE stream + notification reads must never be rate-limited
 @Controller('notifications')
 export class NotificationsController {
   constructor(

@@ -36,7 +36,7 @@ import { FileCommentsModule } from './file-comments/file-comments.module';
   imports: [
     ThrottlerModule.forRoot({
       throttlers: [
-        { name: 'default', ttl: 60_000, limit: 120 },   // 120 req/min globally
+        { name: 'default', ttl: 60_000, limit: 300 },   // 300 req/min globally
         { name: 'auth',    ttl: 60_000, limit: 10  },   // 10 req/min on auth routes
       ],
     }),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Search,
   Plus,
@@ -154,6 +154,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
   }, [boardId, boards, setBoardRole]);
 
   const queryClient = useQueryClient();
+  const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
   const handleWorkspaceChange = async (selectedWorkspace: Workspace) => {
@@ -350,11 +351,19 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                         )}
                         onMouseEnter={() => {
                           if (item.id !== boardId) {
-                            queryClient.prefetchQuery({
-                              queryKey: ["board", item.id, "", ""],
-                              queryFn: () => getBoardDetail(item.id),
-                              staleTime: 30_000,
-                            });
+                            // Debounce: only prefetch if user hovers for 200ms
+                            prefetchTimerRef.current = setTimeout(() => {
+                              queryClient.prefetchQuery({
+                                queryKey: ["board", item.id, "", ""],
+                                queryFn: () => getBoardDetail(item.id),
+                                staleTime: 30_000,
+                              });
+                            }, 200);
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          if (prefetchTimerRef.current) {
+                            clearTimeout(prefetchTimerRef.current);
                           }
                         }}
                       >

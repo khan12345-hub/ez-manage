@@ -14,6 +14,12 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 60_000, // show cached data for 60s before background refetch
+            retry: (failureCount, error: any) => {
+              // Never retry on 429 — it only makes rate limiting worse
+              const status = error?.status ?? error?.response?.status;
+              if (status === 429) return false;
+              return failureCount < 2;
+            },
           },
         },
       }),
