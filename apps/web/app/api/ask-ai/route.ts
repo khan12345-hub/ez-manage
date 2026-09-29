@@ -226,7 +226,15 @@ export async function POST(req: NextRequest) {
 
     if (!groqResponse.ok) {
       const err = await groqResponse.text();
-      return Response.json({ error: `Groq API error: ${err}` }, { status: 502 });
+      console.error("[ask-ai] Groq API error:", groqResponse.status, err);
+      let errMsg = `Groq API error (${groqResponse.status})`;
+      try {
+        const parsed = JSON.parse(err);
+        errMsg = parsed?.error?.message ?? errMsg;
+      } catch {
+        errMsg = err || errMsg;
+      }
+      return Response.json({ error: errMsg }, { status: 502 });
     }
 
     // Forward the SSE stream directly to the client

@@ -87,14 +87,16 @@ export function AskAiWidget() {
         });
 
         if (!response.ok) {
-          const err = await response.json();
+          let errMsg = "Something went wrong. Please try again.";
+          try {
+            const err = await response.json();
+            errMsg = err.error ?? errMsg;
+          } catch {
+            errMsg = `Error ${response.status}. Please try again.`;
+          }
           setMessages((prev) => [
             ...prev.slice(0, -1),
-            {
-              role: "assistant",
-              content:
-                err.error ?? "Something went wrong. Please try again.",
-            },
+            { role: "assistant", content: errMsg },
           ]);
           return;
         }
