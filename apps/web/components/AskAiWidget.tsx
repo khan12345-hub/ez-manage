@@ -3,6 +3,61 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Send, Sparkles, RotateCcw, ChevronDown } from "lucide-react";
 
+function parseMarkdown(raw: string): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  let t = esc(raw);
+
+  // Tables
+  t = t.replace(/(\|[^\n]+\|\n?)+/g, (block) => {
+    const rows = block.trim().split("\n").filter((r) => r.trim());
+    if (rows.length < 2 || !/^\|[\s\-:|]+\|$/.test(rows[1])) return block;
+    const cells = (row: string) =>
+      row.split("|").slice(1, -1).map((c) => c.trim());
+    const heads = cells(rows[0]);
+    const body = rows.slice(2);
+    return (
+      `<div class="md-table-wrap"><table><thead><tr>${heads.map((h) => `<th>${h}</th>`).join("")}</tr></thead>` +
+      `<tbody>${body.map((r) => `<tr>${cells(r).map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`
+    );
+  });
+
+  // Inline code
+  t = t.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  // Bold
+  t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  // Italic
+  t = t.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+  // Headings
+  t = t.replace(/^#{3}\s+(.+)$/gm, "<h4>$1</h4>");
+  t = t.replace(/^#{2}\s+(.+)$/gm, "<h3>$1</h3>");
+  t = t.replace(/^#\s+(.+)$/gm, "<h2>$1</h2>");
+
+  // Unordered lists
+  t = t.replace(/((?:^[-*]\s.+$\n?)+)/gm, (block) => {
+    const items = block.trim().split("\n").map((l) => l.replace(/^[-*]\s/, ""));
+    return `<ul>${items.map((i) => `<li>${i}</li>`).join("")}</ul>`;
+  });
+  // Ordered lists
+  t = t.replace(/((?:^\d+\.\s.+$\n?)+)/gm, (block) => {
+    const items = block.trim().split("\n").map((l) => l.replace(/^\d+\.\s/, ""));
+    return `<ol>${items.map((i) => `<li>${i}</li>`).join("")}</ol>`;
+  });
+
+  // Paragraphs
+  t = t
+    .split(/\n{2,}/)
+    .map((p) => {
+      p = p.trim();
+      if (!p) return "";
+      if (/^<(h[2-4]|ul|ol|div|table)/.test(p)) return p;
+      return `<p>${p.replace(/\n/g, "<br>")}</p>`;
+    })
+    .join("");
+
+  return t;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -306,10 +361,7 @@ export function AskAiWidget() {
                         ? "rounded-tr-sm bg-blue-600 text-white"
                         : "rounded-tl-sm bg-white text-slate-700 shadow-sm border border-slate-100"
                     }`}
-                    style={{
-                      wordBreak: "break-word",
-                      whiteSpace: "pre-wrap",
-                    }}
+                    style={{ wordBreak: "break-word" }}
                   >
                     {msg.content === "" && msg.role === "assistant" ? (
                       <span className="flex gap-1 items-center py-0.5">
@@ -317,8 +369,13 @@ export function AskAiWidget() {
                         <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "150ms" }} />
                         <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "300ms" }} />
                       </span>
+                    ) : msg.role === "assistant" ? (
+                      <div
+                        className="md-content"
+                        dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.content) }}
+                      />
                     ) : (
-                      msg.content
+                      <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>
                     )}
                   </div>
                 </div>
@@ -372,13 +429,28 @@ export function AskAiWidget() {
           from { opacity: 0; transform: translateY(20px) scale(0.95); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-        .ask-ai-pulse {
-          animation: askAiPulse 3s ease-in-out infinite;
-        }
+        .ask-ai-pulse { animation: askAiPulse 3s ease-in-out infinite; }
         @keyframes askAiPulse {
           0%, 100% { box-shadow: 0 4px 24px rgba(99,102,241,0.45), 0 1px 4px rgba(0,0,0,0.12); }
           50%       { box-shadow: 0 4px 32px rgba(99,102,241,0.65), 0 1px 4px rgba(0,0,0,0.12); }
         }
+        .md-content { font-size: 13px; line-height: 1.55; color: #374151; }
+        .md-content p { margin: 0 0 7px; }
+        .md-content p:last-child { margin-bottom: 0; }
+        .md-content strong { font-weight: 600; color: #1e293b; }
+        .md-content em { font-style: italic; }
+        .md-content code { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; color: #2563eb; }
+        .md-content h2 { font-size: 13px; font-weight: 700; color: #0f172a; margin: 10px 0 4px; }
+        .md-content h3 { font-size: 12px; font-weight: 700; color: #0f172a; margin: 8px 0 3px; }
+        .md-content h4 { font-size: 12px; font-weight: 600; color: #334155; margin: 6px 0 2px; }
+        .md-content ul, .md-content ol { margin: 4px 0 7px; padding-left: 18px; }
+        .md-content li { margin-bottom: 3px; }
+        .md-content li:last-child { margin-bottom: 0; }
+        .md-table-wrap { overflow-x: auto; margin: 6px 0; }
+        .md-content table { border-collapse: collapse; font-size: 11.5px; width: 100%; min-width: 280px; }
+        .md-content th, .md-content td { border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left; vertical-align: top; }
+        .md-content th { background: #f8fafc; font-weight: 600; color: #0f172a; }
+        .md-content tr:hover td { background: #f8fafc; }
       `}</style>
     </>
   );
