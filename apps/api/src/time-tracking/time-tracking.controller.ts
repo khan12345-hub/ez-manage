@@ -6,10 +6,43 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
+  Res,
+  StreamableFile,
+  UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { TimeTrackingService } from './time-tracking.service';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SessionUser } from 'src/auth/types/session-user.type';
+import { SessionAuthGuard } from 'src/auth/guards/session.guard';
+
+// Board-level route for time report export
+@Controller('boards/:boardId/time-entries')
+@UseGuards(SessionAuthGuard)
+export class TimeTrackingBoardController {
+  constructor(private readonly timeTrackingService: TimeTrackingService) {}
+
+  @Get('export')
+  async exportTimeReport(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('userId') userId?: string,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const { csv, filename } = await this.timeTrackingService.exportTimeReport(boardId, {
+      startDate,
+      endDate,
+      userId: userId ? Number(userId) : undefined,
+    });
+    res!.set({
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(Buffer.from(csv, 'utf-8'));
+  }
+}
 
 // Global route — returns current user's active timer across all boards
 @Controller('time-entries')

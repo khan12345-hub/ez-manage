@@ -5,6 +5,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   Check,
+  Clock,
   Download,
   EyeOff,
   Funnel,
@@ -28,6 +29,7 @@ import { SearchInput } from "./Search/SearchInput";
 import { AddNewItem } from "./BoardToolbar/AddNewItem";
 import { exportBoard } from "@/services/boards.api";
 import { useInviteModalStore } from "@/store/invite-modal";
+import { TimeReportModal } from "./TimeReportModal";
 
 import {
   GROUP_SORT_OPTIONS,
@@ -71,6 +73,7 @@ export function BoardToolbar({
   onGroupSortChange,
 }: Props) {
   const [exporting, setExporting] = useState(false);
+  const [timeReportOpen, setTimeReportOpen] = useState(false);
   const { workspaceRole, boardRole } = useInviteModalStore();
   const canExport = workspaceRole === "OWNER" || workspaceRole === "ADMIN";
   const effectiveRole = boardRole || workspaceRole;
@@ -145,10 +148,25 @@ export function BoardToolbar({
       </Button>
 
       {boardId && canExport && (
-        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs sm:px-3 sm:text-sm" onClick={handleExport} disabled={exporting}>
-          <Download className="h-3.5 w-3.5 sm:mr-1.5" />
-          <span className="hidden sm:inline">{exporting ? "Exporting..." : "Export"}</span>
-        </Button>
+        <>
+          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs sm:px-3 sm:text-sm" onClick={() => setTimeReportOpen(true)}>
+            <Clock className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Time Report</span>
+          </Button>
+          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs sm:px-3 sm:text-sm" onClick={handleExport} disabled={exporting}>
+            <Download className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">{exporting ? "Exporting..." : "Export"}</span>
+          </Button>
+        </>
+      )}
+
+      {boardId && (
+        <TimeReportModal
+          open={timeReportOpen}
+          onClose={() => setTimeReportOpen(false)}
+          boardId={boardId}
+          boardName={boardName ?? "board"}
+        />
       )}
     </div>
   );
