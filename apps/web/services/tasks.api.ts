@@ -39,6 +39,10 @@ export interface TaskResponse {
   };
 
   cells: TaskCellResponse[];
+  recurrenceType: RecurrenceType;
+  recurrenceInterval: number;
+  recurrenceEndDate: string | null;
+  sourceTaskId: number | null;
 }
 
 
@@ -70,10 +74,15 @@ export async function getTask(taskId: number, boardId: number) {
   return response.data;
 }
 
+export type RecurrenceType = "NONE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+
 export interface UpdateTaskDto {
   name?: string;
   groupId?: number;
   order?: number;
+  recurrenceType?: RecurrenceType;
+  recurrenceInterval?: number;
+  recurrenceEndDate?: string | null;
 }
 
 export const updateTask = async (

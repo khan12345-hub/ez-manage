@@ -290,6 +290,14 @@ model Group {
 }
 
 
+enum RecurrenceType {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
 enum BoardColumnType {
   TEXT
   LONG_TEXT
@@ -386,6 +394,16 @@ model Task {
 
   activities  ActivityLog[]
   timeEntries TimeEntry[]
+
+  // Recurrence
+  recurrenceType     RecurrenceType  @default(NONE)
+  recurrenceInterval Int             @default(1)
+  recurrenceEndDate  DateTime?
+
+  // Links recurring copies back to their source task
+  sourceTaskId    Int?
+  sourceTask      Task?  @relation("RecurringSource", fields: [sourceTaskId], references: [id], onDelete: SetNull)
+  recurringCopies Task[] @relation("RecurringSource")
 
   @@index([groupId])
   @@index([groupId, order])

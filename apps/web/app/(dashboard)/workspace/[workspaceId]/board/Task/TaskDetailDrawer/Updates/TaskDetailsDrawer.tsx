@@ -11,6 +11,7 @@ import { useInviteModalStore } from "@/store/invite-modal";
 import { useTaskDetailsStore } from "@/store/task-details-store";
 import { useQuery } from "@tanstack/react-query";
 import { TaskDetailsTabs } from "./TaskDetailTabs";
+import { RecurrenceSelector } from "../RecurrenceSelector";
 
 export function TaskDetailsSheet() {
   const { isOpen, close, context } = useTaskDetailsStore();
@@ -29,6 +30,14 @@ export function TaskDetailsSheet() {
             {task?.name}
           </SheetTitle>
         </SheetHeader>
+        {task?.id && (
+          <RecurrenceSelector
+            taskId={task.id}
+            recurrenceType={task.recurrenceType ?? "NONE"}
+            recurrenceInterval={task.recurrenceInterval ?? 1}
+            recurrenceEndDate={task.recurrenceEndDate ?? null}
+          />
+        )}
         <TaskDetailsTabs task={task} />
       </SheetContent>
     </Sheet>
