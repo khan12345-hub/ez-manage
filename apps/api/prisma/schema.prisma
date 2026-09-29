@@ -48,6 +48,11 @@ model User {
   updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt            DateTime?         @map("deleted_at") @db.Timestamptz(6)
 
+  // Who created this user via the admin panel (null = self-registered or invited)
+  createdById          Int?              @map("created_by_id")
+  createdByAdmin       User?             @relation("UserCreatedBy", fields: [createdById], references: [id])
+  adminCreatedUsers    User[]            @relation("UserCreatedBy")
+
   invitationsSent      Invitation[]      @relation("InvitationSender")
 
   workspaceMemberships WorkspaceMember[]

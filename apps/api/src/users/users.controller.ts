@@ -40,8 +40,8 @@ export class UsersController {
   // Create user directly — SUPER_ADMIN only
   @Post()
   @UseGuards(SessionAuthGuard, AdminGuard)
-  async createUser(@Body() dto: CreateUserDto) {
-    return this.usersService.createUser(dto);
+  async createUser(@CurrentUser() currentUser: SessionUser, @Body() dto: CreateUserDto) {
+    return this.usersService.createUser(dto, currentUser.id);
   }
 
   // Admin update (role, status) — SUPER_ADMIN only

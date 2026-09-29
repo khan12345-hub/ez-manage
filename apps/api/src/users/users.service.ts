@@ -29,9 +29,12 @@ export class UsersService {
     systemRole: true,
     status: true,
     createdAt: true,
+    createdByAdmin: {
+      select: { id: true, firstName: true, lastName: true },
+    },
   };
 
-  async createUser(dto: CreateUserDto) {
+  async createUser(dto: CreateUserDto, createdById?: number) {
     const emailLower = dto.email.toLowerCase().trim();
 
     const active = await this.prisma.user.findFirst({
@@ -55,6 +58,7 @@ export class UsersService {
           systemRole: (dto.systemRole ?? 'USER') as SystemRole,
           deletedAt: null,
           status: 'ACTIVE',
+          ...(createdById ? { createdById } : {}),
         },
         select: this.adminSelect,
       });
@@ -67,6 +71,7 @@ export class UsersService {
         email: emailLower,
         password: hashedPassword,
         systemRole: (dto.systemRole ?? 'USER') as SystemRole,
+        ...(createdById ? { createdById } : {}),
       },
       select: this.adminSelect,
     });
@@ -129,10 +134,14 @@ export class UsersService {
       }
     }
 
-    return users.map((u) => ({
-      ...u,
-      createdBy: inviterByEmail.get(u.email) ?? null,
-    }));
+    return users.map((u) => {
+      const { createdByAdmin, ...rest } = u;
+      // Priority: admin directly created → invited → null (self-registered)
+      const createdBy = createdByAdmin
+        ? { id: createdByAdmin.id, name: `${createdByAdmin.firstName} ${createdByAdmin.lastName}`.trim() }
+        : (inviterByEmail.get(u.email) ?? null);
+      return { ...rest, createdBy };
+    });
   }
 
   async getNotificationPreferences(userId: number) {
@@ -158,8 +167,8 @@ export class UsersService {
   }
 
   async findByEmailForInvite(email: string) {
-    return this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+    return this.prisma.user.findFirst({
+      where: { email: email.toLowerCase(), deletedAt: null },
       select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true },
     });
   }

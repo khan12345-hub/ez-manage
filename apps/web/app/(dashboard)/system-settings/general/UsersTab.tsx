@@ -181,7 +181,7 @@ export function UsersTab() {
                   <th className="px-5 py-3">Role</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Created</th>
-                  <th className="px-5 py-3">Invited By</th>
+                  <th className="px-5 py-3">Added By</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
