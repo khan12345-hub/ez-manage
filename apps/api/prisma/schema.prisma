@@ -233,6 +233,8 @@ model Board {
   documents BoardDocument[]
   views     BoardView[]
 
+  guestToken String? @unique
+
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@map("boards")

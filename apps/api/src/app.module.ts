@@ -33,6 +33,7 @@ import { AdminModule } from './admin/admin.module';
 import { TimeTrackingModule } from './time-tracking/time-tracking.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { FileCommentsModule } from './file-comments/file-comments.module';
+import { GuestAccessModule } from './guest-access/guest-access.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { FileCommentsModule } from './file-comments/file-comments.module';
     TimeTrackingModule,
     WhatsappModule,
     FileCommentsModule,
+    GuestAccessModule,
     ],
   controllers: [AppController],
   providers: [
