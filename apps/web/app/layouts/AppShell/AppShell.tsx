@@ -7,6 +7,7 @@ import { NotificationStreamProvider } from "@/providers/NotificationStreamProvid
 import { ImportJobProvider } from "@/providers/ImportJobContext";
 import { useAuth } from "@/providers/AuthProvider";
 import { OnboardingTour } from "@/components/OnboardingTour";
+import { AskAiWidget } from "@/components/AskAiWidget";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -44,6 +45,9 @@ export function AppShell({ children }: AppShellProps) {
               <TopNavbar onMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
               <main className="flex-1 overflow-auto bg-white">{children}</main>
             </div>
+
+            {/* Ask AI floating widget */}
+            <AskAiWidget />
           </NotificationStreamProvider>
         </ImportJobProvider>
       )}
