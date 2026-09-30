@@ -34,6 +34,7 @@ import { TimeTrackingModule } from './time-tracking/time-tracking.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { FileCommentsModule } from './file-comments/file-comments.module';
 import { GuestAccessModule } from './guest-access/guest-access.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { GuestAccessModule } from './guest-access/guest-access.module';
     WhatsappModule,
     FileCommentsModule,
     GuestAccessModule,
+    ChatModule,
     ],
   controllers: [AppController],
   providers: [
