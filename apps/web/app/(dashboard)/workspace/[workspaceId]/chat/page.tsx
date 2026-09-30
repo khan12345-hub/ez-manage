@@ -14,7 +14,7 @@ import { getSocket } from "@/components/Chat/ChatProvider";
 import {
   getChannels, getDMs, getMessages, getOrCreateDM,
   createChannel, deleteMessage, getWorkspaceMembers,
-  joinChannel, markRead,
+  joinChannel, markRead, ensureGeneralChannel,
 } from "@/services/chat.api";
 import type { ChatChannel, ChatMessage } from "@/services/chat.api";
 
@@ -63,8 +63,22 @@ export default function ChatPage() {
   // Load sidebar data
   useEffect(() => {
     if (!workspaceId || !user) return;
-    getChannels(workspaceId).then(setChannels).catch(() => {});
+
+    // Ensure #general exists, then load channels
+    ensureGeneralChannel(workspaceId)
+      .catch(() => {})
+      .finally(() => {
+        getChannels(workspaceId).then((chs) => {
+          setChannels(chs);
+          // Auto-select first channel if none active
+          if (!activeChannelId && chs.length > 0) {
+            setActiveChannel(chs[0].id);
+          }
+        }).catch(() => {});
+      });
+
     getDMs(workspaceId).then(setDMs).catch(() => {});
+    // Show ALL workspace members except self for DM picker
     getWorkspaceMembers(workspaceId).then((list) =>
       setMembers(list.filter((m) => m.user && m.userId !== user.id))
     ).catch(() => {});

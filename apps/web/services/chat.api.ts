@@ -41,6 +41,10 @@ export async function getChannels(workspaceId: number): Promise<ChatChannel[]> {
   return data;
 }
 
+export async function ensureGeneralChannel(workspaceId: number): Promise<void> {
+  await api.post(`/workspaces/${workspaceId}/chat/ensure-general`);
+}
+
 export async function createChannel(
   workspaceId: number,
   name: string,

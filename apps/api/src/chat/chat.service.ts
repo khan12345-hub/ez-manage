@@ -209,8 +209,40 @@ export class ChatService {
     return this.prisma.workspaceMember.findMany({
       where: { workspaceId },
       select: {
+        userId: true,
         user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
       },
     });
+  }
+
+  async ensureGeneralChannel(workspaceId: number, userId: number) {
+    const existing = await this.prisma.chatChannel.findFirst({
+      where: { workspaceId, name: 'general', type: ChatChannelType.CHANNEL },
+    });
+    if (existing) {
+      // Make sure this user is a member
+      await this.prisma.chatMember.upsert({
+        where: { channelId_userId: { channelId: existing.id, userId } },
+        create: { channelId: existing.id, userId },
+        update: {},
+      });
+      return existing;
+    }
+    // Create #general and add ALL workspace members
+    const channel = await this.prisma.chatChannel.create({
+      data: {
+        workspaceId,
+        name: 'general',
+        description: 'General workspace channel',
+        type: ChatChannelType.CHANNEL,
+        createdById: userId,
+      },
+    });
+    const members = await this.prisma.workspaceMember.findMany({ where: { workspaceId }, select: { userId: true } });
+    await this.prisma.chatMember.createMany({
+      data: members.map((m) => ({ channelId: channel.id, userId: m.userId })),
+      skipDuplicates: true,
+    });
+    return channel;
   }
 }

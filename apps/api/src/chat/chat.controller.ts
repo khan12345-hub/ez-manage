@@ -114,4 +114,12 @@ export class ChatController {
   ) {
     return this.chatService.getWorkspaceMembers(workspaceId);
   }
+
+  @Post('ensure-general')
+  ensureGeneralChannel(
+    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.chatService.ensureGeneralChannel(workspaceId, user.id);
+  }
 }
