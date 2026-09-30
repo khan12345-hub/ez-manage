@@ -13,7 +13,9 @@ import {
   Cog,
   SquareKanban,
   HelpCircle,
+  MessageSquare,
 } from "lucide-react";
+import { useChatStore } from "@/store/chat-store";
 import { cn } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
@@ -39,6 +41,25 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
+
+function ChatNavLink({ workspaceId }: { workspaceId: number }) {
+  const { unreadCounts } = useChatStore();
+  const total = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+  return (
+    <Link
+      href={`/workspace/${workspaceId}/chat`}
+      className="relative flex items-center gap-2 border-t border-gray-200 px-4 py-3 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+    >
+      <MessageSquare strokeWidth={1.5} className="h-4 w-4" />
+      Team Chat
+      {total > 0 && (
+        <span className="ml-auto flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-bold text-white">
+          {total > 9 ? "9+" : total}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 interface SecondarySidebarProps {
   isOpen: boolean;
@@ -427,6 +448,9 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
           onClose={() => setIsCreateBoardOpen(false)}
           workspaceId={workspace.id}
         />
+      )}
+      {workspace?.id && (
+        <ChatNavLink workspaceId={workspace.id} />
       )}
       <Link
         href="/help"
