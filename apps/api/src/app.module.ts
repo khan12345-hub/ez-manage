@@ -48,7 +48,8 @@ import { ChatModule } from './chat/chat.module';
       connection: {
         host: process.env.REDIS_HOST || 'localhost',
         port: Number(process.env.REDIS_PORT || 6379),
-      },
+        skipVersionCheck: true,
+      } as any,
     }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
