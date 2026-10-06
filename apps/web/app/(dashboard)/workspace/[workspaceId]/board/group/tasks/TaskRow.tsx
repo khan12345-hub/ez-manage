@@ -106,7 +106,7 @@ export const TaskRow = forwardRef<
           className="sticky left-0 z-20 w-1 min-w-1"
         />
 
-        <td className="sticky left-1 z-20 min-w-[150px] bg-white">
+        <td className="sticky left-1 z-20 min-w-[150px] bg-background">
           <div className="flex items-center gap-2 px-3">
             {showSelection && (
               <button

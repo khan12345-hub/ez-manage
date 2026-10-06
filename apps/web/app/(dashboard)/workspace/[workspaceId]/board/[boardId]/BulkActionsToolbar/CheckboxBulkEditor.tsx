@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-
-import { Checkbox } from "@/components/ui/checkbox";
+import { useEffect, useState } from "react";
+import { CheckSquare, Square } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export interface CheckboxValue {
   checked: boolean;
@@ -14,9 +14,7 @@ interface CheckboxBulkActionProps {
     name: string;
   };
   disabled?: boolean;
-  onChange?: (value: {
-    checked: CheckboxValue;
-  }) => void;
+  onChange?: (value: { checked: CheckboxValue }) => void;
 }
 
 export function CheckboxBulkAction({
@@ -25,24 +23,33 @@ export function CheckboxBulkAction({
 }: CheckboxBulkActionProps) {
   const [checked, setChecked] = useState(false);
 
-  const handleChange = (newChecked: boolean) => {
-    setChecked(newChecked);
+  // Emit initial value immediately so Apply is enabled as soon as
+  // the user picks a CHECKBOX column — no extra click required.
+  useEffect(() => {
+    onChange?.({ checked: { checked: false } });
+  }, []);
 
-    onChange?.({
-      checked: {
-        checked: newChecked,
-      },
-    });
+  const toggle = () => {
+    const next = !checked;
+    setChecked(next);
+    onChange?.({ checked: { checked: next } });
   };
 
   return (
-    <Checkbox
-      checked={checked}
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={toggle}
       disabled={disabled}
-      onCheckedChange={(value) => {
-        handleChange(value === true);
-      }}
-      className="h-8 w-8 cursor-pointer rounded-full"
-    />
+      className="h-9 gap-2 px-3 text-xs"
+    >
+      {checked ? (
+        <CheckSquare className="h-4 w-4 text-primary" />
+      ) : (
+        <Square className="h-4 w-4 text-muted-foreground" />
+      )}
+      {checked ? "Mark checked" : "Mark unchecked"}
+    </Button>
   );
 }

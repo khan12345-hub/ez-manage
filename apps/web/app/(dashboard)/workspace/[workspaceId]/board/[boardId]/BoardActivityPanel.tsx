@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -25,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { getBoardActivities, getBoardViews, TaskActivity, BoardViewEntry } from "@/services/activity-logs";
+import { getTask } from "@/services/tasks.api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -223,6 +225,141 @@ function getEntityLabel(item: TaskActivity): string {
   }
 }
 
+// ── Task hover card ─────────────────────────────────────────────────────────
+
+function TaskHoverCard({
+  taskId,
+  boardId,
+  anchorRect,
+  onClose,
+}: {
+  taskId: number;
+  boardId: number;
+  anchorRect: DOMRect;
+  onClose: () => void;
+}) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { data: task, isLoading } = useQuery({
+    queryKey: ["task-hover", taskId, boardId],
+    queryFn: () => getTask(taskId, boardId),
+    staleTime: 60_000,
+  });
+
+  const statusCell = task?.cells.find((c) => c.column.type === "STATUS");
+  const personCell = task?.cells.find((c) => c.column.type === "PERSON");
+  const dateCell   = task?.cells.find((c) => c.column.type === "DATE");
+  const prioCell   = task?.cells.find((c) => c.column.type === "PRIORITY");
+
+  const statusVal = statusCell?.value as { label?: string; color?: string } | null;
+  const personVal = personCell?.value as { users?: { id: number; firstName: string; lastName: string; avatarUrl: string | null }[] } | null;
+  const dateVal   = dateCell?.value as string | null;
+  const prioVal   = prioCell?.value as { label?: string } | null;
+
+  const x = Math.min(anchorRect.left, window.innerWidth - 260);
+  const y = Math.min(anchorRect.bottom + 8, window.innerHeight - 180);
+
+  const PRIO_COLOR: Record<string, string> = {
+    Critical: "bg-red-100 text-red-700",
+    High:     "bg-orange-100 text-orange-700",
+    Medium:   "bg-yellow-100 text-yellow-700",
+    Low:      "bg-slate-100 text-slate-600",
+    Normal:   "bg-slate-100 text-slate-600",
+  };
+
+  return createPortal(
+    <div
+      style={{ position: "fixed", left: x, top: y, zIndex: 9999 }}
+      onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
+      onMouseLeave={() => { timerRef.current = setTimeout(onClose, 150); }}
+      className="w-60 overflow-hidden rounded-xl border border-border bg-popover shadow-2xl"
+    >
+      {isLoading ? (
+        <div className="p-4 text-center text-xs text-slate-400">Loading…</div>
+      ) : !task ? null : (
+        <>
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-sm font-semibold text-foreground leading-tight">
+              {task.name}
+            </p>
+            {task.group?.name && (
+              <p className="mt-0.5 text-[11px] text-muted-foreground">{task.group.name}</p>
+            )}
+          </div>
+
+          <div className="divide-y divide-border px-4 py-2">
+            {/* Status */}
+            {statusVal?.label && (
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Status</span>
+                <span
+                  className="rounded-md px-2 py-0.5 text-[11px] font-semibold text-white"
+                  style={{ background: statusVal.color ?? "#6366f1" }}
+                >
+                  {statusVal.label}
+                </span>
+              </div>
+            )}
+
+            {/* Assignees */}
+            {personVal?.users && personVal.users.length > 0 && (
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Assignee</span>
+                <div className="flex -space-x-1.5">
+                  {personVal.users.slice(0, 4).map((u) => (
+                    <div
+                      key={u.id}
+                      title={`${u.firstName} ${u.lastName}`}
+                      className="h-6 w-6 overflow-hidden rounded-full border-2 border-white"
+                    >
+                      {u.avatarUrl ? (
+                        <img src={`${BASE_URL}${u.avatarUrl}`} className="h-full w-full object-cover" alt="" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-indigo-100 text-[9px] font-bold text-indigo-600">
+                          {u.firstName[0]}{u.lastName[0]}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {personVal.users.length > 4 && (
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[9px] font-bold text-slate-600">
+                      +{personVal.users.length - 4}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Due date */}
+            {dateVal && (
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Due</span>
+                <span className={`text-[11px] font-medium ${
+                  new Date(dateVal) < new Date() ? "text-red-500" : "text-foreground"
+                }`}>
+                  {format(new Date(dateVal), "MMM d, yyyy")}
+                </span>
+              </div>
+            )}
+
+            {/* Priority */}
+            {prioVal?.label && (
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Priority</span>
+                <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${PRIO_COLOR[prioVal.label] ?? "bg-slate-100 text-slate-600"}`}>
+                  {prioVal.label}
+                </span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+// ── Activity row ─────────────────────────────────────────────────────────────
+
 function ActivityRow({ item }: { item: TaskActivity }) {
   const label = getEntityLabel(item);
   const { columnName, oldDisplay, newDisplay } = getActionDetail(item);
@@ -236,6 +373,22 @@ function ActivityRow({ item }: { item: TaskActivity }) {
     .replace("about ", "").replace("less than a", "<1").trim();
 
   const hasValueChange = oldDisplay !== undefined && newDisplay !== undefined && oldDisplay !== newDisplay;
+  const hasTask = !!item.task?.id;
+
+  const taskNameRef = useRef<HTMLSpanElement>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showCard, setShowCard] = useState(false);
+
+  const openCard = () => {
+    if (!hasTask) return;
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setShowCard(true), 300);
+  };
+  const closeCard = (e?: React.MouseEvent) => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    // small grace period — TaskHoverCard itself handles its own mouse-leave
+    hoverTimerRef.current = setTimeout(() => setShowCard(false), 150);
+  };
 
   return (
     <div className="flex gap-2.5 border-b px-4 py-3 hover:bg-muted/40 transition-colors">
@@ -246,7 +399,13 @@ function ActivityRow({ item }: { item: TaskActivity }) {
       <div className="min-w-0 flex-1">
         {/* Line 1: task name + action + column name */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-sm font-medium truncate max-w-[120px]" title={label}>
+          <span
+            ref={taskNameRef}
+            onMouseEnter={openCard}
+            onMouseLeave={closeCard}
+            className={`text-sm font-medium truncate max-w-[120px] ${hasTask ? "cursor-pointer hover:text-primary hover:underline underline-offset-2" : ""}`}
+            title={label}
+          >
             {label || item.user.firstName}
           </span>
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -278,6 +437,15 @@ function ActivityRow({ item }: { item: TaskActivity }) {
           </div>
         )}
       </div>
+
+      {showCard && hasTask && taskNameRef.current && (
+        <TaskHoverCard
+          taskId={item.task!.id}
+          boardId={item.boardId}
+          anchorRect={taskNameRef.current.getBoundingClientRect()}
+          onClose={() => setShowCard(false)}
+        />
+      )}
     </div>
   );
 }

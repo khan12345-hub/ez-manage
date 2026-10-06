@@ -24,7 +24,7 @@ export function PrimarySidebar({
   const pathname = usePathname();
   const isHelp = pathname === "/help";
   return (
-    <div className="flex h-full w-[80px] flex-col items-center justify-between border-r border-gray-200 bg-white py-5 shadow-sm">
+    <div className="flex h-full w-[80px] flex-col items-center justify-between border-r border-border bg-background py-5 shadow-sm">
       {/* Top Logo and Main Menu Items */}
       <div className="flex w-full flex-col items-center gap-8">
         {/* Custom Monday-like Logo */}

@@ -27,7 +27,6 @@ import {
 import { updateWorkspace, deleteWorkspace } from "@/services/workspace.api";
 import { AssetVisibility, UserRole } from "@repo/shared";
 import { useAuth } from "@/providers/AuthProvider";
-import { InviteModal } from "@/components/InviteModal";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import { WorkspaceMembersModal, MemberDetail, InvitationDetail } from "@/components/WorkspaceMembersModal";
@@ -291,7 +290,6 @@ export function WorkspaceHeader({ workspace, membersDetail = [], invitations = [
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <InviteModal />
           </>
         )}
       </div>

@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { connectNotificationStream } from "@/services/notifications.sse";
+import { connectNotificationStream, ChatUnreadEvent, ChatCallEvent } from "@/services/notifications.sse";
+import { useChatStore } from "@/store/chat-store";
 
 interface Notification {
   id: string;
@@ -40,6 +41,8 @@ export function NotificationStreamProvider({
   children,
 }: Props) {
   const queryClient = useQueryClient();
+  const incrementUnread = useChatStore((s) => s.incrementUnread);
+  const setIncomingCall = useChatStore((s) => s.setIncomingCall);
 
   useEffect(() => {
     if (!userId) {
@@ -82,6 +85,14 @@ export function NotificationStreamProvider({
       // boards_updated: a board was deleted — refetch all boards lists
       () => {
         queryClient.invalidateQueries({ queryKey: ["boards"] });
+      },
+      // chat_unread: new message in a channel the user isn't currently viewing
+      (data: ChatUnreadEvent) => {
+        incrementUnread(data.channelId);
+      },
+      // chat_call: someone started a call in a channel
+      (data: ChatCallEvent) => {
+        setIncomingCall(data);
       },
     );
 

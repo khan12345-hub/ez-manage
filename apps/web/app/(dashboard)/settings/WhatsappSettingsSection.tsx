@@ -167,6 +167,7 @@ export function WhatsappSettingsSection() {
   const [initialized, setInitialized] = useState(false);
   const [otp, setOtp] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
 
   // Sync once
   if (data && !initialized) {
@@ -269,56 +270,95 @@ export function WhatsappSettingsSection() {
 
         {/* ── Phone input ── */}
         <div className="flex flex-col gap-2">
-          <label className="text-[13px] font-medium text-[#374151]">WhatsApp number</label>
-          <div className={cn(
-            "flex overflow-hidden rounded-xl border-2 bg-white transition-all duration-200",
-            "focus-within:border-[#25D366] focus-within:shadow-[0_0_0_3px_rgba(37,211,102,0.12)]",
-            phoneChanged ? "border-[#25D366]" : "border-[#E5E9F0]",
-          )}>
-            {/* Country selector */}
-            <div className="relative flex shrink-0 items-center border-r border-[#E5E9F0] bg-[#F8FAFC]">
-              <select
-                value={country.code + country.flag}
-                onChange={(e) => {
-                  const found = COUNTRIES.find((c) => c.code + c.flag === e.target.value);
-                  if (found) { setCountry(found); if (step !== "idle") setStep("idle"); }
-                }}
-                className="h-full appearance-none bg-transparent py-3 pl-3 pr-7 text-[14px] font-medium text-[#0F172A] outline-none"
+          <div className="flex items-center justify-between">
+            <label className="text-[13px] font-medium text-[#374151]">WhatsApp number</label>
+            {step === "verified" && !editingPhone && (
+              <button
+                type="button"
+                onClick={() => { setEditingPhone(true); setStep("idle"); }}
+                className="text-[12px] font-medium text-indigo-600 hover:underline"
               >
-                {COUNTRIES.map((c) => (
-                  <option key={c.flag + c.code} value={c.code + c.flag}>
-                    {c.flag} {c.code}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-[#94A3B8]" />
-            </div>
-
-            {/* Number input */}
-            <input
-              type="tel"
-              placeholder="3001234567"
-              value={localNumber}
-              onChange={(e) => {
-                setLocalNumber(e.target.value.replace(/\D/g, ""));
-                if (step !== "idle") setStep("idle");
-              }}
-              className="h-full flex-1 bg-transparent px-3.5 py-3 text-[14px] text-[#0F172A] placeholder-[#CBD5E1] outline-none"
-            />
+                Change number
+              </button>
+            )}
           </div>
-          <p className="text-[12px] text-[#94A3B8]">Numbers only, no spaces or dashes.</p>
-        </div>
 
-        {/* Save button */}
-        {phoneChanged && localNumber && (
-          <Button
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-            className="w-fit rounded-lg bg-[#25D366] text-white hover:bg-[#1EB858] h-9 px-5 text-[13px] font-medium shadow-none"
-          >
-            {saveMutation.isPending ? "Saving…" : "Save number"}
-          </Button>
-        )}
+          {/* Locked display when verified and not editing */}
+          {step === "verified" && !editingPhone ? (
+            <div className="flex items-center gap-3 rounded-xl border border-[#E5E9F0] bg-[#F8FAFC] px-4 py-3">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-[#25D366]" />
+              <span className="font-mono text-[14px] font-medium text-[#0F172A] tracking-wide">
+                {data?.whatsappPhone
+                  ? `+${data.whatsappPhone.replace(/^\+/, "")}`
+                  : "—"}
+              </span>
+              <span className="ml-auto rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold text-[#16A34A]">
+                Verified
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className={cn(
+                "flex overflow-hidden rounded-xl border-2 bg-white transition-all duration-200",
+                "focus-within:border-[#25D366] focus-within:shadow-[0_0_0_3px_rgba(37,211,102,0.12)]",
+                phoneChanged ? "border-[#25D366]" : "border-[#E5E9F0]",
+              )}>
+                {/* Country selector */}
+                <div className="relative flex shrink-0 items-center border-r border-[#E5E9F0] bg-[#F8FAFC]">
+                  <select
+                    value={country.code + country.flag}
+                    onChange={(e) => {
+                      const found = COUNTRIES.find((c) => c.code + c.flag === e.target.value);
+                      if (found) { setCountry(found); if (step !== "idle") setStep("idle"); }
+                    }}
+                    className="h-full appearance-none bg-transparent py-3 pl-3 pr-7 text-[14px] font-medium text-[#0F172A] outline-none"
+                  >
+                    {COUNTRIES.map((c) => (
+                      <option key={c.flag + c.code} value={c.code + c.flag}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-[#94A3B8]" />
+                </div>
+                {/* Number input */}
+                <input
+                  type="tel"
+                  placeholder="3001234567"
+                  value={localNumber}
+                  onChange={(e) => {
+                    setLocalNumber(e.target.value.replace(/\D/g, ""));
+                    if (step !== "idle") setStep("idle");
+                  }}
+                  className="h-full flex-1 bg-transparent px-3.5 py-3 text-[14px] text-[#0F172A] placeholder-[#CBD5E1] outline-none"
+                />
+              </div>
+              <p className="text-[12px] text-[#94A3B8]">Numbers only, no spaces or dashes.</p>
+
+              {/* Save / Cancel buttons */}
+              <div className="flex items-center gap-2">
+                {phoneChanged && localNumber && (
+                  <Button
+                    onClick={() => { saveMutation.mutate(); setEditingPhone(false); }}
+                    disabled={saveMutation.isPending}
+                    className="h-9 w-fit rounded-lg bg-[#25D366] px-5 text-[13px] font-medium text-white shadow-none hover:bg-[#1EB858]"
+                  >
+                    {saveMutation.isPending ? "Saving…" : "Save number"}
+                  </Button>
+                )}
+                {editingPhone && (
+                  <button
+                    type="button"
+                    onClick={() => { setEditingPhone(false); setInitialized(false); }}
+                    className="text-[13px] text-[#64748B] hover:text-[#0F172A]"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
         {/* ── Verify section ── */}
         {!phoneChanged && data?.whatsappPhone && step !== "verified" && (

@@ -11,6 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 
 import {
@@ -392,7 +393,7 @@ export function Notifications() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[420px] overflow-hidden rounded-xl border border-gray-200 bg-white p-0 shadow-2xl"
+        className="w-[420px] overflow-hidden rounded-xl border border-border bg-popover p-0 shadow-2xl"
       >
         {/* === Header === */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3">
@@ -505,7 +506,7 @@ export function Notifications() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search notifications by people, boards, and more..."
-              className="w-full rounded-md border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:border-[#0073EA] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0073EA]/20 transition"
+              className="w-full rounded-md border border-border bg-muted/50 py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-[#0073EA] focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0073EA]/20 transition"
             />
           </div>
 
@@ -528,19 +529,32 @@ export function Notifications() {
         {/* === Notification list === */}
         <div className="max-h-[400px] overflow-y-auto">
           {isLoading ? (
-            <div className="flex h-40 items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+            <div className="divide-y divide-gray-100">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex gap-3 px-4 py-3">
+                  <div className="flex w-2.5 shrink-0 items-start pt-2">
+                    <Skeleton className="h-2 w-2 rounded-full" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <Skeleton className="h-3.5 w-36" />
+                      <Skeleton className="h-3 w-10 shrink-0" />
+                    </div>
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             /* Empty state */
             <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
               <EmptyIllustration />
               <p className="mt-4 text-base font-bold text-gray-900">
-                You rock!
+                You're up to date!
               </p>
-              <p className="mt-1 text-sm text-[#d83a52]">
-                No new notifications, for now. Go ahead and take a
-                break.
+              <p className="mt-1 text-sm text-gray-400">
+                No new notifications. You're all caught up — keep up the great work.
               </p>
             </div>
           ) : (

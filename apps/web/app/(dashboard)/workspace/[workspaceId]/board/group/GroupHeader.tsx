@@ -24,6 +24,7 @@ interface Props {
   onToggleCollapse?: () => void;
   onAddGroup?: () => void;
   taskCount?: number;
+  completedTaskCount?: number;
 }
 
 export function GroupHeader({
@@ -33,6 +34,7 @@ export function GroupHeader({
   onToggleCollapse,
   onAddGroup,
   taskCount,
+  completedTaskCount,
 }: Props) {
   /*
    * IMPORTANT:
@@ -244,6 +246,20 @@ export function GroupHeader({
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             {taskCount} {taskCount === 1 ? "item" : "items"}
           </span>
+        )}
+
+        {completedTaskCount !== undefined && taskCount !== undefined && taskCount > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${Math.round((completedTaskCount / taskCount) * 100)}%` }}
+              />
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {completedTaskCount}/{taskCount} done
+            </span>
+          </div>
         )}
       </div>
 

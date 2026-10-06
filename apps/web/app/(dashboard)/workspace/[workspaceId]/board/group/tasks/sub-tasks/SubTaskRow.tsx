@@ -48,7 +48,7 @@ export const SubtaskRow = forwardRef<HTMLTableRowElement, Props>(
         />
 
         
-        <td className="w-10 px-2 sticky left-2 bg-white z-20">
+        <td className="w-10 px-2 sticky left-2 bg-background z-20">
           <div className="flex items-center justify-between">
             <button
               type="button"

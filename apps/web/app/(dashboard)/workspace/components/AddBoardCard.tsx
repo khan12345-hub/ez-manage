@@ -21,7 +21,7 @@ export function AddBoardCard({ workspaceId, onClick }: AddBoardCardProps) {
 
         <button
           onClick={() => setIsCreateBoardOpen(true)}
-          className="group flex h-36 w-36 items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white transition-all duration-200 hover:border-sky-400 hover:bg-sky-50 cursor-pointer"
+          className="group flex h-36 w-36 items-center justify-center rounded-2xl border border-dashed border-border bg-background transition-all duration-200 hover:border-sky-400 hover:bg-sky-50 cursor-pointer"
         >
           <Plus className="h-14 w-14 text-sky-200 transition-colors group-hover:text-sky-500" />
         </button>

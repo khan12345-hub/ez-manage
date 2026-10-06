@@ -96,6 +96,12 @@ export class WorkspaceService {
                 firstName: true,
                 lastName: true,
                 avatarUrl: true,
+                email: true,
+                phone: true,
+                lastLoginAt: true,
+                createdAt: true,
+                chatStatusEmoji: true,
+                chatStatusText: true,
               },
             },
           },
@@ -309,8 +315,204 @@ export class WorkspaceService {
       throw new ForbiddenException('Cannot remove the workspace owner.');
     }
 
-    return this.prisma.workspaceMember.delete({
-      where: { id: memberId },
+    const userId = target.userId;
+
+    return this.prisma.$transaction([
+      // Remove departing user from all DM channels in this workspace.
+      // Keeps the other participant's history intact while revoking access.
+      this.prisma.chatMember.deleteMany({
+        where: {
+          userId,
+          channel: {
+            workspaceId,
+            type: 'DIRECT',
+          },
+        },
+      }),
+      this.prisma.workspaceMember.delete({
+        where: { id: memberId },
+      }),
+    ]);
+  }
+
+  async getMemberTasks(workspaceId: number, userId: number) {
+    // Get all boards in this workspace
+    const boards = await this.prisma.board.findMany({
+      where: { workspaceId },
+      select: { id: true, name: true },
     });
+    const boardIds = boards.map((b) => b.id);
+    if (!boardIds.length) return [];
+
+    // Find all PERSON-type cells across workspace boards that mention this user
+    const personCells = await this.prisma.taskCell.findMany({
+      where: {
+        column: {
+          boardId: { in: boardIds },
+          type: 'PERSON',
+        },
+      },
+      select: { taskId: true, value: true },
+    });
+
+    // Filter in JS: cell value = { users: [{ id, firstName, lastName, ... }] }
+    const assignedTaskIds = [...new Set(
+      personCells
+        .filter((cell) => {
+          const v = cell.value as any;
+          return Array.isArray(v?.users) && v.users.some((u: any) => u.id === userId);
+        })
+        .map((cell) => cell.taskId),
+    )];
+
+    if (!assignedTaskIds.length) return [];
+
+    // Fetch full task data with all cells (for date + status + person)
+    const tasks = await this.prisma.task.findMany({
+      where: { id: { in: assignedTaskIds }, parentId: null },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        createdBy: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            board: { select: { id: true, name: true } },
+          },
+        },
+        cells: {
+          select: {
+            id: true,
+            value: true,
+            column: { select: { type: true, name: true, statusOptions: true } },
+          },
+        },
+      },
+    });
+
+    // Extract dueDate, status, and person data from cells
+    return tasks.map((task) => {
+      let dueDate: string | null = null;
+      let statusLabel: string | null = null;
+      let statusColor: string | null = null;
+      let statusCellId: number | null = null;
+      let dateCellId: number | null = null;
+      let personCellId: number | null = null;
+      let statusOptions: any[] = [];
+      let assignedUsers: any[] = [];
+
+      for (const cell of task.cells) {
+        if (cell.column.type === 'DATE' && cell.value) {
+          const v = cell.value as any;
+          dueDate = v?.value ?? v?.date ?? (typeof v === 'string' ? v : null);
+          dateCellId = cell.id;
+        }
+        if (cell.column.type === 'STATUS' && cell.value) {
+          const v = cell.value as any;
+          statusCellId = cell.id;
+          statusOptions = (cell.column.statusOptions as any[]) ?? [];
+          const optionId = v?.id ?? v?.statusOptionId;
+          if (optionId) {
+            const opt = statusOptions.find((o: any) => o.id === optionId);
+            if (opt) { statusLabel = opt.label; statusColor = opt.color; }
+          } else if (v?.label) {
+            statusLabel = v.label;
+            statusColor = v.color ?? null;
+          }
+        }
+        if (cell.column.type === 'PERSON' && cell.value) {
+          const v = cell.value as any;
+          personCellId = cell.id;
+          if (Array.isArray(v?.users)) assignedUsers = v.users;
+        }
+      }
+
+      return {
+        id: task.id,
+        name: task.name,
+        dueDate,
+        statusLabel,
+        statusColor,
+        statusCellId,
+        dateCellId,
+        personCellId,
+        statusOptions,
+        assignedUsers,
+        createdAt: task.createdAt,
+        createdBy: task.createdBy,
+        boardId: task.group.board.id,
+        boardName: task.group.board.name,
+        groupName: task.group.name,
+      };
+    });
+  }
+
+  async getMemberActivity(workspaceId: number, userId: number) {
+    const boards = await this.prisma.board.findMany({
+      where: { workspaceId },
+      select: { id: true },
+    });
+    const boardIds = boards.map((b) => b.id);
+    if (!boardIds.length) return [];
+
+    const [logs, comments] = await Promise.all([
+      this.prisma.activityLog.findMany({
+        where: { boardId: { in: boardIds }, userId, undoneAt: null },
+        select: {
+          id: true,
+          action: true,
+          entityType: true,
+          metadata: true,
+          createdAt: true,
+          task: {
+            select: {
+              id: true,
+              name: true,
+              group: { select: { name: true, board: { select: { id: true, name: true } } } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 40,
+      }),
+      this.prisma.taskComment.findMany({
+        where: {
+          userId,
+          parentId: null,
+          task: { group: { boardId: { in: boardIds } } },
+        },
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          task: {
+            select: {
+              id: true,
+              name: true,
+              group: { select: { name: true, board: { select: { id: true, name: true } } } },
+            },
+          },
+          mentions: {
+            select: {
+              user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+            },
+          },
+          reactions: { select: { emoji: true, userId: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 40,
+      }),
+    ]);
+
+    const items = [
+      ...comments.map((c) => ({ kind: 'comment' as const, ...c })),
+      ...logs.map((l) => ({ kind: 'log' as const, ...l })),
+    ]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 60);
+
+    return items;
   }
 }

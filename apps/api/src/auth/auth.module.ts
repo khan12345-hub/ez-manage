@@ -7,8 +7,11 @@ import { BoardAccessService } from 'src/boards/board-access.service';
 import { WorkspaceAccessService } from 'src/workspace/workspace-access.service';
 import { BoardPermissionGuard } from './guards/board-permission.guard';
 import { WorkspacePermissionGuard } from './guards/workspace-permission.guard';
+import { MailModule } from 'src/mail/mail.module';
+import { ChatModule } from 'src/chat/chat.module';
 
 @Module({
+  imports: [MailModule, ChatModule],
   controllers: [AuthController],
   providers: [
     AuthService,

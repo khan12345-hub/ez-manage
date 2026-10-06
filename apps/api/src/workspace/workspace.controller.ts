@@ -108,4 +108,20 @@ export class WorkspaceController {
   ) {
     return this.workspaceService.removeMember(workspaceId, memberId, user.id);
   }
+
+  @Get(':workspaceId/members/:userId/tasks')
+  getMemberTasks(
+    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.workspaceService.getMemberTasks(workspaceId, userId);
+  }
+
+  @Get(':workspaceId/members/:userId/activity')
+  getMemberActivity(
+    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.workspaceService.getMemberActivity(workspaceId, userId);
+  }
 }

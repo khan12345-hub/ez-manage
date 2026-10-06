@@ -35,13 +35,15 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { FileCommentsModule } from './file-comments/file-comments.module';
 import { GuestAccessModule } from './guest-access/guest-access.module';
 import { ChatModule } from './chat/chat.module';
+import { WorkspaceDocsModule } from './workspace-docs/workspace-docs.module';
+import { PushModule } from './push/push.module';
 
 @Module({
   imports: [
     ThrottlerModule.forRoot({
       throttlers: [
-        { name: 'default', ttl: 60_000, limit: 300 },   // 300 req/min globally
-        { name: 'auth',    ttl: 60_000, limit: 10  },   // 10 req/min on auth routes
+        { name: 'default', ttl: 60_000, limit: 1200 },  // 1200 req/min (chat + boards generate bursts)
+        { name: 'auth',    ttl: 60_000, limit: 10   },  // 10 req/min on auth routes
       ],
     }),
     BullModule.forRoot({
@@ -81,6 +83,8 @@ import { ChatModule } from './chat/chat.module';
     FileCommentsModule,
     GuestAccessModule,
     ChatModule,
+    WorkspaceDocsModule,
+    PushModule,
     ],
   controllers: [AppController],
   providers: [

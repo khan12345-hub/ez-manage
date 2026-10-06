@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+﻿import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import {
   NotificationEntityType,
   NotificationType,
@@ -48,7 +48,6 @@ export class NotificationsService {
 
     sendEmail?: boolean;
   }) {
-    console.log('[NotificationsService] notify() called', params);
 
     const {
       recipientId,
@@ -78,13 +77,11 @@ export class NotificationsService {
 
     // Both channels disabled — nothing to do
     if (!shouldSendInApp && !effectiveSendEmail) {
-      console.log('[NotificationsService] Both in-app and email disabled for user', recipientId);
       return null;
     }
 
     // In-app OFF but email ON — send email directly, skip DB notification
     if (!shouldSendInApp && effectiveSendEmail && this.mailService) {
-      console.log('[NotificationsService] In-app disabled, sending email-only for user', recipientId);
       try {
         const recipient = await this.prisma.user.findUnique({
           where: { id: recipientId },
@@ -112,7 +109,6 @@ export class NotificationsService {
      * If it has already been read, clear its eventKey so we can create a fresh notification.
      */
     if (eventKey) {
-      console.log('[NotificationsService] Checking eventKey:', eventKey);
 
       const existing = await this.prisma.notification.findUnique({
         where: {
@@ -120,22 +116,12 @@ export class NotificationsService {
         },
       });
 
-      console.log('[NotificationsService] Existing notification:', existing);
-
       if (existing) {
         if (!existing.isRead) {
-          console.log(
-            '[NotificationsService] Unread duplicate found. Returning existing.',
-            existing.id,
-          );
           return existing;
         }
 
         // Already read — clear the old eventKey so we can create a new notification
-        console.log(
-          '[NotificationsService] Read duplicate found. Clearing eventKey to allow re-notification.',
-          existing.id,
-        );
         await this.prisma.notification.update({
           where: { id: existing.id },
           data: { eventKey: null },
@@ -146,7 +132,6 @@ export class NotificationsService {
     /**
      * Create notification.
      */
-    console.log('[NotificationsService] Creating notification...');
 
     const notification = await this.prisma.notification.create({
       data: {
@@ -168,12 +153,7 @@ export class NotificationsService {
       },
     });
 
-    console.log(
-      '[NotificationsService] Notification successfully created:',
-      notification,
-    );
-
-    // ── WhatsApp hook ─────────────────────────────────────────────────────────
+    // â”€â”€ WhatsApp hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (this.whatsapp && entityId && metadata?.boardId) {
       void (async () => {
         try {
@@ -208,13 +188,13 @@ export class NotificationsService {
             ] as NotificationType[]).includes(type));
 
           if (allowed) {
-            await this.whatsapp.sendToUser(recipientId, `📋 ${title}\n${message}`).catch(() => {});
+            await this.whatsapp.sendToUser(recipientId, `ðŸ“‹ ${title}\n${message}`).catch(() => {});
             await this.whatsapp.updateSession(recipientId, entityId, Number(metadata.boardId)).catch(() => {});
           }
         } catch { /* non-critical */ }
       })();
     }
-    // ─────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Queue email.
@@ -224,7 +204,6 @@ export class NotificationsService {
      */
     if (effectiveSendEmail) {
       try {
-        console.log('[NotificationsService] Queueing email:', notification.id);
 
         await this.notificationsQueue.add(
           'send-email',
@@ -248,8 +227,6 @@ export class NotificationsService {
             removeOnFail: false,
           },
         );
-
-        console.log('[NotificationsService] Email queued:', notification.id);
       } catch (err) {
         console.error(
           '[NotificationsService] Failed to queue email (in-app notification still delivered):',

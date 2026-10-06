@@ -66,6 +66,14 @@ export class BoardsController {
     return this.boardsService.create(createBoardDto, user.id);
   }
 
+  @Get('recently-viewed')
+  getRecentlyViewed(
+    @Query('workspaceId', ParseIntPipe) workspaceId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.boardsService.getRecentlyViewedBoards(workspaceId, user.id);
+  }
+
   @Get(':boardId/import-progress')
   async getImportProgress(@Param('boardId', ParseIntPipe) boardId: number) {
     return this.fileImportService.getProgress(boardId);

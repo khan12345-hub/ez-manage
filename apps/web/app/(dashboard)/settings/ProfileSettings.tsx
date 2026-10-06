@@ -122,11 +122,11 @@ export function ProfileSettings() {
     form.formState.isDirty || avatar !== null;
 
   return (
-    <div className="relative w-full max-w-3xl">
+    <div className="relative w-full">
       <FormProvider {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="flex w-full flex-col gap-8 pb-28"
+          className="flex w-full flex-col gap-6 pb-28"
         >
           <ProfileSection
             user={user}

@@ -26,19 +26,14 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   );
   return (
     <QueryClientProvider client={queryClient}>
-      {/* <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-
-      > */}
-      <AuthProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <AuthProvider>
           <TooltipProvider>
             {children}
             <Toaster position="top-right" />
           </TooltipProvider>
-      </AuthProvider>
-      {/* </ThemeProvider> */}
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

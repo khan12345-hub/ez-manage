@@ -26,6 +26,10 @@ import {
 import { DateBulkEditor } from "./DateBulkEditor";
 import { TimelineBulkAction } from "./TimelineBulkEditor";
 import { CheckboxBulkAction } from "./CheckboxBulkEditor";
+import { TextBulkEditor } from "./TextBulkEditor";
+import { NumberBulkEditor } from "./NumberBulkEditor";
+import { PersonBulkEditor } from "./PersonBulkEditor";
+import { LinkBulkEditor } from "./LinkBulkEditor";
 import { getBoards } from "@/services/boards.api";
 import { getGroups } from "@/services/groups.api";
 
@@ -412,6 +416,35 @@ export function BulkActionToolbar({
               {selectedColumn?.type === "CHECKBOX" && (
                 <CheckboxBulkAction
                   column={selectedColumn}
+                  disabled={isBusy}
+                  onChange={setPendingValue}
+                />
+              )}
+
+              {(selectedColumn?.type === "TEXT" || selectedColumn?.type === "LONG_TEXT") && (
+                <TextBulkEditor
+                  disabled={isBusy}
+                  onChange={setPendingValue}
+                />
+              )}
+
+              {selectedColumn?.type === "NUMBER" && (
+                <NumberBulkEditor
+                  disabled={isBusy}
+                  onChange={setPendingValue}
+                />
+              )}
+
+              {selectedColumn?.type === "PERSON" && (
+                <PersonBulkEditor
+                  boardId={currentBoardId}
+                  disabled={isBusy}
+                  onChange={setPendingValue}
+                />
+              )}
+
+              {selectedColumn?.type === "LINK" && (
+                <LinkBulkEditor
                   disabled={isBusy}
                   onChange={setPendingValue}
                 />

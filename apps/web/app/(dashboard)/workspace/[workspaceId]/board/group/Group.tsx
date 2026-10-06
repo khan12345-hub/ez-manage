@@ -47,7 +47,33 @@ export function Group({
   });
 
   const hydratedGroup = group;
-  const rootTaskCount = (group.tasks ?? []).filter((t: any) => !t.parentId).length;
+  const rootTasks = (group.tasks ?? []).filter((t: any) => !t.parentId);
+  const rootTaskCount = rootTasks.length;
+
+  // Find a STATUS or CHECKBOX column to measure completion
+  const colList: any[] = Array.isArray(columns) ? columns : [];
+  const checkboxCol = colList.find((c: any) => c.type === "CHECKBOX");
+  const statusCol = colList.find((c: any) => c.type === "STATUS");
+
+  const completedTaskCount = rootTasks.filter((task: any) => {
+    if (checkboxCol) {
+      const cell = task.cells?.find((c: any) => c.columnId === checkboxCol.id);
+      const val = cell?.value;
+      if (val === true) return true;
+      if (val && typeof val === "object") {
+        if (val.checked === true) return true;
+        if (val.checked?.checked === true) return true;
+      }
+    }
+    if (statusCol) {
+      const cell = task.cells?.find((c: any) => c.columnId === statusCol.id);
+      const label: string = cell?.value?.label ?? "";
+      if (/done|complet|finish/i.test(label)) return true;
+    }
+    return false;
+  }).length;
+
+  const showProgress = (checkboxCol || statusCol) && rootTaskCount > 0;
 
   return (
     <>
@@ -58,6 +84,7 @@ export function Group({
           onToggleCollapse={() => setIsCollapsed((v) => !v)}
           onAddGroup={addNewGroup}
           taskCount={rootTaskCount}
+          completedTaskCount={showProgress ? completedTaskCount : undefined}
         />
 
         {!isCollapsed && (

@@ -126,7 +126,7 @@ export function GroupTable({
                 }}
               />
 
-              <th className="sticky left-1.5 z-30 w-[200px] bg-white sm:w-[450px]">
+              <th className="sticky left-1.5 z-30 w-[200px] bg-background sm:w-[450px]">
                 <div className="flex justify-end">
                   {!!selection && (
                     <Checkbox

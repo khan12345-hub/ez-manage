@@ -10,6 +10,7 @@ import { TaskMutationService } from './task-mutation.service';
 import { TaskBulkActionsService } from './tasks-bulk-actions.service';
 import { AutomationEngineService } from 'src/automations/automation-engine.service';
 import { NotificationsModule } from 'src/notifications/notifications.module';
+import { RecurringTasksService } from './recurring-tasks.service';
 
 @Module({
   imports: [NotificationsModule],
@@ -20,6 +21,7 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
     TaskQueryService,
     TaskMutationService,
     TaskBulkActionsService,
+    RecurringTasksService,
     PrismaService,
     BoardAccessService,
     ActivityLogsService,

@@ -227,6 +227,73 @@ export async function bulkDuplicateTasks(
   return data;
 }
 
+export interface AssignedTask {
+  id: number;
+  name: string;
+  dueDate: string | null;
+  statusLabel: string | null;
+  statusColor: string | null;
+  statusCellId: number | null;
+  dateCellId: number | null;
+  personCellId: number | null;
+  statusOptions: { id: string; label: string; color: string }[];
+  assignedUsers: { id: number; firstName: string; lastName: string; avatarUrl: string | null }[];
+  createdAt: string;
+  createdBy: { id: number; firstName: string; lastName: string; avatarUrl: string | null };
+  boardId: number;
+  boardName: string;
+  groupName: string;
+}
+
+export async function getMemberTasks(
+  workspaceId: number,
+  userId: number,
+): Promise<AssignedTask[]> {
+  const { data } = await api.get(
+    `/workspaces/${workspaceId}/members/${userId}/tasks`,
+  );
+  return data;
+}
+
+export interface ActivityItem {
+  kind: "comment" | "log";
+  id: number;
+  createdAt: string;
+  // log-only
+  action?: string;
+  entityType?: string;
+  metadata?: Record<string, any>;
+  // comment-only
+  content?: any;
+  mentions?: { user: { id: number; firstName: string; lastName: string; avatarUrl: string | null } }[];
+  reactions?: { emoji: string; userId: number }[];
+  // shared
+  task: {
+    id: number;
+    name: string;
+    group: { name: string; board: { id: number; name: string } };
+  } | null;
+}
+
+export async function getMemberActivity(
+  workspaceId: number,
+  userId: number,
+): Promise<ActivityItem[]> {
+  const { data } = await api.get(
+    `/workspaces/${workspaceId}/members/${userId}/activity`,
+  );
+  return data;
+}
+
+export async function updateTaskCell(
+  boardId: number,
+  cellId: number,
+  value: any,
+) {
+  const { data } = await api.patch(`/boards/${boardId}/cells/${cellId}`, { value });
+  return data;
+}
+
 export async function getGroupTasks(
   boardId: number,
   groupId: number,

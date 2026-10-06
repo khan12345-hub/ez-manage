@@ -33,6 +33,9 @@ export class AuthRepository {
         status: true,
         password: true,
         avatarUrl: true,
+        chatStatusEmoji: true,
+        chatStatusText: true,
+        chatStatusClearsAt: true,
         workspaceMemberships: {
           select: {
             role: true,

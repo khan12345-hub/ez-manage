@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, UserPlus } from "lucide-react";
+import { Menu, UserPlus, RefreshCw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { InviteModal } from "@/components/InviteModal";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { Searchbar } from "./Searchbar";
 import { Notifications } from "./Notifications";
 import UserProfile from "./UserProfile";
 import { ImportJobBadge } from "@/components/ImportJobBadge";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearchModal } from "@/app/(dashboard)/workspace/[workspaceId]/board/[boardId]/BoardHeader/GlobalSearch/GlobalSearchModal";
 
 interface TopNavbarProps {
@@ -17,10 +19,18 @@ interface TopNavbarProps {
 export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
   const openInviteModal = useInviteModalStore((state) => state.open);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const qc = useQueryClient();
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await qc.invalidateQueries();
+    setTimeout(() => setRefreshing(false), 800);
+  };
 
   return (
     <>
-      <header className="flex h-14 w-full shrink-0 items-center justify-between border-b border-gray-200 bg-white px-3 shadow-sm sm:h-16 sm:px-8">
+      <header className="flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-3 shadow-sm sm:h-16 sm:px-8">
         {/* Hamburger — mobile only */}
         <button
           type="button"
@@ -38,7 +48,25 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
 
         {/* Right controls */}
         <div className="flex items-center gap-2 sm:gap-3.5">
+          {/* System status + Refresh */}
+          <div className="hidden items-center gap-2 sm:flex">
+            <span className="flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              System Online
+            </span>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="Refresh all data"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              <span>{refreshing ? "Refreshing…" : "Refresh"}</span>
+            </button>
+          </div>
+
           <ImportJobBadge />
+          <ThemeToggle />
           <Notifications />
 
           <button

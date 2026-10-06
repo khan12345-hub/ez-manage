@@ -15,7 +15,6 @@ import { UpdateBoardDto } from './dto/update-board.dto';
 import {
   BoardColumnType,
   BoardMemberRole,
-  WorkspaceMemberRole,
   ActivityAction,
   ActivityEntityType,
 } from 'generated/prisma/enums';
@@ -342,55 +341,28 @@ export class BoardsService {
   }
 
   async findAll(workspaceId: number, userId: number) {
-    const workspaceMember = await this.prisma.workspaceMember.findUniqueOrThrow(
-      {
-        where: {
-          workspaceId_userId: {
-            workspaceId,
-            userId,
-          },
-        },
+    // Verify the user is a workspace member (throws if not)
+    await this.prisma.workspaceMember.findUniqueOrThrow({
+      where: { workspaceId_userId: { workspaceId, userId } },
+      select: { role: true },
+    });
 
-        select: {
-          role: true,
-        },
-      },
-    );
-
-    const isWorkspaceAdmin =
-      workspaceMember.role === WorkspaceMemberRole.OWNER ||
-      workspaceMember.role === WorkspaceMemberRole.ADMIN;
-
+    // Always filter by direct board membership — workspace role never bypasses
+    // this so invited board-admins only see the specific boards they joined.
     const boards = await this.prisma.board.findMany({
       where: {
         workspaceId,
-
-        ...(isWorkspaceAdmin
-          ? {}
-          : {
-              members: {
-                some: {
-                  userId,
-                },
-              },
-            }),
+        members: { some: { userId } },
       },
 
       include: {
         members: {
-          where: {
-            userId,
-          },
-
-          select: {
-            role: true,
-          },
+          where: { userId },
+          select: { role: true },
         },
       },
 
-      orderBy: {
-        createdAt: 'asc',
-      },
+      orderBy: { createdAt: 'asc' },
     });
 
     return boards.map((board) => ({
@@ -399,10 +371,7 @@ export class BoardsService {
       visibility: board.visibility,
       createdAt: board.createdAt,
       updatedAt: board.updatedAt,
-
-      role:
-        board.members[0]?.role ??
-        (isWorkspaceAdmin ? BoardMemberRole.OWNER : null),
+      role: board.members[0]?.role ?? null,
     }));
   }
 
@@ -543,6 +512,21 @@ export class BoardsService {
       create: { boardId, userId },
     });
     return { ok: true };
+  }
+
+  async getRecentlyViewedBoards(workspaceId: number, userId: number, limit = 5) {
+    const views = await this.prisma.boardView.findMany({
+      where: {
+        userId,
+        board: { workspaceId },
+      },
+      orderBy: { viewedAt: 'desc' },
+      take: limit,
+      include: {
+        board: { select: { id: true, name: true } },
+      },
+    });
+    return views.map((v) => ({ id: v.board.id, name: v.board.name, viewedAt: v.viewedAt }));
   }
 
   async getBoardViews(boardId: number) {

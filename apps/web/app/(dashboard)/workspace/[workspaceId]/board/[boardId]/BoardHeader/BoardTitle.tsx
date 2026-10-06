@@ -3,7 +3,6 @@
 import { ChevronDown, Bot, Bell, MoreHorizontal, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { InviteModal } from "@/components/InviteModal";
 import { useInviteModalStore } from "@/store/invite-modal";
 interface Props {
   board: any;
@@ -55,7 +54,6 @@ export function BoardTitle({ board }: Props) {
           </Button>
         </div>
       </div>
-      <InviteModal/>
     </>
   );
 }

@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'node:crypto';
 import { Request } from 'express-session';
 import { LoginDto } from './dto/login.dto';
 import { AuthRepository } from './auth.repository';
@@ -16,7 +17,10 @@ import { Response } from 'express';
 import { PrismaService } from 'prisma/prisma.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { SetupAccountDto } from './dto/setup-account.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { BoardMemberRole, WorkspaceMemberRole } from 'generated/prisma/enums';
+import { MailService } from 'src/mail/mail.service';
 
 function workspaceToBoardRole(role: WorkspaceMemberRole): BoardMemberRole {
   switch (role) {
@@ -32,6 +36,7 @@ export class AuthService {
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
   ) {}
 
   async login(dto: LoginDto, req: Request) {
@@ -253,6 +258,56 @@ export class AuthService {
     };
   }
 
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    // Always return success to prevent user enumeration
+    if (!user || user.status !== UserStatus.ACTIVE) {
+      return { message: 'If that email exists, a reset link has been sent.' };
+    }
+
+    const token = crypto.randomBytes(48).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordResetToken: token, passwordResetExpiresAt: expiresAt },
+    });
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
+    await this.mailService.sendMail({
+      to: email,
+      subject: 'Reset your password',
+      text: `Click the link to reset your password (expires in 1 hour): ${resetUrl}`,
+      html: `<p>Click the link below to reset your password. The link expires in <strong>1 hour</strong>.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>If you did not request a password reset, please ignore this email.</p>`,
+    });
+
+    return { message: 'If that email exists, a reset link has been sent.' };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.prisma.user.findFirst({
+      where: { passwordResetToken: dto.token },
+    });
+
+    if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
+      throw new BadRequestException('Reset link is invalid or has expired.');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+      },
+    });
+
+    return { message: 'Password has been reset successfully. You can now log in.' };
+  }
+
   async getInvitationDetails(token: string) {
     const invitation = await this.prisma.invitation.findUnique({
       where: { token },
@@ -274,5 +329,35 @@ export class AuthService {
       role: invitation.role,
       workspaceName: invitation.workspace.name,
     };
+  }
+
+  async setUserStatus(
+    userId: number,
+    emoji: string | null,
+    text: string | null,
+    clearsAt: Date | null,
+  ) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        chatStatusEmoji: emoji,
+        chatStatusText: text,
+        chatStatusClearsAt: clearsAt,
+      },
+      select: {
+        id: true,
+        chatStatusEmoji: true,
+        chatStatusText: true,
+        chatStatusClearsAt: true,
+      },
+    });
+  }
+
+  async getUserStatus(userId: number) {
+    const u = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, chatStatusEmoji: true, chatStatusText: true, chatStatusClearsAt: true },
+    });
+    return u;
   }
 }

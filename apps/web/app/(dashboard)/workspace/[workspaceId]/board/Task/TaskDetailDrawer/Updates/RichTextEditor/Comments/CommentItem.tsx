@@ -12,6 +12,7 @@ import { ReplyItem } from "./ReplyItem";
 import { CommentEditor } from "./CommentEditor";
 import { format } from "date-fns";
 import { CommentFilesGallery } from "./CommentFilesGallery";
+import { CommentContent } from "@/components/CommentContent";
 import { toggleCommentReaction, CommentReaction } from "@/services/comments.api";
 import { useMe } from "@/services/auth/auth.hooks";
 
@@ -74,9 +75,7 @@ export function CommentItem({
               }}
             />
           ) : (
-            <div className="prose prose-sm max-w-none app-comment-box">
-              <div dangerouslySetInnerHTML={{ __html: comment.content }} />
-            </div>
+            <CommentContent html={comment.content} />
           )}
 
           {comment.files?.length > 0 && (

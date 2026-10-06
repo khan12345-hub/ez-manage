@@ -46,6 +46,7 @@ export class TimeTrackingBoardController {
 
 // Global route — returns current user's active timer across all boards
 @Controller('time-entries')
+@UseGuards(SessionAuthGuard)
 export class TimeTrackingGlobalController {
   constructor(private readonly timeTrackingService: TimeTrackingService) {}
 
@@ -56,6 +57,7 @@ export class TimeTrackingGlobalController {
 }
 
 @Controller('boards/:boardId/tasks/:taskId/time-entries')
+@UseGuards(SessionAuthGuard)
 export class TimeTrackingController {
   constructor(private readonly timeTrackingService: TimeTrackingService) {}
 

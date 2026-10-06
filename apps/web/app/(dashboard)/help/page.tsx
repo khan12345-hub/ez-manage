@@ -151,7 +151,7 @@ function Wizard({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: 
         <div className={`grid gap-4 mt-5 ${isSuperAdmin ? "sm:grid-cols-2" : ""}`}>
           <button
             onClick={() => { setTrack("user"); setStep(0); }}
-            className="flex items-start gap-4 rounded-xl border-2 border-gray-100 bg-white p-4 text-left hover:border-indigo-300 hover:shadow-md transition-all duration-200 group"
+            className="flex items-start gap-4 rounded-xl border-2 border-border bg-background p-4 text-left hover:border-indigo-300 hover:shadow-md transition-all duration-200 group"
           >
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-teal-50 text-xl">
               👤
@@ -166,7 +166,7 @@ function Wizard({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: 
           {isSuperAdmin && (
             <button
               onClick={() => { setTrack("admin"); setStep(0); }}
-              className="flex items-start gap-4 rounded-xl border-2 border-gray-100 bg-white p-4 text-left hover:border-indigo-300 hover:shadow-md transition-all duration-200 group"
+              className="flex items-start gap-4 rounded-xl border-2 border-border bg-background p-4 text-left hover:border-indigo-300 hover:shadow-md transition-all duration-200 group"
             >
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-xl">
                 🛠️
@@ -186,9 +186,9 @@ function Wizard({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: 
   const isLast = step === steps.length - 1;
 
   return (
-    <div className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-indigo-200 bg-background dark:border-indigo-900/50 shadow-sm overflow-hidden">
       {/* Progress bar */}
-      <div className="h-1 bg-gray-100">
+      <div className="h-1 bg-muted">
         <div
           className="h-full bg-indigo-500 transition-all duration-300 ease-out"
           style={{ width: `${progress}%` }}
@@ -446,7 +446,7 @@ const ROLES = [
 function SectionCard({ section }: { section: typeof USER_SECTIONS[0] }) {
   const Icon = section.icon;
   return (
-    <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-border bg-background shadow-sm overflow-hidden">
       <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${section.bg}`}>
           <Icon className={`h-4 w-4 ${section.color}`} />
@@ -547,7 +547,7 @@ export default function HelpPage() {
         )}
 
         {/* Roles reference */}
-        <div className="mb-8 rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="mb-8 rounded-xl border border-border bg-background shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-900 text-sm">Workspace Roles</h2>
             <p className="text-xs text-gray-400 mt-0.5">Each workspace member has one of these roles</p>

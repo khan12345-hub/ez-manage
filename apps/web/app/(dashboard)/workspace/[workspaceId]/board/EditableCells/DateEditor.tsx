@@ -1,7 +1,8 @@
 "use client";
 
 import { format, isValid } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { AlertCircle, CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -46,9 +47,17 @@ export function DateEditor({
    * No Popover or Calendar is mounted.
    */
   if (!editing) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isOverdue = validDate ? validDate < today : false;
+
     return (
-      <div className="flex h-full w-full items-center px-2 text-sm">
-          <CalendarIcon className="mr-4 h-4 w-4" />
+      <div className={cn("flex h-full w-full items-center px-2 text-sm", isOverdue && "text-red-500")}>
+        {isOverdue ? (
+          <AlertCircle className="mr-2 h-4 w-4 shrink-0" />
+        ) : (
+          <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+        )}
         {validDate ? format(validDate, "dd MMM yyyy") : "-"}
       </div>
     );

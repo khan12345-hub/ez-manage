@@ -13,7 +13,7 @@ export function ChatPanel() {
   const activeChannel = allChannels.find((c) => c.id === activeChannelId) ?? null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex h-[520px] w-[720px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+    <div className="fixed bottom-4 right-4 z-50 flex h-[520px] w-[720px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
       <ChatSidebar onClose={toggleChat} />
       <div className="flex flex-1 flex-col overflow-hidden">
         {activeChannel ? (

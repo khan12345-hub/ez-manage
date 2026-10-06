@@ -69,6 +69,19 @@ export async function getBoards(workspaceId: number | undefined) {
   return response.data;
 }
 
+export interface RecentBoard {
+  id: number;
+  name: string;
+  viewedAt: string;
+}
+
+export async function getRecentlyViewedBoards(workspaceId: number): Promise<RecentBoard[]> {
+  const { data } = await api.get<RecentBoard[]>('/boards/recently-viewed', {
+    params: { workspaceId },
+  });
+  return data;
+}
+
 export interface BoardGroup {
   id: number;
   name: string;

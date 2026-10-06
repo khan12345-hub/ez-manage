@@ -5,11 +5,28 @@ export interface FileImportProgress {
   total: number;
 }
 
+export interface ChatUnreadEvent {
+  channelId: number;
+  senderName: string;
+  preview: string;
+}
+
+export interface ChatCallEvent {
+  channelId: number;
+  callType: "video" | "voice";
+  jitsiUrl: string;
+  workspaceId: number;
+  callerName: string;
+  channelName: string;
+}
+
 export function connectNotificationStream(
   onNotification: (notification: any) => void,
   onFileImportProgress?: (progress: FileImportProgress) => void,
   onBoardUpdate?: (data: { boardId: number }) => void,
   onBoardsUpdated?: (data: { workspaceId: number }) => void,
+  onChatUnread?: (data: ChatUnreadEvent) => void,
+  onChatCall?: (data: ChatCallEvent) => void,
 ) {
   const url = `${process.env.NEXT_PUBLIC_API_URL}/notifications/stream`;
 
@@ -31,6 +48,16 @@ export function connectNotificationStream(
   // A board was deleted — sidebar needs to refresh.
   eventSource.addEventListener("boards_updated", (event) => {
     try { onBoardsUpdated?.(JSON.parse(event.data)); } catch {}
+  });
+
+  // New chat message arrived for a channel the user isn't currently viewing.
+  eventSource.addEventListener("chat_unread", (event) => {
+    try { onChatUnread?.(JSON.parse(event.data)); } catch {}
+  });
+
+  // A call was started in a channel.
+  eventSource.addEventListener("chat_call", (event) => {
+    try { onChatCall?.(JSON.parse(event.data)); } catch {}
   });
 
   eventSource.onmessage = (event) => {

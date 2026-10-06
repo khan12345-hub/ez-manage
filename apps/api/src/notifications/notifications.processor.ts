@@ -18,6 +18,22 @@ export class NotificationsProcessor
     super();
   }
 
+  /**
+   * Skip BullMQ Worker startup outside production.
+   * Local dev uses Redis 3.x which doesn't support the Lua commands BullMQ requires.
+   * On production (Redis 5+) the worker starts normally.
+   */
+  async onModuleInit() {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[NotificationsProcessor] Skipping worker startup (Redis <5 local dev mode)');
+      return;
+    }
+    // Call WorkerHost.prototype.onModuleInit without using "super as any" (invalid cast)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parentProto = Object.getPrototypeOf(NotificationsProcessor.prototype) as any;
+    return parentProto.onModuleInit?.call(this);
+  }
+
   async process(
     job: Job,
   ) {

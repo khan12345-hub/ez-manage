@@ -1,71 +1,124 @@
 "use client";
 
-import { useAuth } from "@/providers/AuthProvider";
-import { ArrowUpRight, FolderKanban } from "lucide-react";
 import Link from "next/link";
+import { ArrowUpRight, LayoutDashboard } from "lucide-react";
+import { useAuth } from "@/providers/AuthProvider";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const workspaces = [
-  {
-    name: "Engineering",
-    boards: 8,
-    tasks: 42,
-    color: "bg-violet-500",
-  },
-  {
-    name: "Marketing",
-    boards: 4,
-    tasks: 18,
-    color: "bg-blue-500",
-  },
-  {
-    name: "Operations",
-    boards: 3,
-    tasks: 12,
-    color: "bg-emerald-500",
-  },
+const WORKSPACE_COLORS = [
+  "from-violet-500 to-indigo-600",
+  "from-blue-500 to-cyan-500",
+  "from-emerald-500 to-teal-500",
+  "from-amber-400 to-orange-500",
+  "from-rose-500 to-pink-500",
+  "from-fuchsia-500 to-purple-600",
 ];
+
+const ROLE_BADGE: Record<string, { label: string; cn: string }> = {
+  OWNER:  { label: "Owner",  cn: "bg-amber-100 text-amber-700 border-amber-200" },
+  ADMIN:  { label: "Admin",  cn: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  MEMBER: { label: "Member", cn: "bg-slate-100 text-slate-600 border-slate-200" },
+  VIEWER: { label: "Viewer", cn: "bg-gray-100 text-gray-500 border-gray-200" },
+  GUEST:  { label: "Guest",  cn: "bg-zinc-100 text-zinc-500 border-zinc-200" },
+};
 
 export function WorkspaceCards() {
   const { user } = useAuth();
+
+  if (!user) {
+    return (
+      <div className="space-y-3">
+        <div className="h-5 w-32 rounded bg-muted animate-pulse" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-36 rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const memberships: any[] = user.workspaceMemberships ?? [];
+
+  if (memberships.length === 0) {
+    return (
+      <section>
+        <SectionTitle title="My Workspaces" subtitle="Workspaces you belong to" />
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-background py-14 text-center">
+          <LayoutDashboard className="h-10 w-10 text-muted-foreground/40" />
+          <p className="mt-3 text-sm font-medium text-muted-foreground">No workspaces yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">Ask your admin to invite you to a workspace.</p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section>
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold">Workspaces</h2>
-        <p className="text-sm text-muted-foreground">
-          Workspaces you are a member of
-        </p>
-      </div>
+      <SectionTitle title="My Workspaces" subtitle="Workspaces you belong to" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {memberships.map((m: any, idx: number) => {
+          const ws = m.workspace;
+          const colorGradient = WORKSPACE_COLORS[idx % WORKSPACE_COLORS.length];
+          const roleBadge = ROLE_BADGE[m.role] ?? ROLE_BADGE.MEMBER;
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {user &&
-          user.workspaceMemberships.map((workspaceMembership: any) => (
-            <button
-              key={workspaceMembership.workspace.name}
-              className="group rounded-2xl border bg-background p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+          const boardsInWs = (user.boardMemberships ?? []).filter(
+            (bm: any) => bm.board?.workspace?.id === ws.id,
+          );
+
+          return (
+            <Link
+              key={ws.id}
+              href={`/workspace/${ws.id}`}
+              className="group relative overflow-hidden rounded-2xl border bg-background shadow-sm transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`flex size-11 items-center justify-center rounded-xl bg-primary`}
-                  >
-                    <FolderKanban className="size-5 text-white" />
-                  </div>
+              {/* Colored top accent */}
+              <div className={`h-1.5 w-full bg-gradient-to-r ${colorGradient}`} />
 
-                  <div>
-                    <Link href={`/workspace/${workspaceMembership.workspace.id}`}>
-                      <h3 className="font-semibold">
-                        {workspaceMembership.workspace.name}
-                      </h3>
-                    </Link>
-                    <p className="text-xs text-muted-foreground">Workspace</p>
+              <div className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    {/* Icon */}
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${colorGradient} text-white shadow-sm`}>
+                      <span className="text-base font-bold">
+                        {ws.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{ws.name}</p>
+                      {ws.description && (
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">{ws.description}</p>
+                      )}
+                    </div>
                   </div>
+                  <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
                 </div>
 
-                <ArrowUpRight className="size-4 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <LayoutDashboard className="h-3.5 w-3.5" />
+                    <span>
+                      {boardsInWs.length} {boardsInWs.length === 1 ? "board" : "boards"}
+                    </span>
+                  </div>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${roleBadge.cn}`}>
+                    {roleBadge.label}
+                  </span>
+                </div>
               </div>
-            </button>
-          ))}
+            </Link>
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="mb-4">
+      <h2 className="text-base font-semibold">{title}</h2>
+      <p className="text-sm text-muted-foreground">{subtitle}</p>
+    </div>
   );
 }

@@ -54,7 +54,7 @@ export function GlobalSearchModal({
       >
         <DialogTitle className="sr-only">Global Search</DialogTitle>
 
-        <div className="border-b bg-white px-6 py-5">
+        <div className="border-b bg-background px-6 py-5">
           <div className="relative">
             <Search className="absolute left-0 top-1/2 h-6 w-6 -translate-y-1/2 text-gray-400" />
 

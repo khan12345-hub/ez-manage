@@ -43,6 +43,14 @@ model User {
   whatsappLogs    WhatsappLog[]
   boardImportJobs BoardImportJob[]
 
+  // Chat presence status
+  chatStatusEmoji    String?   @map("chat_status_emoji")     @db.VarChar(10)
+  chatStatusText     String?   @map("chat_status_text")      @db.VarChar(100)
+  chatStatusClearsAt DateTime? @map("chat_status_clears_at") @db.Timestamptz(6)
+
+  passwordResetToken     String?   @map("password_reset_token") @db.VarChar(128)
+  passwordResetExpiresAt DateTime? @map("password_reset_expires_at") @db.Timestamptz(6)
+
   lastLoginAt          DateTime?         @map("last_login_at") @db.Timestamptz(6)
   createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -77,6 +85,7 @@ model User {
   timeEntries          TimeEntry[]        @relation("TimeEntryUser")
 
   boardDocuments       BoardDocument[]
+  workspaceDocs        WorkspaceDoc[]
 
   boardColumnPermissions BoardColumnPermission[]
 
@@ -85,10 +94,54 @@ model User {
   boardViews BoardView[]
 
   chatChannelsCreated ChatChannel[] @relation("ChatChannelCreator")
-  chatMemberships     ChatMember[]  @relation("ChatMemberUser")
-  chatMessages        ChatMessage[] @relation("ChatMessageAuthor")
+  chatMemberships        ChatMember[]  @relation("ChatMemberUser")
+  chatMessages           ChatMessage[] @relation("ChatMessageAuthor")
+  chatMessagesAssigned   ChatMessage[] @relation("ChatMessageAssignee")
+  chatMessagesAssignedBy ChatMessage[] @relation("ChatMessageAssigner")
+  chatReactions          ChatReaction[]
+
+  pushSubscriptions      PushSubscription[]
+  scheduledMessages      ScheduledMessage[]
+
+  inviteLinksCreated     WorkspaceInviteLink[] @relation("InviteLinkCreator")
 
   @@map("users")
+}
+
+model ScheduledMessage {
+  id          Int                    @id @default(autoincrement())
+  channelId   Int                    @map("channel_id")
+  userId      Int                    @map("user_id")
+  content     String                 @db.Text
+  scheduledAt DateTime               @map("scheduled_at") @db.Timestamptz(6)
+  sentAt      DateTime?              @map("sent_at") @db.Timestamptz(6)
+  status      ScheduledMessageStatus @default(PENDING)
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("scheduled_messages")
+}
+
+enum ScheduledMessageStatus {
+  PENDING
+  SENT
+  CANCELLED
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  endpoint  String   @db.Text
+  p256dh    String   @map("p256dh") @db.VarChar(500)
+  auth      String   @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@map("push_subscriptions")
 }
 
 model Session {
@@ -138,6 +191,22 @@ model InvitationBoard {
   @@unique([invitationId, boardId])
   @@map("invitation_boards")
 }
+
+model WorkspaceInviteLink {
+  id          Int                 @id @default(autoincrement())
+  token       String              @unique
+  workspaceId Int
+  role        WorkspaceMemberRole @default(MEMBER)
+  createdById Int
+  expiresAt   DateTime?
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("InviteLinkCreator", fields: [createdById], references: [id])
+
+  @@map("workspace_invite_links")
+}
+
 enum WorkspaceMemberRole {
   OWNER
   ADMIN
@@ -265,6 +334,26 @@ model Workspace {
   @@map("workspaces")
 
   chatChannels ChatChannel[]
+  docs         WorkspaceDoc[]
+  inviteLinks  WorkspaceInviteLink[]
+}
+
+model WorkspaceDoc {
+  id          Int      @id @default(autoincrement())
+  workspaceId Int
+  name        String
+  content     Json     @default("{}")
+  privacy     String   @default("MAIN")
+  emoji       String?
+
+  createdById Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation(fields: [createdById], references: [id])
+
+  @@index([workspaceId])
 }
 
 model Group {
@@ -1007,10 +1096,16 @@ enum ChatChannelType {
   DIRECT
 }
 
+enum ChatNotifPref {
+  ALL
+  MENTIONS
+  MUTED
+}
+
 model ChatChannel {
   id          Int             @id @default(autoincrement())
-  workspaceId Int
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId Int?            // null for global DMs
+  workspace   Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   name        String?
   description String?
   type        ChatChannelType @default(CHANNEL)
@@ -1019,36 +1114,73 @@ model ChatChannel {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
-  members  ChatMember[]
-  messages ChatMessage[]
+  members            ChatMember[]
+  messages           ChatMessage[]
+  scheduledMessages  ScheduledMessage[]
 
   @@index([workspaceId])
   @@map("chat_channels")
 }
 
 model ChatMember {
-  id         Int         @id @default(autoincrement())
+  id         Int            @id @default(autoincrement())
   channelId  Int
-  channel    ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channel    ChatChannel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
   userId     Int
-  user       User        @relation("ChatMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  user       User           @relation("ChatMemberUser", fields: [userId], references: [id], onDelete: Cascade)
   lastReadAt DateTime?
-  joinedAt   DateTime    @default(now())
+  notifPref  ChatNotifPref  @default(ALL)
+  joinedAt   DateTime       @default(now())
 
   @@unique([channelId, userId])
   @@map("chat_members")
 }
 
 model ChatMessage {
-  id        Int         @id @default(autoincrement())
-  channelId Int
-  channel   ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  userId    Int
-  user      User        @relation("ChatMessageAuthor", fields: [userId], references: [id], onDelete: Cascade)
-  content   String      @db.Text
-  createdAt DateTime    @default(now())
-  editedAt  DateTime?
+  id             Int          @id @default(autoincrement())
+  channelId      Int
+  channel        ChatChannel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User         @relation("ChatMessageAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  content        String       @db.Text
+  attachmentUrl  String?      @db.Text
+  attachmentType String?      @db.VarChar(50)
+  // Threading
+  parentId       Int?
+  parent         ChatMessage?  @relation("ChatReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies        ChatMessage[] @relation("ChatReplies")
+  // Assignment
+  assignedToId   Int?
+  assignedTo     User?        @relation("ChatMessageAssignee", fields: [assignedToId], references: [id])
+  assignedById   Int?
+  assignedBy     User?        @relation("ChatMessageAssigner", fields: [assignedById], references: [id])
+  // System / call messages
+  isSystemMessage Boolean  @default(false)
+  callType        String?  // "video" | "voice"
+  callStatus      String?  // "ongoing" | "ended" | "declined" | "missed"
+  callDuration    Int?     // seconds
+  isPinned        Boolean  @default(false)
+
+  createdAt      DateTime     @default(now())
+  editedAt       DateTime?
+
+  reactions      ChatReaction[]
 
   @@index([channelId, createdAt])
+  @@index([parentId])
   @@map("chat_messages")
+}
+
+model ChatReaction {
+  id        Int         @id @default(autoincrement())
+  messageId Int         @map("message_id")
+  userId    Int         @map("user_id")
+  emoji     String      @db.VarChar(10)
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@map("chat_reactions")
 }

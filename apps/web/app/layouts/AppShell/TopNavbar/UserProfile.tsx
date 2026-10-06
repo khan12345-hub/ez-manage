@@ -26,9 +26,9 @@ function MenuItem({ icon, label, onClick }: MenuItemProps) {
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] text-gray-700 transition-colors hover:bg-gray-100"
+      className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-muted"
     >
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center text-gray-500">
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
         {icon}
       </span>
 
@@ -81,11 +81,11 @@ export default function UserProfile() {
                 alt="Profile"
                 width={40}
                 height={40}
-                className="h-10 w-10 rounded-full border border-gray-200 object-cover"
+                className="h-10 w-10 rounded-full border border-border object-cover"
               />
             ) : (
-              <Avatar className="h-10 w-10 border border-gray-200">
-                <AvatarFallback className="bg-gray-100 text-sm font-medium text-gray-700">
+              <Avatar className="h-10 w-10 border border-border">
+                <AvatarFallback className="bg-muted text-sm font-medium text-foreground">
                   {initials || "U"}
                 </AvatarFallback>
               </Avatar>
@@ -96,10 +96,10 @@ export default function UserProfile() {
         <DropdownMenuContent
           align="end"
           sideOffset={8}
-          className="w-[300px] overflow-hidden rounded-xl border border-gray-200 bg-white p-0 shadow-xl"
+          className="w-[300px] overflow-hidden rounded-xl border border-border bg-popover p-0 shadow-xl"
         >
           {/* Header */}
-          <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3">
+          <div className="flex items-center gap-2.5 border-b border-border px-5 py-3">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
@@ -110,26 +110,26 @@ export default function UserProfile() {
               />
             ) : (
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-gray-100 text-xs font-medium">
+                <AvatarFallback className="bg-muted text-xs font-medium">
                   {initials || "U"}
                 </AvatarFallback>
               </Avatar>
             )}
 
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-gray-800">
+              <p className="truncate text-sm font-medium text-foreground">
                 {user?.firstName} {user?.lastName}
               </p>
 
               {user?.email && (
-                <p className="truncate text-xs text-gray-500">{user.email}</p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
               )}
             </div>
           </div>
 
           {/* Menu */}
           <div className="px-4 py-3">
-            <div className="mb-2 px-2 text-[12px] font-medium text-gray-500">
+            <div className="mb-2 px-2 text-[12px] font-medium text-muted-foreground">
               Account
             </div>
 

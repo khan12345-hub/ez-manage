@@ -120,9 +120,8 @@ export function CreateBoardModal({
       }),
 
     onSuccess: (board) => {
-      queryClient.invalidateQueries({
-        queryKey: ["boards", workspaceId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["boards", workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId] });
 
       toast.success(`Board "${board.name}" created.`);
 

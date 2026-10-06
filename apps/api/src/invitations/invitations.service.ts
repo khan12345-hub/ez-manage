@@ -323,39 +323,37 @@ export class InvitationsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const inv = await tx.invitation.findUnique({
-        where: { id },
+      // Mark invitation as used so it cannot be accepted a second time
+      await tx.invitation.update({
+        where: { id: invitation.id },
+        data: { acceptedAt: new Date() },
       });
-
-      if (!inv) {
-        throw new NotFoundException('Invitation not found');
-      }
 
       await tx.workspaceMember.upsert({
         where: {
           workspaceId_userId: {
-            workspaceId: inv.workspaceId,
+            workspaceId: invitation.workspaceId,
             userId: id,
           },
         },
         update: {},
         create: {
-          workspaceId: inv.workspaceId,
+          workspaceId: invitation.workspaceId,
           userId: id,
-          role: inv.role,
+          role: invitation.role,
         },
       });
 
-      const boardGroupAccess = inv.boardGroupAccess as BoardGroupAccessEntry[] | null;
+      const boardGroupAccess = invitation.boardGroupAccess as BoardGroupAccessEntry[] | null;
 
       const createdMembers = await tx.boardMember.createManyAndReturn({
-        data: inv.boardIds.map((boardId) => {
+        data: invitation.boardIds.map((boardId) => {
           const entry = boardGroupAccess?.find((g) => g.boardId === boardId);
           const accessAllGroups = !entry || entry.groupIds.length === 0;
           return {
             boardId,
             userId: id,
-            role: workspaceToBoardRole(inv.role),
+            role: workspaceToBoardRole(invitation.role),
             accessAllGroups,
           };
         }),
@@ -370,9 +368,81 @@ export class InvitationsService {
           entityType: ActivityEntityType.MEMBER,
           entityId: member.id,
           action: ActivityAction.MEMBER_ADDED,
-          metadata: { role: member.role, invitedById: inv.invitedById },
+          metadata: { role: member.role, invitedById: invitation.invitedById },
         }, tx);
       }
     });
+  }
+
+  async generateLink(
+    workspaceId: number,
+    role: WorkspaceMemberRole,
+    createdById: number,
+    expiresInDays?: number,
+  ) {
+    const token = randomUUID();
+    const expiresAt = expiresInDays
+      ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+      : null;
+
+    await this.prisma.workspaceInviteLink.create({
+      data: { token, workspaceId, role, createdById, expiresAt },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    return { token, url: `${frontendUrl}/join?token=${token}` };
+  }
+
+  async acceptLink(token: string, userId: number) {
+    const link = await this.prisma.workspaceInviteLink.findUnique({
+      where: { token },
+      include: { workspace: { select: { id: true, name: true } } },
+    });
+
+    if (!link) throw new NotFoundException('Invite link not found or already revoked.');
+    if (link.expiresAt && link.expiresAt < new Date()) {
+      throw new BadRequestException('This invite link has expired.');
+    }
+
+    await this.prisma.workspaceMember.upsert({
+      where: { workspaceId_userId: { workspaceId: link.workspaceId, userId } },
+      update: {},
+      create: { workspaceId: link.workspaceId, userId, role: link.role },
+    });
+
+    return { joined: true, workspace: link.workspace };
+  }
+
+  async getPendingInvitations(workspaceId: number) {
+    return this.prisma.invitation.findMany({
+      where: {
+        workspaceId,
+        status: InvitationStatus.PENDING,
+        acceptedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        expiresAt: true,
+        invitedBy: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async revokeInvitation(invitationId: number, requesterId: number) {
+    const inv = await this.prisma.invitation.findUnique({ where: { id: invitationId } });
+    if (!inv) throw new NotFoundException('Invitation not found');
+    if (inv.status !== InvitationStatus.PENDING) {
+      throw new BadRequestException('Only pending invitations can be revoked');
+    }
+    await this.prisma.invitation.update({
+      where: { id: invitationId },
+      data: { status: InvitationStatus.REVOKED },
+    });
+    return { revoked: true };
   }
 }

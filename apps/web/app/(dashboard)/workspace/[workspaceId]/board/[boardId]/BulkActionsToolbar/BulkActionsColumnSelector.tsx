@@ -12,7 +12,12 @@ export type SupportedBulkColumnType =
   | "STATUS"
   | "TIMELINE"
   | "DATE"
-  | "CHECKBOX";
+  | "CHECKBOX"
+  | "TEXT"
+  | "LONG_TEXT"
+  | "NUMBER"
+  | "PERSON"
+  | "LINK";
 
 export interface BulkActionColumn {
   id: number;
@@ -34,11 +39,28 @@ interface BulkColumnSelectorProps {
   onChange: (column: BulkActionColumn) => void;
 }
 
+const COLUMN_TYPE_LABELS: Record<SupportedBulkColumnType, string> = {
+  STATUS:    "status",
+  DATE:      "date",
+  TIMELINE:  "timeline",
+  CHECKBOX:  "checkbox",
+  TEXT:      "text",
+  LONG_TEXT: "long text",
+  NUMBER:    "number",
+  PERSON:    "person",
+  LINK:      "link",
+};
+
 const SUPPORTED_COLUMN_TYPES: SupportedBulkColumnType[] = [
   "STATUS",
-  "TIMELINE",
   "DATE",
+  "TIMELINE",
   "CHECKBOX",
+  "TEXT",
+  "LONG_TEXT",
+  "NUMBER",
+  "PERSON",
+  "LINK",
 ];
 
 export function BulkColumnSelector({
@@ -81,8 +103,8 @@ export function BulkColumnSelector({
             <div className="flex w-full items-center justify-between gap-3">
               <span>{column.name}</span>
 
-              <span className="text-xs capitalize text-muted-foreground">
-                {column.type.toLowerCase()}
+              <span className="text-xs text-muted-foreground">
+                {COLUMN_TYPE_LABELS[column.type as SupportedBulkColumnType] ?? column.type.toLowerCase()}
               </span>
             </div>
           </SelectItem>
