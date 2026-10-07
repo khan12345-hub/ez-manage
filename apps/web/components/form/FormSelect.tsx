@@ -64,7 +64,7 @@ export function FormSelect({
                 {...props}
               >
                 {placeholder && (
-                  <option value="" disabled className="text-muted-foreground bg-white dark:bg-zinc-900">
+                  <option value="" disabled className="text-muted-foreground bg-background">
                     {placeholder}
                   </option>
                 )}
@@ -72,7 +72,7 @@ export function FormSelect({
                   <option
                     key={valueType === 'number' ? opt.id : opt.value}
                     value={valueType === 'number' ? opt.id : opt.value}
-                    className={cn("bg-white dark:bg-zinc-900 text-foreground capitalize", optionClassName)}
+                    className={cn("bg-background text-foreground capitalize", optionClassName)}
                   >
                     {opt.name.toLowerCase()}
                   </option>

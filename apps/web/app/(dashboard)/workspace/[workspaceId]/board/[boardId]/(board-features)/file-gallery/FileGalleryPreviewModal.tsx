@@ -285,9 +285,9 @@ function DocxViewer({ src, onDownload }: { src: string; onDownload: () => void }
   if (error || !html) return <DownloadFallback type="document" onDownload={onDownload} />;
 
   return (
-    <div className="h-full w-full overflow-auto rounded-lg border bg-white shadow-inner">
+    <div className="h-full w-full overflow-auto rounded-lg border bg-background shadow-inner">
       <div
-        className="prose prose-sm max-w-none p-10 text-gray-800 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:p-1.5 [&_th]:border [&_th]:border-gray-300 [&_th]:bg-gray-100 [&_th]:p-1.5"
+        className="prose prose-sm max-w-none p-10 text-foreground [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1.5 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1.5"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>
@@ -330,7 +330,7 @@ function XlsxViewer({ src, onDownload }: { src: string; onDownload: () => void }
   const activeHtml = htmlMap[activeSheet] ?? "";
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded-lg border bg-white shadow-inner">
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-lg border bg-background shadow-inner">
       {/* Sheet tabs */}
       {sheets.length > 1 && (
         <div className="flex shrink-0 gap-0.5 overflow-x-auto border-b bg-muted/40 px-2 pt-2">
@@ -341,8 +341,8 @@ function XlsxViewer({ src, onDownload }: { src: string; onDownload: () => void }
               onClick={() => setActiveIdx(i)}
               className={`rounded-t-md border px-4 py-1.5 text-xs font-medium transition-colors ${
                 i === activeIdx
-                  ? "border-b-white bg-white text-primary"
-                  : "border-transparent text-muted-foreground hover:bg-background"
+                  ? "border-b-background bg-background text-primary"
+                  : "border-transparent text-muted-foreground hover:bg-muted"
               }`}
             >
               {name}

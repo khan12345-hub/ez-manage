@@ -7,6 +7,7 @@ interface Props {
   roomName: string;
   displayName: string;
   startWithVideoMuted?: boolean;
+  startedAt?: number; // Date.now() when callee joined — undefined = still ringing
   onClose: () => void;
 }
 
@@ -14,7 +15,7 @@ declare global {
   interface Window { JitsiMeetExternalAPI: any; }
 }
 
-const DEFAULT_HOST = "jitsi.member.fsf.org";
+const DEFAULT_HOST = "meet.ffmuc.net";
 
 // Build Jitsi URL that auto-joins (skips pre-join page)
 function buildJitsiUrl(host: string, roomName: string, displayName: string, videoMuted: boolean) {
@@ -29,12 +30,28 @@ function buildJitsiUrl(host: string, roomName: string, displayName: string, vide
   return `https://${host}/${roomName}#${params.toString().replace(/\+/g, "%20")}`;
 }
 
-export function JitsiCallModal({ roomName, displayName, startWithVideoMuted, onClose }: Props) {
+export function JitsiCallModal({ roomName, displayName, startWithVideoMuted, startedAt, onClose }: Props) {
   const host     = process.env.NEXT_PUBLIC_JITSI_HOST ?? DEFAULT_HOST;
   const jitsiUrl = buildJitsiUrl(host, roomName, displayName, startWithVideoMuted ?? false);
 
   const popupRef = useRef<Window | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  // Timer only runs after callee accepts (startedAt is set)
+  useEffect(() => {
+    if (startedAt == null) { setElapsed(0); return; }
+    setElapsed(Math.round((Date.now() - startedAt) / 1000));
+    const t = setInterval(
+      () => setElapsed(Math.round((Date.now() - startedAt) / 1000)),
+      1000,
+    );
+    return () => clearInterval(t);
+  }, [startedAt]);
+
+  const connected = startedAt != null;
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
+  const ss = String(elapsed % 60).padStart(2, "0");
 
   // ── Drag state for the "In Call" widget ───────────────────────────────────
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -73,7 +90,8 @@ export function JitsiCallModal({ roomName, displayName, startWithVideoMuted, onC
 
     return () => {
       clearInterval(poll);
-      // Don't close the popup — user may still be in the call
+      popupRef.current?.close();
+      popupRef.current = null; // prevent stale-ref false-positive in Strict Mode remount
     };
   }, []);
 
@@ -158,12 +176,24 @@ export function JitsiCallModal({ roomName, displayName, startWithVideoMuted, onC
       >
         <div className="flex items-center gap-2 text-gray-300">
           {startWithVideoMuted
-            ? <Phone className="h-4 w-4 text-green-400" />
-            : <Video className="h-4 w-4 text-green-400" />
+            ? <Phone className={`h-4 w-4 ${connected ? "text-green-400" : "text-yellow-400"}`} />
+            : <Video className={`h-4 w-4 ${connected ? "text-green-400" : "text-yellow-400"}`} />
           }
           <span className="text-sm font-semibold">
-            {startWithVideoMuted ? "Voice" : "Video"} Call Active
+            {connected
+              ? `${startWithVideoMuted ? "Voice" : "Video"} Call Active`
+              : "Calling…"
+            }
           </span>
+          {connected
+            ? <span className="ml-auto font-mono text-xs text-green-400 tabular-nums">{mm}:{ss}</span>
+            : <span className="ml-auto flex gap-[3px]">
+                {[0,150,300].map(d => (
+                  <span key={d} className="h-1 w-1 rounded-full bg-yellow-400"
+                    style={{ animation: `pulse 1s ease-in-out ${d}ms infinite` }} />
+                ))}
+              </span>
+          }
         </div>
 
         {!popupOpen && (

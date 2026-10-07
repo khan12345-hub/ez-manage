@@ -47,13 +47,13 @@ export default function AutomationBuilder({
   const boardId = Number(params.boardId);
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-background">
       {/* Header */}
       <div className="flex h-[48px] shrink-0 items-center border-b px-4">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1.5 text-[13px] text-slate-700 hover:text-blue-600"
+          className="flex items-center gap-1.5 text-[13px] text-foreground hover:text-blue-600"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -92,7 +92,7 @@ export default function AutomationBuilder({
           {/* Connector */}
           {hasTrigger && (
             <div className="relative ml-1.5 h-[52px]">
-              <div className="absolute left-[-7px] top-[18px] flex h-4 w-4 items-center justify-center rounded-full bg-white">
+              <div className="absolute left-[-7px] top-[18px] flex h-4 w-4 items-center justify-center rounded-full bg-background">
                 <ArrowDown className="h-6 w-6 text-emerald-500" />
               </div>
             </div>

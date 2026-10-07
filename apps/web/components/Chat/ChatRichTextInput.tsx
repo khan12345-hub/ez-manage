@@ -141,7 +141,7 @@ const ChatRichTextInput = forwardRef<ChatRichTextInputHandle, Props>(
           >
             <Code className="h-3 w-3" />
           </ToolBtn>
-          <span className="mx-1 h-3 w-px shrink-0 bg-slate-200" />
+          <span className="mx-1 h-3 w-px shrink-0 bg-border" />
           <ToolBtn
             active={!!editor?.isActive("bulletList")}
             title="Bullet list"
@@ -189,7 +189,7 @@ function ToolBtn({
       className={`rounded p-1 transition-colors ${
         active
           ? "bg-indigo-100 text-indigo-700"
-          : "text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >
       {children}

@@ -26,12 +26,12 @@ const valueClassName = `
   h-[38px]
   border-0
   border-b
-  border-slate-400
+  border-border
   bg-transparent
   px-0
   text-lg
   sm:text-[25px]
-  text-slate-400
+  text-muted-foreground
   outline-none
 `;
 
@@ -48,7 +48,7 @@ export default function AutomationActionRow({
 }: Props) {
   if (isPlaceholder) {
     return (
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-lg leading-snug text-slate-700 sm:text-[25px] sm:leading-[34px]">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-lg leading-snug text-foreground sm:text-[25px] sm:leading-[34px]">
         <span>and then</span>
         <AutomationActionPicker disabled={!hasTrigger} placeholder="do this" onSelect={onAdd} />
       </div>
@@ -61,7 +61,7 @@ export default function AutomationActionRow({
   );
 
   return (
-    <div className="group flex flex-wrap items-center gap-x-2 gap-y-2 text-lg leading-snug text-slate-700 sm:text-[25px] sm:leading-[34px]">
+    <div className="group flex flex-wrap items-center gap-x-2 gap-y-2 text-lg leading-snug text-foreground sm:text-[25px] sm:leading-[34px]">
       <span>Then</span>
 
       {/* ── Move to group ──────────────────────────────────────────── */}
@@ -78,7 +78,7 @@ export default function AutomationActionRow({
       {/* ── Notify member ─────────────────────────────────────────── */}
       {step.field === "notify" && (
         <>
-          <span className="text-slate-500">notify</span>
+          <span className="text-muted-foreground">notify</span>
           <select
             value={step.value}
             onChange={(e) => onUpdate(step.id, "value", e.target.value)}
@@ -94,7 +94,7 @@ export default function AutomationActionRow({
       {/* ── Change status ─────────────────────────────────────────── */}
       {step.field === "change-status" && (
         <>
-          <span className="text-slate-500">change</span>
+          <span className="text-muted-foreground">change</span>
           <AutomationStatusColumnPicker
             columns={statusColumns}
             value={step.columnId ?? ""}
@@ -104,7 +104,7 @@ export default function AutomationActionRow({
               onUpdate(step.id, "value", "");
             }}
           />
-          <span className="text-slate-500">to</span>
+          <span className="text-muted-foreground">to</span>
           <AutomationStatusOptionPicker
             options={selectedActionColumn?.statusOptions ?? []}
             value={step.value ?? ""}
@@ -118,7 +118,7 @@ export default function AutomationActionRow({
       {/* ── Create subitem ────────────────────────────────────────── */}
       {step.field === "create-subitem" && (
         <>
-          <span className="text-slate-500">create subitem</span>
+          <span className="text-muted-foreground">create subitem</span>
           <input
             type="text"
             value={step.value}
@@ -132,21 +132,21 @@ export default function AutomationActionRow({
       {/* ── Set date ──────────────────────────────────────────────── */}
       {step.field === "set-date" && (
         <>
-          <span className="text-slate-500">set</span>
+          <span className="text-muted-foreground">set</span>
           <AutomationStatusColumnPicker
             columns={dateColumns}
             value={step.columnId ?? ""}
             placeholder="date column"
             onSelect={(colId) => onUpdate(step.id, "columnId", String(colId))}
           />
-          <span className="text-slate-500">to today</span>
+          <span className="text-muted-foreground">to today</span>
         </>
       )}
 
       {/* ── Send WhatsApp ─────────────────────────────────────────── */}
       {step.field === "send-whatsapp" && (
         <>
-          <span className="text-slate-500">send WhatsApp to</span>
+          <span className="text-muted-foreground">send WhatsApp to</span>
           <select
             value={step.value}
             onChange={(e) => onUpdate(step.id, "value", e.target.value)}
@@ -179,7 +179,7 @@ export default function AutomationActionRow({
           <button
             type="button"
             onClick={() => onRemove(step.id)}
-            className="text-slate-500 hover:text-red-500"
+            className="text-muted-foreground hover:text-red-500"
           >
             <Trash2 className="h-4 w-4" />
           </button>

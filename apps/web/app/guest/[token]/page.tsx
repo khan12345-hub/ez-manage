@@ -88,7 +88,7 @@ export default function GuestBoardPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -96,8 +96,8 @@ export default function GuestBoardPage() {
   if (error || !board) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 text-center px-4">
-        <p className="text-lg font-semibold text-slate-700">Link not found</p>
-        <p className="text-sm text-slate-500">{error ?? "This guest link is unavailable."}</p>
+        <p className="text-lg font-semibold text-muted-foreground">Link not found</p>
+        <p className="text-sm text-muted-foreground">{error ?? "This guest link is unavailable."}</p>
       </div>
     );
   }
@@ -106,14 +106,14 @@ export default function GuestBoardPage() {
   const columnMap = new Map(board.columns.map((c) => [c.id, c]));
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-muted/50">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <header className="bg-background border-b border-border px-6 py-4 flex items-center justify-between">
         <div>
-          <p className="text-xs text-slate-400 mb-0.5 font-medium tracking-wide uppercase">Board</p>
-          <h1 className="text-xl font-semibold text-slate-800">{board.name}</h1>
+          <p className="text-xs text-muted-foreground mb-0.5 font-medium tracking-wide uppercase">Board</p>
+          <h1 className="text-xl font-semibold text-foreground">{board.name}</h1>
         </div>
-        <span className="text-xs text-slate-400">Powered by EzManage · View only</span>
+        <span className="text-xs text-muted-foreground">Powered by EzManage · View only</span>
       </header>
 
       {/* Board content */}
@@ -126,22 +126,22 @@ export default function GuestBoardPage() {
                 className="h-3 w-3 rounded-full shrink-0"
                 style={{ backgroundColor: group.color ?? "#94a3b8" }}
               />
-              <span className="text-sm font-semibold text-slate-700">{group.name}</span>
-              <span className="text-xs text-slate-400">({group.tasks.length})</span>
+              <span className="text-sm font-semibold text-muted-foreground">{group.name}</span>
+              <span className="text-xs text-muted-foreground">({group.tasks.length})</span>
             </div>
 
             {/* Tasks table */}
-            <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+            <div className="rounded-lg border border-border bg-background overflow-hidden">
               <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/70">
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-slate-500 w-64">
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left py-2 px-4 text-xs font-semibold text-muted-foreground w-64">
                       Task
                     </th>
                     {extraColumns.map((col) => (
                       <th
                         key={col.id}
-                        className="text-left py-2 px-4 text-xs font-semibold text-slate-500 min-w-[120px]"
+                        className="text-left py-2 px-4 text-xs font-semibold text-muted-foreground min-w-[120px]"
                       >
                         {col.name}
                       </th>
@@ -153,7 +153,7 @@ export default function GuestBoardPage() {
                     <tr>
                       <td
                         colSpan={1 + extraColumns.length}
-                        className="py-4 px-4 text-center text-xs text-slate-400"
+                        className="py-4 px-4 text-center text-xs text-muted-foreground"
                       >
                         No tasks
                       </td>
@@ -166,17 +166,17 @@ export default function GuestBoardPage() {
                           key={task.id}
                           className={
                             i !== group.tasks.length - 1
-                              ? "border-b border-slate-100"
+                              ? "border-b border-border"
                               : ""
                           }
                         >
-                          <td className="py-2 px-4 font-medium text-slate-800 text-sm">
+                          <td className="py-2 px-4 font-medium text-foreground text-sm">
                             {task.name}
                           </td>
                           {extraColumns.map((col) => {
                             const cell = cellMap.get(col.id);
                             return (
-                              <td key={col.id} className="py-2 px-4 text-slate-600 text-xs">
+                              <td key={col.id} className="py-2 px-4 text-muted-foreground text-xs">
                                 {cell?.value != null ? (
                                   <CellValue value={cell.value} column={col} />
                                 ) : (
@@ -196,11 +196,11 @@ export default function GuestBoardPage() {
         ))}
 
         {board.groups.length === 0 && (
-          <p className="text-center text-sm text-slate-400 py-16">This board has no groups yet.</p>
+          <p className="text-center text-sm text-muted-foreground py-16">This board has no groups yet.</p>
         )}
       </main>
 
-      <footer className="text-center py-6 text-xs text-slate-400">
+      <footer className="text-center py-6 text-xs text-muted-foreground">
         © EzManage · This is a read-only view shared by the board owner.
       </footer>
     </div>

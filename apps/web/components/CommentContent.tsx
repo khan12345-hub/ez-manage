@@ -111,7 +111,7 @@ export function CommentContent({ html }: Props) {
             onMouseLeave={() => {
               timerRef.current = setTimeout(() => setHover(null), 180);
             }}
-            className="w-60 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+            className="w-60 overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
           >
             {/* Header strip */}
             <div className="h-10 bg-gradient-to-r from-indigo-500 to-violet-500" />
@@ -134,36 +134,36 @@ export function CommentContent({ html }: Props) {
                 </Avatar>
                 <span
                   className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                    isOnline ? "bg-green-500" : "bg-slate-300"
+                    isOnline ? "bg-green-500" : "bg-muted-foreground/40"
                   }`}
                 />
               </div>
 
-              <p className="mt-2 text-sm font-semibold text-slate-800 leading-tight">
+              <p className="mt-2 text-sm font-semibold text-foreground leading-tight">
                 {mentionUser
                   ? `${mentionUser.user.firstName} ${mentionUser.user.lastName}`
                   : `User #${hover.userId}`}
               </p>
               <p
                 className={`text-[11px] font-medium ${
-                  isOnline ? "text-green-500" : "text-slate-400"
+                  isOnline ? "text-green-500" : "text-muted-foreground"
                 }`}
               >
                 {isOnline ? "● Online" : "○ Offline"}
               </p>
               {mentionUser?.user.email && (
-                <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                   {mentionUser.user.email}
                 </p>
               )}
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 border-t border-slate-100 p-2.5">
+            <div className="flex gap-2 border-t border-border p-2.5">
               <button
                 onClick={handleChat}
                 disabled={chatLoading}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-slate-100 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-60"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-muted py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-60"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
                 {chatLoading ? "…" : "Chat"}

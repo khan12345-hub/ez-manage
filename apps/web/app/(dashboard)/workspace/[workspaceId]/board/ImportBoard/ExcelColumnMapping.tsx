@@ -22,13 +22,13 @@ export function ExcelColumnMapping({
   onChange,
 }: ExcelColumnMappingProps) {
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-zinc-800">
-      <div className="border-b border-gray-200 px-4 py-3 dark:border-zinc-800">
+    <div className="rounded-xl border border-border">
+      <div className="border-b border-border px-4 py-3">
         <h3 className="text-sm font-semibold">
           Column Mapping
         </h3>
 
-        <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
+        <p className="mt-1 text-xs text-muted-foreground">
           Configure how each Excel column should be
           created on the board.
         </p>
@@ -40,19 +40,19 @@ export function ExcelColumnMapping({
             key={mapping.sourceColumn}
             className={`grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 px-4 py-3 ${
               index !== mappings.length - 1
-                ? "border-b border-gray-100 dark:border-zinc-800"
+                ? "border-b border-border"
                 : ""
             }`}
           >
             <div className="min-w-0">
               <p
-                className="truncate text-xs font-medium text-gray-900 dark:text-white"
+                className="truncate text-xs font-medium text-foreground"
                 title={mapping.sourceColumn}
               >
                 {mapping.sourceColumn}
               </p>
 
-              <p className="mt-0.5 text-[11px] text-gray-400">
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
                 Excel column
               </p>
             </div>
@@ -68,7 +68,7 @@ export function ExcelColumnMapping({
                   )
                 }
                 disabled={isImporting}
-                className="h-8 min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-2.5 text-xs outline-none focus:border-emerald-500 dark:border-zinc-800 dark:bg-zinc-950"
+                className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-xs outline-none focus:border-emerald-500"
                 placeholder="Board column"
               />
 
@@ -82,7 +82,7 @@ export function ExcelColumnMapping({
                   )
                 }
                 disabled={isImporting}
-                className="h-8 w-24 shrink-0 rounded-md border border-gray-200 bg-white px-2 text-xs outline-none focus:border-emerald-500 dark:border-zinc-800 dark:bg-zinc-950"
+                className="h-8 w-24 shrink-0 rounded-md border border-border bg-background px-2 text-xs outline-none focus:border-emerald-500"
               >
                 {COLUMN_TYPES.map((type) => (
                   <option

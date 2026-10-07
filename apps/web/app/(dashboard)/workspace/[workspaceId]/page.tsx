@@ -46,11 +46,11 @@ function formatUpdatedAt(value: string) {
 
 function RoleBadge({ role }: { role: string }) {
   const map: Record<string, { style: string; icon: React.ReactNode }> = {
-    OWNER:  { style: "bg-amber-50 text-amber-700 border border-amber-200",    icon: <Crown  className="h-3 w-3" /> },
-    ADMIN:  { style: "bg-indigo-50 text-indigo-700 border border-indigo-200", icon: <Shield className="h-3 w-3" /> },
-    MEMBER: { style: "bg-slate-50 text-slate-600 border border-slate-200",    icon: <Users  className="h-3 w-3" /> },
-    VIEWER: { style: "bg-green-50 text-green-700 border border-green-200",    icon: <span className="text-[10px]">👁️</span> },
-    GUEST:  { style: "bg-orange-50 text-orange-700 border border-orange-200", icon: <span className="text-[10px]">🔗</span> },
+    OWNER:  { style: "bg-amber-500/10 text-amber-700 border border-amber-200 dark:text-amber-400 dark:border-amber-900/50",   icon: <Crown  className="h-3 w-3" /> },
+    ADMIN:  { style: "bg-indigo-500/10 text-indigo-700 border border-indigo-200 dark:text-indigo-400 dark:border-indigo-900/50", icon: <Shield className="h-3 w-3" /> },
+    MEMBER: { style: "bg-muted text-muted-foreground border border-border",   icon: <Users  className="h-3 w-3" /> },
+    VIEWER: { style: "bg-green-500/10 text-green-700 border border-green-200 dark:text-green-400 dark:border-green-900/50",   icon: <span className="text-[10px]">👁️</span> },
+    GUEST:  { style: "bg-orange-500/10 text-orange-700 border border-orange-200 dark:text-orange-400 dark:border-orange-900/50", icon: <span className="text-[10px]">🔗</span> },
   };
   const cfg = map[role] ?? map.MEMBER;
   const label = role.charAt(0) + role.slice(1).toLowerCase();
@@ -144,18 +144,18 @@ function WorkspaceAISection({
 function ContentEmptyState({ onCreateBoard }: { onCreateBoard: () => void }) {
   return (
     <div>
-      <p className="mb-5 text-sm font-semibold text-slate-600">
+      <p className="mb-5 text-sm font-semibold text-muted-foreground">
         Nothing to show here, yet
       </p>
       <div className="flex flex-wrap gap-4">
         <button
           onClick={onCreateBoard}
-          className="group flex h-36 w-44 cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-white shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-md"
+          className="group flex h-28 w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-background shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-500/5 hover:shadow-md sm:h-36 sm:w-44"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 transition-all group-hover:border-indigo-300 group-hover:bg-indigo-100">
-            <Plus className="h-6 w-6 text-slate-300 group-hover:text-indigo-500" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 transition-all group-hover:border-indigo-300 group-hover:bg-indigo-500/10">
+            <Plus className="h-6 w-6 text-muted-foreground/40 group-hover:text-indigo-500" />
           </div>
-          <span className="text-xs font-semibold text-slate-500 group-hover:text-indigo-600">
+          <span className="text-xs font-semibold text-muted-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
             Add new board
           </span>
         </button>
@@ -201,8 +201,8 @@ function MessageButton({
       disabled={loading}
       className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-all group-hover:opacity-100 ${
         error
-          ? "border-red-200 bg-red-50 text-red-600 opacity-100"
-          : "border-slate-200 bg-white text-slate-600 opacity-0 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+          ? "border-red-200 bg-red-500/10 text-red-600 dark:text-red-400 dark:border-red-900/50 opacity-100"
+          : "border-border bg-background text-muted-foreground opacity-0 hover:border-indigo-200 hover:bg-indigo-500/10 hover:text-indigo-700 dark:hover:text-indigo-400"
       } disabled:cursor-wait disabled:opacity-60`}
     >
       <MessageSquare className="h-3.5 w-3.5" />
@@ -397,7 +397,7 @@ export default function WorkspacePage() {
     <div className="min-h-screen bg-muted/30">
       <WorkspaceCover image={workspace.cover} />
 
-      <div className="mx-auto max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-3 pb-10 sm:px-6 lg:px-8">
         <WorkspaceHeader
           workspace={workspace}
           membersDetail={workspaceDetail.members ?? []}
@@ -406,16 +406,16 @@ export default function WorkspacePage() {
         />
 
         {/* ── Tab bar ─────────────────────────────────────────────────────── */}
-        <div className="mt-5 border-b border-border">
-          <nav className="flex" aria-label="Workspace tabs">
+        <div className="mt-5 overflow-x-auto border-b border-border">
+          <nav className="flex min-w-max" aria-label="Workspace tabs">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors ${
+                className={`relative flex items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors sm:px-5 sm:py-3 ${
                   activeTab === tab.id
                     ? "text-indigo-600 after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-t-full after:bg-indigo-600"
-                    : "text-slate-500 hover:text-slate-800"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {tab.icon}
@@ -443,8 +443,8 @@ export default function WorkspacePage() {
             {recentBoards.length > 0 && (
               <div className="mt-6">
                 <div className="mb-3 flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-slate-400" />
-                  <h3 className="text-sm font-semibold text-slate-600">Recently Viewed</h3>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold text-muted-foreground">Recently Viewed</h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {recentBoards.map((b) => (
@@ -453,8 +453,8 @@ export default function WorkspacePage() {
                       href={`/workspace/${workspaceId}/board/${b.id}`}
                       className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm transition-all hover:bg-muted hover:shadow-md"
                     >
-                      <span className="font-medium text-slate-700">{b.name}</span>
-                      <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                      <span className="font-medium text-foreground">{b.name}</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                     </Link>
                   ))}
                 </div>
@@ -485,11 +485,11 @@ export default function WorkspacePage() {
               {/* Card header */}
               <div className="flex items-center justify-between border-b border-border bg-muted/30 px-6 py-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100">
-                    <Users className="h-3.5 w-3.5 text-indigo-600" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10">
+                    <Users className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  <span className="text-sm font-semibold text-slate-700">Users</span>
-                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                  <span className="text-sm font-semibold text-foreground">Users</span>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                     {workspaceDetail.members?.length ?? 0}
                   </span>
                 </div>
@@ -499,22 +499,22 @@ export default function WorkspacePage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    <tr className="border-b border-border">
+                      <th className="whitespace-nowrap px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sm:px-6">
                         Name &amp; title
                       </th>
-                      <th className="px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <th className="hidden whitespace-nowrap px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell sm:px-6">
                         Email
                       </th>
-                      <th className="px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                        Workspace role
+                      <th className="whitespace-nowrap px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sm:px-6">
+                        Role
                       </th>
-                      <th className="px-6 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <th className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sm:px-6">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody className="divide-y divide-border">
                     {workspaceDetail.members?.map((member) => {
                       const chatUser = chatUsers.find((u) => u.userId === member.userId);
                       const isOnline = onlineUserIds.has(member.userId);
@@ -522,11 +522,11 @@ export default function WorkspacePage() {
                       return (
                         <tr
                           key={member.id}
-                          className="group cursor-pointer transition-colors hover:bg-slate-50/60"
+                          className="group cursor-pointer transition-colors hover:bg-muted/40"
                           onClick={() => setSelectedMember(member)}
                         >
                           {/* Name */}
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3 sm:px-6 sm:py-4">
                             <div className="flex items-center gap-3">
                               <div className="relative shrink-0">
                                 <Avatar className="h-9 w-9">
@@ -537,29 +537,29 @@ export default function WorkspacePage() {
                                         : undefined
                                     }
                                   />
-                                  <AvatarFallback className="bg-indigo-100 text-xs font-bold text-indigo-700">
+                                  <AvatarFallback className="bg-indigo-500/10 text-xs font-bold text-indigo-700 dark:text-indigo-400">
                                     {member.user.firstName[0]}
                                     {member.user.lastName[0]}
                                   </AvatarFallback>
                                 </Avatar>
                                 <span
-                                  className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${
-                                    isOnline ? "bg-green-500" : "bg-slate-300"
+                                  className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${
+                                    isOnline ? "bg-green-500" : "bg-muted-foreground/30"
                                   }`}
                                 />
                               </div>
                               <div>
-                                <p className="text-sm font-semibold text-slate-800">
+                                <p className="text-sm font-semibold text-foreground">
                                   {member.user.firstName} {member.user.lastName}
                                   {isCurrentUser && (
-                                    <span className="ml-1.5 text-[10px] font-normal text-slate-400">
+                                    <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
                                       (you)
                                     </span>
                                   )}
                                 </p>
                                 <p
                                   className={`text-[11px] font-medium ${
-                                    isOnline ? "text-green-500" : "text-slate-400"
+                                    isOnline ? "text-green-500" : "text-muted-foreground"
                                   }`}
                                 >
                                   {isOnline ? "● Online" : "○ Offline"}
@@ -569,16 +569,16 @@ export default function WorkspacePage() {
                           </td>
 
                           {/* Email */}
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-slate-600">
+                          <td className="hidden px-4 py-4 sm:table-cell sm:px-6">
+                            <span className="text-sm text-muted-foreground">
                               {(chatUser?.user as any)?.email ?? (
-                                <span className="text-slate-300">—</span>
+                                <span className="text-muted-foreground/30">—</span>
                               )}
                             </span>
                           </td>
 
                           {/* Role */}
-                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-4 py-3 sm:px-6 sm:py-4" onClick={(e) => e.stopPropagation()}>
                             {editingMemberId === member.id ? (
                               <select
                                 defaultValue={member.role}
@@ -592,7 +592,7 @@ export default function WorkspacePage() {
                                     newRole: e.target.value,
                                   });
                                 }}
-                                className="rounded-lg border border-indigo-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                                className="rounded-lg border border-indigo-300 bg-background px-2 py-1.5 text-xs font-medium text-foreground shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                               >
                                 <option value="MEMBER">Member</option>
                                 <option value="ADMIN">Admin</option>
@@ -608,7 +608,7 @@ export default function WorkspacePage() {
                           </td>
 
                           {/* Actions */}
-                          <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-4 py-3 text-right sm:px-6 sm:py-4" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-2">
                               {!isCurrentUser && (
                                 <MessageButton
@@ -626,7 +626,7 @@ export default function WorkspacePage() {
                                 editingMemberId === member.id ? (
                                   <button
                                     onClick={() => setEditingMemberId(null)}
-                                    className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+                                    className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors"
                                   >
                                     Cancel
                                   </button>
@@ -634,7 +634,7 @@ export default function WorkspacePage() {
                                   <button
                                     disabled={!!editingMemberId}
                                     onClick={() => setEditingMemberId(member.id)}
-                                    className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50 hover:border-indigo-300 hover:text-indigo-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                   >
                                     Edit
                                   </button>
@@ -657,27 +657,27 @@ export default function WorkspacePage() {
       {pendingRole && (() => {
         const ROLE_INFO: Record<string, { badge: string; perms: string[]; restrictions: string[] }> = {
           OWNER: {
-            badge: "bg-amber-50 border-amber-200 text-amber-700",
+            badge: "bg-amber-500/10 border-amber-200 text-amber-700 dark:text-amber-400 dark:border-amber-900/50",
             perms: ["Full workspace control & settings", "Delete or transfer workspace", "Manage all members and roles", "Access every board and resource", "Override any permission"],
             restrictions: [],
           },
           ADMIN: {
-            badge: "bg-indigo-50 border-indigo-200 text-indigo-700",
+            badge: "bg-indigo-500/10 border-indigo-200 text-indigo-700 dark:text-indigo-400 dark:border-indigo-900/50",
             perms: ["Manage workspace members", "Change member roles (except Owner)", "Create, edit and delete boards", "Access all workspace settings"],
             restrictions: ["Cannot delete the workspace"],
           },
           MEMBER: {
-            badge: "bg-slate-50 border-slate-200 text-slate-700",
+            badge: "bg-muted border-border text-foreground",
             perms: ["View and work on assigned boards", "Comment and update tasks"],
             restrictions: ["Cannot manage workspace settings", "Cannot invite or remove members", "Cannot create boards"],
           },
           VIEWER: {
-            badge: "bg-green-50 border-green-200 text-green-700",
+            badge: "bg-green-500/10 border-green-200 text-green-700 dark:text-green-400 dark:border-green-900/50",
             perms: ["View boards and tasks", "Read comments and activity"],
             restrictions: ["Cannot edit or create tasks", "Cannot comment", "Cannot manage any settings"],
           },
           GUEST: {
-            badge: "bg-orange-50 border-orange-200 text-orange-700",
+            badge: "bg-orange-500/10 border-orange-200 text-orange-700 dark:text-orange-400 dark:border-orange-900/50",
             perms: ["Access only explicitly shared boards", "View and comment on assigned tasks"],
             restrictions: ["Cannot see other boards or members", "Cannot access workspace settings", "Cannot invite others"],
           },
@@ -688,13 +688,13 @@ export default function WorkspacePage() {
             <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={() => setPendingRole(null)} />
             <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
               {/* Header */}
-              <div className="border-b border-slate-100 px-6 py-4">
-                <h3 className="text-sm font-bold text-slate-800">Change Role</h3>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Update <span className="font-semibold text-slate-700">{pendingRole.memberName}</span>'s role from{" "}
-                  <span className="font-medium capitalize text-slate-600">{pendingRole.oldRole.toLowerCase()}</span>{" "}
+              <div className="border-b border-border px-6 py-4">
+                <h3 className="text-sm font-bold text-foreground">Change Role</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Update <span className="font-semibold text-foreground">{pendingRole.memberName}</span>'s role from{" "}
+                  <span className="font-medium capitalize text-muted-foreground">{pendingRole.oldRole.toLowerCase()}</span>{" "}
                   to{" "}
-                  <span className="font-semibold text-indigo-600 capitalize">{pendingRole.newRole.toLowerCase()}</span>
+                  <span className="font-semibold text-indigo-600 dark:text-indigo-400 capitalize">{pendingRole.newRole.toLowerCase()}</span>
                 </p>
               </div>
 
@@ -705,33 +705,33 @@ export default function WorkspacePage() {
                     <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${info.badge}`}>
                       {pendingRole.newRole}
                     </span>
-                    <span className="text-[11px] text-slate-400">permissions</span>
+                    <span className="text-[11px] text-muted-foreground">permissions</span>
                   </div>
                   <ul className="space-y-1.5">
                     {info.perms.map((p) => (
-                      <li key={p} className="flex items-start gap-2 text-xs text-slate-700">
+                      <li key={p} className="flex items-start gap-2 text-xs text-foreground">
                         <span className="mt-0.5 text-green-500 shrink-0">✓</span>
                         {p}
                       </li>
                     ))}
                     {info.restrictions.map((r) => (
-                      <li key={r} className="flex items-start gap-2 text-xs text-slate-500">
+                      <li key={r} className="flex items-start gap-2 text-xs text-muted-foreground">
                         <span className="mt-0.5 text-red-400 shrink-0">✕</span>
                         {r}
                       </li>
                     ))}
                   </ul>
                 </div>
-                <p className="mt-3 text-[11px] text-slate-400">
+                <p className="mt-3 text-[11px] text-muted-foreground">
                   This takes effect immediately. The affected user will see updated permissions after they refresh.
                 </p>
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
+              <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">
                 <button
                   onClick={() => setPendingRole(null)}
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
                 >
                   Cancel
                 </button>

@@ -32,7 +32,7 @@ export default function AutomationGallery({
     useState<AutomationTab>("create");
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-background">
       {/* Header */}
       <div className="flex min-h-[56px] shrink-0 items-center gap-3 border-b px-4 py-3 sm:h-[72px] sm:px-5">
         {/* Board / title */}

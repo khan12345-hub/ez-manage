@@ -79,7 +79,7 @@ export default function AutomationManageTab({
       {/* Toolbar */}
       <div className="flex h-[58px] shrink-0 items-center justify-between border-b px-4 sm:px-7">
         <div>
-          <h2 className="text-[15px] font-semibold text-slate-700">
+          <h2 className="text-[15px] font-semibold text-foreground">
             Your automations
           </h2>
 
@@ -137,7 +137,7 @@ function EmptyAutomations() {
         <Settings2 className="h-5 w-5 text-blue-600" />
       </div>
 
-      <h3 className="text-[15px] font-semibold text-slate-700">
+      <h3 className="text-[15px] font-semibold text-foreground">
         No automations yet
       </h3>
 

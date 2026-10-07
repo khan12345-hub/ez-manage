@@ -69,7 +69,7 @@ const ROLE_INFO: Record<string, { border: string; bg: string; iconBg: string; te
     restrictions: ["Cannot delete the workspace"],
   },
   MEMBER: {
-    border: "border-slate-200", bg: "bg-slate-50", iconBg: "bg-slate-100", textColor: "text-slate-700",
+    border: "border-border", bg: "bg-muted/50", iconBg: "bg-muted", textColor: "text-foreground",
     icon: "👤", title: "Member",
     desc: "Standard collaborator with access to assigned boards only.",
     perms: ["View and work on assigned boards", "Comment and update tasks"],
@@ -124,75 +124,50 @@ function BoardGroupSelector({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
+    <div className="rounded-lg border border-border bg-muted/40 overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
         className="flex w-full items-center justify-between px-3 py-2 text-left"
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-700 truncate">
+          <span className="text-xs font-medium text-foreground truncate">
             {boardName}
           </span>
-          <span className="rounded-full bg-white border border-gray-200 px-2 py-0.5 text-xs text-gray-500">
+          <span className="rounded-full bg-background border border-border px-2 py-0.5 text-xs text-muted-foreground">
             {isAll ? "All groups" : `${selectedIds.length} group${selectedIds.length !== 1 ? "s" : ""}`}
           </span>
         </div>
         {expanded ? (
-          <ChevronUp className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+          <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         ) : (
-          <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         )}
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-200 bg-white px-3 py-2 space-y-1.5">
+        <div className="border-t border-border bg-background px-3 py-2 space-y-1.5">
           {isLoading ? (
-            <p className="text-xs text-gray-400 py-1">Loading groups...</p>
+            <p className="text-xs text-muted-foreground py-1">Loading groups...</p>
           ) : groups.length === 0 ? (
-            <p className="text-xs text-gray-400 py-1">No groups found</p>
+            <p className="text-xs text-muted-foreground py-1">No groups found</p>
           ) : (
             <>
-              {/* All groups option */}
               <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                <input
-                  type="radio"
-                  checked={isAll}
-                  onChange={() => onChange("all")}
-                  className="accent-indigo-600"
-                />
-                <span className="text-xs text-gray-700 font-medium">All groups</span>
+                <input type="radio" checked={isAll} onChange={() => onChange("all")} className="accent-indigo-600" />
+                <span className="text-xs text-foreground font-medium">All groups</span>
               </label>
-
-              {/* Specific groups */}
               <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                <input
-                  type="radio"
-                  checked={!isAll}
-                  onChange={() => onChange([])}
-                  className="accent-indigo-600"
-                />
-                <span className="text-xs text-gray-700 font-medium">Specific groups</span>
+                <input type="radio" checked={!isAll} onChange={() => onChange([])} className="accent-indigo-600" />
+                <span className="text-xs text-foreground font-medium">Specific groups</span>
               </label>
-
               {!isAll && (
                 <div className="pl-5 mt-1 space-y-1">
                   {groups.map((group) => (
-                    <label
-                      key={group.id}
-                      className="flex items-center gap-2 cursor-pointer py-0.5"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(group.id)}
-                        onChange={() => toggleGroup(group.id)}
-                        className="accent-indigo-600"
-                      />
-                      <span
-                        className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: group.color || "#94a3b8" }}
-                      />
-                      <span className="text-xs text-gray-600 truncate">{group.name}</span>
+                    <label key={group.id} className="flex items-center gap-2 cursor-pointer py-0.5">
+                      <input type="checkbox" checked={selectedIds.includes(group.id)} onChange={() => toggleGroup(group.id)} className="accent-indigo-600" />
+                      <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: group.color || "#94a3b8" }} />
+                      <span className="text-xs text-muted-foreground truncate">{group.name}</span>
                     </label>
                   ))}
                 </div>
@@ -334,9 +309,9 @@ export function InviteModal() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl p-6! transition-all animate-in zoom-in-95 duration-200 dark:border-zinc-800 dark:bg-zinc-950 max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-background shadow-2xl p-6! transition-all animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
         role="dialog"
         aria-modal="true"
       >
@@ -346,7 +321,7 @@ export function InviteModal() {
         {/* Close Button */}
         <button
           onClick={close}
-          className="absolute top-4 right-4 rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300 transition-colors"
+          className="absolute top-4 right-4 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           aria-label="Close modal"
         >
           <X className="h-4.5 w-4.5" />
@@ -358,34 +333,35 @@ export function InviteModal() {
             <UserPlus className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-1.5">
               Invite Team Member
               <Sparkles className="h-4 w-4 text-amber-500 fill-amber-500 animate-pulse" />
             </h2>
-            <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Add user to work together on your workspaces and boards.
             </p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-5 rounded-lg bg-gray-100 p-1">
+        <div className="overflow-x-auto mb-5">
+        <div className="flex gap-1 min-w-max rounded-lg bg-muted p-1">
           <button
             type="button"
             onClick={() => setActiveTab("invite")}
-            className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${activeTab === "invite" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${activeTab === "invite" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             Invite Member
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("pending")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${activeTab === "pending" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${activeTab === "pending" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             <Clock className="h-3 w-3" />
             Pending
             {pendingInvitations.length > 0 && (
-              <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
+              <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
                 {pendingInvitations.length}
               </span>
             )}
@@ -393,36 +369,37 @@ export function InviteModal() {
           <button
             type="button"
             onClick={() => setActiveTab("link")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${activeTab === "link" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${activeTab === "link" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             <Link2 className="h-3 w-3" />
             Share Link
           </button>
         </div>
+        </div>
 
         {/* Pending Invitations View */}
         {activeTab === "pending" && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
             {!selectedWorkspaceId ? (
-              <p className="text-center text-xs text-gray-400 py-6">Select a workspace to view pending invitations</p>
+              <p className="text-center text-xs text-muted-foreground py-6">Select a workspace to view pending invitations</p>
             ) : pendingInvitations.length === 0 ? (
-              <p className="text-center text-xs text-gray-400 py-6">No pending invitations</p>
+              <p className="text-center text-xs text-muted-foreground py-6">No pending invitations</p>
             ) : (
               pendingInvitations.map((inv) => (
-                <div key={inv.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                <div key={inv.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2.5">
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-medium text-gray-800">{inv.email}</p>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="truncate text-xs font-medium text-foreground">{inv.email}</p>
+                    <p className="text-[10px] text-muted-foreground">
                       {inv.role} · Invited by {inv.invitedBy.firstName} {inv.invitedBy.lastName}
                     </p>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="text-[10px] text-muted-foreground">
                       Expires {new Date(inv.expiresAt).toLocaleDateString()}
                     </p>
                   </div>
                   <button
                     onClick={() => handleRevoke(inv.id)}
                     disabled={revoking === inv.id}
-                    className="ml-3 rounded p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                    className="ml-3 rounded p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 disabled:opacity-40"
                     title="Revoke invitation"
                   >
                     {revoking === inv.id ? "…" : <Trash2 className="h-3.5 w-3.5" />}
@@ -437,18 +414,18 @@ export function InviteModal() {
         {activeTab === "link" && (
           <div className="flex flex-col gap-4">
             {!selectedWorkspaceId ? (
-              <p className="text-center text-xs text-gray-400 py-6">
+              <p className="text-center text-xs text-muted-foreground py-6">
                 Select a workspace on the Invite tab first, then come back here to generate a link.
               </p>
             ) : (
               <>
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
                   <div className="flex-1">
-                    <label className="block mb-1 text-xs font-medium text-gray-600">Role</label>
+                    <label className="block mb-1 text-xs font-medium text-muted-foreground">Role</label>
                     <select
                       value={linkRole}
                       onChange={(e) => setLinkRole(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-300"
                     >
                       <option value="MEMBER">Member</option>
                       <option value="ADMIN">Admin</option>
@@ -457,11 +434,11 @@ export function InviteModal() {
                     </select>
                   </div>
                   <div className="flex-1">
-                    <label className="block mb-1 text-xs font-medium text-gray-600">Expires in</label>
+                    <label className="block mb-1 text-xs font-medium text-muted-foreground">Expires in</label>
                     <select
                       value={linkExpiry ?? ""}
                       onChange={(e) => setLinkExpiry(e.target.value ? Number(e.target.value) : undefined)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-300"
                     >
                       <option value="">Never</option>
                       <option value="1">1 day</option>
@@ -472,10 +449,10 @@ export function InviteModal() {
                 </div>
 
                 {generatedLink ? (
-                  <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-                    <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-indigo-500">Shareable link</p>
+                  <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900/50 dark:bg-indigo-950/30">
+                    <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-indigo-500 dark:text-indigo-400">Shareable link</p>
                     <div className="flex items-center gap-2">
-                      <p className="flex-1 truncate rounded bg-white px-2 py-1.5 text-xs font-mono text-gray-700 border border-indigo-100">
+                      <p className="flex-1 truncate rounded bg-background px-2 py-1.5 text-xs font-mono text-foreground border border-border">
                         {generatedLink}
                       </p>
                       <button
@@ -596,7 +573,7 @@ export function InviteModal() {
             {/* Group access per board */}
             {selectedBoardObjects.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs font-medium text-gray-600">
+                <p className="text-xs font-medium text-muted-foreground">
                   Group Access
                 </p>
                 {selectedBoardObjects.map((board: any) => (
@@ -642,7 +619,7 @@ export function InviteModal() {
                     {info.restrictions.map((r) => (
                       <div key={r} className="flex items-start gap-1.5">
                         <span className="mt-0.5 text-red-400 shrink-0 text-[10px]">✕</span>
-                        <span className="text-[11px] text-gray-500">{r}</span>
+                        <span className="text-[11px] text-muted-foreground">{r}</span>
                       </div>
                     ))}
                   </div>
@@ -651,12 +628,12 @@ export function InviteModal() {
             })()}
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-gray-100 dark:border-zinc-800">
+            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-border">
               <Button
                 type="button"
                 variant="outline"
                 onClick={close}
-                className="h-9.5 px-4 font-semibold text-xs border-gray-200 hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                className="h-9.5 px-4 font-semibold text-xs border-border hover:bg-muted"
               >
                 Cancel
               </Button>

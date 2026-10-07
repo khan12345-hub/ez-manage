@@ -83,7 +83,7 @@ function parseMentionNodes(
           key={`mention-${m.index}`}
           type="button"
           onClick={(e) => { e.stopPropagation(); onMentionClick(uid); }}
-          className="rounded px-0.5 font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 cursor-pointer leading-tight"
+          className="rounded px-0.5 font-semibold text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 cursor-pointer leading-tight"
         >
           @{m[1]}
         </button>,
@@ -99,7 +99,7 @@ function injectMentionSpans(html: string): string {
   return html.replace(
     /@([A-Za-z]+(?:\s[A-Za-z]+)?)/g,
     (_match, name) =>
-      `<span data-mention-name="${name}" class="rounded px-0.5 font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 cursor-pointer">@${name}</span>`,
+      `<span data-mention-name="${name}" class="rounded px-0.5 font-semibold text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 cursor-pointer">@${name}</span>`,
   );
 }
 
@@ -169,7 +169,7 @@ function LinkPreviewCard({ preview }: { preview: LinkPreview }) {
       href={preview.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-2 flex max-w-sm overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-white transition-colors no-underline"
+      className="mt-2 flex max-w-sm overflow-hidden rounded-xl border border-border bg-muted/50 hover:bg-background transition-colors no-underline"
       onClick={(e) => e.stopPropagation()}
     >
       {preview.image && (
@@ -181,12 +181,12 @@ function LinkPreviewCard({ preview }: { preview: LinkPreview }) {
         />
       )}
       <div className="min-w-0 flex flex-col justify-center gap-0.5 p-2.5">
-        <p className="text-[10px] font-medium text-slate-400 truncate">{preview.siteName || host}</p>
+        <p className="text-[10px] font-medium text-muted-foreground truncate">{preview.siteName || host}</p>
         {preview.title && (
-          <p className="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug">{preview.title}</p>
+          <p className="text-xs font-semibold text-foreground line-clamp-2 leading-snug">{preview.title}</p>
         )}
         {preview.description && (
-          <p className="text-[11px] text-slate-500 line-clamp-2 leading-snug">{preview.description}</p>
+          <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug">{preview.description}</p>
         )}
       </div>
     </a>
@@ -337,6 +337,9 @@ export default function ChatPage() {
 
   // Link previews: keyed by URL — null = fetched but empty / loading
   const [linkPreviews, setLinkPreviews] = useState<Record<string, LinkPreview | "loading">>({});
+
+  // Mobile sidebar toggle
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const firstUnreadRef = useRef<HTMLDivElement>(null);
@@ -494,6 +497,7 @@ export default function ChatPage() {
           }
         }
       })
+      .catch(() => {})
       .finally(() => setLoadingMessages(false));
 
     clearUnread(activeChannelId);
@@ -562,6 +566,7 @@ export default function ChatPage() {
     setInput("");       // reset Send button — editor loads draft via its own useEffect
     setMentionQuery(null);
     setShowNotifMenu(false);
+    setMobileSidebarOpen(false);
   };
 
   // Close notif menu when clicking outside
@@ -663,6 +668,7 @@ export default function ChatPage() {
     setDMs(updatedDMs);
     setActiveChannel(dm.id);
     setShowDMPicker(false);
+    setMobileSidebarOpen(false);
   };
 
   const handleSend = () => {
@@ -848,7 +854,7 @@ export default function ChatPage() {
     ? `${(otherMember as any)?.user?.firstName ?? ""} ${(otherMember as any)?.user?.lastName ?? ""}`.trim()
     : activeChannel?.name ?? "";
   const jitsiRoom = `ezmanage${workspaceId}x${activeChannelId}`;
-  const jitsiHost = process.env.NEXT_PUBLIC_JITSI_HOST ?? "jitsi.member.fsf.org";
+  const jitsiHost = process.env.NEXT_PUBLIC_JITSI_HOST ?? "meet.ffmuc.net";
   const jitsiUrl = `https://${jitsiHost}/${jitsiRoom}`;
 
   const filteredDMUsers = allUsers.filter((m) =>
@@ -867,7 +873,11 @@ export default function ChatPage() {
   return (
     <div className="flex h-full w-full overflow-hidden bg-background">
       {/* ── LEFT SIDEBAR ─────────────────────────────────────── */}
-      <div className="flex w-64 shrink-0 flex-col border-r border-border bg-muted/30">
+      {/* Mobile backdrop */}
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-20 bg-black/40 sm:hidden" onClick={() => setMobileSidebarOpen(false)} />
+      )}
+      <div className={`${mobileSidebarOpen ? "flex" : "hidden"} sm:flex fixed inset-y-0 left-0 z-30 w-64 shrink-0 flex-col border-r border-border bg-background sm:relative sm:z-auto sm:bg-muted/30`}>
         {/* Header */}
         <div className="flex items-center gap-2 border-b border-border px-4 py-4">
           <MessageSquare className="h-4 w-4 text-indigo-500" />
@@ -878,22 +888,22 @@ export default function ChatPage() {
           {/* Channels */}
           <div className="mb-2">
             <div className="flex items-center justify-between px-4 py-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Channels
               </span>
               <button
                 onClick={() => { setShowNewChannel(true); setShowDMPicker(false); }}
-                className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
 
             {showNewChannel && (
-              <div className="mx-3 mb-2 rounded-lg border border-indigo-200 bg-white p-3 shadow-sm">
+              <div className="mx-3 mb-2 rounded-lg border border-indigo-200 bg-background p-3 shadow-sm">
                 {/* Channel name */}
                 <div className="mb-2 flex items-center gap-1">
-                  <span className="text-slate-400 text-sm">#</span>
+                  <span className="text-muted-foreground text-sm">#</span>
                   <input
                     autoFocus
                     placeholder="channel-name"
@@ -909,7 +919,7 @@ export default function ChatPage() {
                   placeholder="Add members…"
                   value={newChannelSearch}
                   onChange={(e) => setNewChannelSearch(e.target.value)}
-                  className="mb-1.5 w-full rounded border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                  className="mb-1.5 w-full rounded border border-border px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
                 />
 
                 {/* User list */}
@@ -929,19 +939,19 @@ export default function ChatPage() {
                           onClick={() => toggleNewChannelMember(m.userId)}
                           className={`flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors ${
                             selected
-                              ? "bg-indigo-50 text-indigo-700"
-                              : "text-slate-600 hover:bg-slate-50"
+                              ? "bg-indigo-500/10 text-indigo-700"
+                              : "text-muted-foreground hover:bg-muted"
                           }`}
                         >
                           <div className="relative shrink-0">
                             {m.user.avatarUrl ? (
                               <img src={av(m.user.avatarUrl)} className="h-5 w-5 rounded-full object-cover" alt="" />
                             ) : (
-                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[9px] font-bold text-indigo-600">
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/10 text-[9px] font-bold text-indigo-600">
                                 {m.user.firstName[0]}{m.user.lastName[0]}
                               </div>
                             )}
-                            <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white ${isOnline ? "bg-green-400" : "bg-slate-300"}`} />
+                            <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${isOnline ? "bg-green-400" : "bg-muted-foreground/40"}`} />
                           </div>
                           <span className="flex-1 truncate">{m.user.firstName} {m.user.lastName}</span>
                           {selected && <span className="text-indigo-500">✓</span>}
@@ -964,7 +974,7 @@ export default function ChatPage() {
                   </button>
                   <button
                     onClick={resetNewChannel}
-                    className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50"
+                    className="rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
                   >
                     Cancel
                   </button>
@@ -982,13 +992,13 @@ export default function ChatPage() {
                   onClick={() => handleSelectChannel(ch)}
                   className={`flex w-full items-center gap-2 px-4 py-1.5 text-left text-sm transition-colors ${
                     activeChannelId === ch.id
-                      ? "bg-indigo-50 font-semibold text-indigo-700"
-                      : isMuted ? "text-slate-400 hover:bg-slate-100" : "text-slate-600 hover:bg-slate-100"
+                      ? "bg-indigo-500/10 font-semibold text-indigo-700"
+                      : isMuted ? "text-muted-foreground hover:bg-muted" : "text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  <Hash className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <Hash className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex-1 truncate">{ch.name}</span>
-                  {isMuted && <BellOff className="h-3 w-3 shrink-0 text-slate-300" />}
+                  {isMuted && <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" />}
                   {!isMuted && unread > 0 && (
                     <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-bold text-white">
                       {unread > 9 ? "9+" : unread}
@@ -999,39 +1009,39 @@ export default function ChatPage() {
             })}
 
             {channels.length === 0 && !showNewChannel && (
-              <p className="px-4 py-1 text-[11px] text-slate-400">No channels yet</p>
+              <p className="px-4 py-1 text-[11px] text-muted-foreground">No channels yet</p>
             )}
           </div>
 
           {/* Direct Messages */}
           <div>
             <div className="flex items-center justify-between px-4 py-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Direct Messages
               </span>
               <button
                 onClick={() => { setShowDMPicker(!showDMPicker); setShowNewChannel(false); }}
-                className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
 
             {showDMPicker && (
-              <div className="mx-3 mb-2 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-md">
-                <div className="flex items-center gap-1.5 border-b border-slate-100 px-2 py-1.5">
-                  <Search className="h-3 w-3 text-slate-400" />
+              <div className="mx-3 mb-2 overflow-hidden rounded-lg border border-border bg-background shadow-md">
+                <div className="flex items-center gap-1.5 border-b border-border px-2 py-1.5">
+                  <Search className="h-3 w-3 text-muted-foreground" />
                   <input
                     autoFocus
                     placeholder="Search people…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="flex-1 text-xs outline-none placeholder:text-slate-400"
+                    className="flex-1 text-xs outline-none placeholder:text-muted-foreground"
                   />
                 </div>
                 <div className="max-h-44 overflow-y-auto">
                   {filteredDMUsers.length === 0 && (
-                    <p className="px-3 py-2 text-[11px] text-slate-400">No users found</p>
+                    <p className="px-3 py-2 text-[11px] text-muted-foreground">No users found</p>
                   )}
                   {filteredDMUsers.map((m) => {
                     const isOnline = onlineUserIds.has(m.userId);
@@ -1039,7 +1049,7 @@ export default function ChatPage() {
                       <button
                         key={m.userId}
                         onClick={() => handleStartDM(m.userId)}
-                        className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs hover:bg-slate-50"
+                        className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs hover:bg-muted"
                       >
                         <div className="relative shrink-0">
                           <Avatar className="h-6 w-6">
@@ -1048,11 +1058,11 @@ export default function ChatPage() {
                               {m.user.firstName[0]}{m.user.lastName[0]}
                             </AvatarFallback>
                           </Avatar>
-                          <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white ${isOnline ? "bg-green-500" : "bg-slate-300"}`} />
+                          <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${isOnline ? "bg-green-500" : "bg-muted-foreground/40"}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="truncate font-medium">{m.user.firstName} {m.user.lastName}</p>
-                          <p className="truncate text-[10px] text-slate-400">{isOnline ? "Online" : "Offline"}</p>
+                          <p className="truncate text-[10px] text-muted-foreground">{isOnline ? "Online" : "Offline"}</p>
                         </div>
                       </button>
                     );
@@ -1074,8 +1084,8 @@ export default function ChatPage() {
                   onClick={() => handleSelectChannel(dm)}
                   className={`flex w-full items-center gap-2 px-4 py-1.5 text-left text-sm transition-colors ${
                     activeChannelId === dm.id
-                      ? "bg-indigo-50 font-semibold text-indigo-700"
-                      : "text-slate-600 hover:bg-slate-100"
+                      ? "bg-indigo-500/10 font-semibold text-indigo-700"
+                      : "text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   <div className="relative shrink-0">
@@ -1085,7 +1095,7 @@ export default function ChatPage() {
                         {otherUser.firstName[0]}{otherUser.lastName[0]}
                       </AvatarFallback>
                     </Avatar>
-                    <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white ${isOnline ? "bg-green-500" : "bg-slate-300"}`} />
+                    <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${isOnline ? "bg-green-500" : "bg-muted-foreground/40"}`} />
                   </div>
                   <span className="flex-1 truncate">{otherUser.firstName} {otherUser.lastName}</span>
                   {unread > 0 && (
@@ -1098,13 +1108,13 @@ export default function ChatPage() {
             })}
 
             {dms.length === 0 && (
-              <p className="px-4 py-1 text-[11px] text-slate-400">No direct messages yet</p>
+              <p className="px-4 py-1 text-[11px] text-muted-foreground">No direct messages yet</p>
             )}
           </div>
         </div>
 
         {/* Online count */}
-        <div className="flex items-center gap-1.5 border-t border-slate-200 px-4 py-2.5 text-[11px] text-slate-400">
+        <div className="flex items-center gap-1.5 border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
           <span className="h-2 w-2 rounded-full bg-green-400" />
           <span>{onlineUserIds.size} online</span>
         </div>
@@ -1115,12 +1125,19 @@ export default function ChatPage() {
         <div className="flex flex-1 overflow-hidden">
           <div className="flex flex-1 flex-col overflow-hidden">
             {/* Channel Header */}
-            <div className="group flex items-center justify-between border-b border-slate-200 px-6 py-3">
+            <div className="group flex items-center justify-between border-b border-border px-6 py-3">
+              <button
+                className="mr-2 shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted sm:hidden"
+                onClick={() => setMobileSidebarOpen(true)}
+                aria-label="Open sidebar"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
               <div className="flex items-center gap-2">
                 {isDM && otherMember ? (
                   <button
                     onClick={() => setShowDMProfile((v) => !v)}
-                    className="flex items-center gap-2 rounded-lg px-1 py-0.5 hover:bg-slate-100 transition-colors"
+                    className="flex items-center gap-2 rounded-lg px-1 py-0.5 hover:bg-muted transition-colors"
                   >
                     <div className="relative">
                       <Avatar className="h-7 w-7">
@@ -1129,49 +1146,49 @@ export default function ChatPage() {
                           {(otherMember as any).user?.firstName?.[0]}{(otherMember as any).user?.lastName?.[0]}
                         </AvatarFallback>
                       </Avatar>
-                      <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${onlineUserIds.has((otherMember as any).user?.id) ? "bg-green-500" : "bg-slate-300"}`} />
+                      <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${onlineUserIds.has((otherMember as any).user?.id) ? "bg-green-500" : "bg-muted-foreground/40"}`} />
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-semibold text-slate-800">{displayName}</p>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-sm font-semibold text-foreground">{displayName}</p>
+                      <p className="text-[10px] text-muted-foreground">
                         {onlineUserIds.has((otherMember as any).user?.id) ? "● Online" : "○ Offline"}
                       </p>
                     </div>
                   </button>
                 ) : editingChannel ? (
                   <div className="flex items-center gap-2">
-                    <Hash className="h-5 w-5 text-slate-400 shrink-0" />
+                    <Hash className="h-5 w-5 text-muted-foreground shrink-0" />
                     <input
                       autoFocus
                       value={editChannelName}
                       onChange={(e) => setEditChannelName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleSaveChannelEdit(); if (e.key === "Escape") setEditingChannel(false); }}
-                      className="rounded border border-indigo-300 px-2 py-0.5 text-sm font-semibold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-400 w-36"
+                      className="rounded border border-indigo-300 px-2 py-0.5 text-sm font-semibold text-foreground outline-none focus:ring-1 focus:ring-indigo-400 w-36"
                     />
                     <input
                       value={editChannelDesc}
                       onChange={(e) => setEditChannelDesc(e.target.value)}
                       placeholder="Description (optional)"
-                      className="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 outline-none focus:ring-1 focus:ring-indigo-300 w-44"
+                      className="rounded border border-border px-2 py-0.5 text-xs text-muted-foreground outline-none focus:ring-1 focus:ring-indigo-300 w-44"
                     />
                     <button onClick={handleSaveChannelEdit} className="rounded bg-indigo-600 px-2 py-0.5 text-xs text-white hover:bg-indigo-700">Save</button>
-                    <button onClick={() => setEditingChannel(false)} className="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-50">Cancel</button>
+                    <button onClick={() => setEditingChannel(false)} className="rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted">Cancel</button>
                   </div>
                 ) : (
                   <>
-                    <Hash className="h-5 w-5 text-slate-400" />
+                    <Hash className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-semibold text-slate-800">{displayName}</p>
+                        <p className="text-sm font-semibold text-foreground">{displayName}</p>
                         <button
                           onClick={() => { setEditChannelName(displayName); setEditChannelDesc(activeChannel.description ?? ""); setEditingChannel(true); }}
-                          className="opacity-0 group-hover:opacity-100 rounded p-0.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-opacity"
                           title="Rename channel"
                         >
                           <Pencil className="h-3 w-3" />
                         </button>
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                         <span>{activeChannel.members.length} members</span>
                         {activeChannel.description && (
                           <>
@@ -1206,7 +1223,7 @@ export default function ChatPage() {
                       }
                     });
                   }}
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-green-500/10 hover:border-green-300 hover:text-green-700"
                 >
                   <Video className="h-3.5 w-3.5" />
                   Video
@@ -1227,7 +1244,7 @@ export default function ChatPage() {
                       }
                     });
                   }}
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-blue-500/10 hover:border-blue-300 hover:text-blue-700"
                 >
                   <Phone className="h-3.5 w-3.5" />
                   Voice
@@ -1238,8 +1255,8 @@ export default function ChatPage() {
                   onClick={handleLoadScheduled}
                   className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                     showScheduledList
-                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      ? "border-indigo-300 bg-indigo-500/10 text-indigo-700"
+                      : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                   title="Scheduled messages"
                 >
@@ -1253,8 +1270,8 @@ export default function ChatPage() {
                   onClick={handleOpenPinnedPanel}
                   className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                     showPinnedPanel
-                      ? "border-amber-300 bg-amber-50 text-amber-700"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      ? "border-amber-300 bg-amber-500/10 text-amber-700"
+                      : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                   title="Pinned messages"
                 >
@@ -1273,8 +1290,8 @@ export default function ChatPage() {
                     }}
                     className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                       channelPrefs[activeChannelId ?? -1] === "MUTED"
-                        ? "border-slate-300 bg-slate-100 text-slate-500"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                        ? "border-border bg-muted text-muted-foreground"
+                        : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                     title="Notification preferences"
                   >
@@ -1303,8 +1320,8 @@ export default function ChatPage() {
                               e.stopPropagation();
                               handleSetNotifPref(pref);
                             }}
-                            className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-slate-50 ${
-                              cur === pref ? "font-semibold text-indigo-600" : "text-slate-700"
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-muted ${
+                              cur === pref ? "font-semibold text-indigo-600" : "text-foreground"
                             }`}
                           >
                             <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -1321,8 +1338,8 @@ export default function ChatPage() {
                   onClick={() => { setShowMsgSearch((v) => !v); setMsgSearch(""); setMsgSearchResults(null); }}
                   className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                     showMsgSearch
-                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      ? "border-indigo-300 bg-indigo-500/10 text-indigo-700"
+                      : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                   title="Search messages"
                 >
@@ -1334,8 +1351,8 @@ export default function ChatPage() {
                     onClick={() => setShowMembersPanel(!showMembersPanel)}
                     className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                       showMembersPanel
-                        ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                        ? "border-indigo-300 bg-indigo-500/10 text-indigo-700"
+                        : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                     title="Manage members"
                   >
@@ -1348,22 +1365,22 @@ export default function ChatPage() {
 
             {/* Message search bar */}
             {showMsgSearch && (
-              <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-6 py-2">
-                <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-6 py-2">
+                <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <input
                   autoFocus
                   placeholder="Search messages… press Enter"
                   value={msgSearch}
                   onChange={(e) => { setMsgSearch(e.target.value); if (!e.target.value.trim()) setMsgSearchResults(null); }}
                   onKeyDown={(e) => { if (e.key === "Enter") handleMsgSearchSubmit(); }}
-                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                 />
-                {msgSearchLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
+                {msgSearchLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                 {msgSearchResults !== null && (
-                  <span className="text-[11px] text-slate-400">{msgSearchResults.length} result{msgSearchResults.length !== 1 ? "s" : ""}</span>
+                  <span className="text-[11px] text-muted-foreground">{msgSearchResults.length} result{msgSearchResults.length !== 1 ? "s" : ""}</span>
                 )}
                 {msgSearch && (
-                  <button onClick={() => { setMsgSearch(""); setMsgSearchResults(null); }} className="text-slate-400 hover:text-slate-600">
+                  <button onClick={() => { setMsgSearch(""); setMsgSearchResults(null); }} className="text-muted-foreground hover:text-foreground">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -1372,7 +1389,7 @@ export default function ChatPage() {
 
             {/* Scheduled messages panel */}
             {showScheduledList && (
-              <div className="border-b border-indigo-100 bg-indigo-50 px-6 py-3">
+              <div className="border-b border-indigo-900/20 dark:border-indigo-900/50 bg-indigo-500/10 px-6 py-3">
                 <div className="mb-2 flex items-center gap-2">
                   <Clock className="h-3.5 w-3.5 text-indigo-600" />
                   <span className="text-xs font-semibold text-indigo-800">Scheduled Messages</span>
@@ -1386,17 +1403,17 @@ export default function ChatPage() {
                 ) : (
                   <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
                     {scheduledList.filter(m => m.status === "PENDING").map((sm) => (
-                      <div key={sm.id} className="flex items-start gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2">
+                      <div key={sm.id} className="flex items-start gap-2 rounded-lg border border-indigo-200 bg-background px-3 py-2">
                         <Clock className="h-3.5 w-3.5 mt-0.5 shrink-0 text-indigo-400" />
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] font-semibold text-indigo-600">
                             {new Date(sm.scheduledAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </p>
-                          <div className="text-xs text-slate-600 line-clamp-1"><RichContent content={sm.content} /></div>
+                          <div className="text-xs text-muted-foreground line-clamp-1"><RichContent content={sm.content} /></div>
                         </div>
                         <button
                           onClick={() => handleCancelScheduled(sm.id)}
-                          className="shrink-0 text-slate-400 hover:text-red-500 transition-colors"
+                          className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors"
                           title="Cancel"
                         >
                           <X className="h-3 w-3" />
@@ -1410,7 +1427,7 @@ export default function ChatPage() {
 
             {/* Pinned messages panel */}
             {showPinnedPanel && (
-              <div className="border-b border-amber-100 bg-amber-50 px-6 py-3">
+              <div className="border-b border-amber-900/20 dark:border-amber-900/50 bg-amber-500/10 px-6 py-3">
                 <div className="mb-2 flex items-center gap-2">
                   <Pin className="h-3.5 w-3.5 text-amber-600" />
                   <span className="text-xs font-semibold text-amber-800">Pinned Messages</span>
@@ -1421,10 +1438,10 @@ export default function ChatPage() {
                 ) : (
                   <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
                     {pinnedMessages.map((pm) => (
-                      <div key={pm.id} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2">
+                      <div key={pm.id} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-background px-3 py-2">
                         <div className="flex-1 min-w-0">
-                          <span className="text-[11px] font-semibold text-slate-700">{pm.user.firstName} {pm.user.lastName}</span>
-                          <div className="text-xs text-slate-600 truncate"><RichContent content={pm.content} /></div>
+                          <span className="text-[11px] font-semibold text-foreground">{pm.user.firstName} {pm.user.lastName}</span>
+                          <div className="text-xs text-muted-foreground truncate"><RichContent content={pm.content} /></div>
                         </div>
                         <button
                           onClick={() => handlePinToggle(pm.id, true)}
@@ -1442,10 +1459,10 @@ export default function ChatPage() {
 
             {/* Jump to unread banner */}
             {showJumpToUnread && firstUnreadId && (
-              <div className="flex justify-center border-b border-indigo-100 bg-indigo-50 py-1.5">
+              <div className="flex justify-center border-b border-indigo-900/20 dark:border-indigo-900/50 bg-indigo-500/10 py-1.5">
                 <button
                   onClick={handleJumpToUnread}
-                  className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-white px-4 py-1 text-xs font-medium text-indigo-700 shadow-sm hover:bg-indigo-50 transition-colors"
+                  className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-background px-4 py-1 text-xs font-medium text-indigo-700 shadow-sm hover:bg-muted transition-colors"
                 >
                   <ArrowDown className="h-3 w-3" />
                   Jump to first unread
@@ -1455,7 +1472,7 @@ export default function ChatPage() {
 
             {/* Search result notice */}
             {msgSearchResults !== null && (
-              <div className="flex items-center gap-2 border-b border-indigo-100 bg-indigo-50 px-6 py-1.5 text-xs text-indigo-700">
+              <div className="flex items-center gap-2 border-b border-indigo-900/20 dark:border-indigo-900/50 bg-indigo-500/10 px-6 py-1.5 text-xs text-indigo-700">
                 <BookmarkCheck className="h-3.5 w-3.5 shrink-0" />
                 Showing {msgSearchResults.length} search result{msgSearchResults.length !== 1 ? "s" : ""} for <strong className="ml-1">"{msgSearch}"</strong>
                 <button onClick={() => { setMsgSearchResults(null); setMsgSearch(""); setShowMsgSearch(false); }} className="ml-auto text-indigo-400 hover:text-indigo-600">
@@ -1476,7 +1493,7 @@ export default function ChatPage() {
             >
               {loadingMessages && (
                 <div className="flex justify-center py-12">
-                  <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               )}
 
@@ -1485,7 +1502,7 @@ export default function ChatPage() {
                   <button
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm hover:bg-muted disabled:opacity-50"
                   >
                     {loadingMore ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                     {loadingMore ? "Loading…" : "Load older messages"}
@@ -1495,13 +1512,13 @@ export default function ChatPage() {
 
               {!loadingMessages && topLevelMessages.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/10">
                     {isDM ? <MessageSquare className="h-6 w-6 text-indigo-400" /> : <Hash className="h-6 w-6 text-indigo-400" />}
                   </div>
-                  <p className="text-sm font-semibold text-slate-700">
+                  <p className="text-sm font-semibold text-foreground">
                     {isDM ? `Start a conversation with ${displayName}` : `Welcome to #${displayName}`}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">Send your first message below</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Send your first message below</p>
                 </div>
               )}
 
@@ -1519,9 +1536,9 @@ export default function ChatPage() {
                 if (msg.isSystemMessage && msg.callType) {
                   const isVideo = msg.callType === "video";
                   const statusColor =
-                    msg.callStatus === "ended" ? "text-green-600 bg-green-50 border-green-200" :
-                    msg.callStatus === "declined" || msg.callStatus === "missed" ? "text-red-500 bg-red-50 border-red-200" :
-                    "text-indigo-600 bg-indigo-50 border-indigo-200";
+                    msg.callStatus === "ended" ? "text-green-600 bg-green-500/10 border-green-200 dark:text-green-400 dark:border-green-900/50" :
+                    msg.callStatus === "declined" || msg.callStatus === "missed" ? "text-red-500 bg-red-500/10 border-red-200 dark:text-red-400 dark:border-red-900/50" :
+                    "text-indigo-600 bg-indigo-500/10 border-indigo-200 dark:text-indigo-400 dark:border-indigo-900/50";
                   const statusLabel =
                     msg.callStatus === "ended" ? "Call ended" :
                     msg.callStatus === "declined" ? "Call declined" :
@@ -1536,9 +1553,9 @@ export default function ChatPage() {
                     <div key={msg.id}>
                       {showDate && (
                         <div className="my-4 flex items-center gap-3">
-                          <div className="flex-1 h-px bg-slate-200" />
-                          <span className="shrink-0 rounded-full border border-slate-200 px-3 py-0.5 text-[11px] text-slate-500">{msgDate}</span>
-                          <div className="flex-1 h-px bg-slate-200" />
+                          <div className="flex-1 h-px bg-border" />
+                          <span className="shrink-0 rounded-full border border-border px-3 py-0.5 text-[11px] text-muted-foreground">{msgDate}</span>
+                          <div className="flex-1 h-px bg-border" />
                         </div>
                       )}
                       <div className="my-3 flex justify-center">
@@ -1565,11 +1582,11 @@ export default function ChatPage() {
                   <div key={msg.id} ref={isFirstUnread ? firstUnreadRef : undefined}>
                     {showDate && (
                       <div className="my-4 flex items-center gap-3">
-                        <div className="flex-1 h-px bg-slate-200" />
-                        <span className="shrink-0 rounded-full border border-slate-200 px-3 py-0.5 text-[11px] text-slate-500">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="shrink-0 rounded-full border border-border px-3 py-0.5 text-[11px] text-muted-foreground">
                           {msgDate}
                         </span>
-                        <div className="flex-1 h-px bg-slate-200" />
+                        <div className="flex-1 h-px bg-border" />
                       </div>
                     )}
 
@@ -1582,7 +1599,7 @@ export default function ChatPage() {
                       </div>
                     )}
 
-                    <div className={`group relative flex gap-3 ${isGrouped ? "mt-0.5" : "mt-4"} ${msg.isPinned ? "rounded-lg bg-amber-50/50 pr-2" : ""}`}>
+                    <div className={`group relative flex gap-3 ${isGrouped ? "mt-0.5" : "mt-4"} ${msg.isPinned ? "rounded-lg bg-amber-500/10 pr-2" : ""}`}>
                       <div className="w-8 shrink-0 pt-0.5">
                         {!isGrouped && (
                           <Avatar className="h-8 w-8">
@@ -1596,10 +1613,10 @@ export default function ChatPage() {
                       <div className="flex-1 min-w-0">
                         {!isGrouped && (
                           <div className="flex items-baseline gap-2 mb-0.5">
-                            <span className="text-sm font-semibold text-slate-800">
+                            <span className="text-sm font-semibold text-foreground">
                               {msg.user.firstName} {msg.user.lastName}
                             </span>
-                            <span className="text-[11px] text-slate-400">{formatTime(msg.createdAt)}</span>
+                            <span className="text-[11px] text-muted-foreground">{formatTime(msg.createdAt)}</span>
                           </div>
                         )}
 
@@ -1614,7 +1631,7 @@ export default function ChatPage() {
                             <img
                               src={`${process.env.NEXT_PUBLIC_API_URL?.replace("/api", "")}${msg.attachmentUrl}`}
                               alt={msg.content}
-                              className="max-h-64 max-w-sm rounded-lg border border-slate-200 object-contain"
+                              className="max-h-64 max-w-sm rounded-lg border border-border object-contain"
                             />
                           </a>
                         )}
@@ -1623,9 +1640,9 @@ export default function ChatPage() {
                             href={`${process.env.NEXT_PUBLIC_API_URL?.replace("/api", "")}${msg.attachmentUrl}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="mb-1 flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 hover:bg-slate-100"
+                            className="mb-1 flex w-fit items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-foreground hover:bg-muted"
                           >
-                            <Download className="h-3.5 w-3.5 text-slate-400" />
+                            <Download className="h-3.5 w-3.5 text-muted-foreground" />
                             <span className="font-medium">{msg.content}</span>
                           </a>
                         )}
@@ -1643,19 +1660,19 @@ export default function ChatPage() {
                                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveMessageEdit(); }
                                     if (e.key === "Escape") { setEditingMsgId(null); }
                                   }}
-                                  className="w-full rounded border border-indigo-300 px-2 py-1 text-sm leading-relaxed text-slate-700 outline-none focus:ring-1 focus:ring-indigo-400 resize-none"
+                                  className="w-full rounded border border-indigo-300 px-2 py-1 text-sm leading-relaxed text-foreground outline-none focus:ring-1 focus:ring-indigo-400 resize-none"
                                   rows={2}
                                 />
                                 <div className="flex gap-1.5 text-[11px]">
                                   <button onClick={handleSaveMessageEdit} className="rounded bg-indigo-600 px-2 py-0.5 text-white hover:bg-indigo-700">Save</button>
-                                  <button onClick={() => setEditingMsgId(null)} className="rounded border border-slate-200 px-2 py-0.5 text-slate-500 hover:bg-slate-50">Cancel</button>
-                                  <span className="text-slate-400 self-center">Enter to save · Esc to cancel</span>
+                                  <button onClick={() => setEditingMsgId(null)} className="rounded border border-border px-2 py-0.5 text-muted-foreground hover:bg-muted">Cancel</button>
+                                  <span className="text-muted-foreground self-center">Enter to save · Esc to cancel</span>
                                 </div>
                               </div>
                             ) : (
                               <div className="flex-1 break-words">
-                                <RichContent content={msg.content} className="text-slate-700" allUsers={allUsers} onMentionClick={setMentionProfileUserId} />
-                                {msg.editedAt && <span className="ml-1 text-[10px] text-slate-400">(edited)</span>}
+                                <RichContent content={msg.content} className="text-foreground" allUsers={allUsers} onMentionClick={setMentionProfileUserId} />
+                                {msg.editedAt && <span className="ml-1 text-[10px] text-muted-foreground">(edited)</span>}
                                 {msg.isPinned && (
                                   <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] text-amber-500">
                                     <Pin className="h-2.5 w-2.5" />pinned
@@ -1676,7 +1693,7 @@ export default function ChatPage() {
                             {/* Reply button */}
                             <button
                               onClick={() => openThread(msg)}
-                              className="rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600"
+                              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-indigo-600"
                               title="Reply in thread"
                             >
                               <CornerDownRight className="h-3.5 w-3.5" />
@@ -1686,7 +1703,7 @@ export default function ChatPage() {
                               <button
                                 onClick={() => setAssigningMsgId(assigningMsgId === msg.id ? null : msg.id)}
                                 className={`rounded p-1.5 transition-colors ${
-                                  msg.assignedTo ? "text-green-600" : "text-slate-500 hover:bg-slate-100 hover:text-indigo-600"
+                                  msg.assignedTo ? "text-green-600" : "text-muted-foreground hover:bg-muted hover:text-indigo-600"
                                 }`}
                                 title="Assign to someone"
                               >
@@ -1694,13 +1711,13 @@ export default function ChatPage() {
                               </button>
                               {assigningMsgId === msg.id && (
                                 <div className="absolute right-0 top-8 z-50 w-44 overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
-                                  <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Assign to</p>
+                                  <p className="border-b border-border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Assign to</p>
                                   <div className="max-h-36 overflow-y-auto">
                                     {allUsers.map((m) => (
                                       <button
                                         key={m.userId}
                                         onClick={() => handleAssign(msg.id, m.userId)}
-                                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-slate-50"
+                                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted"
                                       >
                                         <Avatar className="h-5 w-5 shrink-0">
                                           <AvatarImage src={av(m.user.avatarUrl)} />
@@ -1718,7 +1735,7 @@ export default function ChatPage() {
                               <div className="relative">
                                 <button
                                   onClick={() => setReactionPickerMsgId(reactionPickerMsgId === msg.id ? null : msg.id)}
-                                  className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-yellow-600 transition-colors"
+                                  className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-yellow-600 transition-colors"
                                   title="Add reaction"
                                 >
                                   <SmilePlus className="h-3.5 w-3.5" />
@@ -1729,7 +1746,7 @@ export default function ChatPage() {
                                       <button
                                         key={e}
                                         onClick={() => handleToggleReaction(msg.id, e)}
-                                        className="rounded p-1 text-base hover:bg-slate-100 transition-colors"
+                                        className="rounded p-1 text-base hover:bg-muted transition-colors"
                                       >
                                         {e}
                                       </button>
@@ -1744,8 +1761,8 @@ export default function ChatPage() {
                                 onClick={() => handlePinToggle(msg.id, !!msg.isPinned)}
                                 className={`rounded p-1.5 transition-colors ${
                                   msg.isPinned
-                                    ? "text-amber-500 hover:bg-amber-50"
-                                    : "text-slate-500 hover:bg-slate-100 hover:text-amber-500"
+                                    ? "text-amber-500 hover:bg-amber-500/10"
+                                    : "text-muted-foreground hover:bg-muted hover:text-amber-500"
                                 }`}
                                 title={msg.isPinned ? "Unpin message" : "Pin message"}
                               >
@@ -1757,14 +1774,14 @@ export default function ChatPage() {
                               <>
                                 <button
                                   onClick={() => { setEditingMsgId(msg.id); setEditingMsgContent(msg.content); }}
-                                  className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 transition-colors"
+                                  className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-indigo-600 transition-colors"
                                   title="Edit message"
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteMessage(msg.id)}
-                                  className="rounded p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                  className="rounded p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors"
                                   title="Delete message"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
@@ -1789,8 +1806,8 @@ export default function ChatPage() {
                                   onClick={() => handleToggleReaction(msg.id, emoji)}
                                   className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors ${
                                     myReaction
-                                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50"
+                                      ? "border-indigo-300 bg-indigo-500/10 text-indigo-700"
+                                      : "border-border bg-muted/50 text-muted-foreground hover:border-indigo-200 hover:bg-indigo-500/10"
                                   }`}
                                 >
                                   <span>{emoji}</span>
@@ -1804,7 +1821,7 @@ export default function ChatPage() {
                         {(msg.assignedTo || (msg._count?.replies ?? 0) > 0) && (
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             {msg.assignedTo && (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] text-indigo-600">
+                              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-900/20 dark:border-indigo-900/50 bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-600">
                                 <AtSign className="h-2.5 w-2.5" />
                                 {msg.assignedTo.firstName} {msg.assignedTo.lastName}
                               </span>
@@ -1812,7 +1829,7 @@ export default function ChatPage() {
                             {(msg._count?.replies ?? 0) > 0 && (
                               <button
                                 onClick={() => openThread(msg)}
-                                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-indigo-200 hover:bg-indigo-500/10 hover:text-indigo-600 transition-colors"
                               >
                                 <CornerDownRight className="h-2.5 w-2.5" />
                                 {msg._count?.replies} {msg._count?.replies === 1 ? "reply" : "replies"}
@@ -1838,11 +1855,11 @@ export default function ChatPage() {
                   .filter(Boolean);
                 if (seenUsers.length === 0) return null;
                 return (
-                  <div className="mt-1 flex items-center gap-1 px-1 text-[10px] text-slate-400">
+                  <div className="mt-1 flex items-center gap-1 px-1 text-[10px] text-muted-foreground">
                     <span>Seen by</span>
                     <div className="flex -space-x-1">
                       {seenUsers.slice(0, 5).map((u) => (
-                        <Avatar key={u!.id} className="h-3.5 w-3.5 ring-1 ring-white">
+                        <Avatar key={u!.id} className="h-3.5 w-3.5 ring-1 ring-background">
                           <AvatarImage src={av(u!.avatarUrl)} />
                           <AvatarFallback className="text-[7px]">{u!.firstName[0]}</AvatarFallback>
                         </Avatar>
@@ -1854,17 +1871,17 @@ export default function ChatPage() {
               })()}
 
               {typingUser && (
-                <div className="mt-2 flex items-center gap-2 text-[11px] italic text-slate-400">
+                <div className="mt-2 flex items-center gap-2 text-[11px] italic text-muted-foreground">
                   <div className="flex gap-0.5">
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:0ms]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:150ms]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:300ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
                   </div>
                   <span>{typingUser} is typing…</span>
                 </div>
               )}
               {rateLimitMsg && (
-                <div className="mt-1 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-[11px] font-medium text-red-600">
+                <div className="mt-1 flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-1.5 text-[11px] font-medium text-red-600">
                   <BellOff className="h-3 w-3 shrink-0" />
                   {rateLimitMsg}
                 </div>
@@ -1874,14 +1891,14 @@ export default function ChatPage() {
 
             {/* Reconnecting banner */}
             {!isSocketConnected && (
-              <div className="flex items-center justify-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-700">
+              <div className="flex items-center justify-center gap-2 border-t border-amber-900/20 dark:border-amber-900/50 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-700">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Reconnecting… queued messages will send when connection is restored.
               </div>
             )}
 
             {/* Message Input */}
-            <div className="border-t border-slate-200 px-6 py-4 pr-20">
+            <div className="border-t border-border px-6 py-4 pr-20">
               {/* @mention autocomplete */}
               {mentionQuery !== null && (
                 <div className="mb-2 overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
@@ -1896,7 +1913,7 @@ export default function ChatPage() {
                       <button
                         key={m.userId}
                         onMouseDown={(e) => { e.preventDefault(); handlePickMention(m as any); }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-indigo-50"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
                       >
                         <Avatar className="h-6 w-6 shrink-0">
                           <AvatarImage src={av((m.user as any).avatarUrl)} />
@@ -1906,7 +1923,7 @@ export default function ChatPage() {
                       </button>
                     ))}
                   {channelMembers.filter((m) => m.userId !== user?.id && (!mentionQuery || `${m.user.firstName} ${m.user.lastName}`.toLowerCase().startsWith(mentionQuery.toLowerCase()))).length === 0 && (
-                    <p className="px-3 py-2 text-xs text-slate-400">No match</p>
+                    <p className="px-3 py-2 text-xs text-muted-foreground">No match</p>
                   )}
                 </div>
               )}
@@ -1915,7 +1932,7 @@ export default function ChatPage() {
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="shrink-0 text-slate-400 hover:text-indigo-500 transition-colors disabled:opacity-50"
+                  className="shrink-0 text-muted-foreground hover:text-indigo-500 transition-colors disabled:opacity-50"
                   title="Attach file or image"
                 >
                   {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
@@ -1931,7 +1948,7 @@ export default function ChatPage() {
                 <div className="relative shrink-0">
                   <button
                     onClick={() => setShowEmojiPicker((v) => !v)}
-                    className="text-slate-500 hover:text-yellow-500 transition-colors"
+                    className="text-muted-foreground hover:text-yellow-500 transition-colors"
                     title="Emoji"
                   >
                     <SmilePlus className="h-4 w-4" />
@@ -1962,16 +1979,16 @@ export default function ChatPage() {
                     onClick={() => setShowSchedulePicker((v) => !v)}
                     disabled={!input.trim()}
                     title="Schedule message"
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30"
                   >
                     <Clock className="h-3.5 w-3.5" />
                   </button>
 
                   {showSchedulePicker && (
                     <div className="absolute bottom-10 right-0 z-50 w-64 rounded-xl border border-border bg-popover shadow-2xl">
-                      <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-                        <span className="text-xs font-semibold text-slate-700">Schedule message</span>
-                        <button onClick={() => setShowSchedulePicker(false)} className="text-slate-400 hover:text-slate-600">
+                      <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                        <span className="text-xs font-semibold text-foreground">Schedule message</span>
+                        <button onClick={() => setShowSchedulePicker(false)} className="text-muted-foreground hover:text-foreground">
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -1986,13 +2003,13 @@ export default function ChatPage() {
                               onClick={() => setScheduleDateTime(targetStr)}
                               className={`flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors ${
                                 scheduleDateTime === targetStr
-                                  ? "bg-indigo-50 text-indigo-700 font-semibold"
-                                  : "hover:bg-slate-50 text-slate-600"
+                                  ? "bg-indigo-500/10 text-indigo-700 font-semibold"
+                                  : "hover:bg-muted text-muted-foreground"
                               }`}
                             >
-                              <CalendarClock className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                              <CalendarClock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                               {p.label}
-                              <span className="ml-auto text-[10px] text-slate-400">
+                              <span className="ml-auto text-[10px] text-muted-foreground">
                                 {target.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                               </span>
                             </button>
@@ -2000,17 +2017,17 @@ export default function ChatPage() {
                         })}
                       </div>
                       {/* Custom datetime */}
-                      <div className="border-t border-slate-100 px-3 py-2">
-                        <p className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Custom</p>
+                      <div className="border-t border-border px-3 py-2">
+                        <p className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Custom</p>
                         <input
                           type="datetime-local"
                           value={scheduleDateTime}
                           min={toLocalDatetimeInput(new Date(Date.now() + 60_000))}
                           onChange={(e) => setScheduleDateTime(e.target.value)}
-                          className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                          className="w-full rounded-lg border border-border px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
                         />
                       </div>
-                      <div className="border-t border-slate-100 px-3 py-3">
+                      <div className="border-t border-border px-3 py-3">
                         <button
                           onClick={handleScheduleSend}
                           disabled={!scheduleDateTime || schedulingMsg}
@@ -2031,10 +2048,10 @@ export default function ChatPage() {
                   <Send className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <p className="mt-1.5 text-[10px] text-slate-400">
-                <kbd className="rounded border border-slate-200 px-1 font-mono">Enter</kbd> send ·
-                <kbd className="ml-1 rounded border border-slate-200 px-1 font-mono">Shift+Enter</kbd> newline ·
-                <strong className="font-semibold">B</strong> bold · <em>I</em> italic · <code className="rounded bg-slate-100 px-0.5 font-mono">code</code>
+              <p className="mt-1.5 text-[10px] text-muted-foreground">
+                <kbd className="rounded border border-border px-1 font-mono">Enter</kbd> send ·
+                <kbd className="ml-1 rounded border border-border px-1 font-mono">Shift+Enter</kbd> newline ·
+                <strong className="font-semibold">B</strong> bold · <em>I</em> italic · <code className="rounded bg-muted px-0.5 font-mono">code</code>
               </p>
             </div>
           </div>
@@ -2043,42 +2060,42 @@ export default function ChatPage() {
           {threadMsg && (
             <div className="flex w-80 shrink-0 flex-col border-l border-border bg-background">
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <div className="flex items-center gap-2">
                   <CornerDownRight className="h-4 w-4 text-indigo-500" />
-                  <span className="text-sm font-semibold text-slate-800">Thread</span>
+                  <span className="text-sm font-semibold text-foreground">Thread</span>
                 </div>
-                <button onClick={() => { setThreadMsg(null); setReplies([]); }} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                <button onClick={() => { setThreadMsg(null); setReplies([]); }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
               {/* Original message */}
-              <div className="border-b border-slate-100 bg-indigo-50/40 px-4 py-3">
+              <div className="border-b border-border bg-indigo-500/5 px-4 py-3">
                 <div className="flex items-center gap-2 mb-1">
                   <Avatar className="h-6 w-6">
                     <AvatarImage src={av(threadMsg.user.avatarUrl)} />
                     <AvatarFallback className="text-[9px]">{threadMsg.user.firstName[0]}{threadMsg.user.lastName[0]}</AvatarFallback>
                   </Avatar>
-                  <span className="text-xs font-semibold text-slate-700">{threadMsg.user.firstName} {threadMsg.user.lastName}</span>
-                  <span className="text-[10px] text-slate-400">{formatTime(threadMsg.createdAt)}</span>
+                  <span className="text-xs font-semibold text-foreground">{threadMsg.user.firstName} {threadMsg.user.lastName}</span>
+                  <span className="text-[10px] text-muted-foreground">{formatTime(threadMsg.createdAt)}</span>
                 </div>
                 {threadMsg.attachmentUrl && threadMsg.attachmentType === "image" ? (
                   <a href={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${threadMsg.attachmentUrl}`} target="_blank" rel="noreferrer">
-                    <img src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${threadMsg.attachmentUrl}`} className="mb-1 max-h-32 rounded-lg border border-slate-200 object-contain" alt={threadMsg.content} />
+                    <img src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${threadMsg.attachmentUrl}`} className="mb-1 max-h-32 rounded-lg border border-border object-contain" alt={threadMsg.content} />
                   </a>
                 ) : threadMsg.attachmentUrl ? (
                   <a href={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${threadMsg.attachmentUrl}`} className="flex items-center gap-1 text-xs text-indigo-600 underline" target="_blank" rel="noreferrer" download>{threadMsg.content}</a>
                 ) : null}
                 {(!threadMsg.attachmentUrl || threadMsg.content !== threadMsg.attachmentUrl) && (
-                  <div className="text-sm text-slate-700"><RichContent content={threadMsg.content} allUsers={allUsers} onMentionClick={setMentionProfileUserId} /></div>
+                  <div className="text-sm text-foreground"><RichContent content={threadMsg.content} allUsers={allUsers} onMentionClick={setMentionProfileUserId} /></div>
                 )}
               </div>
 
               {/* Replies */}
               <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3">
                 {replies.length === 0 && (
-                  <p className="py-4 text-center text-xs text-slate-400">No replies yet. Be the first!</p>
+                  <p className="py-4 text-center text-xs text-muted-foreground">No replies yet. Be the first!</p>
                 )}
                 {replies.map((r) => (
                   <div key={r.id} className="flex gap-2">
@@ -2088,19 +2105,19 @@ export default function ChatPage() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-xs font-semibold text-slate-700">{r.user.firstName} {r.user.lastName}</span>
-                        <span className="text-[10px] text-slate-400">{formatTime(r.createdAt)}</span>
+                        <span className="text-xs font-semibold text-foreground">{r.user.firstName} {r.user.lastName}</span>
+                        <span className="text-[10px] text-muted-foreground">{formatTime(r.createdAt)}</span>
                       </div>
                       {r.attachmentUrl && r.attachmentType === "image" ? (
                         <a href={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${r.attachmentUrl}`} target="_blank" rel="noreferrer">
-                          <img src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${r.attachmentUrl}`} className="mt-1 max-h-40 max-w-xs rounded-lg border border-slate-200 object-contain" alt={r.content} />
+                          <img src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${r.attachmentUrl}`} className="mt-1 max-h-40 max-w-xs rounded-lg border border-border object-contain" alt={r.content} />
                         </a>
                       ) : r.attachmentUrl ? (
                         <a href={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${r.attachmentUrl}`} className="flex items-center gap-1 text-xs text-indigo-600 underline" target="_blank" rel="noreferrer" download>
                           <Download className="h-3 w-3" />{r.content}
                         </a>
                       ) : (
-                        <div className="text-sm text-slate-700 break-words"><RichContent content={r.content} allUsers={allUsers} onMentionClick={setMentionProfileUserId} /></div>
+                        <div className="text-sm text-foreground break-words"><RichContent content={r.content} allUsers={allUsers} onMentionClick={setMentionProfileUserId} /></div>
                       )}
                     </div>
                   </div>
@@ -2108,8 +2125,8 @@ export default function ChatPage() {
               </div>
 
               {/* Reply input */}
-              <div className="border-t border-slate-200 p-3">
-                <div className="flex items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-200">
+              <div className="border-t border-border p-3">
+                <div className="flex items-end gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-200">
                   <input
                     type="file"
                     ref={replyFileRef}
@@ -2119,7 +2136,7 @@ export default function ChatPage() {
                   <button
                     onClick={() => replyFileRef.current?.click()}
                     disabled={replyUploading}
-                    className="shrink-0 text-slate-400 hover:text-indigo-500"
+                    className="shrink-0 text-muted-foreground hover:text-indigo-500"
                     title="Attach file"
                   >
                     {replyUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
@@ -2128,7 +2145,7 @@ export default function ChatPage() {
                   <div className="relative shrink-0">
                     <button
                       onClick={() => setShowReplyEmojiPicker((v) => !v)}
-                      className="text-slate-400 hover:text-yellow-500 transition-colors"
+                      className="text-muted-foreground hover:text-yellow-500 transition-colors"
                       title="Emoji"
                     >
                       <SmilePlus className="h-4 w-4" />
@@ -2150,7 +2167,7 @@ export default function ChatPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendReply(); }
                     }}
-                    className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-slate-400"
+                    className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                   />
                   <button
                     onClick={handleSendReply}
@@ -2262,15 +2279,15 @@ export default function ChatPage() {
               ) : (
                 /* ── Members list ─────────────────────────────────── */
                 <>
-                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                    <span className="text-xs font-semibold text-slate-700">Channel Members</span>
-                    <button onClick={() => setShowMembersPanel(false)} className="text-slate-400 hover:text-slate-600">
+                  <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                    <span className="text-xs font-semibold text-foreground">Channel Members</span>
+                    <button onClick={() => setShowMembersPanel(false)} className="text-muted-foreground hover:text-foreground">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-3">
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                       Members ({channelMembers.length})
                     </p>
                     {channelMembers.map((m) => {
@@ -2280,7 +2297,7 @@ export default function ChatPage() {
                       return (
                         <div
                           key={m.userId}
-                          className="group flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50 cursor-pointer"
+                          className="group flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted cursor-pointer"
                           onClick={() => setProfileMember(m as any)}
                         >
                           <div className="relative shrink-0">
@@ -2290,23 +2307,22 @@ export default function ChatPage() {
                                 {m.user.firstName[0]}{m.user.lastName[0]}
                               </AvatarFallback>
                             </Avatar>
-                            <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white ${isOnline ? "bg-green-500" : "bg-slate-300"}`} />
+                            <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${isOnline ? "bg-green-500" : "bg-muted-foreground/30"}`} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="truncate text-xs font-medium text-slate-700">
+                            <p className="truncate text-xs font-medium text-foreground">
                               {m.user.firstName} {m.user.lastName}
-                              {isCurrentUser && <span className="ml-1 text-[10px] text-slate-400">(you)</span>}
+                              {isCurrentUser && <span className="ml-1 text-[10px] text-muted-foreground">(you)</span>}
                             </p>
-                            <p className={`text-[10px] ${isOnline ? "text-green-500" : "text-slate-400"}`}>
+                            <p className={`text-[10px] ${isOnline ? "text-green-500" : "text-muted-foreground"}`}>
                               {isOnline ? "Online" : "Offline"}
                             </p>
                           </div>
-                          {/* Remove button — not for #general, not for self */}
                           {!isCurrentUser && !isGeneral && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleRemoveMember(m.userId); }}
                               title="Remove from channel"
-                              className="hidden group-hover:flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                              className="hidden group-hover:flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-500 dark:hover:bg-red-950/30 transition-colors"
                             >
                               <UserX className="h-3 w-3" />
                             </button>
@@ -2317,16 +2333,16 @@ export default function ChatPage() {
 
                     {/* Add member section */}
                     <div className="mt-4">
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                         Add Members
                       </p>
-                      <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                        <Search className="h-3 w-3 shrink-0 text-slate-400" />
+                      <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5">
+                        <Search className="h-3 w-3 shrink-0 text-muted-foreground" />
                         <input
                           placeholder="Search users…"
                           value={addMemberSearch}
                           onChange={(e) => setAddMemberSearch(e.target.value)}
-                          className="flex-1 text-xs outline-none placeholder:text-slate-400"
+                          className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
                         />
                       </div>
                       <div className="mt-1 max-h-40 overflow-y-auto">
@@ -2334,7 +2350,7 @@ export default function ChatPage() {
                           <button
                             key={u.userId}
                             onClick={() => handleAddMember(u.userId)}
-                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-slate-50"
+                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-muted"
                           >
                             <Avatar className="h-5 w-5 shrink-0">
                               <AvatarImage src={av(u.user.avatarUrl)} />
@@ -2345,10 +2361,10 @@ export default function ChatPage() {
                           </button>
                         ))}
                         {nonMemberUsers.length === 0 && addMemberSearch && (
-                          <p className="px-2 py-1 text-[11px] text-slate-400">No users found</p>
+                          <p className="px-2 py-1 text-[11px] text-muted-foreground">No users found</p>
                         )}
                         {nonMemberUsers.length === 0 && !addMemberSearch && (
-                          <p className="px-2 py-1 text-[11px] text-slate-400">All users are already members</p>
+                          <p className="px-2 py-1 text-[11px] text-muted-foreground">All users are already members</p>
                         )}
                       </div>
                     </div>
@@ -2360,15 +2376,26 @@ export default function ChatPage() {
         </div>
       ) : (
         /* Empty state */
-        <div className="flex flex-1 items-center justify-center">
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50">
-              <MessageSquare className="h-8 w-8 text-indigo-400" />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex items-center border-b border-border px-4 py-3 sm:hidden">
+            <button
+              className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
+              onClick={() => setMobileSidebarOpen(true)}
+              aria-label="Open sidebar"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex flex-1 items-center justify-center">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10">
+                <MessageSquare className="h-8 w-8 text-indigo-400" />
+              </div>
+              <h3 className="text-base font-semibold text-foreground">Select a channel or conversation</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pick a channel from the sidebar or start a new DM
+              </p>
             </div>
-            <h3 className="text-base font-semibold text-slate-700">Select a channel or conversation</h3>
-            <p className="mt-1 text-sm text-slate-400">
-              Pick a channel from the sidebar or start a new DM
-            </p>
           </div>
         </div>
       )}

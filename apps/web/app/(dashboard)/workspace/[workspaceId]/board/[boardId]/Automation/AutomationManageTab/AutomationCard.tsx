@@ -32,10 +32,10 @@ export default function AutomationCard({
       className="
         rounded-lg
         border
-        bg-white
+        bg-background
         p-4
         transition
-        hover:border-slate-300
+        hover:border-border
         hover:shadow-sm
       "
     >
@@ -47,12 +47,12 @@ export default function AutomationCard({
               <GitBranch className="h-3.5 w-3.5 text-blue-600" />
             </div>
 
-            <h3 className="truncate text-[14px] font-medium text-slate-700">
+            <h3 className="truncate text-[14px] font-medium text-foreground">
               {automation.name}
             </h3>
 
             {!automation.isActive && (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                 Disabled
               </span>
             )}
@@ -64,13 +64,13 @@ export default function AutomationCard({
               Status changes
             </RuleBadge>
 
-            <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
 
             <RuleBadge>
               Status #{automation.triggerStatusId}
             </RuleBadge>
 
-            <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
 
             <RuleBadge>
               Move to group #
@@ -128,7 +128,7 @@ function RuleBadge({
   children: React.ReactNode;
 }) {
   return (
-    <span className="rounded-md border bg-slate-50 px-2.5 py-1 text-[12px] text-slate-600">
+    <span className="rounded-md border bg-muted/50 px-2.5 py-1 text-[12px] text-muted-foreground">
       {children}
     </span>
   );

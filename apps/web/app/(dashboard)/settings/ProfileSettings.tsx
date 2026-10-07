@@ -147,7 +147,7 @@ export function ProfileSettings() {
             </p>
           )}
 
-          <div className="fixed inset-x-0 bottom-0 left-64 z-50 border-t border-white/10 bg-background/20 p-4 backdrop-blur-md">
+          <div className="fixed inset-x-0 bottom-0 left-0 z-50 border-t border-white/10 bg-background/20 p-4 backdrop-blur-md sm:left-64">
             <div className="flex w-full justify-end">
               <Button
                 loading={

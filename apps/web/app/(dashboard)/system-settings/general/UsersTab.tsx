@@ -240,7 +240,7 @@ export function UsersTab() {
                         {user.createdBy ? (
                           <div className="flex items-center gap-1.5 text-xs">
                             <UserCheck className="h-3 w-3 shrink-0 text-green-500" />
-                            <span className="font-medium text-gray-700">
+                            <span className="font-medium text-foreground">
                               {user.createdBy.name}
                             </span>
                           </div>

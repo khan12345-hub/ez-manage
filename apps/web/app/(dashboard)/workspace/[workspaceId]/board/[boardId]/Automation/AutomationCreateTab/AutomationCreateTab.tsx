@@ -40,7 +40,7 @@ export default function AutomationCreateTab({
   return (
     <div className="flex h-full flex-1">
       {/* Sidebar — hidden on mobile */}
-      <aside className="hidden w-[180px] shrink-0 border-r bg-slate-50/80 px-3 py-5 sm:block sm:w-[220px]">
+      <aside className="hidden w-[180px] shrink-0 border-r bg-muted/50 px-3 py-5 sm:block sm:w-[220px]">
         <div className="mb-3 px-3 text-[15px] font-semibold">
           Categories
         </div>
@@ -65,8 +65,8 @@ export default function AutomationCreateTab({
                     text-[13px]
                     ${
                       index === 0
-                        ? "bg-blue-100 text-slate-700"
-                        : "text-slate-600 hover:bg-slate-100"
+                        ? "bg-blue-100 text-foreground"
+                        : "text-muted-foreground hover:bg-muted"
                     }
                   `}
                 >
@@ -86,7 +86,7 @@ export default function AutomationCreateTab({
       <main className="min-w-0 flex-1 overflow-auto px-4 py-4 sm:px-[52px] sm:py-[14px]">
         <div className="flex items-center gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
             <Input
               value={search}
@@ -111,7 +111,7 @@ export default function AutomationCreateTab({
         </div>
 
         <section className="mt-7">
-          <h2 className="mb-3 text-[20px] font-semibold text-slate-700">
+          <h2 className="mb-3 text-[20px] font-semibold text-foreground">
             Start with the basics
           </h2>
 
@@ -130,19 +130,19 @@ export default function AutomationCreateTab({
                 rounded-md
                 border-2
                 border-dashed
-                border-slate-200
-                bg-white
+                border-border
+                bg-background
                 transition
                 hover:border-blue-400
                 hover:shadow-sm
                 sm:h-[212px]
               "
             >
-              <div className="mb-3 text-4xl font-light text-slate-400 group-hover:text-blue-500">
+              <div className="mb-3 text-4xl font-light text-muted-foreground group-hover:text-blue-500">
                 +
               </div>
 
-              <div className="text-[14px] font-medium text-slate-600 group-hover:text-blue-600">
+              <div className="text-[14px] font-medium text-muted-foreground group-hover:text-blue-600">
                 Create from scratch
               </div>
             </button>
@@ -156,13 +156,13 @@ export default function AutomationCreateTab({
                 return (
                   <div
                     key={template.id}
-                    className="flex h-[160px] flex-col rounded-md border bg-white p-3 sm:h-[212px] sm:p-3.5"
+                    className="flex h-[160px] flex-col rounded-md border bg-background p-3 sm:h-[212px] sm:p-3.5"
                   >
                     <div className="flex h-7 w-7 items-center justify-center rounded-md border">
-                      <Icon className="h-4 w-4 text-slate-600" />
+                      <Icon className="h-4 w-4 text-muted-foreground" />
                     </div>
 
-                    <div className="mt-4 flex-1 text-[15px] leading-[20px] text-slate-700">
+                    <div className="mt-4 flex-1 text-[15px] leading-[20px] text-foreground">
                       {template.title}
                     </div>
 

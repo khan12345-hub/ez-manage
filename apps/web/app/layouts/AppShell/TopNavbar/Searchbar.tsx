@@ -22,23 +22,23 @@ export function Searchbar({ onOpen }: SearchbarProps) {
         items-center
         rounded-full
         border
-        border-gray-200
-        bg-gray-50/70
+        border-border
+        bg-muted/50
         px-4
         text-left
         shadow-sm
         transition-all
-        hover:border-gray-300
-        hover:bg-white
+        hover:border-border
+        hover:bg-background
         hover:shadow-md
         focus:outline-none
         focus:ring-2
         focus:ring-blue-500
       "
     >
-      <Search className="mr-3 h-4 w-4 text-gray-400 transition-colors group-hover:text-gray-600" />
+      <Search className="mr-3 h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
 
-      <span className="flex-1 text-sm text-gray-500">
+      <span className="flex-1 text-sm text-muted-foreground">
         Search for anything...
       </span>
 

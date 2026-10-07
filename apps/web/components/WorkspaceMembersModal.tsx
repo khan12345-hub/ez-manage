@@ -116,7 +116,7 @@ export function WorkspaceMembersModal({
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-lg overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl animate-in zoom-in-95 duration-200 dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative w-full max-w-lg overflow-hidden rounded-xl border border-border bg-background shadow-2xl animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
       >
@@ -125,7 +125,7 @@ export function WorkspaceMembersModal({
 
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-zinc-800"
+          className="absolute top-4 right-4 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Close"
         >
           <X className="h-4 w-4" />
@@ -137,10 +137,10 @@ export function WorkspaceMembersModal({
             <Users className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-bold text-foreground">
               Workspace Members
             </h2>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-zinc-400">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {members.length} {members.length === 1 ? "member" : "members"}
               {pendingCount > 0 && ` · ${pendingCount} pending invite${pendingCount !== 1 ? "s" : ""}`}
               {canManage && " — you can edit roles and remove members"}
@@ -149,18 +149,18 @@ export function WorkspaceMembersModal({
         </div>
 
         {/* tabs */}
-        <div className="flex border-b border-gray-100 px-6 dark:border-zinc-800">
+        <div className="flex border-b border-border px-6">
           <button
             onClick={() => setActiveTab("members")}
             className={`flex items-center gap-1.5 pb-2.5 pt-1 text-xs font-semibold border-b-2 mr-5 transition-colors ${
               activeTab === "members"
                 ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-zinc-300"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
             <UserCheck className="h-3.5 w-3.5" />
             Members
-            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-zinc-800 dark:text-zinc-400">
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               {members.length}
             </span>
           </button>
@@ -169,7 +169,7 @@ export function WorkspaceMembersModal({
             className={`flex items-center gap-1.5 pb-2.5 pt-1 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === "invitations"
                 ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-zinc-300"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
             <Mail className="h-3.5 w-3.5" />
@@ -193,7 +193,7 @@ export function WorkspaceMembersModal({
                 return (
                   <div
                     key={m.id}
-                    className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50"
+                    className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-3 py-2.5"
                   >
                     {/* avatar */}
                     {m.user.avatarUrl ? (
@@ -210,11 +210,11 @@ export function WorkspaceMembersModal({
 
                     {/* name + join date */}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                      <p className="truncate text-sm font-medium text-foreground">
                         {m.user.firstName} {m.user.lastName}
                       </p>
                       {m.createdAt && (
-                        <p className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">
+                        <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
                           <Clock className="h-3 w-3" />
                           Joined {formatDate(m.createdAt)}
                         </p>
@@ -232,7 +232,7 @@ export function WorkspaceMembersModal({
                             role: e.target.value,
                           })
                         }
-                        className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                        className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       >
                         {ASSIGNABLE_ROLES.map((r) => (
                           <option key={r} value={r}>
@@ -251,7 +251,7 @@ export function WorkspaceMembersModal({
                       <button
                         disabled={isBusy}
                         onClick={() => removeMutation.mutate(m.id)}
-                        className="ml-1 rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40"
+                        className="ml-1 rounded p-1 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40"
                         aria-label="Remove member"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -269,33 +269,33 @@ export function WorkspaceMembersModal({
           <div className="max-h-[380px] overflow-y-auto px-6 py-4">
             {invitations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
-                <Mail className="h-8 w-8 text-gray-300 dark:text-zinc-600 mb-2" />
-                <p className="text-sm text-gray-500 dark:text-zinc-400">No pending invitations</p>
+                <Mail className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">No pending invitations</p>
               </div>
             ) : (
               <div className="flex flex-col gap-2">
                 {invitations.map((inv) => (
                   <div
                     key={inv.id}
-                    className="rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50"
+                    className="rounded-lg border border-border bg-muted/50 px-3 py-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                        <p className="truncate text-sm font-medium text-foreground">
                           {inv.email}
                         </p>
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                          <span className="text-[11px] text-gray-500 dark:text-zinc-400">
-                            Role: <span className="font-medium text-gray-700 dark:text-zinc-300">{ROLE_LABELS[inv.role] ?? inv.role}</span>
+                          <span className="text-[11px] text-muted-foreground">
+                            Role: <span className="font-medium text-foreground">{ROLE_LABELS[inv.role] ?? inv.role}</span>
                           </span>
-                          <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-zinc-400">
+                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             Sent {formatDate(inv.createdAt)}
                           </span>
                         </div>
-                        <p className="mt-0.5 text-[11px] text-gray-400 dark:text-zinc-500">
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
                           Invited by{" "}
-                          <span className="font-medium text-gray-600 dark:text-zinc-400">
+                          <span className="font-medium text-muted-foreground">
                             {inv.invitedBy.firstName} {inv.invitedBy.lastName}
                           </span>
                         </p>
@@ -312,7 +312,7 @@ export function WorkspaceMembersModal({
         )}
 
         {/* footer */}
-        <div className="flex justify-end border-t border-gray-100 px-6 py-4 dark:border-zinc-800">
+        <div className="flex justify-end border-t border-border px-6 py-4">
           <Button
             variant="outline"
             onClick={onClose}

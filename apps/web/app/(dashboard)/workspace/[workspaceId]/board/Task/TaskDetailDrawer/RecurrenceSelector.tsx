@@ -90,15 +90,15 @@ export function RecurrenceSelector({
   };
 
   return (
-    <div className="px-6 py-3 border-b border-slate-100 bg-slate-50/50">
+    <div className="px-6 py-3 border-b border-border bg-muted/50">
       <div className="flex items-center gap-2">
-        <RefreshCw className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-        <span className="text-xs font-medium text-slate-500 w-14 shrink-0">Repeat</span>
+        <RefreshCw className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <span className="text-xs font-medium text-muted-foreground w-14 shrink-0">Repeat</span>
 
         <select
           value={type}
           onChange={(e) => handleTypeChange(e.target.value as RecurrenceType)}
-          className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer"
+          className="text-xs border border-border rounded-md px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
         >
           {(Object.keys(RECURRENCE_LABELS) as RecurrenceType[]).map((t) => (
             <option key={t} value={t}>
@@ -109,27 +109,27 @@ export function RecurrenceSelector({
 
         {type !== "NONE" && (
           <>
-            <span className="text-xs text-slate-400">every</span>
+            <span className="text-xs text-muted-foreground">every</span>
             <input
               type="number"
               min={1}
               max={99}
               value={interval}
               onChange={(e) => handleIntervalChange(Number(e.target.value))}
-              className="w-12 text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700 text-center focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="w-12 text-xs border border-border rounded-md px-2 py-1 bg-background text-foreground text-center focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            <span className="text-xs text-slate-400">{INTERVAL_LABELS[type]}</span>
-            <span className="text-xs text-slate-400 ml-1">until</span>
+            <span className="text-xs text-muted-foreground">{INTERVAL_LABELS[type]}</span>
+            <span className="text-xs text-muted-foreground ml-1">until</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => handleEndDateChange(e.target.value)}
-              className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="text-xs border border-border rounded-md px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <button
               onClick={handleClear}
               title="Remove recurrence"
-              className="ml-auto flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+              className="ml-auto flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <X className="h-3 w-3" />
             </button>
@@ -137,7 +137,7 @@ export function RecurrenceSelector({
         )}
 
         {type !== "NONE" && (
-          <span className="ml-auto text-[10px] text-indigo-500 font-medium bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded-full">
+          <span className="ml-auto text-[10px] text-primary font-medium bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
             Recurring
           </span>
         )}

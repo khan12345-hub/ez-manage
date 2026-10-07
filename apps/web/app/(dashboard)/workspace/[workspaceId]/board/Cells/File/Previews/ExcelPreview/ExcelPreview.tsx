@@ -105,7 +105,7 @@ export default function ExcelPreview({
   }
 
   return (
-    <div className="h-[70vh] overflow-auto rounded-md border bg-white">
+    <div className="h-[70vh] overflow-auto rounded-md border bg-background">
       <ExcelTable data={data} />
     </div>
   );

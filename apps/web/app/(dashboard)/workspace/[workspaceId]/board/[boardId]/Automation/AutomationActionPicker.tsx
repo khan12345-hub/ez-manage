@@ -107,11 +107,11 @@ export default function AutomationActionPicker({
             type="button"
             disabled={disabled}
             className="
-              text-slate-500
+              text-muted-foreground
               transition-colors
               hover:text-blue-600
               disabled:cursor-not-allowed
-              disabled:text-slate-300
+              disabled:opacity-40
             "
           >
             <Plus className="h-4 w-4" />
@@ -134,8 +134,8 @@ export default function AutomationActionPicker({
                 disabled
                   ? `
                     cursor-not-allowed
-                    border-slate-300
-                    text-slate-300
+                    border-border
+                    opacity-40
                   `
                   : placeholder ===
                       "do this"
@@ -145,8 +145,8 @@ export default function AutomationActionPicker({
                       hover:text-blue-600
                     `
                     : `
-                      border-slate-400
-                      text-slate-400
+                      border-border
+                      text-muted-foreground
                       hover:border-blue-500
                       hover:text-blue-500
                     `
@@ -166,7 +166,7 @@ export default function AutomationActionPicker({
           w-[275px]
           rounded-lg
           border
-          bg-white
+          bg-background
           p-2
           shadow-xl
         "
@@ -188,7 +188,7 @@ export default function AutomationActionPicker({
               mr-2
               h-4
               w-4
-              text-slate-400
+              text-muted-foreground
             "
           />
 
@@ -208,7 +208,7 @@ export default function AutomationActionPicker({
               bg-transparent
               text-sm
               outline-none
-              placeholder:text-slate-400
+              placeholder:text-muted-foreground
             "
           />
         </div>
@@ -238,7 +238,7 @@ export default function AutomationActionPicker({
                 py-6
                 text-center
                 text-sm
-                text-slate-400
+                text-muted-foreground
               "
             >
               No actions found
@@ -271,7 +271,7 @@ function ActionSection({
           px-1
           text-xs
           font-medium
-          text-slate-500
+          text-muted-foreground
         "
       >
         {title}
@@ -300,8 +300,8 @@ function ActionSection({
                 py-2
                 text-left
                 text-sm
-                text-slate-700
-                hover:bg-slate-100
+                text-foreground
+                hover:bg-muted
               "
             >
               <span
@@ -312,7 +312,7 @@ function ActionSection({
                   items-center
                   justify-center
                   rounded
-                  bg-slate-100
+                  bg-muted
                 "
               >
                 <Icon className="h-3.5 w-3.5" />

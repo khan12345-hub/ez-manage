@@ -32,7 +32,7 @@ export function ExcelImportSettings({
             onBoardNameChange(event.target.value)
           }
           disabled={isImporting}
-          className="h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 dark:border-zinc-800 dark:bg-zinc-950"
+          className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
           placeholder="Board name"
         />
       </div>
@@ -52,7 +52,7 @@ export function ExcelImportSettings({
             )
           }
           disabled={isImporting}
-          className="h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 dark:border-zinc-800 dark:bg-zinc-950"
+          className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
         >
           <option value="PRIVATE">Private</option>
           <option value="PUBLIC">Public</option>

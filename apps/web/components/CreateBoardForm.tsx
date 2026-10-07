@@ -178,13 +178,13 @@ export function CreateBoardForm({
           </p>
         </div> */}
 
-        <div className="flex items-center justify-end gap-2.5 border-t border-gray-100 pt-4 dark:border-zinc-800">
+        <div className="flex items-center justify-end gap-2.5 border-t border-border pt-4">
           <Button
             type="button"
             variant="outline"
             onClick={onClose}
             disabled={isSubmitting}
-            className="h-9.5 border-gray-200 px-4 text-xs font-semibold hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            className="h-9.5 border-border px-4 text-xs font-semibold hover:bg-muted"
           >
             Cancel
           </Button>

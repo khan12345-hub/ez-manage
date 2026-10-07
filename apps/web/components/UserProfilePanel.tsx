@@ -133,8 +133,8 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
     <div className="flex items-start gap-2.5 py-2.5">
       <span className="mt-0.5 shrink-0">{icon}</span>
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-        <p className="truncate text-xs font-medium text-slate-700">{value}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="truncate text-xs font-medium text-foreground">{value}</p>
       </div>
     </div>
   );
@@ -157,11 +157,11 @@ function TaskHoverCard({ task, rect }: { task: AssignedTask; rect: DOMRect }) {
 
   return createPortal(
     <div
-      className="pointer-events-none fixed z-[9999] rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+      className="pointer-events-none fixed z-[9999] rounded-xl border border-border bg-background p-3 shadow-xl"
       style={{ top, left, width: W }}
     >
-      <p className="mb-0.5 line-clamp-2 text-xs font-semibold text-slate-800">{task.name}</p>
-      <p className="mb-2 text-[10px] text-slate-400">
+      <p className="mb-0.5 line-clamp-2 text-xs font-semibold text-foreground">{task.name}</p>
+      <p className="mb-2 text-[10px] text-muted-foreground">
         {task.boardName} / {task.groupName}
       </p>
 
@@ -171,14 +171,14 @@ function TaskHoverCard({ task, rect }: { task: AssignedTask; rect: DOMRect }) {
             className="h-2 w-2 shrink-0 rounded-sm"
             style={{ backgroundColor: task.statusColor ?? "#94a3b8" }}
           />
-          <span className="text-[11px] text-slate-600">{task.statusLabel}</span>
+          <span className="text-[11px] text-muted-foreground">{task.statusLabel}</span>
         </div>
       )}
 
       {task.dueDate && (
         <div className="mb-1.5 flex items-center gap-1.5">
-          <Calendar className="h-3 w-3 shrink-0 text-slate-400" />
-          <span className="text-[11px] text-slate-600">{formatDue(task.dueDate)}</span>
+          <Calendar className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <span className="text-[11px] text-muted-foreground">{formatDue(task.dueDate)}</span>
         </div>
       )}
 
@@ -194,14 +194,14 @@ function TaskHoverCard({ task, rect }: { task: AssignedTask; rect: DOMRect }) {
               </Avatar>
             ))}
           </div>
-          <span className="truncate text-[10px] text-slate-500">
+          <span className="truncate text-[10px] text-muted-foreground">
             {task.assignedUsers.slice(0, 2).map((u) => u.firstName).join(", ")}
             {task.assignedUsers.length > 2 && ` +${task.assignedUsers.length - 2}`}
           </span>
         </div>
       )}
 
-      <p className="mt-1 text-[10px] text-slate-300">
+      <p className="mt-1 text-[10px] text-muted-foreground/60">
         Created by {task.createdBy.firstName} {task.createdBy.lastName}
       </p>
     </div>,
@@ -269,7 +269,7 @@ function TaskRow({ task, isOverdue, workspaceId, onRefetch }: TaskRowProps) {
   return (
     <div
       ref={rowRef}
-      className="relative flex cursor-pointer items-start gap-2 px-4 py-2.5 transition-colors hover:bg-slate-50"
+      className="relative flex cursor-pointer items-start gap-2 px-4 py-2.5 transition-colors hover:bg-muted"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={() => router.push(`/workspace/${workspaceId}/board/${task.boardId}?taskId=${task.id}`)}
@@ -282,17 +282,17 @@ function TaskRow({ task, isOverdue, workspaceId, onRefetch }: TaskRowProps) {
         }}
       />
       <div className="min-w-0 flex-1">
-        <p className={`truncate text-xs font-medium ${isDone ? "text-slate-400 line-through" : "text-slate-700"}`}>
+        <p className={`truncate text-xs font-medium ${isDone ? "text-muted-foreground line-through" : "text-foreground"}`}>
           {task.name}
         </p>
         <div className="mt-0.5 flex items-center gap-2">
           {task.dueDate && (
-            <span className={`flex items-center gap-0.5 text-[10px] font-medium ${isOverdue ? "text-red-500" : "text-slate-400"}`}>
+            <span className={`flex items-center gap-0.5 text-[10px] font-medium ${isOverdue ? "text-red-500" : "text-muted-foreground"}`}>
               <Calendar className="h-2.5 w-2.5" />
               {formatDue(task.dueDate)}
             </span>
           )}
-          <span className="truncate text-[10px] text-slate-300">{task.boardName}</span>
+          <span className="truncate text-[10px] text-muted-foreground/60">{task.boardName}</span>
         </div>
       </div>
 
@@ -303,7 +303,7 @@ function TaskRow({ task, isOverdue, workspaceId, onRefetch }: TaskRowProps) {
               title="Mark done"
               onClick={handleComplete}
               disabled={completing}
-              className="rounded p-1 text-slate-400 transition-colors hover:bg-green-50 hover:text-green-600"
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-green-50 hover:text-green-600"
             >
               {completing
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -314,7 +314,7 @@ function TaskRow({ task, isOverdue, workspaceId, onRefetch }: TaskRowProps) {
             title="Delete task"
             onClick={handleDelete}
             disabled={deleting}
-            className="rounded p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-500"
           >
             {deleting
               ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -375,7 +375,7 @@ function MentionBadge({
       {open && cardPos &&
         createPortal(
           <div
-            className="fixed z-[9999] w-52 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden"
+            className="fixed z-[9999] w-52 rounded-xl border border-border bg-background shadow-xl overflow-hidden"
             style={{ top: cardPos.top, left: cardPos.left }}
             onMouseEnter={keepOpen}
             onMouseLeave={hide}
@@ -391,13 +391,13 @@ function MentionBadge({
                   </AvatarFallback>
                 </Avatar>
               </div>
-              <p className="mt-1.5 text-center text-xs font-bold text-slate-800">
+              <p className="mt-1.5 text-center text-xs font-bold text-foreground">
                 {mention.user.firstName} {mention.user.lastName}
               </p>
               <div className="mt-2 flex w-full gap-1.5">
                 <button
                   onClick={() => router.push(`/workspace/${workspaceId}/chat`)}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                  className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-border py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
                 >
                   <MessageSquare className="h-3 w-3" /> Chat
                 </button>
@@ -455,11 +455,11 @@ function ActivityTaskLink({ task, workspaceId }: { task: ActivityTask; workspace
       </button>
       {cardPos && createPortal(
         <div
-          className="pointer-events-none fixed z-[9999] w-52 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+          className="pointer-events-none fixed z-[9999] w-52 rounded-xl border border-border bg-background p-3 shadow-xl"
           style={{ top: cardPos.top, left: cardPos.left }}
         >
-          <p className="mb-0.5 line-clamp-2 text-xs font-semibold text-slate-800">{task.name}</p>
-          <p className="text-[10px] text-slate-400">{task.group.board.name} › {task.group.name}</p>
+          <p className="mb-0.5 line-clamp-2 text-xs font-semibold text-foreground">{task.name}</p>
+          <p className="text-[10px] text-muted-foreground">{task.group.board.name} › {task.group.name}</p>
           <p className="mt-2 text-[10px] font-medium text-indigo-500">Click to open task →</p>
         </div>,
         document.body,
@@ -480,7 +480,7 @@ function InlineMentionText({
 }) {
   if (!text) return null;
   if (!mentions.length || !text.includes("@")) {
-    return <span className="text-[11px] leading-relaxed text-slate-600">{text}</span>;
+    return <span className="text-[11px] leading-relaxed text-muted-foreground">{text}</span>;
   }
 
   const parts: React.ReactNode[] = [];
@@ -504,7 +504,7 @@ function InlineMentionText({
   }
   if (lastIndex < text.length) parts.push(text.slice(lastIndex));
 
-  return <span className="text-[11px] leading-relaxed text-slate-600">{parts}</span>;
+  return <span className="text-[11px] leading-relaxed text-muted-foreground">{parts}</span>;
 }
 
 // ── CommentActivityItem ───────────────────────────────────────────────────────
@@ -515,11 +515,11 @@ function CommentActivityItem({ item, workspaceId }: { item: ActivityItem; worksp
   const grouped = groupReactions(reactions);
 
   return (
-    <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+    <div className="rounded-lg border border-border bg-muted/50 p-2.5">
       {item.task && (
         <div className="mb-1.5">
           <ActivityTaskLink task={item.task} workspaceId={workspaceId} />
-          <p className="mt-0.5 text-[10px] text-slate-400">
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
             {item.task.group.board.name} › {item.task.group.name}
           </p>
         </div>
@@ -532,14 +532,14 @@ function CommentActivityItem({ item, workspaceId }: { item: ActivityItem; worksp
           {grouped.map((r) => (
             <span
               key={r.emoji}
-              className="flex items-center gap-0.5 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[10px]"
+              className="flex items-center gap-0.5 rounded-full border border-border bg-background px-1.5 py-0.5 text-[10px]"
             >
               {r.emoji} {r.count}
             </span>
           ))}
         </div>
       )}
-      <p className="mt-1.5 text-right text-[10px] text-slate-300">{formatRelTime(item.createdAt)}</p>
+      <p className="mt-1.5 text-right text-[10px] text-muted-foreground/60">{formatRelTime(item.createdAt)}</p>
     </div>
   );
 }
@@ -550,18 +550,18 @@ function LogActivityItem({ item, workspaceId }: { item: ActivityItem; workspaceI
   if (!desc) return null;
   return (
     <div className="flex items-start gap-2">
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100">
-        <Activity className="h-2.5 w-2.5 text-slate-400" />
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted">
+        <Activity className="h-2.5 w-2.5 text-muted-foreground" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] text-slate-600">{desc}</p>
+        <p className="text-[11px] text-muted-foreground">{desc}</p>
         {item.task && (
           <div className="mt-0.5">
             <ActivityTaskLink task={item.task} workspaceId={workspaceId} />
           </div>
         )}
       </div>
-      <p className="shrink-0 text-[10px] text-slate-300">{formatRelTime(item.createdAt)}</p>
+      <p className="shrink-0 text-[10px] text-muted-foreground/60">{formatRelTime(item.createdAt)}</p>
     </div>
   );
 }
@@ -607,8 +607,8 @@ function ActivityFeed({ workspaceId, userId, enabled }: {
   if (!items.length) {
     return (
       <div className="flex flex-col items-center gap-2 py-10 text-center">
-        <Activity className="h-8 w-8 text-slate-200" />
-        <p className="text-xs text-slate-400">No recent activity</p>
+        <Activity className="h-8 w-8 text-muted-foreground/30" />
+        <p className="text-xs text-muted-foreground">No recent activity</p>
       </div>
     );
   }
@@ -617,7 +617,7 @@ function ActivityFeed({ workspaceId, userId, enabled }: {
     <div className="flex flex-col gap-4 px-4 py-3">
       {grouped.map((g) => (
         <div key={g.label}>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             {g.label}
           </p>
           <div className="flex flex-col gap-2">
@@ -737,12 +737,12 @@ export function UserProfilePanel({
       {/* Top nav */}
       <div className="flex shrink-0 items-center gap-2 px-3 py-2.5">
         {onBack && (
-          <button onClick={onBack} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onBack} className="text-muted-foreground hover:text-foreground">
             <ChevronLeft className="h-4 w-4" />
           </button>
         )}
-        <span className="text-xs font-semibold text-slate-700">Profile</span>
-        <button onClick={onClose} className="ml-auto text-slate-400 hover:text-slate-600">
+        <span className="text-xs font-semibold text-foreground">Profile</span>
+        <button onClick={onClose} className="ml-auto text-muted-foreground hover:text-foreground">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -760,25 +760,25 @@ export function UserProfilePanel({
             </Avatar>
             <span
               className={`absolute bottom-0.5 right-0.5 h-4 w-4 rounded-full border-2 border-white ${
-                isOnline ? "bg-green-500" : "bg-slate-300"
+                isOnline ? "bg-green-500" : "bg-muted-foreground/40"
               }`}
             />
           </div>
-          <p className="mt-2 text-center text-sm font-bold leading-tight text-slate-800">
+          <p className="mt-2 text-center text-sm font-bold leading-tight text-foreground">
             {user.firstName} {user.lastName}
-            {isCurrentUser && <span className="ml-1 text-[10px] font-normal text-slate-400">(you)</span>}
+            {isCurrentUser && <span className="ml-1 text-[10px] font-normal text-muted-foreground">(you)</span>}
           </p>
           {(statusEmoji || statusText) && (
-            <p className="text-center text-xs text-slate-500">{statusEmoji} {statusText}</p>
+            <p className="text-center text-xs text-muted-foreground">{statusEmoji} {statusText}</p>
           )}
-          <p className={`mt-0.5 text-[11px] font-semibold ${isOnline ? "text-green-500" : "text-slate-400"}`}>
+          <p className={`mt-0.5 text-[11px] font-semibold ${isOnline ? "text-green-500" : "text-muted-foreground"}`}>
             {isOnline ? "● Online" : "○ Offline"}
           </p>
 
           {isCurrentUser && (
             <button
               onClick={() => { setEditEmoji(statusEmoji ?? ""); setEditText(statusText ?? ""); setShowStatusEdit((v) => !v); }}
-              className="mt-1 flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition-colors hover:bg-slate-50"
+              className="mt-1 flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
             >
               <Smile className="h-3 w-3" />
               {statusText ? "Update status" : "Set a status"}
@@ -811,7 +811,7 @@ export function UserProfilePanel({
       </div>
 
       {/* Tabs */}
-      <div className="flex shrink-0 border-b border-slate-100">
+      <div className="flex shrink-0 border-b border-border">
         {(["info", "task", "activity"] as const).map((t) => (
           <button
             key={t}
@@ -819,7 +819,7 @@ export function UserProfilePanel({
             className={`flex-1 py-2 text-xs font-semibold transition-colors ${
               profileTab === t
                 ? "border-b-2 border-indigo-600 text-indigo-600"
-                : "text-slate-400 hover:text-slate-600"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {t === "info" ? "Info"
@@ -834,21 +834,21 @@ export function UserProfilePanel({
 
         {/* Info tab */}
         {profileTab === "info" && (
-          <div className="flex flex-col gap-0 divide-y divide-slate-50 px-4 py-3">
+          <div className="flex flex-col gap-0 divide-y divide-border px-4 py-3">
             {fullUser?.email && (
-              <InfoRow icon={<Mail className="h-3.5 w-3.5 text-slate-400" />} label="Email" value={fullUser.email} />
+              <InfoRow icon={<Mail className="h-3.5 w-3.5 text-muted-foreground" />} label="Email" value={fullUser.email} />
             )}
             {fullUser?.phone && (
-              <InfoRow icon={<Phone className="h-3.5 w-3.5 text-slate-400" />} label="Phone" value={fullUser.phone} />
+              <InfoRow icon={<Phone className="h-3.5 w-3.5 text-muted-foreground" />} label="Phone" value={fullUser.phone} />
             )}
             <InfoRow
-              icon={<Users className="h-3.5 w-3.5 text-slate-400" />}
+              icon={<Users className="h-3.5 w-3.5 text-muted-foreground" />}
               label="Last active"
               value={isOnline ? "Online now" : formatLastSeen(fullUser?.lastLoginAt)}
             />
             {fullUser?.createdAt && (
               <InfoRow
-                icon={<Calendar className="h-3.5 w-3.5 text-slate-400" />}
+                icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />}
                 label="Member since"
                 value={formatJoined(fullUser.createdAt)}
               />
@@ -864,8 +864,8 @@ export function UserProfilePanel({
               </div>
             )}
             {isCurrentUser && showStatusEdit && (
-              <div className="mt-2 border-t border-slate-100 pt-3">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Set status</p>
+              <div className="mt-2 border-t border-border pt-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Set status</p>
                 <div className="mb-2 grid grid-cols-2 gap-1">
                   {PRESET_STATUSES.map((p) => (
                     <button
@@ -874,7 +874,7 @@ export function UserProfilePanel({
                       className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-left text-[11px] transition-colors ${
                         editEmoji === p.emoji && editText === p.text
                           ? "bg-indigo-50 text-indigo-700"
-                          : "text-slate-600 hover:bg-slate-50"
+                          : "text-muted-foreground hover:bg-muted"
                       }`}
                     >
                       <span>{p.emoji}</span>
@@ -886,18 +886,18 @@ export function UserProfilePanel({
                   <input
                     value={editEmoji} onChange={(e) => setEditEmoji(e.target.value)}
                     placeholder="😊" maxLength={2}
-                    className="w-9 rounded border border-slate-200 px-1 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    className="w-9 rounded border border-border bg-background px-1 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
                   />
                   <input
                     value={editText} onChange={(e) => setEditText(e.target.value)}
                     placeholder="What's your status?" maxLength={100}
-                    className="flex-1 rounded border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    className="flex-1 rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
                   />
                 </div>
                 <div className="flex gap-1.5">
                   <button
                     onClick={() => { if (onSetStatus) onSetStatus(null, null); setShowStatusEdit(false); }}
-                    className="flex-1 rounded border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                    className="flex-1 rounded border border-border py-1.5 text-xs text-muted-foreground hover:bg-muted"
                   >
                     Clear
                   </button>
@@ -922,8 +922,8 @@ export function UserProfilePanel({
               </div>
             ) : assignedTasks.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-10 text-center">
-                <Calendar className="h-8 w-8 text-slate-200" />
-                <p className="text-xs text-slate-400">No tasks assigned to {user.firstName}</p>
+                <Calendar className="h-8 w-8 text-muted-foreground/30" />
+                <p className="text-xs text-muted-foreground">No tasks assigned to {user.firstName}</p>
               </div>
             ) : (
               taskGroups.map((group) => {
@@ -931,27 +931,27 @@ export function UserProfilePanel({
                 const isOpen = expandedGroups[group.key] !== false;
                 const isOver = group.key === "overdue";
                 return (
-                  <div key={group.key} className="border-b border-slate-50 last:border-0">
+                  <div key={group.key} className="border-b border-border last:border-0">
                     <button
                       onClick={() => setExpandedGroups((prev) => ({ ...prev, [group.key]: !isOpen }))}
-                      className="flex w-full items-center justify-between px-4 py-2.5 transition-colors hover:bg-slate-50"
+                      className="flex w-full items-center justify-between px-4 py-2.5 transition-colors hover:bg-muted"
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-semibold ${isOver ? "text-red-500" : "text-slate-600"}`}>
+                        <span className={`text-xs font-semibold ${isOver ? "text-red-500" : "text-foreground"}`}>
                           {group.label}
                         </span>
                         <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                          isOver ? "bg-red-50 text-red-500" : "bg-slate-100 text-slate-500"
+                          isOver ? "bg-red-50 text-red-500" : "bg-muted text-muted-foreground"
                         }`}>
                           {group.tasks.length}
                         </span>
                       </div>
                       {isOpen
-                        ? <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                        : <ChevronRight className="h-3.5 w-3.5 text-slate-400" />}
+                        ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                        : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                     </button>
                     {isOpen && (
-                      <div className="flex flex-col divide-y divide-slate-50">
+                      <div className="flex flex-col divide-y divide-border">
                         {group.tasks.map((task) => (
                           <TaskRow
                             key={task.id}

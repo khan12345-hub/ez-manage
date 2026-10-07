@@ -29,7 +29,7 @@ export default function AutomationTriggerRow({
     (col) => String(col.id) === String(step.columnId),
   );
 
-  const rowCls = "group flex flex-wrap items-center gap-x-2 gap-y-2 text-lg leading-snug text-slate-700 sm:text-[25px] sm:leading-[34px]";
+  const rowCls = "group flex flex-wrap items-center gap-x-2 gap-y-2 text-lg leading-snug text-foreground sm:text-[25px] sm:leading-[34px]";
 
   return (
     <div className={rowCls}>
@@ -110,7 +110,7 @@ export default function AutomationTriggerRow({
         <button
           type="button"
           onClick={() => onRemove(step.id)}
-          className="text-slate-500 transition-colors hover:text-red-500"
+          className="text-muted-foreground transition-colors hover:text-red-500"
           aria-label="Remove trigger"
         >
           <Trash2 className="h-4 w-4" />

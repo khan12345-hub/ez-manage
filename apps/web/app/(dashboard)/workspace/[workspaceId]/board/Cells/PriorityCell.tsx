@@ -16,7 +16,7 @@ export function PriorityCell({ cell }: Props) {
   return (
     <div
       className={`rounded px-2 py-1 text-center text-white ${
-        colors[label] ?? "bg-gray-500"
+        colors[label] ?? "bg-muted-foreground"
       }`}
     >
       {label}

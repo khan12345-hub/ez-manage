@@ -120,7 +120,7 @@ function ExcelImportProgress({
           </span>
         </div>
 
-        <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-zinc-800">
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
           <div
             className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-600 transition-all duration-700 ease-out"
             style={{
@@ -153,7 +153,7 @@ function ExcelImportProgress({
                     ? "bg-emerald-500 text-white"
                     : active
                       ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400"
-                      : "bg-gray-100 text-gray-400 dark:bg-zinc-800"
+                      : "bg-muted text-muted-foreground"
                 }`}
               >
                 {completed ? (
@@ -340,7 +340,7 @@ export function ExcelImportModal({
           {isImporting ? (
             <>
               {/* Importing Header */}
-              <DialogHeader className="border-b border-gray-100 px-6 py-5 dark:border-zinc-800">
+              <DialogHeader className="border-b border-border px-6 py-5">
                 <div className="flex items-start gap-3.5">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
                     <FileSpreadsheet className="h-5 w-5" />
@@ -366,7 +366,7 @@ export function ExcelImportModal({
           ) : (
             <>
               {/* Normal Header */}
-              <DialogHeader className="border-b border-gray-100 px-6 py-5 dark:border-zinc-800">
+              <DialogHeader className="border-b border-border px-6 py-5">
                 <div className="flex items-start gap-3.5">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
                     <FileSpreadsheet className="h-5 w-5" />
@@ -449,13 +449,13 @@ export function ExcelImportModal({
               </div>
 
               {/* Footer */}
-              <DialogFooter className="mb-4 border-t border-gray-100 px-6 py-4 dark:border-zinc-800">
+              <DialogFooter className="mb-4 border-t border-border px-6 py-4">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setOpen(false)}
                   disabled={isImporting}
-                  className="h-9.5 border-gray-200 px-4 text-xs font-semibold hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                  className="h-9.5 border-border px-4 text-xs font-semibold hover:bg-muted"
                 >
                   Cancel
                 </Button>

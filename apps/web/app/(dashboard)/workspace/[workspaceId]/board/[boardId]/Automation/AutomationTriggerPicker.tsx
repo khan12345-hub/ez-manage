@@ -41,11 +41,11 @@ export default function AutomationTriggerPicker({
             h-[38px]
             border-0
             border-b
-            border-slate-400
+            border-border
             bg-transparent
             px-0
             text-lg sm:text-[25px]
-            text-slate-400
+            text-muted-foreground
             outline-none
             hover:border-blue-500
             hover:text-blue-500
@@ -78,7 +78,7 @@ export default function AutomationTriggerPicker({
                 py-2
                 text-left
                 text-sm
-                hover:bg-slate-100
+                hover:bg-muted
               "
             >
               {trigger.label}

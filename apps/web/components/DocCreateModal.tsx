@@ -60,7 +60,7 @@ export function DocCreateModal({ open, onClose, workspaceId }: Props) {
         <div className="space-y-5 pt-1">
           {/* Name */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
               Doc name
             </label>
             <Input
@@ -75,7 +75,7 @@ export function DocCreateModal({ open, onClose, workspaceId }: Props) {
 
           {/* Privacy */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Privacy</label>
+            <label className="mb-2 block text-sm font-medium text-foreground">Privacy</label>
             <div className="flex gap-2">
               {PRIVACY_OPTIONS.map((opt) => (
                 <button
@@ -84,7 +84,7 @@ export function DocCreateModal({ open, onClose, workspaceId }: Props) {
                   className={`flex flex-1 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
                     privacy === opt.value
                       ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                      : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                      : "border-border text-muted-foreground hover:border-border hover:bg-muted"
                   }`}
                 >
                   {opt.icon}
@@ -92,7 +92,7 @@ export function DocCreateModal({ open, onClose, workspaceId }: Props) {
                 </button>
               ))}
             </div>
-            <p className="mt-1.5 text-[11px] text-slate-400">
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
               {PRIVACY_OPTIONS.find((o) => o.value === privacy)?.desc}
             </p>
           </div>

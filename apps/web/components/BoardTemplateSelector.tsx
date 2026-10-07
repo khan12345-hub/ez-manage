@@ -25,7 +25,7 @@ export function BoardTemplateSelector({
         {[1, 2, 3].map((item) => (
           <div
             key={item}
-            className="h-28 animate-pulse rounded-lg border bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900"
+            className="h-28 animate-pulse rounded-lg border bg-muted"
           />
         ))}
       </div>
@@ -43,7 +43,7 @@ export function BoardTemplateSelector({
             "relative flex min-h-28 flex-col items-start rounded-lg border p-4 text-left transition-all",
             selectedTemplateId === null
               ? "border-cyan-500 bg-cyan-50/70 ring-1 ring-cyan-500 dark:border-cyan-500 dark:bg-cyan-950/30"
-              : "border-gray-200 hover:border-cyan-300 hover:bg-gray-50 dark:border-zinc-800 dark:hover:border-cyan-800 dark:hover:bg-zinc-900",
+              : "border-border hover:border-cyan-300 hover:bg-muted",
           )}
         >
           {selectedTemplateId === null && (
@@ -52,15 +52,15 @@ export function BoardTemplateSelector({
             </span>
           )}
 
-          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-300">
+          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
             <FilePlus2 className="h-4 w-4" />
           </div>
 
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+          <p className="text-sm font-semibold text-foreground">
             Blank board
           </p>
 
-          <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-muted-foreground">
             Start with an empty board.
           </p>
         </button>
@@ -77,7 +77,7 @@ export function BoardTemplateSelector({
                 "relative flex min-h-28 flex-col items-start rounded-lg border p-4 text-left transition-all",
                 isSelected
                   ? "border-cyan-500 bg-cyan-50/70 ring-1 ring-cyan-500 dark:border-cyan-500 dark:bg-cyan-950/30"
-                  : "border-gray-200 hover:border-cyan-300 hover:bg-gray-50 dark:border-zinc-800 dark:hover:border-cyan-800 dark:hover:bg-zinc-900",
+                  : "border-border hover:border-cyan-300 hover:bg-muted",
               )}
             >
               {isSelected && (
@@ -90,11 +90,11 @@ export function BoardTemplateSelector({
                 <LayoutTemplate className="h-4 w-4" />
               </div>
 
-              <p className="line-clamp-1 text-sm font-semibold text-gray-900 dark:text-white">
+              <p className="line-clamp-1 text-sm font-semibold text-foreground">
                 {template.name}
               </p>
 
-              <p className="mt-1 line-clamp-2 text-xs text-gray-500 dark:text-zinc-400">
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                 {template.description ||
                   `${template.groups?.length ?? 0} groups`}
               </p>
@@ -104,7 +104,7 @@ export function BoardTemplateSelector({
       </div>
 
       {!templates.length && (
-        <div className="py-6 text-center text-xs text-gray-500 dark:text-zinc-400">
+        <div className="py-6 text-center text-xs text-muted-foreground">
           No templates available for this workspace.
         </div>
       )}

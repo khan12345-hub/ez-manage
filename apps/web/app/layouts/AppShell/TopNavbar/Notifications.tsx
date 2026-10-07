@@ -379,7 +379,7 @@ export function Notifications() {
             ? `${unreadCount} unread notifications`
             : "Notifications"
         }
-        className="relative cursor-pointer rounded-full p-1.5 text-gray-500 outline-none transition-colors hover:bg-gray-100 hover:text-gray-800 focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2"
+        className="relative cursor-pointer rounded-full p-1.5 text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-border focus-visible:ring-offset-2"
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
@@ -397,7 +397,7 @@ export function Notifications() {
       >
         {/* === Header === */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             Notifications
           </h2>
 
@@ -410,7 +410,7 @@ export function Notifications() {
                 setOpen(false);
                 router.push("/settings");
               }}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
               <Settings className="h-4 w-4" />
             </button>
@@ -421,7 +421,7 @@ export function Notifications() {
                 <button
                   type="button"
                   title="More options"
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
@@ -468,7 +468,7 @@ export function Notifications() {
               type="button"
               title="Close"
               onClick={() => setOpen(false)}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
@@ -476,7 +476,7 @@ export function Notifications() {
         </div>
 
         {/* === Tabs === */}
-        <div className="flex border-b border-gray-200 px-4">
+        <div className="flex border-b border-border px-4">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -486,7 +486,7 @@ export function Notifications() {
                 "relative mr-4 pb-2.5 text-sm font-medium transition-colors",
                 activeTab === tab.id
                   ? "text-[#0073EA]"
-                  : "text-gray-500 hover:text-gray-800",
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {tab.label}
@@ -498,9 +498,9 @@ export function Notifications() {
         </div>
 
         {/* === Search + Unread toggle === */}
-        <div className="flex items-center gap-3 border-b border-gray-100 px-3 py-2.5">
+        <div className="flex items-center gap-3 border-b border-border px-3 py-2.5">
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={search}
@@ -519,7 +519,7 @@ export function Notifications() {
             />
             <label
               htmlFor="unread-only"
-              className="cursor-pointer select-none text-xs font-medium text-gray-600 whitespace-nowrap"
+              className="cursor-pointer select-none text-xs font-medium text-muted-foreground whitespace-nowrap"
             >
               Unread only
             </label>
@@ -529,7 +529,7 @@ export function Notifications() {
         {/* === Notification list === */}
         <div className="max-h-[400px] overflow-y-auto">
           {isLoading ? (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-border">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex gap-3 px-4 py-3">
                   <div className="flex w-2.5 shrink-0 items-start pt-2">
@@ -550,10 +550,10 @@ export function Notifications() {
             /* Empty state */
             <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
               <EmptyIllustration />
-              <p className="mt-4 text-base font-bold text-gray-900">
+              <p className="mt-4 text-base font-bold text-foreground">
                 You're up to date!
               </p>
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="mt-1 text-sm text-muted-foreground">
                 No new notifications. You're all caught up — keep up the great work.
               </p>
             </div>
@@ -566,7 +566,7 @@ export function Notifications() {
                   handleNotificationClick(notification)
                 }
                 className={cn(
-                  "flex w-full gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors hover:bg-gray-50",
+                  "flex w-full gap-3 border-b border-border px-4 py-3 text-left transition-colors hover:bg-muted",
                   !notification.isRead && "bg-blue-50/50",
                 )}
               >
@@ -586,7 +586,7 @@ export function Notifications() {
                   <div className="flex items-start justify-between gap-3">
                     <p
                       className={cn(
-                        "line-clamp-1 text-sm text-gray-900",
+                        "line-clamp-1 text-sm text-foreground",
                         !notification.isRead
                           ? "font-semibold"
                           : "font-medium",
@@ -594,13 +594,13 @@ export function Notifications() {
                     >
                       {notification.title}
                     </p>
-                    <span className="shrink-0 whitespace-nowrap text-[10px] text-gray-400">
+                    <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">
                       {formatNotificationDate(
                         notification.createdAt,
                       )}
                     </span>
                   </div>
-                  <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-gray-500">
+                  <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
                     {notification.message}
                   </p>
                 </div>
@@ -612,7 +612,7 @@ export function Notifications() {
         {/* Subtle refresh indicator */}
         {isFetching && !isLoading && (
           <div className="absolute bottom-2 right-2">
-            <Loader2 className="h-3 w-3 animate-spin text-gray-300" />
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" />
           </div>
         )}
       </PopoverContent>

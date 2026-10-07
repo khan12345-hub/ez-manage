@@ -121,9 +121,9 @@ export function ProfileSection({
     <div className="flex flex-col gap-6">
 
       {/* ── Profile preview card ─────────────────────────────────────────── */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm">
         {/* Banner */}
-        <div className="relative h-24 bg-gradient-to-r from-slate-100 via-indigo-50 to-violet-50">
+        <div className="relative h-24 bg-gradient-to-r from-muted via-indigo-500/5 to-violet-500/5">
           <div className="absolute inset-0 opacity-40"
             style={{
               backgroundImage: "radial-gradient(circle at 20% 50%, #6366f1 0%, transparent 50%), radial-gradient(circle at 80% 50%, #8b5cf6 0%, transparent 50%)",
@@ -136,7 +136,7 @@ export function ProfileSection({
             {/* Avatar with upload overlay */}
             <div className="relative shrink-0">
               <div
-                className="group relative h-20 w-20 cursor-pointer overflow-hidden rounded-full ring-4 ring-white shadow-md"
+                className="group relative h-20 w-20 cursor-pointer overflow-hidden rounded-full ring-4 ring-background shadow-md"
                 onClick={() => fileInputRef.current?.click()}
               >
                 {imageSrc ? (
@@ -150,38 +150,38 @@ export function ProfileSection({
                   <Camera className="h-5 w-5 text-white" />
                 </div>
               </div>
-              <span className="absolute bottom-0.5 right-0.5 h-4 w-4 rounded-full border-2 border-white bg-green-500" />
+              <span className="absolute bottom-0.5 right-0.5 h-4 w-4 rounded-full border-2 border-background bg-green-500" />
             </div>
 
             <div className="mb-1 min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold text-slate-900 leading-tight">
+                <h2 className="text-lg font-bold text-foreground leading-tight">
                   {user.firstName} {user.lastName}
                 </h2>
                 {hasStatus && (
-                  <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                  <span className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                     {displayEmoji && <span>{displayEmoji}</span>}
                     {displayText && <span className="truncate max-w-32">{displayText}</span>}
                   </span>
                 )}
               </div>
-              <p className="mt-0.5 text-sm text-slate-500">{user.email}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{user.email}</p>
             </div>
           </div>
 
           {/* Info row */}
           <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
-            <span className="flex items-center gap-1.5 text-xs text-slate-500">
-              <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
               Member since {formatJoined((user as any).createdAt)}
             </span>
-            <span className="flex items-center gap-1.5 text-xs text-slate-500">
-              <Clock className="h-3.5 w-3.5 text-slate-400" />
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
               Last active {formatLastSeen((user as any).lastLoginAt)}
             </span>
             {(user as any).phone && (
-              <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Phone className="h-3.5 w-3.5 text-slate-400" />
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                 {(user as any).phone}
               </span>
             )}
@@ -190,20 +190,20 @@ export function ProfileSection({
       </div>
 
       {/* ── Edit Profile card ────────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-6 py-4">
-          <h3 className="text-sm font-semibold text-slate-800">Edit Profile</h3>
-          <p className="mt-0.5 text-xs text-slate-500">Update your name and profile photo.</p>
+      <section className="rounded-2xl border border-border bg-background shadow-sm">
+        <div className="border-b border-border px-6 py-4">
+          <h3 className="text-sm font-semibold text-foreground">Edit Profile</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">Update your name and profile photo.</p>
         </div>
 
         <div className="flex flex-col gap-5 px-6 py-5">
           {/* Photo */}
           <div className="flex items-center gap-4">
-            <div className="h-14 w-14 overflow-hidden rounded-full border border-slate-200">
+            <div className="h-14 w-14 overflow-hidden rounded-full border border-border">
               {imageSrc ? (
                 <img src={imageSrc} alt="avatar" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-indigo-50 text-base font-semibold uppercase text-indigo-600">
+                <div className="flex h-full w-full items-center justify-center bg-indigo-500/10 text-base font-semibold uppercase text-indigo-600 dark:text-indigo-400">
                   {initials || "U"}
                 </div>
               )}
@@ -226,7 +226,7 @@ export function ProfileSection({
                 <Camera className="mr-1.5 h-3.5 w-3.5" />
                 Change photo
               </Button>
-              <p className="mt-1 text-[11px] text-slate-400">PNG, JPG or WEBP · max 5 MB</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">PNG, JPG or WEBP · max 5 MB</p>
             </div>
           </div>
 
@@ -238,27 +238,27 @@ export function ProfileSection({
 
           {/* Email */}
           <div>
-            <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-700">
-              <Mail className="h-3.5 w-3.5 text-slate-400" />
+            <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
               Email address
             </label>
-            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">
               {user.email}
-              <span className="ml-auto rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+              <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                 Locked
               </span>
             </div>
-            <p className="mt-1 text-[11px] text-slate-400">Contact support to change your email address.</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Contact support to change your email address.</p>
           </div>
         </div>
       </section>
 
       {/* ── Status card ──────────────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <section className="rounded-2xl border border-border bg-background shadow-sm">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h3 className="text-sm font-semibold text-slate-800">Status</h3>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <h3 className="text-sm font-semibold text-foreground">Status</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Let your team know what you're up to.
             </p>
           </div>
@@ -266,7 +266,7 @@ export function ProfileSection({
             <button
               type="button"
               onClick={() => { setStatusEmoji(displayEmoji ?? ""); setStatusText(displayText ?? ""); setShowStatusEdit(true); }}
-              className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 transition hover:bg-slate-50"
+              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition hover:bg-muted"
             >
               <Pencil className="h-3 w-3" /> Edit
             </button>
@@ -276,14 +276,14 @@ export function ProfileSection({
         <div className="px-6 py-5">
           {/* Current status display */}
           {hasStatus && !showStatusEdit && (
-            <div className="mb-4 flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5">
               {displayEmoji && <span className="text-lg leading-none">{displayEmoji}</span>}
-              <span className="text-sm font-medium text-slate-700">{displayText}</span>
+              <span className="text-sm font-medium text-foreground">{displayText}</span>
               <button
                 type="button"
                 onClick={handleClearStatus}
                 disabled={statusMutation.isPending}
-                className="ml-auto text-slate-400 transition hover:text-slate-600"
+                className="ml-auto text-muted-foreground transition hover:text-foreground"
                 title="Clear status"
               >
                 <X className="h-3.5 w-3.5" />
@@ -300,14 +300,14 @@ export function ProfileSection({
                   onChange={(e) => setStatusEmoji(e.target.value)}
                   placeholder="😊"
                   maxLength={2}
-                  className="w-12 rounded-lg border border-slate-200 px-2 py-2.5 text-center text-lg focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
+                  className="w-12 rounded-lg border border-border bg-background px-2 py-2.5 text-center text-lg focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
                 />
                 <input
                   value={statusText}
                   onChange={(e) => setStatusText(e.target.value)}
                   placeholder="What's your status?"
                   maxLength={100}
-                  className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
+                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
                 />
               </div>
 
@@ -320,8 +320,8 @@ export function ProfileSection({
                     onClick={() => { setStatusEmoji(p.emoji); setStatusText(p.text); }}
                     className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-left text-xs transition ${
                       statusEmoji === p.emoji && statusText === p.text
-                        ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                        ? "border-indigo-300 bg-indigo-500/10 text-indigo-700 dark:text-indigo-400"
+                        : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                   >
                     <span className="text-sm">{p.emoji}</span>
@@ -347,7 +347,7 @@ export function ProfileSection({
                     type="button"
                     onClick={handleClearStatus}
                     disabled={statusMutation.isPending}
-                    className="rounded-lg border border-slate-200 px-4 py-2 text-xs text-slate-600 transition hover:bg-slate-50"
+                    className="rounded-lg border border-border px-4 py-2 text-xs text-muted-foreground transition hover:bg-muted"
                   >
                     Clear
                   </button>
@@ -356,7 +356,7 @@ export function ProfileSection({
                   <button
                     type="button"
                     onClick={() => setShowStatusEdit(false)}
-                    className="ml-auto text-xs text-slate-400 hover:text-slate-600"
+                    className="ml-auto text-xs text-muted-foreground hover:text-foreground"
                   >
                     Cancel
                   </button>
@@ -369,7 +369,7 @@ export function ProfileSection({
             <button
               type="button"
               onClick={() => setShowStatusEdit(true)}
-              className="flex items-center gap-2 text-xs text-slate-400 transition hover:text-slate-600"
+              className="flex items-center gap-2 text-xs text-muted-foreground transition hover:text-foreground"
             >
               <Smile className="h-4 w-4" />
               Set a status

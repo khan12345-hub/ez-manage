@@ -35,16 +35,16 @@ function AdminEditForm({
       <div>
         <label className="text-sm font-medium">Name</label>
         <input
-          className="mt-1.5 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+          className="mt-1.5 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={isPending}
         />
       </div>
-      <div className="flex justify-end gap-2 border-t pt-4 dark:border-zinc-800">
+      <div className="flex justify-end gap-2 border-t pt-4">
         <button
           onClick={onCancel}
-          className="rounded-md border px-4 py-2 text-xs font-semibold hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="rounded-md border px-4 py-2 text-xs font-semibold hover:bg-muted"
         >
           Cancel
         </button>
@@ -186,11 +186,11 @@ export function BoardsTab() {
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-            <div className="relative w-full max-w-sm rounded-xl border bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="relative w-full max-w-sm rounded-xl border bg-background p-6 shadow-2xl">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-t-xl" />
               <button
                 onClick={() => setEditingBoard(null)}
-                className="absolute top-4 right-4 rounded-full p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                className="absolute top-4 right-4 rounded-full p-1.5 text-muted-foreground hover:bg-muted"
               >
                 <X className="h-4 w-4" />
               </button>

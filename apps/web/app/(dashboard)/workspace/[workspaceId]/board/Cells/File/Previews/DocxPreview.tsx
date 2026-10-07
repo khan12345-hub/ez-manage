@@ -51,9 +51,9 @@ export default function DocxPreview({ url, fileName }: DocxPreviewProps) {
   }
 
   return (
-    <div className="h-full w-full overflow-auto rounded-lg border bg-white">
+    <div className="h-full w-full overflow-auto rounded-lg border bg-background">
       <div
-        className="prose prose-sm max-w-none p-8 text-gray-800 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:p-1.5 [&_th]:border [&_th]:border-gray-300 [&_th]:bg-gray-100 [&_th]:p-1.5"
+        className="prose prose-sm max-w-none p-8 text-foreground [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1.5 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1.5"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

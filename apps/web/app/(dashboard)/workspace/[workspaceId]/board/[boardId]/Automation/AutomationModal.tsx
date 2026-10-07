@@ -427,7 +427,7 @@ export default function AutomationModal({
           overflow-hidden
           rounded-lg
           border
-          bg-white
+          bg-background
           p-0
         "
       >

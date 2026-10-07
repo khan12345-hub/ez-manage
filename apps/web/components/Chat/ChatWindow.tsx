@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Hash, Loader2, Send, Trash2, Video } from "lucide-react";
+import { Hash, Loader2, Phone, Send, Trash2, Video } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { useAuth } from "@/providers/AuthProvider";
@@ -30,7 +30,7 @@ interface Props {
 export function ChatWindow({ channel }: Props) {
   const { user } = useAuth();
   const { workspaceId } = useInviteModalStore();
-  const { messages, setMessages, activeChannelId } = useChatStore();
+  const { messages, setMessages, activeChannelId, setActiveCall } = useChatStore();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [typing, setTyping] = useState<string | null>(null);
@@ -46,9 +46,9 @@ export function ChatWindow({ channel }: Props) {
     ? `${otherMember?.user?.firstName ?? ""} ${otherMember?.user?.lastName ?? ""}`
     : `# ${channel.name}`;
 
-  // Jitsi call URL
-  const jitsiRoom = `ezmanage-${channel.id}-${workspaceId}`;
-  const jitsiUrl = `https://meet.jit.si/${jitsiRoom}`;
+  const jitsiRoom = `ezmanage${workspaceId}x${channel.id}`;
+  const jitsiHost = process.env.NEXT_PUBLIC_JITSI_HOST ?? "meet.ffmuc.net";
+  const jitsiUrl = `https://${jitsiHost}/${jitsiRoom}`;
 
   // Load messages
   useEffect(() => {
@@ -121,7 +121,7 @@ export function ChatWindow({ channel }: Props) {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           {isDM && otherMember?.user ? (
             <Avatar className="h-6 w-6">
@@ -131,27 +131,57 @@ export function ChatWindow({ channel }: Props) {
               </AvatarFallback>
             </Avatar>
           ) : (
-            <Hash className="h-4 w-4 text-slate-400" />
+            <Hash className="h-4 w-4 text-muted-foreground" />
           )}
-          <span className="font-semibold text-slate-800 text-sm">{displayName}</span>
+          <span className="font-semibold text-foreground text-sm">{displayName}</span>
         </div>
 
-        {/* Video call button */}
-        <button
-          onClick={() => window.open(jitsiUrl, "_blank")}
-          title="Start video call (Jitsi)"
-          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-green-50 hover:text-green-600 transition-colors"
-        >
-          <Video className="h-4 w-4" />
-          <span className="hidden sm:inline">Call</span>
-        </button>
+        {/* Call buttons */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              const socket = getSocket();
+              setActiveCall({ roomName: jitsiRoom, channelId: channel.id, startWithVideoMuted: false });
+              socket?.emit("call:start", {
+                channelId: channel.id, callType: "video", jitsiUrl,
+                workspaceId, callerName: `${user?.firstName} ${user?.lastName}`, channelName: displayName,
+              }, (ack: { callMessageId?: number }) => {
+                if (ack?.callMessageId) {
+                  setActiveCall({ roomName: jitsiRoom, channelId: channel.id, startWithVideoMuted: false, callMessageId: ack.callMessageId });
+                }
+              });
+            }}
+            title="Start video call"
+            className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-green-500/10 hover:text-green-700 transition-colors"
+          >
+            <Video className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => {
+              const socket = getSocket();
+              setActiveCall({ roomName: jitsiRoom, channelId: channel.id, startWithVideoMuted: true });
+              socket?.emit("call:start", {
+                channelId: channel.id, callType: "voice", jitsiUrl,
+                workspaceId, callerName: `${user?.firstName} ${user?.lastName}`, channelName: displayName,
+              }, (ack: { callMessageId?: number }) => {
+                if (ack?.callMessageId) {
+                  setActiveCall({ roomName: jitsiRoom, channelId: channel.id, startWithVideoMuted: true, callMessageId: ack.callMessageId });
+                }
+              });
+            }}
+            title="Start voice call"
+            className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-blue-500/10 hover:text-blue-700 transition-colors"
+          >
+            <Phone className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
         {loading && (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         )}
 
@@ -170,9 +200,9 @@ export function ChatWindow({ channel }: Props) {
             <div key={msg.id}>
               {showDate && (
                 <div className="flex items-center gap-2 my-3">
-                  <div className="flex-1 h-px bg-slate-200" />
-                  <span className="text-[11px] text-slate-400 shrink-0">{msgDate}</span>
-                  <div className="flex-1 h-px bg-slate-200" />
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[11px] text-muted-foreground shrink-0">{msgDate}</span>
+                  <div className="flex-1 h-px bg-border" />
                 </div>
               )}
 
@@ -191,18 +221,18 @@ export function ChatWindow({ channel }: Props) {
                 <div className="flex-1 min-w-0">
                   {!isGrouped && (
                     <div className="flex items-baseline gap-2 mb-0.5">
-                      <span className="text-xs font-semibold text-slate-800">
+                      <span className="text-xs font-semibold text-foreground">
                         {msg.user.firstName} {msg.user.lastName}
                       </span>
-                      <span className="text-[10px] text-slate-400">{formatTime(msg.createdAt)}</span>
+                      <span className="text-[10px] text-muted-foreground">{formatTime(msg.createdAt)}</span>
                     </div>
                   )}
                   <div className="flex items-start gap-1">
-                    <p className="text-sm text-slate-700 break-words flex-1">{msg.content}</p>
+                    <p className="text-sm text-foreground break-words flex-1">{msg.content}</p>
                     {msg.userId === user?.id && (
                       <button
                         onClick={() => handleDelete(msg.id)}
-                        className="hidden group-hover:flex items-center text-slate-300 hover:text-red-400 transition-colors shrink-0"
+                        className="hidden group-hover:flex items-center text-muted-foreground/50 hover:text-red-400 transition-colors shrink-0"
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -215,16 +245,16 @@ export function ChatWindow({ channel }: Props) {
         })}
 
         {typing && (
-          <p className="text-[11px] italic text-slate-400 mt-1">{typing} is typing…</p>
+          <p className="text-[11px] italic text-muted-foreground mt-1">{typing} is typing…</p>
         )}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div className="border-t border-slate-200 px-3 py-2">
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5">
+      <div className="border-t border-border px-3 py-2">
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5">
           <input
-            className="flex-1 text-sm outline-none placeholder:text-slate-400"
+            className="flex-1 text-sm outline-none placeholder:text-muted-foreground bg-transparent"
             placeholder={`Message ${displayName}`}
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
@@ -238,7 +268,7 @@ export function ChatWindow({ channel }: Props) {
           <button
             onClick={handleSend}
             disabled={!input.trim()}
-            className="text-indigo-500 hover:text-indigo-600 disabled:text-slate-300 transition-colors"
+            className="text-indigo-500 hover:text-indigo-600 disabled:text-muted-foreground transition-colors"
           >
             <Send className="h-4 w-4" />
           </button>

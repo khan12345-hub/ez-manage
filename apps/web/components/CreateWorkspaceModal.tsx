@@ -95,7 +95,7 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-xl border border-gray-100 bg-white p-6! shadow-2xl transition-all animate-in zoom-in-95 duration-200 dark:border-zinc-800 dark:bg-zinc-950"
+        className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-background p-6! shadow-2xl transition-all animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
       >
@@ -103,7 +103,7 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
 
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          className="absolute top-4 right-4 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Close modal"
         >
           <X className="h-4.5 w-4.5" />
@@ -114,11 +114,11 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
             <Building2 className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="flex items-center gap-1.5 text-lg font-bold text-gray-900 dark:text-white">
+            <h2 className="flex items-center gap-1.5 text-lg font-bold text-foreground">
               Create Workspace
               <Sparkles className="h-4 w-4 animate-pulse fill-amber-500 text-amber-500" />
             </h2>
-            <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Set up a space for boards, members, and shared work.
             </p>
           </div>
@@ -143,12 +143,12 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
               gap="2.5"
             />
 
-            <div className="flex items-center justify-end gap-2.5 border-t border-gray-100 pt-4 dark:border-zinc-800">
+            <div className="flex items-center justify-end gap-2.5 border-t border-border pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className="h-9.5 px-4 text-xs font-semibold border-gray-200 hover:bg-gray-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                className="h-9.5 px-4 text-xs font-semibold border-border hover:bg-muted"
               >
                 Cancel
               </Button>

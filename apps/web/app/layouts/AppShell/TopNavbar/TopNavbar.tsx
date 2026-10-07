@@ -36,7 +36,7 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
           type="button"
           onClick={onMenuToggle}
           aria-label="Open menu"
-          className="mr-2 shrink-0 rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 md:hidden"
+          className="mr-2 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -50,7 +50,7 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
         <div className="flex items-center gap-2 sm:gap-3.5">
           {/* System status + Refresh */}
           <div className="hidden items-center gap-2 sm:flex">
-            <span className="flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+            <span className="flex items-center gap-1.5 rounded-full border border-green-200 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-700 dark:border-green-900/50 dark:text-green-400">
               <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
               System Online
             </span>
@@ -58,7 +58,7 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
               onClick={handleRefresh}
               disabled={refreshing}
               title="Refresh all data"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
               <span>{refreshing ? "Refreshing…" : "Refresh"}</span>
@@ -71,7 +71,7 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
 
           <button
             onClick={openInviteModal}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-800 sm:px-3.5 sm:py-2"
+            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-3.5 sm:py-2"
           >
             <UserPlus className="h-4 w-4" />
             <span className="hidden sm:inline">Invite</span>

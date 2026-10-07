@@ -47,27 +47,27 @@ export function PrimarySidebar({
                 key={item.id}
                 onClick={() => onTabChange?.(item.id)}
                 className={cn(
-                  "group relative flex w-full flex-col items-center justify-center py-2.5 transition-all duration-200 hover:bg-gray-100/85",
+                  "group relative flex w-full flex-col items-center justify-center py-2.5 transition-all duration-200 hover:bg-muted",
                   isActive &&
                     "bg-blue-50/70 text-blue-600 border-l-[3px] border-blue-600",
                 )}
               >
                 <Icon
                   className={cn(
-                    "h-6 w-6 text-gray-500 transition-colors duration-200 group-hover:text-gray-900",
+                    "h-6 w-6 text-muted-foreground transition-colors duration-200 group-hover:text-foreground",
                     isActive && "text-blue-600 group-hover:text-blue-700",
                   )}
                 />
                 <span
                   className={cn(
-                    "mt-1.5 text-[10px] font-medium tracking-tight text-gray-400 transition-colors duration-200 group-hover:text-gray-700",
+                    "mt-1.5 text-[10px] font-medium tracking-tight text-muted-foreground transition-colors duration-200 group-hover:text-foreground",
                     isActive && "text-blue-600 font-semibold",
                   )}
                 >
                   {item.label}
                 </span>
                 {/* Tooltip */}
-                <div className="absolute left-[84px] z-50 hidden rounded-md bg-gray-900 px-2.5 py-1.5 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:block group-hover:opacity-100 whitespace-nowrap shadow-md">
+                <div className="absolute left-[84px] z-50 hidden rounded-md bg-popover px-2.5 py-1.5 text-xs text-popover-foreground opacity-0 transition-opacity duration-200 group-hover:block group-hover:opacity-100 whitespace-nowrap shadow-md">
                   {item.label}
                 </div>
               </button>
@@ -81,25 +81,25 @@ export function PrimarySidebar({
         <Link
           href="/help"
           className={cn(
-            "group relative flex w-full flex-col items-center justify-center py-2.5 transition-all duration-200 hover:bg-gray-100/85",
+            "group relative flex w-full flex-col items-center justify-center py-2.5 transition-all duration-200 hover:bg-muted",
             isHelp && "bg-blue-50/70 text-blue-600 border-l-[3px] border-blue-600",
           )}
         >
           <HelpCircle
             className={cn(
-              "h-6 w-6 text-gray-500 transition-colors duration-200 group-hover:text-gray-900",
+              "h-6 w-6 text-muted-foreground transition-colors duration-200 group-hover:text-foreground",
               isHelp && "text-blue-600",
             )}
           />
           <span
             className={cn(
-              "mt-1.5 text-[10px] font-medium tracking-tight text-gray-400 transition-colors duration-200 group-hover:text-gray-700",
+              "mt-1.5 text-[10px] font-medium tracking-tight text-muted-foreground transition-colors duration-200 group-hover:text-foreground",
               isHelp && "text-blue-600 font-semibold",
             )}
           >
             Help
           </span>
-          <div className="absolute left-[84px] z-50 hidden rounded-md bg-gray-900 px-2.5 py-1.5 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:block group-hover:opacity-100 whitespace-nowrap shadow-md">
+          <div className="absolute left-[84px] z-50 hidden rounded-md bg-popover px-2.5 py-1.5 text-xs text-popover-foreground opacity-0 transition-opacity duration-200 group-hover:block group-hover:opacity-100 whitespace-nowrap shadow-md">
             Help & Guide
           </div>
         </Link>

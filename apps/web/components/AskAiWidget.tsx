@@ -251,13 +251,12 @@ export function AskAiWidget() {
       {/* Chat Panel */}
       {isOpen && (
         <div
-          className="fixed bottom-6 right-6 z-50 flex flex-col overflow-hidden rounded-2xl bg-white"
+          className="fixed bottom-6 right-6 z-50 flex flex-col overflow-hidden rounded-2xl bg-background border border-border"
           style={{
             width: "380px",
             height: "560px",
             boxShadow:
               "0 8px 48px rgba(37,99,235,0.18), 0 2px 12px rgba(0,0,0,0.10)",
-            border: "1px solid rgba(226,232,240,0.8)",
             animation: isAnimatingIn
               ? "askAiSlideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both"
               : "none",
@@ -305,23 +304,17 @@ export function AskAiWidget() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#F8FAFC]">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-muted/30">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-5 select-none">
-                <div
-                  className="flex h-14 w-14 items-center justify-center rounded-2xl"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #EFF6FF 0%, #EEF2FF 100%)",
-                  }}
-                >
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10">
                   <Sparkles className="h-7 w-7 text-indigo-500" />
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-semibold text-slate-700">
+                  <p className="text-sm font-semibold text-foreground">
                     How can I help?
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Ask anything about EzManage
                   </p>
                 </div>
@@ -330,7 +323,7 @@ export function AskAiWidget() {
                     <button
                       key={s}
                       onClick={() => sendMessage(s)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-xs text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-all duration-150"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-left text-xs text-foreground hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-300 transition-all duration-150"
                     >
                       {s}
                     </button>
@@ -361,7 +354,7 @@ export function AskAiWidget() {
                     className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                       msg.role === "user"
                         ? "rounded-tr-sm bg-blue-600 text-white"
-                        : "rounded-tl-sm bg-white text-slate-700 shadow-sm border border-slate-100"
+                        : "rounded-tl-sm bg-background text-foreground shadow-sm border border-border"
                     }`}
                     style={{ wordBreak: "break-word" }}
                   >
@@ -399,7 +392,7 @@ export function AskAiWidget() {
           </div>
 
           {/* Input */}
-          <div className="border-t border-slate-100 bg-white px-3 py-3">
+          <div className="border-t border-border bg-background px-3 py-3">
             <form onSubmit={handleSubmit} className="flex items-end gap-2">
               <textarea
                 ref={inputRef}
@@ -409,7 +402,7 @@ export function AskAiWidget() {
                 placeholder="Ask anything about EzManage…"
                 rows={1}
                 disabled={isLoading}
-                className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-50 transition-colors"
+                className="flex-1 resize-none rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-50 transition-colors"
                 style={{ maxHeight: "100px", minHeight: "40px" }}
                 onInput={(e) => {
                   const el = e.currentTarget;
@@ -426,12 +419,12 @@ export function AskAiWidget() {
                       ? undefined
                       : "linear-gradient(135deg, #2563EB 0%, #6366F1 100%)",
                 }}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-200 text-slate-400 transition-all duration-200 disabled:opacity-50 enabled:hover:scale-105 enabled:active:scale-95 enabled:text-white"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-all duration-200 disabled:opacity-50 enabled:hover:scale-105 enabled:active:scale-95 enabled:text-white"
               >
                 <Send className="h-4 w-4" />
               </button>
             </form>
-            <p className="mt-2 text-center text-[10px] text-slate-300">
+            <p className="mt-2 text-center text-[10px] text-muted-foreground/40">
               Powered by EzManage AI
             </p>
           </div>
@@ -448,23 +441,24 @@ export function AskAiWidget() {
           0%, 100% { box-shadow: 0 4px 24px rgba(99,102,241,0.45), 0 1px 4px rgba(0,0,0,0.12); }
           50%       { box-shadow: 0 4px 32px rgba(99,102,241,0.65), 0 1px 4px rgba(0,0,0,0.12); }
         }
-        .md-content { font-size: 13px; line-height: 1.55; color: #374151; }
+        .md-content { font-size: 13px; line-height: 1.55; color: inherit; }
         .md-content p { margin: 0 0 7px; }
         .md-content p:last-child { margin-bottom: 0; }
-        .md-content strong { font-weight: 600; color: #1e293b; }
+        .md-content strong { font-weight: 600; }
         .md-content em { font-style: italic; }
-        .md-content code { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; color: #2563eb; }
-        .md-content h2 { font-size: 13px; font-weight: 700; color: #0f172a; margin: 10px 0 4px; }
-        .md-content h3 { font-size: 12px; font-weight: 700; color: #0f172a; margin: 8px 0 3px; }
-        .md-content h4 { font-size: 12px; font-weight: 600; color: #334155; margin: 6px 0 2px; }
+        .md-content code { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; background: rgba(99,102,241,0.1); padding: 1px 5px; border-radius: 3px; color: #2563eb; }
+        .dark .md-content code { background: rgba(99,102,241,0.2); color: #818cf8; }
+        .md-content h2 { font-size: 13px; font-weight: 700; margin: 10px 0 4px; }
+        .md-content h3 { font-size: 12px; font-weight: 700; margin: 8px 0 3px; }
+        .md-content h4 { font-size: 12px; font-weight: 600; margin: 6px 0 2px; }
         .md-content ul, .md-content ol { margin: 4px 0 7px; padding-left: 18px; }
         .md-content li { margin-bottom: 3px; }
         .md-content li:last-child { margin-bottom: 0; }
         .md-table-wrap { overflow-x: auto; margin: 6px 0; }
         .md-content table { border-collapse: collapse; font-size: 11.5px; width: 100%; min-width: 280px; }
-        .md-content th, .md-content td { border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left; vertical-align: top; }
-        .md-content th { background: #f8fafc; font-weight: 600; color: #0f172a; }
-        .md-content tr:hover td { background: #f8fafc; }
+        .md-content th, .md-content td { border: 1px solid hsl(var(--border)); padding: 5px 8px; text-align: left; vertical-align: top; }
+        .md-content th { background: hsl(var(--muted)); font-weight: 600; }
+        .md-content tr:hover td { background: hsl(var(--muted)/0.5); }
       `}</style>
     </>
   );

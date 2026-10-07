@@ -21,6 +21,7 @@ import { BoardSkeleton } from "./BoardSkeleton";
 import { BoardDocuments } from "./(board-features)/documents/BoardDocuments";
 import { FileGallery } from "./(board-features)/file-gallery/FileGallery";
 import { ImportProgressBanner } from "./ImportProgressBanner";
+import { FolderOpen, ArrowLeft } from "lucide-react";
 
 export default function BoardPage() {
   const { setGroups } = useGroupStore();
@@ -161,8 +162,24 @@ export default function BoardPage() {
   if (isError && !board) {
     return (
       <div className="flex min-h-[400px] items-center justify-center bg-background p-6">
-        <div className="text-sm text-muted-foreground">Board not found.</div>
-
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+            <FolderOpen className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Board not found</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              This board may have been deleted or you don&apos;t have access.
+            </p>
+          </div>
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Go back
+          </button>
+        </div>
         <TaskDetailsSheet />
       </div>
     );

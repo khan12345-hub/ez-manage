@@ -113,12 +113,12 @@ export default function AutomationGroupPicker({
               disabled
                 ? `
                   cursor-not-allowed
-                  border-slate-300
-                  text-slate-300
+                  border-border
+                  opacity-40
                 `
                 : `
-                  border-slate-400
-                  text-slate-400
+                  border-border
+                  text-muted-foreground
                   hover:border-blue-500
                   hover:text-blue-500
                 `
@@ -139,7 +139,7 @@ export default function AutomationGroupPicker({
           w-[275px]
           rounded-lg
           border
-          bg-white
+          bg-background
           p-2
           shadow-xl
         "
@@ -161,7 +161,7 @@ export default function AutomationGroupPicker({
               mr-2
               h-4
               w-4
-              text-slate-400
+              text-muted-foreground
             "
           />
 
@@ -194,7 +194,7 @@ export default function AutomationGroupPicker({
                 py-6
                 text-center
                 text-sm
-                text-slate-400
+                text-muted-foreground
               "
             >
               No groups found
@@ -218,8 +218,8 @@ export default function AutomationGroupPicker({
                     py-2
                     text-left
                     text-sm
-                    text-slate-700
-                    hover:bg-slate-100
+                    text-foreground
+                    hover:bg-muted
                   "
                 >
                   {group.name}

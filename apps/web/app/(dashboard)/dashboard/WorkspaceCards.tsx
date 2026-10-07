@@ -17,9 +17,9 @@ const WORKSPACE_COLORS = [
 const ROLE_BADGE: Record<string, { label: string; cn: string }> = {
   OWNER:  { label: "Owner",  cn: "bg-amber-100 text-amber-700 border-amber-200" },
   ADMIN:  { label: "Admin",  cn: "bg-indigo-100 text-indigo-700 border-indigo-200" },
-  MEMBER: { label: "Member", cn: "bg-slate-100 text-slate-600 border-slate-200" },
-  VIEWER: { label: "Viewer", cn: "bg-gray-100 text-gray-500 border-gray-200" },
-  GUEST:  { label: "Guest",  cn: "bg-zinc-100 text-zinc-500 border-zinc-200" },
+  MEMBER: { label: "Member", cn: "bg-muted text-muted-foreground border-border" },
+  VIEWER: { label: "Viewer", cn: "bg-muted text-muted-foreground border-border" },
+  GUEST:  { label: "Guest",  cn: "bg-muted text-muted-foreground border-border" },
 };
 
 export function WorkspaceCards() {

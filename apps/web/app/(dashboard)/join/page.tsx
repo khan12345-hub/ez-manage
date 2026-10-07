@@ -38,19 +38,19 @@ export default function JoinWorkspacePage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6">
-      <div className="w-full max-w-sm overflow-hidden rounded-2xl border bg-white shadow-2xl">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-500/5 via-background to-violet-500/5 p-6">
+      <div className="w-full max-w-sm overflow-hidden rounded-2xl border bg-background shadow-2xl">
         {/* Header strip */}
         <div className="h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-600" />
 
-        <div className="flex flex-col items-center px-8 py-10 text-center">
+        <div className="flex flex-col items-center px-6 py-8 text-center sm:px-8 sm:py-10">
           {state === "idle" && (
             <>
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50">
-                <Users className="h-7 w-7 text-indigo-600" />
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10">
+                <Users className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <h1 className="text-xl font-bold text-slate-900">You've been invited!</h1>
-              <p className="mt-2 text-sm text-slate-500">
+              <h1 className="text-xl font-bold text-foreground">You've been invited!</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
                 Click below to join the workspace using your current account.
               </p>
               <Button className="mt-6 w-full" onClick={handleJoin}>
@@ -62,17 +62,17 @@ export default function JoinWorkspacePage() {
           {state === "joining" && (
             <>
               <Loader2 className="h-12 w-12 animate-spin text-indigo-500" />
-              <p className="mt-4 text-sm font-medium text-slate-600">Joining workspace…</p>
+              <p className="mt-4 text-sm font-medium text-muted-foreground">Joining workspace…</p>
             </>
           )}
 
           {state === "joined" && workspace && (
             <>
               <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-              <h1 className="mt-4 text-xl font-bold text-slate-900">
+              <h1 className="mt-4 text-xl font-bold text-foreground">
                 Welcome to "{workspace.name}"!
               </h1>
-              <p className="mt-2 text-sm text-slate-500">You've successfully joined the workspace.</p>
+              <p className="mt-2 text-sm text-muted-foreground">You've successfully joined the workspace.</p>
               <Button className="mt-6 w-full" onClick={() => router.push(`/workspace/${workspace.id}`)}>
                 Go to workspace
               </Button>
@@ -82,8 +82,8 @@ export default function JoinWorkspacePage() {
           {state === "error" && (
             <>
               <AlertCircle className="h-12 w-12 text-destructive" />
-              <h1 className="mt-4 text-xl font-bold text-slate-900">Link invalid</h1>
-              <p className="mt-2 text-sm text-slate-500">
+              <h1 className="mt-4 text-xl font-bold text-foreground">Link invalid</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
                 {errorMsg || "This invite link is invalid or has expired."}
               </p>
               <Button variant="outline" className="mt-6 w-full" onClick={() => router.push("/dashboard")}>

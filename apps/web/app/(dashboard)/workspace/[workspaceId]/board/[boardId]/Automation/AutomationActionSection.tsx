@@ -26,7 +26,7 @@ export default function AutomationActionSection({
           px-1
           text-xs
           font-medium
-          text-slate-500
+          text-muted-foreground
         "
       >
         {title}
@@ -53,9 +53,9 @@ export default function AutomationActionSection({
                 py-2
                 text-left
                 text-sm
-                text-slate-700
+                text-foreground
                 transition-colors
-                hover:bg-slate-100
+                hover:bg-muted
               "
             >
               <span
@@ -67,10 +67,10 @@ export default function AutomationActionSection({
                   items-center
                   justify-center
                   rounded
-                  bg-slate-100
+                  bg-muted
               "
               >
-                <Icon className="h-3.5 w-3.5 text-slate-600" />
+                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
               </span>
 
               <span>

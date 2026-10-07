@@ -200,6 +200,7 @@ function GlobalJitsiModal() {
       roomName={activeCall.roomName}
       displayName={`${user.firstName} ${user.lastName}`}
       startWithVideoMuted={activeCall.startWithVideoMuted}
+      startedAt={activeCall.startedAt}
       onClose={handleClose}
     />
   );

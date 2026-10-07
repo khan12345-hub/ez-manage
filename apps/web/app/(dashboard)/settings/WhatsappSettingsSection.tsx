@@ -97,7 +97,7 @@ function OtpInput({
   };
 
   return (
-    <div className="flex gap-2.5">
+    <div className="flex gap-1.5 sm:gap-2.5">
       {Array.from({ length: 6 }).map((_, i) => {
         const digit = value[i] ?? "";
         const filled = digit.trim() !== "";
@@ -114,7 +114,7 @@ function OtpInput({
             onKeyDown={(e) => handleKeyDown(i, e)}
             onPaste={handlePaste}
             className={cn(
-              "h-12 w-10 rounded-lg border-2 bg-white text-center text-xl font-semibold tabular-nums outline-none transition-all duration-150",
+              "h-11 w-9 rounded-lg border-2 bg-background text-center text-lg font-semibold tabular-nums outline-none transition-all duration-150 sm:h-12 sm:w-10 sm:text-xl",
               "focus:border-[#25D366] focus:shadow-[0_0_0_3px_rgba(37,211,102,0.15)]",
               filled
                 ? "border-[#25D366] text-[#0F172A]"
@@ -240,23 +240,23 @@ export function WhatsappSettingsSection() {
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-2xl rounded-2xl border border-[#E5E9F0] bg-white p-6">
-        <div className="h-40 animate-pulse rounded-xl bg-[#F1F5F9]" />
+      <div className="w-full max-w-2xl rounded-2xl border border-border bg-background p-6">
+        <div className="h-40 animate-pulse rounded-xl bg-muted" />
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-2xl rounded-2xl border border-[#E5E9F0] bg-white shadow-sm">
+    <div className="w-full max-w-2xl rounded-2xl border border-border bg-background shadow-sm">
 
       {/* Header */}
-      <div className="flex items-center gap-3.5 border-b border-[#E5E9F0] px-6 py-5">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-4 sm:gap-3.5 sm:px-6 sm:py-5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ECFDF5]">
           <MessageCircle className="h-5 w-5 text-[#25D366]" />
         </div>
         <div>
-          <h2 className="text-[15px] font-semibold text-[#0F172A]">WhatsApp Notifications</h2>
-          <p className="text-[13px] text-[#64748B]">Receive task updates and control Ez-Manage from WhatsApp.</p>
+          <h2 className="text-[15px] font-semibold text-foreground">WhatsApp Notifications</h2>
+          <p className="text-[13px] text-muted-foreground">Receive task updates and control Ez-Manage from WhatsApp.</p>
         </div>
         {step === "verified" && (
           <span className="ml-auto flex items-center gap-1.5 rounded-full bg-[#ECFDF5] px-3 py-1 text-[12px] font-medium text-[#16A34A]">
@@ -266,12 +266,12 @@ export function WhatsappSettingsSection() {
         )}
       </div>
 
-      <div className="flex flex-col gap-6 px-6 py-6">
+      <div className="flex flex-col gap-5 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6">
 
         {/* ── Phone input ── */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <label className="text-[13px] font-medium text-[#374151]">WhatsApp number</label>
+            <label className="text-[13px] font-medium text-foreground">WhatsApp number</label>
             {step === "verified" && !editingPhone && (
               <button
                 type="button"
@@ -285,9 +285,9 @@ export function WhatsappSettingsSection() {
 
           {/* Locked display when verified and not editing */}
           {step === "verified" && !editingPhone ? (
-            <div className="flex items-center gap-3 rounded-xl border border-[#E5E9F0] bg-[#F8FAFC] px-4 py-3">
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3">
               <CheckCircle2 className="h-4 w-4 shrink-0 text-[#25D366]" />
-              <span className="font-mono text-[14px] font-medium text-[#0F172A] tracking-wide">
+              <span className="font-mono text-[14px] font-medium text-foreground tracking-wide">
                 {data?.whatsappPhone
                   ? `+${data.whatsappPhone.replace(/^\+/, "")}`
                   : "—"}
@@ -299,19 +299,19 @@ export function WhatsappSettingsSection() {
           ) : (
             <>
               <div className={cn(
-                "flex overflow-hidden rounded-xl border-2 bg-white transition-all duration-200",
+                "flex overflow-hidden rounded-xl border-2 bg-background transition-all duration-200",
                 "focus-within:border-[#25D366] focus-within:shadow-[0_0_0_3px_rgba(37,211,102,0.12)]",
                 phoneChanged ? "border-[#25D366]" : "border-[#E5E9F0]",
               )}>
                 {/* Country selector */}
-                <div className="relative flex shrink-0 items-center border-r border-[#E5E9F0] bg-[#F8FAFC]">
+                <div className="relative flex shrink-0 items-center border-r border-border bg-muted/50">
                   <select
                     value={country.code + country.flag}
                     onChange={(e) => {
                       const found = COUNTRIES.find((c) => c.code + c.flag === e.target.value);
                       if (found) { setCountry(found); if (step !== "idle") setStep("idle"); }
                     }}
-                    className="h-full appearance-none bg-transparent py-3 pl-3 pr-7 text-[14px] font-medium text-[#0F172A] outline-none"
+                    className="h-full appearance-none bg-transparent py-3 pl-3 pr-7 text-[14px] font-medium text-foreground outline-none"
                   >
                     {COUNTRIES.map((c) => (
                       <option key={c.flag + c.code} value={c.code + c.flag}>
@@ -330,10 +330,10 @@ export function WhatsappSettingsSection() {
                     setLocalNumber(e.target.value.replace(/\D/g, ""));
                     if (step !== "idle") setStep("idle");
                   }}
-                  className="h-full flex-1 bg-transparent px-3.5 py-3 text-[14px] text-[#0F172A] placeholder-[#CBD5E1] outline-none"
+                  className="h-full flex-1 bg-transparent px-3.5 py-3 text-[14px] text-foreground placeholder-muted-foreground outline-none"
                 />
               </div>
-              <p className="text-[12px] text-[#94A3B8]">Numbers only, no spaces or dashes.</p>
+              <p className="text-[12px] text-muted-foreground">Numbers only, no spaces or dashes.</p>
 
               {/* Save / Cancel buttons */}
               <div className="flex items-center gap-2">
@@ -350,7 +350,7 @@ export function WhatsappSettingsSection() {
                   <button
                     type="button"
                     onClick={() => { setEditingPhone(false); setInitialized(false); }}
-                    className="text-[13px] text-[#64748B] hover:text-[#0F172A]"
+                    className="text-[13px] text-muted-foreground hover:text-foreground"
                   >
                     Cancel
                   </button>
@@ -366,16 +366,16 @@ export function WhatsappSettingsSection() {
             "rounded-xl border-2 p-5 transition-all duration-300",
             step === "otp-sent"
               ? "border-[#25D366] bg-[#F0FBF5]"
-              : "border-[#E5E9F0] bg-[#F8FAFC]",
+              : "border-border bg-muted/50",
           )}>
 
             {step === "idle" && (
               <div className="flex flex-col gap-4">
                 <div>
-                  <p className="text-[14px] font-medium text-[#0F172A]">Verify your number</p>
-                  <p className="mt-0.5 text-[13px] text-[#64748B]">
+                  <p className="text-[14px] font-medium text-foreground">Verify your number</p>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">
                     We'll send a 6-digit code to{" "}
-                    <span className="font-mono font-semibold text-[#0F172A]">{data.whatsappPhone}</span>
+                    <span className="font-mono font-semibold text-foreground">{data.whatsappPhone}</span>
                   </p>
                 </div>
                 <Button
@@ -391,9 +391,9 @@ export function WhatsappSettingsSection() {
             {step === "otp-sent" && (
               <div className="flex flex-col gap-5">
                 <div>
-                  <p className="text-[14px] font-medium text-[#0F172A]">Enter the 6-digit code</p>
-                  <p className="mt-0.5 text-[13px] text-[#64748B]">
-                    Sent to <span className="font-mono font-semibold text-[#0F172A]">{data.whatsappPhone}</span>
+                  <p className="text-[14px] font-medium text-foreground">Enter the 6-digit code</p>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">
+                    Sent to <span className="font-mono font-semibold text-foreground">{data.whatsappPhone}</span>
                   </p>
                 </div>
 
@@ -415,7 +415,7 @@ export function WhatsappSettingsSection() {
                     type="button"
                     onClick={() => sendOtpMutation.mutate()}
                     disabled={sendOtpMutation.isPending}
-                    className="text-[13px] text-[#64748B] underline-offset-2 hover:text-[#0F172A] hover:underline disabled:opacity-50"
+                    className="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
                   >
                     Resend code
                   </button>
@@ -428,11 +428,11 @@ export function WhatsappSettingsSection() {
         {/* ── Verified: per-event prefs ── */}
         {step === "verified" && !phoneChanged && data && (
           <div className="flex flex-col gap-3">
-            <p className="text-[13px] font-medium text-[#374151]">Notify me on WhatsApp when…</p>
-            <div className="divide-y divide-[#F1F5F9] rounded-xl border border-[#E5E9F0] overflow-hidden">
+            <p className="text-[13px] font-medium text-foreground">Notify me on WhatsApp when…</p>
+            <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
               {EVENT_PREFS.map(({ key, label }) => (
-                <div key={key} className="flex items-center justify-between bg-white px-4 py-3 hover:bg-[#F8FAFC] transition-colors">
-                  <span className="text-[13px] text-[#374151]">{label}</span>
+                <div key={key} className="flex items-center justify-between bg-background px-4 py-3 hover:bg-muted/50 transition-colors">
+                  <span className="text-[13px] text-foreground">{label}</span>
                   <Toggle
                     checked={data[key]}
                     disabled={prefMutation.isPending}
@@ -446,8 +446,8 @@ export function WhatsappSettingsSection() {
 
         {/* ── Verified: commands ── */}
         {step === "verified" && !phoneChanged && (
-          <div className="rounded-xl border border-[#E5E9F0] bg-[#F8FAFC] p-4">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[#94A3B8]">
+          <div className="rounded-xl border border-border bg-muted/50 p-4">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
               WhatsApp Commands
             </p>
             <div className="grid grid-cols-1 gap-y-1.5 text-[12px] sm:grid-cols-2 sm:gap-x-8">
@@ -471,8 +471,8 @@ export function WhatsappSettingsSection() {
                 ["HELP", "All commands"],
               ].map(([cmd, desc]) => (
                 <div key={cmd} className="flex gap-2">
-                  <span className="font-mono font-semibold text-[#0F172A]">{cmd}</span>
-                  <span className="text-[#94A3B8]">— {desc}</span>
+                  <span className="font-mono font-semibold text-foreground">{cmd}</span>
+                  <span className="text-muted-foreground">— {desc}</span>
                 </div>
               ))}
             </div>
@@ -485,7 +485,7 @@ export function WhatsappSettingsSection() {
             <button
               type="button"
               onClick={() => setShowHistory((v) => !v)}
-              className="flex items-center gap-1.5 text-[13px] text-[#64748B] transition-colors hover:text-[#0F172A]"
+              className="flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
             >
               {showHistory
                 ? <ChevronUp className="h-4 w-4" />
@@ -494,13 +494,13 @@ export function WhatsappSettingsSection() {
             </button>
 
             {showHistory && (
-              <div className="mt-3 overflow-hidden rounded-xl border border-[#E5E9F0]">
+              <div className="mt-3 overflow-hidden rounded-xl border border-border">
                 {logsLoading ? (
-                  <div className="p-4 text-[13px] text-[#94A3B8]">Loading…</div>
+                  <div className="p-4 text-[13px] text-muted-foreground">Loading…</div>
                 ) : !logsData?.data.length ? (
-                  <div className="p-4 text-[13px] text-[#94A3B8]">No messages yet.</div>
+                  <div className="p-4 text-[13px] text-muted-foreground">No messages yet.</div>
                 ) : (
-                  <div className="max-h-64 divide-y divide-[#F1F5F9] overflow-y-auto">
+                  <div className="max-h-64 divide-y divide-border overflow-y-auto">
                     {logsData.data.map((log) => (
                       <div key={log.id} className="flex items-start gap-3 px-4 py-2.5">
                         <span className={cn(
@@ -511,8 +511,8 @@ export function WhatsappSettingsSection() {
                         )}>
                           {log.direction === "OUT" ? "Sent" : "Recv"}
                         </span>
-                        <span className="flex-1 break-words text-[12px] text-[#374151]">{log.body}</span>
-                        <span className="shrink-0 tabular-nums text-[11px] text-[#94A3B8]">
+                        <span className="flex-1 break-words text-[12px] text-foreground">{log.body}</span>
+                        <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
                           {new Date(log.createdAt).toLocaleString()}
                         </span>
                       </div>

@@ -323,6 +323,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         );
         this.server.to(`channel:${data.channelId}`).emit('message:updated', updated);
         client.emit('message:updated', updated);
+
+        // Push notification for missed calls — notify channel members who never joined
+        if (callStatus === 'missed') {
+          try {
+            const callerUserId = (updated as any).userId as number;
+            const callerName = `${(updated as any).user?.firstName ?? ''} ${(updated as any).user?.lastName ?? ''}`.trim();
+            const callTypeLabel = (updated as any).callType === 'voice' ? 'Voice' : 'Video';
+            const wsId = (updated as any).channel?.workspaceId;
+            const members = await this.chatService.getChannelMembers(data.channelId);
+            for (const m of members) {
+              if (m.userId === callerUserId) continue;
+              this.pushService.sendToUser(m.userId, {
+                title: `Missed ${callTypeLabel} Call`,
+                body: callerName ? `${callerName} called` : 'You missed a call',
+                icon: '/icon-192.png',
+                tag: `missed-call-${data.callMessageId}`,
+                url: wsId ? `/workspace/${wsId}/chat` : '/chat',
+              }).catch(() => {});
+            }
+          } catch {}
+        }
       } catch {}
     }
   }

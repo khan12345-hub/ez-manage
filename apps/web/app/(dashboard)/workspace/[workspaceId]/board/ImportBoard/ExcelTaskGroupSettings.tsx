@@ -22,13 +22,13 @@ export function ExcelTaskGroupSettings({
   onGroupColumnChange,
 }: ExcelTaskGroupSettingsProps) {
   return (
-    <div className="rounded-xl border border-gray-200 p-4 dark:border-zinc-800">
+    <div className="rounded-xl border border-border p-4">
       <div className="mb-4">
         <h3 className="text-sm font-semibold">
           Task & Group
         </h3>
 
-        <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
+        <p className="mt-1 text-xs text-muted-foreground">
           Select which Excel columns contain your tasks
           and groups.
         </p>
@@ -47,7 +47,7 @@ export function ExcelTaskGroupSettings({
                 onTaskColumnChange(event.target.value)
               }
               disabled={isImporting}
-              className="h-9 w-full appearance-none rounded-md border border-gray-200 bg-white px-3 pr-8 text-sm outline-none focus:border-emerald-500 dark:border-zinc-800 dark:bg-zinc-950"
+              className="h-9 w-full appearance-none rounded-md border border-border bg-background px-3 pr-8 text-sm outline-none focus:border-emerald-500"
             >
               <option value="">
                 Select task column
@@ -60,14 +60,14 @@ export function ExcelTaskGroupSettings({
               ))}
             </select>
 
-            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
         </div>
 
         <div className="space-y-2">
           <label className="text-xs font-medium">
             Group Column{" "}
-            <span className="font-normal text-gray-400">
+            <span className="font-normal text-muted-foreground">
               (optional)
             </span>
           </label>
@@ -79,7 +79,7 @@ export function ExcelTaskGroupSettings({
                 onGroupColumnChange(event.target.value)
               }
               disabled={isImporting}
-              className="h-9 w-full appearance-none rounded-md border border-gray-200 bg-white px-3 pr-8 text-sm outline-none focus:border-emerald-500 dark:border-zinc-800 dark:bg-zinc-950"
+              className="h-9 w-full appearance-none rounded-md border border-border bg-background px-3 pr-8 text-sm outline-none focus:border-emerald-500"
             >
               <option value="">No group column</option>
 
@@ -90,7 +90,7 @@ export function ExcelTaskGroupSettings({
               ))}
             </select>
 
-            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
         </div>
       </div>

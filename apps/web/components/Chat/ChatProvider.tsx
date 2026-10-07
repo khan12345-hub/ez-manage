@@ -124,6 +124,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     socket.on("call:declined", (d: { channelId: number; declinedByName: string }) => {
       setCallDeclinedMsg(`${d.declinedByName} dismissed the call`);
       setTimeout(() => setCallDeclinedMsg(null), 5000);
+      // Close caller's popup and stop timer when callee declines
+      const current = useChatStore.getState().activeCall;
+      if (current && current.channelId === d.channelId) {
+        useChatStore.getState().setActiveCall(null);
+      }
     });
 
     // call:joined — callee answered; start caller's duration timer
