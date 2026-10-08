@@ -3,6 +3,7 @@ import { api } from "@/lib/api";
 export type BoardColumnType =
   | "STATUS"
   | "TEXT"
+  | "LONG_TEXT"
   | "PERSON"
   | "DROPDOWN"
   | "DATE"
@@ -10,7 +11,9 @@ export type BoardColumnType =
   | "FILE"
   | "TIMELINE"
   | "CHECKBOX"
-  | "CREATION_LOG";
+  | "CREATION_LOG"
+  | "TIME_TRACKING"
+  | "EMAIL";
 
 export const createColumn = async (boardId: number, type: BoardColumnType) => {
   const { data } = await api.post("/columns", {

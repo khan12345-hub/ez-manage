@@ -1,15 +1,12 @@
 // app/(auth)/layout.tsx
+// AuthProvider is already mounted in the root providers.tsx — do NOT nest another one here.
 
 import { GuestWrapper } from "@/app/(auth)/GuestWrapper";
-import { AuthProvider } from "@/providers/AuthProvider";
+
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <AuthProvider>
-      <GuestWrapper>{children}</GuestWrapper>
-    </AuthProvider>
-  );
+  return <GuestWrapper>{children}</GuestWrapper>;
 }

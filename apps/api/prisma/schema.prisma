@@ -399,7 +399,9 @@ enum BoardColumnType {
   TEXT
   LONG_TEXT
   NUMBER
+  PRICE
   DATE
+  PLAIN_DATE
   STATUS
   PERSON
   CHECKBOX
@@ -410,6 +412,8 @@ enum BoardColumnType {
   LINK
   FILE_FEEDBACK
   CREATION_LOG
+  TIME_TRACKING
+  EMAIL
 }
 model StatusOption {
   id          Int         @id @default(autoincrement())
@@ -502,6 +506,9 @@ model Task {
   sourceTask      Task?  @relation("RecurringSource", fields: [sourceTaskId], references: [id], onDelete: SetNull)
   recurringCopies Task[] @relation("RecurringSource")
 
+  // Form submission tracking
+  isFormSubmission Boolean @default(false)
+
   @@index([groupId])
   @@index([groupId, order])
 
@@ -522,7 +529,7 @@ model TimeEntry {
 
   startedAt   DateTime
   endedAt     DateTime?
-  durationMs  Int?      // computed when timer stops; also set for manual entries
+  durationMs  Float?    // computed when timer stops; also set for manual entries
   note        String?
 
   createdAt   DateTime  @default(now())
@@ -870,6 +877,7 @@ model BoardForm {
   description String?
   submitLabel String?  @default("Submit")
   isActive    Boolean  @default(true)
+  design      Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1053,6 +1061,7 @@ model BoardImportJob {
   totalRows   Int      @default(0) @map("total_rows")
   boardId     Int?     @map("board_id")
   error       String?  @map("error")
+  summary     Json?    @map("summary")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

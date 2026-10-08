@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, FileDown, PauseCircle, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,8 +13,11 @@ interface Props {
 }
 
 export function ImportProgressBanner({ boardId }: Props) {
+  const queryClient = useQueryClient();
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  // Tracks whether we have already fired the one-shot "import done" refresh
+  const completedRef = useRef(false);
 
   // Initial fetch
   const { data } = useQuery({
@@ -27,16 +30,24 @@ export function ImportProgressBanner({ boardId }: Props) {
     if (data) setProgress(data);
   }, [data]);
 
-  // Listen for SSE updates
+  // Listen for SSE updates — invalidate board-tasks ONCE when import is done
   useEffect(() => {
     const disconnect = connectNotificationStream(
       () => {},
       (p) => {
-        if (p.boardId === boardId) setProgress(p as any);
+        if (p.boardId !== boardId) return;
+        setProgress(p as any);
+
+        const isComplete = p.pending === 0 && (p as any).paused === 0;
+        if (isComplete && !completedRef.current) {
+          completedRef.current = true;
+          // Refresh file cells once so newly-downloaded files appear
+          queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
+        }
       },
     );
     return disconnect;
-  }, [boardId]);
+  }, [boardId, queryClient]);
 
   const pauseMutation = useMutation({
     mutationFn: () => pauseImport(boardId),

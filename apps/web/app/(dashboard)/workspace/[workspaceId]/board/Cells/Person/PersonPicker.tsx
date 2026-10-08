@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 import { Check, Search, User2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -126,13 +127,7 @@ export default function PersonPicker({
   }
 
   function getAvatarUrl(user: BoardMember) {
-    if (!user.avatarUrl) return null;
-
-    if (user.avatarUrl.startsWith("http")) {
-      return user.avatarUrl;
-    }
-
-    return `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${user.avatarUrl}`;
+    return resolveUrl(user.avatarUrl) || null;
   }
 
   function AvatarContent({

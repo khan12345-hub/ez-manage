@@ -19,6 +19,14 @@ export interface BoardFormField {
   column?: any;
 }
 
+export interface FormDesign {
+  position: "left" | "center" | "right";
+  bgColor: string;
+  accentColor: string;
+  cardBg: string;
+  textColor: string;
+}
+
 export interface BoardForm {
   id: number;
   boardId: number;
@@ -29,6 +37,7 @@ export interface BoardForm {
 
   submitLabel: string;
   isActive: boolean;
+  design?: FormDesign | null;
 
   fields: BoardFormField[];
 
@@ -42,6 +51,7 @@ export interface CreateBoardFormPayload {
   description?: string;
   submitLabel?: string;
   isActive?: boolean;
+  design?: FormDesign;
   fields: BoardFormField[];
 }
 
@@ -51,6 +61,7 @@ export interface UpdateBoardFormPayload {
   description?: string;
   submitLabel?: string;
   isActive?: boolean;
+  design?: FormDesign;
   fields?: BoardFormField[];
 }
 
@@ -128,6 +139,7 @@ export interface PublicBoardForm {
 
   submitLabel: string | null;
   isActive: boolean;
+  design?: FormDesign | null;
 
   fields: PublicBoardFormField[];
 }
@@ -176,5 +188,45 @@ export const submitBoardForm = async (
     payload,
   );
 
+  return data;
+};
+
+export interface PublicFormUploadResponse {
+  url: string;
+  storageKey: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+}
+
+export interface PublicFormMember {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl?: string | null;
+  role: string;
+}
+
+export const getPublicFormMembers = async (
+  boardId: number,
+): Promise<PublicFormMember[]> => {
+  const { data } = await api.get<PublicFormMember[]>(
+    `/public/form/${boardId}/members`,
+  );
+  return data;
+};
+
+export const uploadPublicFormFile = async (
+  boardId: number,
+  file: File,
+): Promise<PublicFormUploadResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post<PublicFormUploadResponse>(
+    `/public/form/${boardId}/upload`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
   return data;
 };

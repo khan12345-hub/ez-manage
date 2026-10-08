@@ -30,6 +30,7 @@ import { ExcelFilePicker } from "./ExcelFilePicker";
 import { ExcelImportSettings } from "./ExcelImportSettings";
 import { ExcelTaskGroupSettings } from "./ExcelTaskGroupSettings";
 import { ExcelColumnMapping } from "./ExcelColumnMapping";
+import { PeopleResolutionStep } from "./PeopleResolutionStep";
 
 import type { ExcelImportProps } from "./excelImport.types";
 
@@ -253,6 +254,8 @@ export function ExcelImportModal({
     groupColumn,
     setGroupColumn,
     columnMappings,
+    usersToCreate,
+    setUsersToCreate,
     parseError,
     handleFileSelect,
     handleRemoveFile,
@@ -432,6 +435,14 @@ export function ExcelImportModal({
                         isImporting={isImporting}
                         onChange={handleMappingChange}
                       />
+
+                      {usersToCreate.length > 0 && (
+                        <PeopleResolutionStep
+                          users={usersToCreate}
+                          onChange={setUsersToCreate}
+                          disabled={isImporting}
+                        />
+                      )}
 
                       <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-xs text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
                         <Check className="h-4 w-4 shrink-0" />

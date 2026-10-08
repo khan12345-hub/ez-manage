@@ -1,6 +1,7 @@
 "use client";
 
 import { User2 } from "lucide-react";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   HoverCard,
@@ -39,13 +40,7 @@ export function PersonCell({ cell }: Props) {
         <div className="flex cursor-pointer -space-x-2">
           {users &&
             users[0].users.slice(0, 3).map((user: any) => {
-              const avatarUrl = user.avatarUrl
-                ? `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${user.avatarUrl}`
-                : undefined;
-              console.log({
-                users,
-                ids: users.map((u) => u.id),
-              });
+              const avatarUrl = resolveUrl(user.avatarUrl) || undefined;
               return (
                 <Avatar
                   key={user.id}

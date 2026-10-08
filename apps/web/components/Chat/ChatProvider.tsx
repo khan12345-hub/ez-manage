@@ -68,9 +68,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return;
 
-    const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "");
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
     if (!socket || !socket.connected) {
-      socket = io(`${apiUrl}/chat`, {
+      socket = io(`${baseUrl}/chat`, {
         auth: { userId: user.id },
         transports: ["websocket"],
       });
@@ -104,18 +104,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // SSE is the primary delivery path but socket covers cases where the SSE
     // stream hasn't re-established after a dev-server restart.
     socket.on("call:incoming", (d: {
-      channelId: number; callType: "video" | "voice"; jitsiUrl: string;
+      channelId: number; callType: "video" | "voice"; roomName: string;
       workspaceId: number; callerName: string; channelName: string;
       callerUserId?: number; callMessageId?: number;
     }) => {
       if (d.callerUserId && d.callerUserId === userRef.current?.id) return;
       setIncomingCall({
-        channelId: d.channelId,
-        callType: d.callType,
-        jitsiUrl: d.jitsiUrl,
-        workspaceId: d.workspaceId,
-        callerName: d.callerName,
-        channelName: d.channelName,
+        channelId:    d.channelId,
+        callType:     d.callType,
+        roomName:     d.roomName,
+        workspaceId:  d.workspaceId,
+        callerName:   d.callerName,
+        channelName:  d.channelName,
         callMessageId: d.callMessageId,
       });
     });

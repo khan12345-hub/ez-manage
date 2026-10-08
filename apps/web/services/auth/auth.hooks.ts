@@ -32,6 +32,11 @@ export function useMe() {
     queryKey: ["me"],
     queryFn: getMe,
     retry: false,
+    retryOnMount: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60_000,
   });
 }
 

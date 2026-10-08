@@ -8,6 +8,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -58,11 +59,7 @@ export function CellFileGalleryModal({
 
   if (!open || !file) return null;
 
-  const fileUrl = file.url
-    ? file.url.startsWith("http")
-      ? file.url
-      : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${file.url}`
-    : null;
+  const fileUrl = resolveUrl(file.url) || null;
 
   const previewFile = {
     id: file.id,

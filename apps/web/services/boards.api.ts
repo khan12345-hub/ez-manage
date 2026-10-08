@@ -198,6 +198,17 @@ export interface ExcelColumnMappingDto {
   type: string;
 }
 
+export interface ImportedComment {
+  itemId: string;
+  contentType: "Update" | "Reply";
+  user: string;
+  createdAt: string;
+  content: string;
+  assetIds: string[];
+  postId: string;
+  parentPostId: string;
+}
+
 export interface ImportExcelBoardDto {
   boardName: string;
   visibility: "PUBLIC" | "PRIVATE";
@@ -206,6 +217,7 @@ export interface ImportExcelBoardDto {
   groupColumn?: string;
   columns: ExcelColumnMappingDto[];
   rows: Record<string, unknown>[];
+  comments?: ImportedComment[];
 }
 
 export interface ImportSkippedItem {
@@ -219,6 +231,15 @@ export interface ImportExcelBoardResponse {
   jobId: number;
 }
 
+export interface ImportJobSummary {
+  tasksCreated: number;
+  commentsCreated: number;
+  timeEntriesCreated: number;
+  usersCreated: number;
+  filesQueued: number;
+  skipped: number;
+}
+
 export interface ImportJobStatus {
   id: number;
   boardName: string;
@@ -226,6 +247,7 @@ export interface ImportJobStatus {
   totalRows: number;
   boardId?: number | null;
   error?: string | null;
+  summary?: ImportJobSummary | null;
 }
 
 export const importExcelBoard = async (
@@ -249,18 +271,6 @@ export interface ExcelColumnMappingDto {
   targetColumn: string;
   type: string;
 }
-
-export interface ImportExcelBoardDto {
-  boardName: string;
-  visibility: "PUBLIC" | "PRIVATE";
-  workspaceId: number;
-  taskColumn: string;
-  groupColumn?: string;
-  columns: ExcelColumnMappingDto[];
-  rows: Record<string, unknown>[];
-}
-
-
 
 export interface Group {
   id: number;

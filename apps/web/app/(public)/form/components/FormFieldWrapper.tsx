@@ -13,10 +13,6 @@ interface FormFieldWrapperProps {
   children: React.ReactNode;
 }
 
-/**
- * Shared layout wrapper for every public form field.
- * Handles label, description, required asterisk, and validation error.
- */
 export function FormFieldWrapper({
   id,
   label,
@@ -28,34 +24,23 @@ export function FormFieldWrapper({
 }: FormFieldWrapperProps) {
   if (inline) {
     return (
-      <div className="space-y-1.5">
-        <div className="flex items-start gap-3">
+      <div className="space-y-1">
+        <div className="flex items-center gap-3">
           {children}
-
-          <div className="space-y-0.5 leading-none">
-            <label
-              htmlFor={id}
-              className="cursor-pointer text-sm font-medium"
-            >
+          <div className="space-y-0.5">
+            <label htmlFor={id} className="cursor-pointer text-sm font-medium text-foreground">
               {label}
-
               {required && (
-                <span className="ml-1 text-destructive" aria-hidden="true">
-                  *
-                </span>
+                <span className="ml-1 text-destructive" aria-hidden="true">*</span>
               )}
             </label>
-
             {description && (
               <p className="text-xs text-muted-foreground">{description}</p>
             )}
           </div>
         </div>
-
         {error && (
-          <p className="text-xs text-destructive" role="alert">
-            {error}
-          </p>
+          <p className="text-xs text-destructive" role="alert">{error}</p>
         )}
       </div>
     );
@@ -63,31 +48,27 @@ export function FormFieldWrapper({
 
   return (
     <div className="space-y-1.5">
-      <div className="space-y-0.5">
-        <label
-          htmlFor={id}
-          className={cn("text-sm font-medium", error && "text-destructive")}
-        >
-          {label}
-
-          {required && (
-            <span className="ml-1 text-destructive" aria-hidden="true">
-              *
-            </span>
-          )}
-        </label>
-
-        {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
+      <label
+        htmlFor={id}
+        className={cn(
+          "block text-sm font-medium text-foreground",
+          error && "text-destructive",
         )}
-      </div>
+      >
+        {label}
+        {required && (
+          <span className="ml-1 text-destructive" aria-hidden="true">*</span>
+        )}
+      </label>
+
+      {description && (
+        <p className="text-xs text-muted-foreground">{description}</p>
+      )}
 
       {children}
 
       {error && (
-        <p className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
+        <p className="text-xs text-destructive" role="alert">{error}</p>
       )}
     </div>
   );

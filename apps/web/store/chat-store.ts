@@ -6,7 +6,7 @@ import { ChatChannel, ChatMessage, WorkspaceUnreadSummary } from "@/services/cha
 export interface IncomingCall {
   channelId: number;
   callType: "video" | "voice";
-  jitsiUrl: string;
+  roomName: string;
   workspaceId: number;
   callerName: string;
   channelName: string;
@@ -17,6 +17,8 @@ export interface ActiveCall {
   roomName: string;
   channelId: number;
   startWithVideoMuted: boolean;
+  livekitToken: string;
+  livekitUrl: string;
   callMessageId?: number;
   startedAt?: number; // Date.now() when call connected
 }

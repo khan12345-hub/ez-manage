@@ -13,9 +13,10 @@ import { BoardExportService } from './board-export.service';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { FileImportModule } from 'src/file-import/file-import.module';
 import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
+import { MailModule } from 'src/mail/mail.module';
 
 @Module({
-  imports: [NotificationsModule, FileImportModule],
+  imports: [NotificationsModule, FileImportModule, MailModule],
   controllers: [BoardsController],
   providers: [
     BoardsService,

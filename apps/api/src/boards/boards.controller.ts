@@ -14,6 +14,7 @@ import {
   StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 
 import { BoardsService } from './boards.service';
@@ -303,6 +304,7 @@ export class BoardsController {
     return this.boardImportService.getImportJob(jobId, user.id);
   }
 
+  @SkipThrottle()
   @Get(':boardId/tasks')
   @RequireBoardPermission(BoardPermission.VIEW)
   getBoardTasks(

@@ -26,6 +26,7 @@ export function DateEditor({
   setValue,
   save,
   cancel,
+  column,
 }: CellEditorProps<DateValue>) {
   const raw = value?.date;
   const date = raw ? (raw instanceof Date ? raw : new Date(raw as any)) : undefined;
@@ -33,23 +34,20 @@ export function DateEditor({
 
   const [open, setOpen] = useState(false);
 
-  /**
-   * Only open the popover when the cell actually enters edit mode.
-   */
+  const plainDate = column?.type === "PLAIN_DATE";
+
   useEffect(() => {
     if (editing) {
       setOpen(true);
     }
   }, [editing]);
 
-  /**
-   * Cheap display when the cell isn't being edited.
-   * No Popover or Calendar is mounted.
-   */
   if (!editing) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const isOverdue = validDate ? validDate < today : false;
+    const isOverdue = !plainDate && (validDate ? validDate < today : false);
+    const isSameYear = validDate?.getFullYear() === today.getFullYear();
+    const displayFormat = isSameYear ? "MMM d" : "MMM d, yyyy";
 
     return (
       <div className={cn("flex h-full w-full items-center px-2 text-sm", isOverdue && "text-red-500")}>
@@ -58,7 +56,7 @@ export function DateEditor({
         ) : (
           <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
         )}
-        {validDate ? format(validDate, "dd MMM yyyy") : "-"}
+        {validDate ? format(validDate, displayFormat) : "-"}
       </div>
     );
   }

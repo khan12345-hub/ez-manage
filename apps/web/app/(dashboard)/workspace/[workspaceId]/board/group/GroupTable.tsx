@@ -8,13 +8,15 @@ import {
 } from "@dnd-kit/sortable";
 
 import { useDroppable } from "@dnd-kit/core";
-import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { Headers } from "./columns/Headers";
 import { TaskHierarchyRow } from "./tasks/TaskRowHierarchy";
 import { NewTaskRow } from "./tasks/AddNewTaskRow";
+import { GroupFooterRow } from "./GroupFooterRow";
 
 import { Plus } from "lucide-react";
 
@@ -34,6 +36,7 @@ interface Props {
   setOpen: (open: boolean) => void;
   newTaskFocusToken?: number;
   isFetching?: boolean;
+  isFetchingNextPage?: boolean;
   members?: Array<{
     id: number;
     role: string;
@@ -59,6 +62,7 @@ export function GroupTable({
   newTaskFocusToken = 0,
   members,
   isFetching,
+  isFetchingNextPage,
 }: Props) {
   const { setNodeRef } = useDroppable({
     id: `group-drop-${group.id}`,
@@ -76,11 +80,33 @@ export function GroupTable({
 
   const shouldVirtualize = rootTasks.length > VIRTUALIZE_THRESHOLD;
 
-  const rowVirtualizer = useWindowVirtualizer({
+  // The app's scroll container is <main> (overflow-auto in AppShell), not the window.
+  // useWindowVirtualizer uses window.scrollY which is always 0 here, so only the
+  // first ~14 rows ever render. useVirtualizer with the correct scroll element fixes this.
+  const rowVirtualizer = useVirtualizer({
     count: rootTasks.length,
     estimateSize: () => 41,
     overscan: 10,
-    scrollMargin: tbodyRef.current?.offsetTop ?? 0,
+    getScrollElement: () => {
+      if (typeof document === "undefined") return null;
+      return document.querySelector("main");
+    },
+    // Distance from main's content top to tbody's position in that content.
+    // This stays constant as the user scrolls because scrollTop compensates for
+    // the changing getBoundingClientRect values.
+    scrollMargin: (() => {
+      const tbody = tbodyRef.current;
+      const main =
+        typeof document !== "undefined"
+          ? document.querySelector("main")
+          : null;
+      if (!tbody || !main) return 0;
+      return (
+        tbody.getBoundingClientRect().top -
+        main.getBoundingClientRect().top +
+        main.scrollTop
+      );
+    })(),
   });
 
   const virtualItems = rowVirtualizer.getVirtualItems();
@@ -207,6 +233,24 @@ export function GroupTable({
               </tr>
             )}
 
+            {/* Skeleton rows while next page loads */}
+            {isFetchingNextPage &&
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={`skeleton-${i}`} className="border-b border-border/40">
+                  <td className="w-1.5 p-0" style={{ backgroundColor: group.color }} />
+                  <td className="sticky left-1.5 z-20 w-[200px] bg-background px-3 py-2.5 sm:w-[450px]">
+                    <Skeleton className={`h-3.5 ${(["w-48","w-36","w-56","w-28","w-44"])[i % 5]}`} />
+                  </td>
+                  {columns.map((col: any, ci: number) => (
+                    <td key={col.id} className="border-l px-3 py-2.5" style={{ minWidth: 120 }}>
+                      <Skeleton className={`h-3.5 ${(["w-16","w-20","w-12","w-24","w-14"])[ci % 5]}`} />
+                    </td>
+                  ))}
+                  <td className="w-44" />
+                </tr>
+              ))
+            }
+
             {showNewTaskRow && (
               <NewTaskRow
                 columns={columns}
@@ -217,6 +261,12 @@ export function GroupTable({
             )}
           </tbody>
         </SortableContext>
+
+        <GroupFooterRow
+          tasks={(group.tasks ?? []).filter((t: any) => !t.parentId)}
+          columns={columns}
+          color={group.color}
+        />
       </table>
     </div>
   );

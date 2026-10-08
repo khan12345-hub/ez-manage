@@ -1,5 +1,6 @@
 "use client";
 import ImagePreview from "./ImagePreview";
+import { resolveUrl } from "@/lib/resolveUrl";
 import PdfPreview from "./PdfPreview";
 import ExcelPreview from "./ExcelPreview/ExcelPreview";
 import DocxPreview from "./DocxPreview";
@@ -28,9 +29,7 @@ export default function FilePreview({
     return <UnsupportedFilePreview file={file} />;
   }
 
-  const fileUrl = file.url.startsWith("http")
-    ? file.url
-    : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${file.url}`;
+  const fileUrl = resolveUrl(file.url);
 
   // Images
   if (file.mimeType.startsWith("image/")) {

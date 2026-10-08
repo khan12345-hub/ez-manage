@@ -2,6 +2,8 @@
 
 "use client";
 
+import { resolveUrl } from "@/lib/resolveUrl";
+
 interface UserAvatarProps {
   name?: string;
   avatarUrl?: string | null;
@@ -14,7 +16,7 @@ export function FileUploaderAvatar({
   if (avatarUrl) {
     return (
       <img
-        src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL+avatarUrl}
+        src={resolveUrl(avatarUrl)}
         alt={name ?? "User"}
         className="h-8 w-8 shrink-0 rounded-full object-cover"
       />

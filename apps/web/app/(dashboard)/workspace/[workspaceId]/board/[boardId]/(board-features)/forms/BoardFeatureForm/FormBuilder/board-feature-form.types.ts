@@ -2,11 +2,14 @@ import { DateRange } from "react-day-picker";
 
 export type FormFieldType =
   | "TEXT"
+  | "LONG_TEXT"
   | "NUMBER"
   | "DATE"
   | "STATUS"
   | "TIMELINE"
-  | "CHECKBOX";
+  | "CHECKBOX"
+  | "LINK"
+  | "FILE";
 
 export interface FormFieldOption {
   id: string;
@@ -15,10 +18,17 @@ export interface FormFieldOption {
   isNew?: boolean;
 }
 
+export interface FormPage {
+  id: string;
+  title?: string;
+}
+
 export interface FormField {
   id: string;
   name: string;
   type: FormFieldType;
+  /** Original board column type (e.g. "LONG_TEXT", "PERSON") for display logic */
+  columnType?: string;
 
   columnId?: number;
 
@@ -29,28 +39,13 @@ export interface FormField {
   hidden?: boolean;
 
   position?: number;
+  /** Which page this field belongs to (0-indexed) */
+  pageIndex?: number;
 
-  /**
-   * STATUS field options.
-   */
   options?: FormFieldOption[];
 
-  /**
-   * DATE field value.
-   *
-   * Keep this flexible if DatePicker returns
-   * either a Date or string.
-   */
   date?: Date;
-
-  /**
-   * TIMELINE field value.
-   */
   timeline?: DateRange;
-
-  /**
-   * CHECKBOX field value.
-   */
   checked?: boolean;
 }
 
@@ -61,20 +56,17 @@ export interface FormBuilderState {
   submitLabel?: string;
   isActive?: boolean;
   fields: FormField[];
+  pages: FormPage[];
+  thankyouTitle?: string;
+  thankyouMessage?: string;
 }
 
-/**
- * Status option returned by the API.
- */
 export interface BoardFormStatusOption {
   id: number | string;
   label: string;
   color: string;
 }
 
-/**
- * Board form returned by the API.
- */
 export interface BoardForm {
   id: number;
   viewId: number;
@@ -90,28 +82,18 @@ export interface BoardForm {
 
 export interface BoardFormField {
   id: number;
-
   formId?: number;
-
   columnId: number;
-
   label: string | null;
-
   description: string | null;
-
   position: number;
-
   required: boolean;
-
   hidden: boolean;
-
   statusOptions?: BoardFormStatusOption[];
-
   column?: {
     id: number;
     name: string;
     type: string;
-
     statusOptions?: BoardFormStatusOption[];
   };
 }

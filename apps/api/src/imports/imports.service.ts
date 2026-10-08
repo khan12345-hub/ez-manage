@@ -174,6 +174,34 @@ export class ImportsService {
     }
 
     /*
+     * Read Sheet 2 (updates / comments) if it exists.
+     * Row 0 = title, Row 1 = column headers, Row 2+ = comment data.
+     */
+    const commentsSheetName = workbook.SheetNames[1];
+    const commentsRows: any[][] = [];
+    if (commentsSheetName) {
+      const commentsSheet = workbook.Sheets[commentsSheetName];
+      if (commentsSheet) {
+        const range2 = XLSX.utils.decode_range(
+          commentsSheet['!ref'] ?? 'A1:A1',
+        );
+        for (let r = range2.s.r; r <= range2.e.r; r++) {
+          const row: any[] = [];
+          for (let c = range2.s.c; c <= range2.e.c; c++) {
+            const addr = XLSX.utils.encode_cell({ r, c });
+            row.push(commentsSheet[addr]?.v ?? null);
+          }
+          commentsRows.push(row);
+        }
+      }
+    }
+
+    /* Index of the "Item ID" column in Sheet 1 — used to link comments to tasks */
+    const itemIdColIndex = rows[firstHeaderIndex].findIndex(
+      (v) => String(v ?? '').toLowerCase().includes('item id'),
+    );
+
+    /*
      * Create everything in one transaction.
      */
     return this.prisma.$transaction(
@@ -278,26 +306,13 @@ export class ImportsService {
             }),
           });
 
-          await tx.statusOption.createMany({
-            data: uniqueLabels.map((label: string, index: number) => {
-              const sourceOption = importedColumn.statusOptions.find(
-                (option: { label: string; color?: string }) =>
-                  option.label === label,
-              );
-
-              return {
-                columnId: dbColumn.id,
-                label: label,
-                color: sourceOption?.color ?? '#94a3b8',
-                order: (index + 1) * 1000,
-              };
-            }),
-          });
         }
 
         /*
          * Create groups and tasks.
          */
+        const itemIdToTaskId = new Map<string, number>();
+
         for (
           let groupIndex = 0;
           groupIndex < parsed.groups.length;
@@ -390,7 +405,20 @@ export class ImportsService {
                 data: cells,
               });
             }
+
+            /* Track Item ID → task DB id for comment linking */
+            if (itemIdColIndex >= 0) {
+              const rawItemId = String(
+                importedTask.values[itemIdColIndex] ?? '',
+              ).trim();
+              if (rawItemId) itemIdToTaskId.set(rawItemId, task.id);
+            }
           }
+        }
+
+        /* Import comments from Sheet 2 (updates sheet) */
+        if (commentsRows.length > 2 && itemIdColIndex >= 0) {
+          await this.importComments(tx, commentsRows, itemIdToTaskId, userId);
         }
 
         /*
@@ -572,6 +600,21 @@ export class ImportsService {
      */
     let rowIndex = firstHeaderIndex + 1;
 
+    /*
+     * Monday.com places the first group name one row ABOVE the first
+     * column-header row. The main loop starts after that header row and
+     * never sees this row, so we seed currentGroup here before the loop.
+     */
+    const rowBeforeFirstHeader = rows[firstHeaderIndex - 1];
+    if (rowBeforeFirstHeader && this.isGroupRow(rowBeforeFirstHeader)) {
+      currentGroup = {
+        name: String(rowBeforeFirstHeader[0]).trim(),
+        color: this.getCellColor(worksheet, firstHeaderIndex - 1, 0),
+        tasks: [],
+      };
+      groups.push(currentGroup);
+    }
+
     while (rowIndex < rows.length) {
       const row = rows[rowIndex];
 
@@ -591,8 +634,7 @@ export class ImportsService {
        * Name | Subitems | Amount | ...
        */
       if (
-        firstValue &&
-        !this.isTaskRow(row, currentColumns) &&
+        this.isGroupRow(row) &&
         this.isNextHeaderRow(rows[rowIndex + 1])
       ) {
         currentGroup = {
@@ -730,11 +772,90 @@ export class ImportsService {
       rowIndex++;
     }
 
+    /* Auto-promote categorical TEXT columns to STATUS with colours */
+    this.promoteTextColumnsToStatus(columns, groups);
+
     return {
       columns,
       groups,
       primaryColumnIndex,
     };
+  }
+
+  /*
+   * After all rows are parsed, promote TEXT columns that look categorical
+   * (few unique values, no emails, not long text) to STATUS and assign
+   * a colour from the palette to each unique value.
+   *
+   * Rules:
+   *  - Columns already promoted to STATUS (via cell colours) are skipped.
+   *  - Primary column is skipped.
+   *  - Columns whose name contains "email" are skipped.
+   *  - Columns with > 50 % of values containing "@" are skipped.
+   *  - Columns with average value length > 40 are treated as free-text.
+   *  - Columns with > 35 distinct values are treated as free-text.
+   *  - The column-header string itself (slipped into data from repeated
+   *    header rows) is stripped from the status options.
+   */
+  private promoteTextColumnsToStatus(columns: any[], groups: any[]): void {
+    const PALETTE = [
+      '#579BFC', '#00C875', '#FDAB3D', '#E2445C', '#9D99B9',
+      '#FFD700', '#FF7575', '#00BFFF', '#20BF55', '#FF6B6B',
+      '#4ECDC4', '#96E6A1', '#C4C4C4', '#FF9F43', '#A29BFE',
+      '#F368E0', '#48DBFB', '#1DD1A1', '#FFC312', '#EE5A24',
+    ];
+
+    for (const column of columns) {
+      /* Already a STATUS column or primary — skip */
+      if (column.type === BoardColumnType.STATUS || column.isPrimary) continue;
+
+      /* Columns that are clearly not categorical */
+      const nameLower = column.name.toLowerCase();
+      if (nameLower.includes('email')) continue;
+      if (nameLower.includes('people') || nameLower.includes('person')) continue;
+      if (nameLower.includes('comment') || nameLower.includes('description')) continue;
+      if (nameLower.includes('file') || nameLower.includes('attachment')) continue;
+
+      /* Collect all non-empty values across every group/task */
+      const allValues: string[] = [];
+      for (const group of groups) {
+        for (const task of group.tasks) {
+          const raw = String(task.values[column.index] ?? '').trim();
+          if (raw) allValues.push(raw);
+        }
+      }
+
+      if (allValues.length === 0) continue;
+
+      /* Skip if values look like email addresses */
+      const emailRatio = allValues.filter((v) => v.includes('@')).length / allValues.length;
+      if (emailRatio > 0.3) continue;
+
+      /* Skip if values look like long free-text */
+      const avgLen = allValues.reduce((s, v) => s + v.length, 0) / allValues.length;
+      if (avgLen > 40) continue;
+
+      /* Build unique set — exclude the column header string itself */
+      const uniqueLabels = [
+        ...new Set(allValues.filter((v) => v.toLowerCase() !== nameLower)),
+      ];
+
+      /* Too many distinct values → treat as free-text */
+      if (uniqueLabels.length === 0 || uniqueLabels.length > 35) continue;
+
+      /* Promote to STATUS and assign palette colours */
+      column.type = BoardColumnType.STATUS;
+      let colourIdx = 0;
+      for (const label of uniqueLabels) {
+        if (!column.statusOptions.some((o: any) => o.label === label)) {
+          column.statusOptions.push({
+            label,
+            color: PALETTE[colourIdx % PALETTE.length],
+          });
+          colourIdx++;
+        }
+      }
+    }
   }
 
   private isNextHeaderRow(row: any[] | undefined): boolean {
@@ -787,6 +908,17 @@ export class ImportsService {
     return value !== undefined && value !== null && String(value).trim() !== '';
   }
 
+  /*
+   * A group-header row has exactly one non-empty cell and it is in column 0.
+   * Monday.com exports group names this way: one cell, all others blank.
+   */
+  private isGroupRow(row: any[]): boolean {
+    const nonEmpty = row.filter(
+      (v) => v !== null && v !== '' && v !== undefined,
+    );
+    return nonEmpty.length === 1 && String(row[0] ?? '').trim() !== '';
+  }
+
   private getCellColor(
     worksheet: XLSX.WorkSheet,
     rowIndex: number,
@@ -837,6 +969,116 @@ export class ImportsService {
     }
 
     return `#${color}`;
+  }
+
+  /*
+   * Import comments from the Monday.com "updates" sheet into TaskComment.
+   *
+   * Sheet layout (0-indexed columns):
+   *   0  Item ID       — links to Sheet 1 task
+   *   2  Content Type  — "Update" for top-level posts
+   *   3  Content Type  — "Reply" for replies
+   *   4  User          — author name (free text, not a system user)
+   *   5  Created At    — "31/October/2023  05:40:35 PM"
+   *   6  Update Content — comment body
+   *   8  Asset IDs     — comma-separated Monday.com asset IDs (we note but can't download)
+   *   9  Post ID       — Monday.com post id (used to thread replies)
+   *  10  Parent Post ID — non-empty only for replies
+   */
+  private async importComments(
+    tx: any,
+    commentsRows: any[][],
+    itemIdToTaskId: Map<string, number>,
+    userId: number,
+  ): Promise<void> {
+    // Rows 0 (title) and 1 (headers) are skipped
+    const dataRows = commentsRows.slice(2).filter(
+      (r) => r && r[0] !== null && String(r[0] ?? '').trim() !== '',
+    );
+
+    const updates = dataRows.filter((r) => String(r[2] ?? '') === 'Update');
+    const replies  = dataRows.filter((r) => String(r[3] ?? '') === 'Reply');
+
+    // Monday.com Post ID → DB TaskComment id  (needed for reply parentId)
+    const postIdToCommentId = new Map<string, number>();
+
+    const buildContent = (row: any[]): string => {
+      const author   = String(row[4] ?? '').trim() || 'Unknown';
+      const body     = String(row[6] ?? '').trim();
+      const assetIds = String(row[8] ?? '').trim();
+      const hasFiles = assetIds && assetIds !== '0';
+      return `**${author}:** ${body}${hasFiles ? '\n\n📎 *Files attached in original Monday.com record (not downloadable)*' : ''}`;
+    };
+
+    for (const row of updates) {
+      const itemId = String(row[0] ?? '').trim();
+      const taskId = itemIdToTaskId.get(itemId);
+      if (!taskId) continue;
+
+      const content = String(row[6] ?? '').trim();
+      if (!content) continue;
+
+      const comment = await tx.taskComment.create({
+        data: {
+          taskId,
+          userId,
+          content: buildContent(row),
+          createdAt: this.parseMonDayDate(String(row[5] ?? '')),
+        },
+      });
+
+      const postId = String(row[9] ?? '').trim();
+      if (postId) postIdToCommentId.set(postId, comment.id);
+    }
+
+    for (const row of replies) {
+      const itemId = String(row[0] ?? '').trim();
+      const taskId = itemIdToTaskId.get(itemId);
+      if (!taskId) continue;
+
+      const content = String(row[6] ?? '').trim();
+      if (!content) continue;
+
+      const parentPostId = String(row[10] ?? '').trim();
+      const parentId = parentPostId
+        ? (postIdToCommentId.get(parentPostId) ?? null)
+        : null;
+
+      const comment = await tx.taskComment.create({
+        data: {
+          taskId,
+          userId,
+          content: buildContent(row),
+          parentId,
+          createdAt: this.parseMonDayDate(String(row[5] ?? '')),
+        },
+      });
+
+      const postId = String(row[9] ?? '').trim();
+      if (postId) postIdToCommentId.set(postId, comment.id);
+    }
+  }
+
+  /* Parse Monday.com date string: "31/October/2023  05:40:35 PM" */
+  private parseMonDayDate(dateStr: string): Date {
+    const match = dateStr.match(
+      /(\d{1,2})\/(\w+)\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)/i,
+    );
+    if (!match) return new Date();
+    const [, day, month, year, h, m, s, ampm] = match;
+    const MONTHS = [
+      'january', 'february', 'march', 'april', 'may', 'june',
+      'july', 'august', 'september', 'october', 'november', 'december',
+    ];
+    const monthIdx = MONTHS.indexOf(month.toLowerCase());
+    if (monthIdx === -1) return new Date();
+    let hour = parseInt(h, 10);
+    if (ampm.toUpperCase() === 'PM' && hour < 12) hour += 12;
+    if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+    return new Date(
+      parseInt(year, 10), monthIdx, parseInt(day, 10),
+      hour, parseInt(m, 10), parseInt(s, 10),
+    );
   }
 
   private normalizeExcelValue(value: any): Prisma.InputJsonValue {

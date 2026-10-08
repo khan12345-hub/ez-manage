@@ -413,19 +413,19 @@ function ActivityRow({ item }: { item: TaskActivity }) {
             {ACTION_LABEL[item.action] ?? item.action}
           </span>
           {columnName && (
-            <span className="text-xs font-medium text-foreground/70 truncate max-w-[90px]" title={columnName}>
+            <span className="text-xs font-medium text-foreground/70" title={columnName}>
               {columnName}
             </span>
           )}
         </div>
         {/* Line 2: old → new value */}
         {hasValueChange && (
-          <div className="mt-0.5 flex items-center gap-1 text-[11px]">
-            <span className="max-w-[90px] truncate text-muted-foreground line-through" title={oldDisplay}>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px]">
+            <span className="break-words text-muted-foreground line-through" title={oldDisplay}>
               {oldDisplay}
             </span>
             <span className="text-muted-foreground/50">→</span>
-            <span className="max-w-[90px] truncate font-medium text-foreground/80" title={newDisplay}>
+            <span className="break-words font-medium text-foreground/80" title={newDisplay}>
               {newDisplay}
             </span>
           </div>

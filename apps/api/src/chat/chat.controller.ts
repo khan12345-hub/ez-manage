@@ -26,17 +26,48 @@ import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SessionUser } from 'src/auth/types/session-user.type';
 import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 import { ChatNotifPref } from 'generated/prisma/enums';
+import { LivekitService } from '../livekit/livekit.service';
 
 /** Global (non-workspace-scoped) chat endpoints */
 @Controller('chat')
 @UseGuards(SessionAuthGuard)
 export class GlobalChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly livekitService: LivekitService,
+  ) {}
 
   /** Returns per-workspace unread totals across ALL workspaces the user belongs to. */
   @Get('all-unread')
   getAllUnread(@CurrentUser() user: SessionUser) {
     return this.chatService.getAllUnreadSummary(user.id);
+  }
+
+  /** Generate a LiveKit access token for a callee joining a call room. */
+  @Post('livekit-token')
+  async getLivekitToken(
+    @CurrentUser() user: SessionUser,
+    @Body() body: { roomName: string },
+  ) {
+    const profile = await this.chatService.getUserName(user.id);
+    const userName = profile ?? `User ${user.id}`;
+    const token = await this.livekitService.createToken(String(user.id), userName, body.roomName);
+    return { token, wsUrl: this.livekitService.wsUrl };
+  }
+
+  /** Diagnostic: confirms LiveKit env vars are loaded (secret masked). */
+  @Get('livekit-check')
+  livekitCheck() {
+    const key    = process.env.LIVEKIT_API_KEY    ?? '';
+    const secret = process.env.LIVEKIT_API_SECRET ?? '';
+    const url    = process.env.LIVEKIT_URL        ?? '';
+    return {
+      configured: Boolean(key && secret && url),
+      apiKey:     key    || '(empty)',
+      secretLen:  secret.length,
+      secretHint: secret ? `${secret.slice(0, 4)}...${secret.slice(-4)}` : '(empty)',
+      wsUrl:      url    || '(empty)',
+    };
   }
 }
 

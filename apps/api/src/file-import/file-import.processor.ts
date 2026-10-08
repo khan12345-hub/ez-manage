@@ -1,6 +1,7 @@
-import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { LocalStorageService } from 'src/storage/local-storage.service';
+import { STORAGE_SERVICE } from 'src/storage/storage.module';
+import { StorageProvider } from 'src/storage/storage.types';
 import { NotificationStreamService } from 'src/notifications/notification-stream.service';
 
 export interface FileImportJobData {
@@ -47,7 +48,7 @@ export class FileImportService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: LocalStorageService,
+    @Inject(STORAGE_SERVICE) private readonly storage: StorageProvider,
     @Optional() private readonly stream: NotificationStreamService,
   ) {}
 
@@ -90,23 +91,23 @@ export class FileImportService implements OnModuleInit {
 
   /** Pause all pending downloads for a board (preserves URLs for resume). */
   async pause(boardId: number): Promise<void> {
+    // In-memory gate: stops queued downloads instantly (before any DB I/O)
     this.pausedBoards.add(boardId);
 
-    // Prefix pending files with import-paused: so the original URL is preserved
-    const pendingFiles = await this.prisma.file.findMany({
-      where: {
-        storageKey: { startsWith: 'http' },
-        cells: { some: { cell: { task: { group: { boardId } } } } },
-      },
-      select: { id: true, storageKey: true },
-    });
-
-    for (const file of pendingFiles) {
-      await this.prisma.file.update({
-        where: { id: file.id },
-        data: { storageKey: `import-paused:${file.storageKey}` },
-      });
-    }
+    // Bulk-prefix all pending files in one SQL statement — avoids slow row-by-row loop
+    await this.prisma.$executeRaw`
+      UPDATE files
+      SET "storageKey" = CONCAT('import-paused:', "storageKey")
+      WHERE "storageKey" LIKE 'http%'
+        AND id IN (
+          SELECT f.id FROM files f
+          INNER JOIN task_cell_files tcf ON tcf."fileId" = f.id
+          INNER JOIN task_cells tc ON tc.id = tcf."cellId"
+          INNER JOIN tasks t ON t.id = tc."taskId"
+          INNER JOIN groups g ON g.id = t."groupId"
+          WHERE g."boardId" = ${boardId}
+        )
+    `;
 
     await this.emitProgress(boardId);
   }

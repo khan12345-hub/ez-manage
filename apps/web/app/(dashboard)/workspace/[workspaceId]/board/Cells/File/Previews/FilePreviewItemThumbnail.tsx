@@ -3,6 +3,7 @@
 import ExcelIcon from "@/components/ui/icons/ExcelIcon";
 import PdfIcon from "@/components/ui/icons/PdfIcon";
 import { File as FileIcon } from "lucide-react";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 interface FileThumbnailProps {
   fileName: string;
@@ -38,11 +39,7 @@ export default function FileThumbnail({
   const isPdf =
     mimeType === "application/pdf" || lowerFileName.endsWith(".pdf");
 
-  const fileUrl = url
-    ? url.startsWith("http")
-      ? url
-      : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${url}`
-    : null;
+  const fileUrl = resolveUrl(url) || null;
 
   const sizeClasses = {
     sm: "h-10 w-10",

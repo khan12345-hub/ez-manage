@@ -1,4 +1,4 @@
-import { Injectable, Optional, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Optional, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { UpdateUserSettingsDto } from './dto/update-user.dto';
@@ -9,14 +9,15 @@ import { UpdateWhatsappSettingsDto } from './dto/update-whatsapp-settings.dto';
 import { VerifyWhatsappOtpDto } from './dto/verify-whatsapp-otp.dto';
 import { Prisma } from 'generated/prisma/client';
 import { SystemRole, InvitationStatus } from 'generated/prisma/enums';
-import { LocalStorageService } from 'src/storage/local-storage.service';
+import { STORAGE_SERVICE } from 'src/storage/storage.module';
+import { StorageProvider } from 'src/storage/storage.types';
 import { WhatsappService } from 'src/whatsapp/whatsapp.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storageService: LocalStorageService,
+    @Inject(STORAGE_SERVICE) private readonly storageService: StorageProvider,
     @Optional() private readonly whatsapp: WhatsappService,
   ) {}
 

@@ -17,7 +17,10 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login");
     }
-  }, [isLoading, isAuthenticated, router]);
+    // router is intentionally excluded — it is stable but listing it can re-fire
+    // this effect on every navigation, causing a redirect loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, isAuthenticated]);
 
   if (isLoading) {
     return <FullScreenLoader />;

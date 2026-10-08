@@ -31,6 +31,8 @@ export default function NewFormPage() {
   }
 
   return (
+    <div className="flex h-full flex-col overflow-hidden">
       <FormBuilder board={board} />
+    </div>
   );
 }

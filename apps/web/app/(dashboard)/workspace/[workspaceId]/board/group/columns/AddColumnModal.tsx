@@ -3,16 +3,17 @@
 import { useMemo, useState } from "react";
 import {
   Calendar,
+  CalendarDays,
   CheckSquare,
   ChevronDown,
-  FileText,
   File,
   Hash,
-  Sigma,
+  DollarSign,
+  Tag,
   User,
-  Users,
-  Link2,
   Clock3,
+  Timer,
+  Mail,
   Type,
   Search,
   History,
@@ -31,11 +32,16 @@ export type ColumnType =
   | "TEXT"
   | "PERSON"
   | "DATE"
+  | "PLAIN_DATE"
   | "NUMBER"
+  | "PRICE"
   | "FILE"
   | "TIMELINE"
   | "CHECKBOX"
   | "CREATION_LOG"
+  | "TIME_TRACKING"
+  | "EMAIL"
+  | "LABEL"
 
 interface ColumnTypeItem {
   label: string;
@@ -61,6 +67,13 @@ const COLUMN_TYPES: ColumnTypeItem[] = [
     color: "bg-yellow-500",
   },
   {
+    label: "Label",
+    type: "LABEL",
+    category: "Essentials",
+    icon: Tag,
+    color: "bg-violet-500",
+  },
+  {
     label: "Person",
     type: "PERSON",
     category: "Essentials",
@@ -75,11 +88,32 @@ const COLUMN_TYPES: ColumnTypeItem[] = [
     color: "bg-purple-500",
   },
   {
+    label: "Plain Date",
+    type: "PLAIN_DATE",
+    category: "Essentials",
+    icon: CalendarDays,
+    color: "bg-purple-400",
+  },
+  {
     label: "Numbers",
     type: "NUMBER",
     category: "Essentials",
     icon: Hash,
     color: "bg-amber-500",
+  },
+  {
+    label: "Price",
+    type: "PRICE",
+    category: "Essentials",
+    icon: DollarSign,
+    color: "bg-emerald-500",
+  },
+  {
+    label: "Email",
+    type: "EMAIL",
+    category: "Essentials",
+    icon: Mail,
+    color: "bg-blue-500",
   },
   {
     label: "Files",
@@ -88,7 +122,6 @@ const COLUMN_TYPES: ColumnTypeItem[] = [
     icon: File,
     color: "bg-red-400",
   },
-
   {
     label: "Timeline",
     type: "TIMELINE",
@@ -109,6 +142,13 @@ const COLUMN_TYPES: ColumnTypeItem[] = [
     category: "Super useful",
     icon: History,
     color: "bg-teal-500",
+  },
+  {
+    label: "Time Tracking",
+    type: "TIME_TRACKING",
+    category: "Super useful",
+    icon: Timer,
+    color: "bg-indigo-500",
   },
 ];
 

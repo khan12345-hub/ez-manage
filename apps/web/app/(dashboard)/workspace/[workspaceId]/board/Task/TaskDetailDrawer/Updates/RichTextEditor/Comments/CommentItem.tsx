@@ -1,6 +1,7 @@
 "use client";
 
 import { Reply } from "lucide-react";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -293,7 +294,7 @@ export function Avatar({
   if (avatarUrl) {
     return (
       <img
-        src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL + avatarUrl}
+        src={resolveUrl(avatarUrl)}
         alt={name ?? "User"}
         className="h-8 w-8 shrink-0 rounded-full object-cover"
       />

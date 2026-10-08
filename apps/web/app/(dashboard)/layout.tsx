@@ -1,20 +1,18 @@
 import { AuthWrapper } from "@/app/(auth)/AuthWrapper";
-import { AuthProvider } from "@/providers/AuthProvider";
 import { AppShell } from "@/app/layouts/AppShell/AppShell";
 import { ShortcutsProvider } from "@/providers/ShortcutsProvider";
 
+// AuthProvider is already mounted in the root providers.tsx — do NOT nest another one here.
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <AuthProvider>
-      <AuthWrapper>
-        <ShortcutsProvider>
-          <AppShell>{children}</AppShell>
-        </ShortcutsProvider>
-      </AuthWrapper>
-    </AuthProvider>
+    <AuthWrapper>
+      <ShortcutsProvider>
+        <AppShell>{children}</AppShell>
+      </ShortcutsProvider>
+    </AuthWrapper>
   );
 }

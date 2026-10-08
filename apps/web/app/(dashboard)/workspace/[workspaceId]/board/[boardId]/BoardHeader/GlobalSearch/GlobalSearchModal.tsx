@@ -2,6 +2,7 @@
 
 import { ChevronRight, Search } from "lucide-react";
 import { Mail, Copy } from "lucide-react";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -177,9 +178,7 @@ export function GlobalSearchModal({
                                   <div className="absolute inset-0 scale-125 overflow-hidden rounded-full">
                                     <img
                                       src={
-                                        process.env
-                                          .NEXT_PUBLIC_BACKEND_BASE_URL +
-                                        user.avatarUrl
+                                        resolveUrl(user.avatarUrl)
                                       }
                                       alt={`${user.firstName} ${user.lastName}`}
                                       className="h-full w-full scale-105 object-cover blur-xl opacity-70"
@@ -189,8 +188,7 @@ export function GlobalSearchModal({
                                   {/* Actual profile picture */}
                                   <img
                                     src={
-                                      process.env.NEXT_PUBLIC_BACKEND_BASE_URL +
-                                      user.avatarUrl
+                                      resolveUrl(user.avatarUrl)
                                     }
                                     alt={`${user.firstName} ${user.lastName}`}
                                     className="relative h-24 w-24 rounded-full border-4 border-background object-cover shadow-lg"
@@ -449,8 +447,7 @@ export function GlobalSearchModal({
                           <div className="absolute inset-0 scale-125 overflow-hidden rounded-full">
                             <img
                               src={
-                                process.env.NEXT_PUBLIC_BACKEND_BASE_URL +
-                                user.avatarUrl
+                                resolveUrl(user.avatarUrl)
                               }
                               alt=""
                               className="h-full w-full scale-105 object-cover blur-xl opacity-70"
@@ -459,10 +456,7 @@ export function GlobalSearchModal({
 
                           {/* Actual profile picture */}
                           <img
-                            src={
-                              process.env.NEXT_PUBLIC_BACKEND_BASE_URL +
-                              user.avatarUrl
-                            }
+                            src={resolveUrl(user.avatarUrl)}
                             alt={`${user.firstName} ${user.lastName}`}
                             className="relative h-24 w-24 rounded-full border-4 border-background object-cover shadow-lg"
                           />

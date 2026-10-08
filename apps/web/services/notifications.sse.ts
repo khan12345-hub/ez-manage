@@ -14,10 +14,12 @@ export interface ChatUnreadEvent {
 export interface ChatCallEvent {
   channelId: number;
   callType: "video" | "voice";
-  jitsiUrl: string;
+  roomName: string;
   workspaceId: number;
   callerName: string;
   channelName: string;
+  callerUserId?: number;
+  callMessageId?: number;
 }
 
 export function connectNotificationStream(

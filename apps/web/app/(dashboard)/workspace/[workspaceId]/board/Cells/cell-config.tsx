@@ -13,6 +13,8 @@ import { TimelineEditor } from "../EditableCells/TimelineEditor";
 import { CheckboxEditor } from "../EditableCells/CheckboxEditor";
 import { StatusEditor } from "./Status/StatusEditor";
 import { FileCell } from "./File/FileCell";
+import { LabelEditor } from "../EditableCells/LabelEditor";
+import { DateCell } from "./DateCell";
 
 import { updateTask } from "@/services/tasks.api";
 import { updateCell } from "@/services/cells.api";
@@ -21,6 +23,8 @@ import PersonPicker from "./Person/PersonPicker";
 import { PersonCell } from "./Person/PersonCell";
 import { StatusCell } from "./Status/StatusCell";
 import { CreationLogCell } from "./CreationLog/CreationLogCell";
+import { TimeTrackingCell } from "./TimeTracking/TimeTrackingCell";
+import { EmailEditor } from "../EditableCells/EmailEditor";
 
 export interface CellConfig<T = any> {
   /**
@@ -59,45 +63,17 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     component: TextEditor,
 
     getValue: (task, cell, column) => {
-      const value = column.isPrimary
-        ? (task.name ?? "")
-        : (cell?.value?.text ?? "");
-
-      console.log("[TEXT getValue]", {
-        taskId: task?.id,
-        cellId: cell?.id,
-        columnId: column?.id,
-        isPrimary: column?.isPrimary,
-        value,
-      });
-
-      return value;
+      return column.isPrimary ? (task.name ?? "") : (cell?.value?.text ?? "");
     },
 
     save: async ({ task, cell, column, value, boardId }) => {
-      console.log("[TEXT save CALLED]", {
-        taskId: task?.id,
-        cellId: cell?.id,
-        columnId: column?.id,
-        isPrimary: column?.isPrimary,
-        value,
-        boardId,
-      });
-
       if (column.isPrimary) {
-        console.log("[TEXT] calling updateTask");
-
         return updateTask(boardId!, task.id, {
           name: value,
         });
       }
 
-      if (!cell?.id) {
-        console.log("[TEXT] NO CELL ID");
-        return null;
-      }
-
-      console.log("[TEXT] calling updateCell");
+      if (!cell?.id) return null;
 
       return updateCell(boardId!, cell.id, {
         value: {
@@ -164,6 +140,28 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     },
   },
 
+  PRICE: {
+    component: NumberEditor,
+
+    getValue: (_, cell) => cell?.value?.text ?? "",
+
+    renderValue: (value: string) => {
+      if (!value && value !== "0") return null;
+      const num = parseFloat(value);
+      if (isNaN(num)) return value;
+      return (
+        <span className="font-mono tabular-nums">
+          ${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+      );
+    },
+
+    save: ({ cell, value, boardId }) => {
+      if (!cell?.id) return Promise.resolve(null);
+      return updateCell(boardId, cell.id, { value: { text: String(value ?? "") } });
+    },
+  },
+
   PERSON: {
   component: PersonEditor,
 
@@ -211,6 +209,8 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     getValue: (_, cell) => cell?.value,
 
+    renderValue: (value) => <DateCell cell={value} />,
+
     save: ({ cell, value, boardId }) => {
       if (!cell?.id) {
         return Promise.resolve(null);
@@ -221,6 +221,21 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
           date: value.date,
         },
       });
+    },
+  },
+
+  // Plain date — identical to DATE but never shows overdue red styling.
+  // Use for informational dates like "Expense Date", "Invoice Date", etc.
+  PLAIN_DATE: {
+    component: DateEditor,
+
+    getValue: (_, cell) => cell?.value,
+
+    renderValue: (value) => <DateCell cell={value} plain />,
+
+    save: ({ cell, value, boardId }) => {
+      if (!cell?.id) return Promise.resolve(null);
+      return updateCell(boardId, cell.id, { value: { date: value.date } });
     },
   },
 
@@ -283,5 +298,59 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
     }),
 
     save: async () => Promise.resolve(null),
+  },
+
+  TIME_TRACKING: {
+    component: TimeTrackingCell as any,
+
+    // taskId is all the component needs; it fetches entries itself via React Query
+    getValue: (task) => task?.id ?? null,
+
+    save: async () => Promise.resolve(null),
+  },
+
+  DROPDOWN: {
+    component: TextEditor,
+    getValue: (_, cell) => cell?.value?.text ?? "",
+    save: ({ cell, value, boardId }) => {
+      if (!cell?.id) return Promise.resolve(null);
+      return updateCell(boardId!, cell.id, { value: { text: value } });
+    },
+  },
+
+  LABEL: {
+    component: LabelEditor,
+    getValue: (_, cell) => cell?.value ?? { text: "", color: "" },
+    save: ({ cell, value, boardId }) => {
+      if (!cell?.id) return Promise.resolve(null);
+      return updateCell(boardId!, cell.id, { value: { text: value?.text ?? "", color: value?.color ?? "" } });
+    },
+  },
+
+  EMAIL: {
+    component: EmailEditor,
+
+    getValue: (_, cell) => cell?.value ?? { email: "", label: "" },
+
+    renderValue: (value) => {
+      const email = value?.email ?? "";
+      const display = value?.label || email;
+      if (!email) return null;
+      return (
+        <a
+          href={`mailto:${email}`}
+          onClick={(e) => e.stopPropagation()}
+          title={email}
+          className="flex min-w-0 items-center gap-1.5 truncate rounded-full bg-blue-50 px-2 py-0.5 text-[12px] font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"
+        >
+          {display}
+        </a>
+      );
+    },
+
+    save: ({ cell, value, boardId }) => {
+      if (!cell?.id) return Promise.resolve(null);
+      return updateCell(boardId!, cell.id, { value });
+    },
   },
 };

@@ -1,4 +1,4 @@
-﻿import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+﻿import { Inject, Injectable, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
 import {
   NotificationEntityType,
   NotificationType,
@@ -11,7 +11,7 @@ import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { MailService } from '../mail/mail.service';
 
 @Injectable()
-export class NotificationsService {
+export class NotificationsService implements OnModuleInit {
   constructor(
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
@@ -24,6 +24,14 @@ export class NotificationsService {
 
     @Optional() private readonly mailService: MailService,
   ) {}
+
+  onModuleInit() {
+    // BullMQ forwards IORedis connection errors to queue.on('error').
+    // Without a listener, Node.js treats them as uncaught exceptions and crashes the process.
+    this.notificationsQueue.on('error', (err: Error) => {
+      console.warn('[NotificationsQueue] Redis error (non-fatal):', err.message);
+    });
+  }
 
   /**
    * Create an in-app notification
@@ -202,7 +210,7 @@ export class NotificationsService {
      * Wrapped in try-catch: a queue failure (e.g. incompatible Redis version)
      * must not block the in-app notification that was already created above.
      */
-    if (effectiveSendEmail) {
+    if (effectiveSendEmail && process.env.NODE_ENV === 'production') {
       try {
 
         await this.notificationsQueue.add(

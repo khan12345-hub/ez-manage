@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePathname } from "next/navigation";
 
 import { connectNotificationStream, ChatUnreadEvent, ChatCallEvent } from "@/services/notifications.sse";
+import { getUnreadNotificationCount } from "@/services/notifications.api";
 import { useChatStore } from "@/store/chat-store";
 
 interface Notification {
@@ -41,8 +43,36 @@ export function NotificationStreamProvider({
   children,
 }: Props) {
   const queryClient = useQueryClient();
+  const pathname = usePathname();
   const incrementUnread = useChatStore((s) => s.incrementUnread);
   const setIncomingCall = useChatStore((s) => s.setIncomingCall);
+
+  // ── Tab title badge: (N) Board Name ───────────────────────────────────────
+  const { data: unreadData } = useQuery({
+    queryKey: ["notifications", "unread-count"],
+    queryFn: getUnreadNotificationCount,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    enabled: Boolean(userId),
+  });
+
+  const notifCount = unreadData?.count ?? 0;
+
+  useEffect(() => {
+    // Small delay so Next.js finishes setting the new page title first on navigation
+    const t = setTimeout(() => {
+      const base = document.title.replace(/^\(\d+\)\s*/, "");
+      document.title = notifCount > 0 ? `(${notifCount}) ${base}` : base;
+    }, 50);
+    return () => clearTimeout(t);
+  }, [notifCount, pathname]);
+
+  // Remove badge on unmount (logout / session end)
+  useEffect(() => {
+    return () => {
+      document.title = document.title.replace(/^\(\d+\)\s*/, "");
+    };
+  }, []);
 
   useEffect(() => {
     if (!userId) {
@@ -82,9 +112,11 @@ export function NotificationStreamProvider({
       ({ boardId }) => {
         queryClient.invalidateQueries({ queryKey: ["board", boardId] });
       },
-      // boards_updated: a board was deleted — refetch all boards lists
+      // boards_updated: a board was created/deleted — refetch boards list
+      // and all open board detail queries so a deleted board shows 404 immediately
       () => {
         queryClient.invalidateQueries({ queryKey: ["boards"] });
+        queryClient.invalidateQueries({ queryKey: ["board"] });
       },
       // chat_unread: new message in a channel the user isn't currently viewing
       (data: ChatUnreadEvent) => {

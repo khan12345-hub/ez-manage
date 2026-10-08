@@ -11,8 +11,13 @@ import { BoardColumnType, BoardMemberRole } from 'generated/prisma/enums';
 
 import { Prisma } from 'generated/prisma/client';
 
+import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
+
 import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
 import { FileImportService, FileImportJobData } from 'src/file-import/file-import.processor';
+import { MailService } from 'src/mail/mail.service';
+import { welcomeEmailTemplate } from 'src/mail/templates/welcome.template';
 
 type ImportedRow = Record<string, unknown>;
 
@@ -50,6 +55,7 @@ export class BoardImportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly fileImportService: FileImportService,
+    private readonly mailService: MailService,
   ) {}
 
   // ── Public entry point: creates job & fires background import ───────────────
@@ -73,7 +79,7 @@ export class BoardImportService {
   async getImportJob(jobId: number, userId: number) {
     return this.prisma.boardImportJob.findFirst({
       where: { id: jobId, userId },
-      select: { id: true, boardName: true, status: true, totalRows: true, boardId: true, error: true, createdAt: true },
+      select: { id: true, boardName: true, status: true, totalRows: true, boardId: true, error: true, summary: true, createdAt: true },
     });
   }
 
@@ -83,8 +89,120 @@ export class BoardImportService {
     const pendingDownloads: FileImportJobData[] = [];
     const skippedItems: SkippedItem[] = [];
 
+    // Counters accumulated across the import (mutated inside the tx closure).
+    let totalTasksCreated = 0;
+    let totalCommentsCreated = 0;
+    let totalTimeEntriesCreated = 0;
+    let totalUsersCreated = 0;
+
+    // Pre-resolve Monday.com asset IDs before the DB transaction starts
+    // (HTTP calls must not run inside a transaction).
+    const assetUrlMap = await this.resolveMonDayAssets(dto.comments ?? []);
+
+    // Pre-hash passwords for users to create outside the transaction.
+    // bcrypt is CPU-bound and should not hold a DB connection open.
+    // tempPassword is kept in memory only long enough to email, then discarded.
+    const userCreationData = await Promise.all(
+      (dto.usersToCreate ?? [])
+        .filter((u) => u.email?.trim() && u.firstName?.trim())
+        .map(async (u) => {
+          const tempPassword = randomBytes(10).toString('hex');
+          return {
+            firstName: u.firstName.trim(),
+            lastName: (u.lastName ?? '').trim(),
+            email: u.email.toLowerCase().trim(),
+            workspaceRole: u.workspaceRole ?? 'MEMBER',
+            boardRole: u.boardRole ?? 'MEMBER',
+            tempPassword,
+            hashedPassword: await bcrypt.hash(tempPassword, 10),
+          };
+        }),
+    );
+
+    // Track which users were newly created (vs already existing) for welcome emails.
+    const newlyCreatedEmails = new Set<string>();
+
     const result = await this.prisma.$transaction(
       async (tx) => {
+        /*
+         * ---------------------------------------------------------
+         * 0. Create / resolve imported users
+         *
+         * Users are created here (inside the transaction) so the
+         * whole import rolls back atomically if anything fails.
+         * Passwords were pre-hashed above to keep bcrypt CPU work
+         * outside the DB connection window.
+         * ---------------------------------------------------------
+         */
+
+        // Map of normalized name/email → userId for all imported users.
+        // Merged into personEmailToUserId after the person-lookup step.
+        const importedUserMap = new Map<string, number>();
+
+        // Users to add as board members after the board is created.
+        const importedBoardMembers: { id: number; boardRole: string }[] = [];
+
+        for (const u of userCreationData) {
+          const existing = await tx.user.findFirst({
+            where: { email: u.email, deletedAt: null },
+            select: { id: true, firstName: true, lastName: true },
+          });
+
+          let targetUserId: number;
+          let fName: string;
+          let lName: string;
+
+          if (existing) {
+            targetUserId = existing.id;
+            fName = existing.firstName;
+            lName = existing.lastName;
+          } else {
+            totalUsersCreated++;
+            newlyCreatedEmails.add(u.email);
+            const created = await tx.user.create({
+              data: {
+                firstName: u.firstName,
+                lastName: u.lastName,
+                email: u.email,
+                password: u.hashedPassword,
+                systemRole: 'USER' as any,
+                createdById: userId,
+              },
+              select: { id: true },
+            });
+            targetUserId = created.id;
+            fName = u.firstName;
+            lName = u.lastName;
+          }
+
+          // Upsert workspace membership (no-op if already a member).
+          await (tx as any).workspaceMember.upsert({
+            where: {
+              workspaceId_userId: {
+                workspaceId: dto.workspaceId,
+                userId: targetUserId,
+              },
+            },
+            create: {
+              workspaceId: dto.workspaceId,
+              userId: targetUserId,
+              role: u.workspaceRole,
+            },
+            update: {},
+          });
+
+          importedBoardMembers.push({ id: targetUserId, boardRole: u.boardRole });
+
+          // Register under email, full name, and first name for person resolution.
+          importedUserMap.set(u.email, targetUserId);
+          const fullName = `${fName} ${lName}`.toLowerCase().trim();
+          const firstName = fName.toLowerCase().trim();
+          importedUserMap.set(fullName, targetUserId);
+          if (!importedUserMap.has(firstName)) {
+            importedUserMap.set(firstName, targetUserId);
+          }
+        }
+
         /*
          * ---------------------------------------------------------
          * 1. Validate workspace
@@ -153,6 +271,20 @@ export class BoardImportService {
             },
           },
         });
+
+        // Add users from usersToCreate as board members.
+        for (const iu of importedBoardMembers) {
+          await (tx as any).boardMember.upsert({
+            where: { boardId_userId: { boardId: board.id, userId: iu.id } },
+            create: {
+              boardId: board.id,
+              userId: iu.id,
+              role: iu.boardRole,
+              accessAllGroups: true,
+            },
+            update: {},
+          });
+        }
 
         /*
          * ---------------------------------------------------------
@@ -444,6 +576,13 @@ export class BoardImportService {
           }
         }
 
+        // Merge users created/resolved from usersToCreate into the person map
+        // so newly created users are immediately available for PERSON cell and
+        // comment attribution resolution in the steps below.
+        for (const [key, uid] of importedUserMap) {
+          personEmailToUserId.set(key, uid);
+        }
+
         /*
          * ---------------------------------------------------------
          * 8. Group imported rows
@@ -454,6 +593,13 @@ export class BoardImportService {
 
         let groupOrder = 1000;
         let globalRowCounter = 0;
+
+        // Map Monday.com Item ID → DB task ID (needed for comment threading)
+        const itemIdToTaskId = new Map<string, number>();
+        // Detect which source column holds the Monday.com item ID
+        const itemIdSourceCol = dto.columns.find((m) =>
+          m.sourceColumn.toLowerCase().includes('item id'),
+        )?.sourceColumn ?? null;
 
         /*
          * ---------------------------------------------------------
@@ -488,24 +634,11 @@ export class BoardImportService {
           const allParsedRowsRaw = groupData.rows.map((row) => {
             const rowIdx = globalRowCounter++;
             const rawTaskValue = this.getFlexibleValue(row, dto.taskColumn);
-            const taskName = this.getTaskName(rawTaskValue, row);
+            const taskName = this.getTaskName(rawTaskValue, row) || `Untitled ${rowIdx + 1}`;
             return { row, taskName, rowIdx };
           });
 
-          // Track rows dropped because no task name could be extracted
-          for (const item of allParsedRowsRaw) {
-            if (!item.taskName) {
-              skippedItems.push({
-                rowIndex: item.rowIdx,
-                reason: 'No task name found — row skipped',
-              });
-            }
-          }
-
-          const allParsedRows = allParsedRowsRaw.filter(
-            (item): item is { row: ImportedRow; taskName: string; rowIdx: number } =>
-              Boolean(item.taskName),
-          );
+          const allParsedRows = allParsedRowsRaw as { row: ImportedRow; taskName: string; rowIdx: number }[];
 
           const validRows = allParsedRows.filter(
             (item) => !item.row['__isSubitem'],
@@ -552,6 +685,7 @@ export class BoardImportService {
                 }),
               })
             : [];
+          totalTasksCreated += tasks.length;
 
           /*
            * -------------------------------------------------------
@@ -596,6 +730,7 @@ export class BoardImportService {
                 }),
               })
             : [];
+          totalTasksCreated += subtasks.length;
 
           /*
            * -------------------------------------------------------
@@ -641,8 +776,26 @@ export class BoardImportService {
             rowIndex: number;
           }[] = [];
 
+          const pendingTimeEntries: {
+            taskId: number;
+            userId: number;
+            durationMs: number;
+            note: string | null;
+            startedAt?: Date;
+          }[] = [];
+
           const allTasks = [...tasks, ...subtasks];
           const allValidRows = [...validRows, ...subitemRows];
+
+          // Collect Item ID → task DB id for comment linking
+          if (itemIdSourceCol) {
+            for (let i = 0; i < allTasks.length; i++) {
+              const rawId = String(
+                this.getFlexibleValue(allValidRows[i]!.row, itemIdSourceCol) ?? '',
+              ).trim();
+              if (rawId) itemIdToTaskId.set(rawId, allTasks[i]!.id);
+            }
+          }
 
           for (let index = 0; index < allTasks.length; index++) {
             const task = allTasks[index];
@@ -794,6 +947,49 @@ export class BoardImportService {
                 continue;
               }
 
+              /*
+               * TIME_TRACKING — parse the raw value into a TimeEntry record.
+               * We do NOT `continue` here: the value also falls through to the
+               * normal cell path below so the board UI shows the display text.
+               */
+              if ((mapping.type as string) === 'TIME_TRACKING') {
+                const durationMs = this.parseTimeDurationMs(rawValue);
+                if (durationMs !== null && durationMs > 0) {
+                  // Use the first resolvable person from PERSON columns as the
+                  // user who tracked the time; fall back to the importing user.
+                  let timeUserId = userId;
+                  outer: for (const pm of personMappings) {
+                    const rawPerson = this.getFlexibleValue(row, pm.sourceColumn);
+                    const tokens = this.extractDisplayValue(rawPerson)
+                      .toLowerCase()
+                      .trim()
+                      .split(/,\s*/);
+                    for (const t of tokens) {
+                      const resolved = personEmailToUserId.get(t.trim());
+                      if (resolved !== undefined) { timeUserId = resolved; break outer; }
+                    }
+                  }
+                  // Use the first DATE column on this row as startedAt if available.
+                  let startedAt: Date | undefined;
+                  for (const dm of cellMappings) {
+                    if ((dm.type as string) !== 'DATE' && (dm.type as string) !== BoardColumnType.DATE) continue;
+                    const rawDate = this.getFlexibleValue(row, dm.sourceColumn);
+                    if (rawDate == null || rawDate === '') continue;
+                    const d = new Date(String(rawDate));
+                    if (!isNaN(d.getTime())) { startedAt = d; break; }
+                  }
+
+                  pendingTimeEntries.push({
+                    taskId: task.id,
+                    durationMs,
+                    userId: timeUserId,
+                    note: this.extractDisplayValue(rawValue).trim() || null,
+                    startedAt,
+                  });
+                }
+                // fall through — store display text in cell as well
+              }
+
               const normalizedValue = this.normalizeCellValue(
                 rawValue,
                 mapping.type as unknown as BoardColumnType,
@@ -862,6 +1058,30 @@ export class BoardImportService {
             await tx.taskCell.createMany({
               data: taskCells,
             });
+          }
+
+          /*
+           * -------------------------------------------------------
+           * Create TimeEntry records from TIME_TRACKING cells
+           * -------------------------------------------------------
+           */
+          if (pendingTimeEntries.length) {
+            await tx.timeEntry.createMany({
+              data: pendingTimeEntries.map((te) => {
+                const startedAt = te.startedAt ?? new Date();
+                const endedAt = new Date(startedAt.getTime() + te.durationMs);
+                return {
+                  taskId: te.taskId,
+                  userId: te.userId,
+                  boardId: board.id,
+                  durationMs: te.durationMs,
+                  note: te.note,
+                  startedAt,
+                  endedAt,
+                };
+              }),
+            });
+            totalTimeEntriesCreated += pendingTimeEntries.length;
           }
 
           /*
@@ -964,18 +1184,28 @@ export class BoardImportService {
                 const text = this.extractDisplayValue(rawValue).trim();
                 if (!text) continue;
 
-                // Each comment mapping column becomes a separate comment.
-                // When there are multiple comment columns extract the commenter
-                // name from the column header (e.g. "Comments-Salman" → "Salman:").
+                // Resolve commenter from column header (e.g. "Comments-Salman" → "Salman").
+                // Try to find them in the person map; fall back to the importing user.
                 const commenter = this.extractCommenterName(mapping.sourceColumn);
-                const content = commenter ? `${commenter}: ${text}` : text;
+                const commenterKey = commenter.toLowerCase().trim();
+                const authorId = commenterKey
+                  ? (personEmailToUserId.get(commenterKey) ?? userId)
+                  : userId;
 
-                commentData.push({ taskId: task.id, userId, content });
+                // If we couldn't resolve the author, embed their name in the content
+                // so it isn't lost. If resolved, use a clean body.
+                const content =
+                  authorId === userId && commenter
+                    ? `${commenter}: ${text}`
+                    : text;
+
+                commentData.push({ taskId: task.id, userId: authorId, content });
               }
             }
 
             if (commentData.length) {
               await tx.taskComment.createMany({ data: commentData });
+              totalCommentsCreated += commentData.length;
             }
           }
 
@@ -984,7 +1214,26 @@ export class BoardImportService {
 
         /*
          * ---------------------------------------------------------
-         * 12. Re-fetch complete board
+         * 12. Import Sheet 2 comments (Monday.com updates sheet)
+         * ---------------------------------------------------------
+         */
+        if (dto.comments?.length && itemIdToTaskId.size > 0) {
+          const { downloads: commentDownloads, commentsCreated: sheet2Comments } =
+            await this.importMonDayComments(
+              tx,
+              dto.comments,
+              itemIdToTaskId,
+              userId,
+              assetUrlMap,
+              personEmailToUserId,
+            );
+          for (const dl of commentDownloads) pendingDownloads.push(dl);
+          totalCommentsCreated += sheet2Comments;
+        }
+
+        /*
+         * ---------------------------------------------------------
+         * 13. Re-fetch complete board
          *
          * IMPORTANT:
          *
@@ -1097,11 +1346,37 @@ export class BoardImportService {
       this.fileImportService.enqueue(dl);
     }
 
-    // Mark job as done
+    // Send welcome emails to newly created users (non-fatal — never blocks import)
+    if (newlyCreatedEmails.size > 0) {
+      const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+      for (const u of userCreationData) {
+        if (!newlyCreatedEmails.has(u.email)) continue;
+        const { html, text } = welcomeEmailTemplate(u.firstName, u.email, u.tempPassword, frontendUrl);
+        this.mailService.sendMail({
+          to: u.email,
+          subject: 'Welcome to EzManage – Your Account is Ready',
+          html,
+          text,
+        }).catch(() => {});
+      }
+    }
+
+    // Mark job as done with import summary counts
     if (jobId) {
       await this.prisma.boardImportJob.update({
         where: { id: jobId },
-        data: { status: 'done', boardId: result.id },
+        data: {
+          status: 'done',
+          boardId: result.id,
+          summary: {
+            tasksCreated: totalTasksCreated,
+            commentsCreated: totalCommentsCreated,
+            timeEntriesCreated: totalTimeEntriesCreated,
+            usersCreated: totalUsersCreated,
+            filesQueued: pendingDownloads.length,
+            skipped: skippedItems.length,
+          },
+        },
       }).catch(() => {});
     }
 
@@ -1447,7 +1722,7 @@ export class BoardImportService {
      * NUMBER
      */
 
-    if (columnType === BoardColumnType.NUMBER) {
+    if (columnType === BoardColumnType.NUMBER || columnType === BoardColumnType.PRICE) {
       return this.normalizeNumber(rawValue);
     }
 
@@ -1455,7 +1730,7 @@ export class BoardImportService {
      * DATE
      */
 
-    if (columnType === BoardColumnType.DATE) {
+    if (columnType === BoardColumnType.DATE || (columnType as string) === 'PLAIN_DATE') {
       return this.normalizeDate(rawValue);
     }
 
@@ -1526,9 +1801,25 @@ export class BoardImportService {
      * cell?.value?.text
      */
 
-    if (columnType === BoardColumnType.NUMBER) {
+    if (columnType === BoardColumnType.NUMBER || columnType === BoardColumnType.PRICE) {
       return {
         text: normalizedValue,
+      };
+    }
+
+    /*
+     * EMAIL
+     *
+     * Frontend EmailEditor reads:
+     *
+     * cell?.value?.email
+     * cell?.value?.label
+     */
+
+    if (columnType === BoardColumnType.EMAIL) {
+      return {
+        email: normalizedValue,
+        label: '',
       };
     }
 
@@ -1561,7 +1852,7 @@ export class BoardImportService {
      * value.date
      */
 
-    if (columnType === BoardColumnType.DATE) {
+    if (columnType === BoardColumnType.DATE || (columnType as string) === 'PLAIN_DATE') {
       return {
         date: normalizedValue,
       };
@@ -1745,6 +2036,282 @@ export class BoardImportService {
     const index = Math.floor(order / 1000) - 1;
 
     return colors[index % colors.length];
+  }
+
+  /*
+   * ============================================================================
+   * MONDAY.COM COMMENT IMPORT
+   * ============================================================================
+   */
+
+  /**
+   * Resolve Monday.com numeric asset IDs → public download URLs using the
+   * GraphQL API.  Reads the token from the `MONDAY_API_TOKEN` system setting
+   * (falls back to process.env).  Returns an empty map when no token is
+   * configured or no asset IDs are present.
+   */
+  private async resolveMonDayAssets(
+    comments: { assetIds: string[] }[],
+  ): Promise<Map<string, { url: string; name: string }>> {
+    const map = new Map<string, { url: string; name: string }>();
+
+    const allIds = [...new Set(comments.flatMap((c) => c.assetIds))].filter(
+      Boolean,
+    );
+    if (!allIds.length) return map;
+
+    const dbSetting = await this.prisma.systemSetting
+      .findUnique({ where: { key: 'MONDAY_API_TOKEN' } })
+      .catch(() => null);
+    const token = dbSetting?.value || process.env.MONDAY_API_TOKEN;
+    if (!token) return map;
+
+    try {
+      const res = await fetch('https://api.monday.com/v2', {
+        method: 'POST',
+        headers: {
+          Authorization: token,
+          'Content-Type': 'application/json',
+          'API-Version': '2024-01',
+        },
+        body: JSON.stringify({
+          query: `{ assets(ids: [${allIds.join(',')}]) { id name public_url } }`,
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+
+      if (!res.ok) {
+        this.logger.warn(`Monday.com API responded ${res.status} during asset resolution`);
+        return map;
+      }
+
+      const json = (await res.json()) as {
+        data?: { assets?: { id: number; name: string; public_url: string }[] };
+      };
+
+      for (const asset of json.data?.assets ?? []) {
+        if (asset.public_url) {
+          map.set(String(asset.id), { url: asset.public_url, name: asset.name });
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`Monday.com asset resolution failed: ${err}`);
+    }
+
+    return map;
+  }
+
+  /**
+   * Create TaskComment records from Sheet 2 comment rows.
+   * Also creates File + TaskCommentFile entries for attachments and returns
+   * them so the caller can enqueue background downloads.
+   */
+  private async importMonDayComments(
+    tx: any,
+    comments: { itemId: string; contentType: string; user: string; createdAt: string; content: string; assetIds: string[]; postId: string; parentPostId: string }[],
+    itemIdToTaskId: Map<string, number>,
+    userId: number,
+    assetUrlMap: Map<string, { url: string; name: string }>,
+    personMap: Map<string, number>,
+  ): Promise<{ downloads: { fileId: number; url: string }[]; commentsCreated: number }> {
+    const pendingDownloads: { fileId: number; url: string }[] = [];
+    let commentsCreated = 0;
+
+    const MONTHS = [
+      'january','february','march','april','may','june',
+      'july','august','september','october','november','december',
+    ];
+
+    const parseDate = (raw: string): Date => {
+      const m = raw.match(/(\d{1,2})\/(\w+)\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)/i);
+      if (!m) return new Date();
+      const [, d, mon, y, h, min, s, ampm] = m;
+      const monthIdx = MONTHS.indexOf(mon.toLowerCase());
+      if (monthIdx === -1) return new Date();
+      let hour = parseInt(h, 10);
+      if (ampm.toUpperCase() === 'PM' && hour < 12) hour += 12;
+      if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+      return new Date(parseInt(y, 10), monthIdx, parseInt(d, 10), hour, parseInt(min, 10), parseInt(s, 10));
+    };
+
+    const updates = comments.filter((c) => c.contentType === 'Update');
+    const replies  = comments.filter((c) => c.contentType === 'Reply');
+
+    const postIdToCommentId = new Map<string, number>();
+
+    // Resolve an author name from the person map.
+    // Returns { authorId, content } — if resolved, content is the raw body;
+    // if unresolved, content has the author name embedded so it isn't lost.
+    const resolveAuthor = (c: { user: string; content: string; assetIds: string[] }): { authorId: number; content: string } => {
+      const nameKey  = (c.user || '').toLowerCase().trim();
+      const firstKey = nameKey.split(' ')[0] ?? '';
+      const authorId = personMap.get(nameKey) ?? personMap.get(firstKey) ?? userId;
+
+      const body = c.content || '';
+      const hasFiles = c.assetIds.length > 0 && c.assetIds.some((id) => assetUrlMap.has(id));
+      const note = c.assetIds.length > 0 && !hasFiles
+        ? '\n\n📎 *Files attached (configure Monday.com API token in system settings to import)*'
+        : '';
+
+      // When we know who the author is, store a clean body.
+      // When unknown, embed the name so the message is still traceable.
+      const content = authorId !== userId
+        ? `${body}${note}`
+        : `**${c.user || 'Unknown'}:** ${body}${note}`;
+
+      return { authorId, content };
+    };
+
+    for (const c of updates) {
+      const taskId = itemIdToTaskId.get(c.itemId);
+      if (!taskId || !c.content.trim()) continue;
+
+      const { authorId, content } = resolveAuthor(c);
+
+      const comment = await tx.taskComment.create({
+        data: {
+          taskId,
+          userId: authorId,
+          content,
+          createdAt: parseDate(c.createdAt),
+        },
+      });
+      commentsCreated++;
+
+      if (c.postId) postIdToCommentId.set(c.postId, comment.id);
+
+      // Attach files
+      for (const assetId of c.assetIds) {
+        const asset = assetUrlMap.get(assetId);
+        if (!asset) continue;
+        const file = await tx.file.create({
+          data: {
+            fileName: asset.name || `attachment-${assetId}`,
+            storageKey: asset.url,
+            mimeType: 'application/octet-stream',
+            fileSize: 0,
+            url: asset.url,
+            uploadedById: userId,
+          },
+        });
+        await tx.taskCommentFile.create({
+          data: { commentId: comment.id, fileId: file.id },
+        });
+        pendingDownloads.push({ fileId: file.id, url: asset.url });
+      }
+    }
+
+    for (const c of replies) {
+      const taskId = itemIdToTaskId.get(c.itemId);
+      if (!taskId || !c.content.trim()) continue;
+
+      const parentId = c.parentPostId
+        ? (postIdToCommentId.get(c.parentPostId) ?? null)
+        : null;
+
+      const { authorId, content } = resolveAuthor(c);
+
+      const comment = await tx.taskComment.create({
+        data: {
+          taskId,
+          userId: authorId,
+          content,
+          parentId,
+          createdAt: parseDate(c.createdAt),
+        },
+      });
+      commentsCreated++;
+
+      if (c.postId) postIdToCommentId.set(c.postId, comment.id);
+
+      for (const assetId of c.assetIds) {
+        const asset = assetUrlMap.get(assetId);
+        if (!asset) continue;
+        const file = await tx.file.create({
+          data: {
+            fileName: asset.name || `attachment-${assetId}`,
+            storageKey: asset.url,
+            mimeType: 'application/octet-stream',
+            fileSize: 0,
+            url: asset.url,
+            uploadedById: userId,
+          },
+        });
+        await tx.taskCommentFile.create({
+          data: { commentId: comment.id, fileId: file.id },
+        });
+        pendingDownloads.push({ fileId: file.id, url: asset.url });
+      }
+    }
+
+    return { downloads: pendingDownloads, commentsCreated };
+  }
+
+  /*
+   * ============================================================================
+   * TIME DURATION PARSER
+   * ============================================================================
+   */
+
+  /**
+   * Convert a raw cell value into milliseconds.
+   *
+   * Handles:
+   *   HH:MM:SS / H:MM:SS  →  "1:30:00"
+   *   H:MM                →  "1:30"  (treated as hours:minutes)
+   *   Worded              →  "1h 30m", "2h", "30m", "45s", "1h 30m 45s"
+   *   Aliases             →  "1hr", "30min", "30 minutes", "1 hour"
+   *   Raw integer         →  treated as seconds when < 86 400, else milliseconds
+   *
+   * Returns null when the value cannot be parsed or is zero.
+   */
+  private parseTimeDurationMs(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
+
+    const raw = this.extractDisplayValue(value).trim();
+    if (!raw) return null;
+
+    // ── HH:MM:SS or H:MM:SS ──────────────────────────────────────────────────
+    const hmsMatch = raw.match(/^(\d+):(\d{2}):(\d{2})$/);
+    if (hmsMatch) {
+      const ms =
+        (Number(hmsMatch[1]) * 3600 +
+          Number(hmsMatch[2]) * 60 +
+          Number(hmsMatch[3])) *
+        1000;
+      return ms > 0 ? ms : null;
+    }
+
+    // ── H:MM (hours:minutes, no seconds) ─────────────────────────────────────
+    const hmMatch = raw.match(/^(\d+):(\d{2})$/);
+    if (hmMatch) {
+      const ms = (Number(hmMatch[1]) * 3600 + Number(hmMatch[2]) * 60) * 1000;
+      return ms > 0 ? ms : null;
+    }
+
+    // ── Worded components (each matched independently) ────────────────────────
+    // e.g. "1h 30m", "2 hours 15 minutes", "45s", "1hr 30min"
+    const hMatch = raw.match(/(\d+(?:\.\d+)?)\s*h(?:r|rs|our|ours)?(?:\b)/i);
+    const mMatch = raw.match(/(\d+(?:\.\d+)?)\s*m(?:in|ins|inute|inutes)?(?:\b)/i);
+    const sMatch = raw.match(/(\d+(?:\.\d+)?)\s*s(?:ec|ecs|econd|econds)?(?:\b)/i);
+    if (hMatch ?? mMatch ?? sMatch) {
+      const ms =
+        parseFloat(hMatch?.[1] ?? '0') * 3_600_000 +
+        parseFloat(mMatch?.[1] ?? '0') * 60_000 +
+        parseFloat(sMatch?.[1] ?? '0') * 1_000;
+      return ms > 0 ? ms : null;
+    }
+
+    // ── Raw integer ───────────────────────────────────────────────────────────
+    // Monday.com sometimes exports raw seconds; other tools export milliseconds.
+    // Heuristic: values < 86 400 are almost certainly seconds (≤ 24 h in seconds);
+    // larger values are treated as milliseconds.
+    if (/^\d+$/.test(raw)) {
+      const n = Number(raw);
+      if (n > 0) return n < 86_400 ? n * 1000 : n;
+    }
+
+    return null;
   }
 
   /*

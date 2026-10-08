@@ -4,6 +4,7 @@ export enum ExcelColumnType {
   TEXT = "TEXT",
   LONG_TEXT = "LONG_TEXT",
   NUMBER = "NUMBER",
+  PRICE = "PRICE",
   DATE = "DATE",
   STATUS = "STATUS",
   PERSON = "PERSON",
@@ -15,6 +16,8 @@ export enum ExcelColumnType {
   COMMENT = "COMMENT",
   FILE_FEEDBACK = "FILE_FEEDBACK",
   CREATION_LOG = "CREATION_LOG",
+  EMAIL = "EMAIL",
+  TIME_TRACKING = "TIME_TRACKING",
   SKIP = "SKIP",
 }
 

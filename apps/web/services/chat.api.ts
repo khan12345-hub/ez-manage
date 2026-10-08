@@ -389,3 +389,10 @@ export async function fetchLinkPreview(
   });
   return data;
 }
+
+export async function getLiveKitToken(
+  roomName: string,
+): Promise<{ token: string; wsUrl: string }> {
+  const { data } = await api.post('/chat/livekit-token', { roomName });
+  return data;
+}

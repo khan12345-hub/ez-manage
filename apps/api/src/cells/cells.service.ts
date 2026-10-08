@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -33,11 +34,14 @@ import {
   ActivityEntityType,
   BoardColumnType,
 } from 'generated/prisma/enums';
-import { LocalStorageService } from 'src/storage/local-storage.service';
+import { STORAGE_SERVICE } from 'src/storage/storage.module';
+import { StorageProvider } from 'src/storage/storage.types';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskAssignedEvent } from 'src/notifications/events/task-assigned.event';
 import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
 import { AutomationEngineService } from 'src/automations/automation-engine.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { NotificationStreamService } from 'src/notifications/notification-stream.service';
 
 @Injectable()
 export class CellsService {
@@ -121,10 +125,12 @@ export class CellsService {
   }
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storageService: LocalStorageService,
+    @Inject(STORAGE_SERVICE) private readonly storageService: StorageProvider,
     private readonly eventEmitter: EventEmitter2,
     private readonly activityLogsService: ActivityLogsService,
     private readonly automationEngineService: AutomationEngineService,
+    private readonly notificationsService: NotificationsService,
+    private readonly notificationStreamService: NotificationStreamService,
   ) {}
 
   async create(createCellDto: CreateCellDto, boardId: number, _userId: number) {
@@ -476,6 +482,129 @@ export class CellsService {
           statusOption.id,
         );
       }
+
+      // Notify all assigned users about the status change (except the changer)
+      void (async () => {
+        try {
+          const personCells = await this.prisma.taskCell.findMany({
+            where: { taskId: cell.taskId, column: { type: BoardColumnType.PERSON, boardId } },
+            select: { value: true },
+          });
+
+          const assigneeIds = new Set<number>();
+          for (const pc of personCells) {
+            for (const id of this.extractPersonIds(pc.value)) {
+              if (id !== userId) assigneeIds.add(id);
+            }
+          }
+
+          if (!assigneeIds.size) return;
+
+          const [actor, board] = await Promise.all([
+            this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } }),
+            this.prisma.board.findUnique({ where: { id: boardId }, select: { workspaceId: true } }),
+          ]);
+
+          const actorName = actor ? `${actor.firstName} ${actor.lastName}` : 'Someone';
+          const newLabel = newStatusValue.label ?? 'a new status';
+
+          for (const recipientId of assigneeIds) {
+            const notification = await this.notificationsService.notify({
+              recipientId,
+              type: 'TASK_STATUS_CHANGED' as any,
+              title: 'Task status changed',
+              message: `${actorName} changed "${cell.task.name}" status to "${newLabel}"`,
+              entityType: 'TASK' as any,
+              entityId: cell.taskId,
+              metadata: {
+                taskId: cell.taskId,
+                boardId,
+                workspaceId: board?.workspaceId ?? 0,
+                changedById: userId,
+                newStatus: newLabel,
+                columnId: cell.columnId,
+              },
+              eventKey: `task-status-changed:${cell.taskId}:${cell.columnId}:${recipientId}`,
+              sendEmail: true,
+            });
+
+            if (notification) {
+              this.notificationStreamService.emit(recipientId, notification);
+            }
+          }
+        } catch (err) {
+          console.error('[CellsService] Status change notification failed:', err);
+        }
+      })();
+    }
+
+    // Notify all currently-assigned users about any cell change
+    // STATUS is already handled above; here we cover PERSON + every other column type
+    if (columnType !== BoardColumnType.STATUS) {
+      void (async () => {
+        try {
+          // For PERSON column: notify the people who were assigned BEFORE the change
+          // (they need to know the assignment list was modified).
+          // For all other columns: notify everyone currently assigned.
+          const recipientIds = new Set<number>();
+
+          if (columnType === BoardColumnType.PERSON) {
+            for (const id of previousAssigneeIds) {
+              if (id !== userId) recipientIds.add(id);
+            }
+          } else {
+            const personCells = await this.prisma.taskCell.findMany({
+              where: { taskId: cell.taskId, column: { type: BoardColumnType.PERSON, boardId } },
+              select: { value: true },
+            });
+            for (const pc of personCells) {
+              for (const id of this.extractPersonIds(pc.value)) {
+                if (id !== userId) recipientIds.add(id);
+              }
+            }
+          }
+
+          if (!recipientIds.size) return;
+
+          const [actor, board] = await Promise.all([
+            this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } }),
+            this.prisma.board.findUnique({ where: { id: boardId }, select: { workspaceId: true } }),
+          ]);
+
+          const actorName = actor ? `${actor.firstName} ${actor.lastName}` : 'Someone';
+          const message =
+            columnType === BoardColumnType.PERSON
+              ? `${actorName} updated the Person field on "${cell.task.name}"`
+              : `${actorName} updated "${cell.column.name}" on "${cell.task.name}"`;
+
+          for (const recipientId of recipientIds) {
+            const notification = await this.notificationsService.notify({
+              recipientId,
+              type: 'TASK_UPDATED' as any,
+              title: 'Task updated',
+              message,
+              entityType: 'TASK' as any,
+              entityId: cell.taskId,
+              metadata: {
+                taskId: cell.taskId,
+                boardId,
+                workspaceId: board?.workspaceId ?? 0,
+                changedById: userId,
+                columnId: cell.columnId,
+                columnType,
+              },
+              eventKey: `task-cell-updated:${cell.taskId}:${cell.columnId}:${recipientId}`,
+              sendEmail: false,
+            });
+
+            if (notification) {
+              this.notificationStreamService.emit(recipientId, notification);
+            }
+          }
+        } catch (err) {
+          console.error('[CellsService] Cell update notification failed:', err);
+        }
+      })();
     }
 
     if (columnType === BoardColumnType.PERSON) {

@@ -29,6 +29,14 @@ function normalizeDateValue(raw: unknown): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+interface ResolvedUser {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  avatarUrl: string | null;
+}
+
 function normalizeCellValue(
   type: BoardColumnType,
   raw: unknown,
@@ -37,6 +45,7 @@ function normalizeCellValue(
     label: string;
     color: string;
   }[],
+  userMap?: Map<number, ResolvedUser>,
 ): unknown {
   switch (type) {
     case BoardColumnType.TEXT:
@@ -106,8 +115,34 @@ function normalizeCellValue(
       };
     }
 
+    case BoardColumnType.PERSON: {
+      /* Value submitted as { userId: number } from the member picker */
+      const userId = Number((raw as any)?.userId ?? (raw as any)?.id ?? raw);
+      if (!userId || Number.isNaN(userId)) return {};
+      /* Include full user data so the board cell can render name + avatar */
+      const user = userMap?.get(userId);
+      return {
+        users: [{
+          id: userId,
+          firstName: user?.firstName ?? null,
+          lastName: user?.lastName ?? null,
+          email: user?.email ?? null,
+          avatarUrl: user?.avatarUrl ?? null,
+        }],
+      };
+    }
+
+    case BoardColumnType.LINK: {
+      const url = String(raw ?? "").trim();
+      if (!url) return {};
+      return { url };
+    }
+
+    case BoardColumnType.LONG_TEXT:
+      return { text: String(raw ?? "") };
+
     default:
-      return raw ?? null;
+      return {};
   }
 }
 
@@ -118,6 +153,44 @@ export class PublicBoardFormsService {
     private readonly notificationsService: NotificationsService,
     private readonly notificationStreamService: NotificationStreamService,
   ) {}
+
+  /**
+   * Return the list of board members for the member picker on public forms.
+   * This is intentionally public — only non-sensitive fields are returned.
+   */
+  async getBoardMembers(boardId: number) {
+    const members = await this.prisma.boardMember.findMany({
+      where: { boardId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const apiBase = process.env.API_URL ?? '';
+    return members.map((m) => {
+      let avatarUrl = m.user.avatarUrl ?? null;
+      if (avatarUrl && avatarUrl.startsWith('/')) {
+        avatarUrl = `${apiBase}${avatarUrl}`;
+      }
+      return {
+        id: m.user.id,
+        firstName: m.user.firstName,
+        lastName: m.user.lastName,
+        email: m.user.email,
+        avatarUrl,
+        role: m.role,
+      };
+    });
+  }
 
   /**
    * Return the public form definition for a board.
@@ -245,7 +318,43 @@ export class PublicBoardFormsService {
       ]),
     );
 
-    const { taskId, taskName } = await this.prisma.$transaction(async (tx) => {
+    /* ── Pre-fetch user data for PERSON submissions ── */
+    const personUserIds = dto.values
+      .filter((v) => {
+        const field = fieldByColumnId.get(v.columnId);
+        return field?.column.type === BoardColumnType.PERSON;
+      })
+      .map((v) => Number((v.value as any)?.userId ?? (v.value as any)?.id))
+      .filter((id) => id > 0 && !Number.isNaN(id));
+
+    const personUsers =
+      personUserIds.length > 0
+        ? await this.prisma.user.findMany({
+            where: { id: { in: personUserIds } },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              avatarUrl: true,
+            },
+          })
+        : [];
+
+    const userMap = new Map<number, ResolvedUser>(
+      personUsers.map((u) => [u.id, u]),
+    );
+
+    /* ── Collect FILE submissions for post-transaction processing ── */
+    const fileSubmissions = dto.values.filter((v) => {
+      const field = fieldByColumnId.get(v.columnId);
+      return (
+        field?.column.type === BoardColumnType.FILE &&
+        (v.value as any)?.storageKey
+      );
+    });
+
+    const { taskId, taskName, createdCells } = await this.prisma.$transaction(async (tx) => {
       /**
        * Find the last root task in the target group.
        */
@@ -354,7 +463,14 @@ export class PublicBoardFormsService {
           field.column.type as BoardColumnType,
           rawValue,
           field.column.statusOptions,
+          userMap,
         );
+
+        /* Only set value if normalization produced actual content */
+        const hasValue =
+          normalized !== null &&
+          normalized !== undefined &&
+          !(typeof normalized === 'object' && Object.keys(normalized as object).length === 0);
 
         return {
           column: {
@@ -362,7 +478,7 @@ export class PublicBoardFormsService {
               id: column.id,
             },
           },
-          value: normalized as any,
+          ...(hasValue ? { value: normalized as any } : {}),
         };
       });
 
@@ -372,31 +488,46 @@ export class PublicBoardFormsService {
       const task = await tx.task.create({
         data: {
           groupId: form.groupId,
-
-          /**
-           * Public submissions are anonymous.
-           * Use board creator because createdById is required.
-           */
           createdById: board.createdById,
-
           name: taskName,
-
-          order: lastTask
-            ? lastTask.order + ORDER_GAP
-            : ORDER_GAP,
-
-          cells: {
-            create: cells,
-          },
+          order: lastTask ? lastTask.order + ORDER_GAP : ORDER_GAP,
+          isFormSubmission: true,
+          cells: { create: cells },
         },
-
         select: {
           id: true,
+          cells: {
+            select: { id: true, columnId: true },
+          },
         },
       });
 
-      return { taskId: task.id, taskName };
+      return { taskId: task.id, taskName, createdCells: task.cells };
     });
+
+    /* ── Create File + TaskCellFile records for FILE submissions ── */
+    for (const sub of fileSubmissions) {
+      const fileValue = sub.value as any;
+      const cell = createdCells.find((c) => c.columnId === sub.columnId);
+      if (!cell) continue;
+      try {
+        const file = await this.prisma.file.create({
+          data: {
+            fileName: fileValue.originalName ?? 'upload',
+            mimeType: fileValue.mimeType ?? 'application/octet-stream',
+            fileSize: fileValue.size ?? 0,
+            storageKey: fileValue.storageKey,
+            url: fileValue.url,
+            uploadedById: board.createdById,
+          },
+        });
+        await this.prisma.taskCellFile.create({
+          data: { cellId: cell.id, fileId: file.id },
+        });
+      } catch {
+        // Non-critical — the file was uploaded, just the DB record failed
+      }
+    }
 
     /**
      * Notify board admins/owners about the new form submission.

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Bell, Phone, PhoneOff, Video, X } from "lucide-react";
 import { SecondarySidebar } from "./Sidebar/SecondarySidebar";
 import { TopNavbar } from "./TopNavbar/TopNavbar";
@@ -10,12 +11,19 @@ import { useAuth } from "@/providers/AuthProvider";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { AskAiWidget } from "@/components/AskAiWidget";
 import { ChatProvider } from "@/components/Chat/ChatProvider";
-import { JitsiCallModal } from "@/components/Chat/JitsiCallModal";
+import { getLiveKitToken } from "@/services/chat.api";
 import { useChatStore } from "@/store/chat-store";
 import { getSocket } from "@/components/Chat/ChatProvider";
 import { playRingtone } from "@/lib/sounds";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { CommandPalette } from "@/components/CommandPalette";
+
+// Lazy-load LiveKit bundle — prevents the SDK from running region-discovery
+// on every page load. The bundle only downloads when a call is actually active.
+const LiveKitCallPanel = dynamic(
+  () => import("@/components/Chat/LiveKitCallPanel").then((m) => m.LiveKitCallPanel),
+  { ssr: false },
+);
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -25,6 +33,7 @@ function CallToast() {
   const { incomingCall, setIncomingCall, setActiveCall } = useChatStore();
   const { user } = useAuth();
   const stopRingtone = useRef<(() => void) | null>(null);
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     if (!incomingCall) return;
@@ -41,27 +50,32 @@ function CallToast() {
 
   if (!incomingCall) return null;
 
-  // Extract room name from the jitsiUrl
-  const roomName = incomingCall.jitsiUrl.split("/").pop()?.split("#")[0] ?? incomingCall.jitsiUrl;
-
-  const handleJoin = () => {
+  const handleJoin = async () => {
+    if (joining) return;
     stopRingtone.current?.();
-    const socket = getSocket();
-    // Tell caller to start their duration timer now that we've answered
-    if (socket && incomingCall.channelId) {
-      socket.emit("call:joined", {
-        channelId: incomingCall.channelId,
-        callMessageId: incomingCall.callMessageId,
+    setJoining(true);
+    try {
+      const { token, wsUrl } = await getLiveKitToken(incomingCall.roomName);
+      const socket = getSocket();
+      if (socket && incomingCall.channelId) {
+        socket.emit("call:joined", {
+          channelId:     incomingCall.channelId,
+          callMessageId: incomingCall.callMessageId,
+        });
+      }
+      setActiveCall({
+        roomName:           incomingCall.roomName,
+        channelId:          incomingCall.channelId,
+        startWithVideoMuted: incomingCall.callType === "voice",
+        livekitToken:       token,
+        livekitUrl:         wsUrl,
+        callMessageId:      incomingCall.callMessageId,
+        startedAt:          Date.now(),
       });
+      setIncomingCall(null);
+    } catch {
+      setJoining(false);
     }
-    setActiveCall({
-      roomName,
-      channelId: incomingCall.channelId,
-      startWithVideoMuted: incomingCall.callType === "voice",
-      callMessageId: incomingCall.callMessageId,
-      startedAt: Date.now(), // callee's own timer
-    });
-    setIncomingCall(null);
   };
 
   const handleDismiss = () => {
@@ -106,9 +120,10 @@ function CallToast() {
       <div className="flex gap-2 px-4 py-3">
         <button
           onClick={handleJoin}
-          className="flex-1 rounded-lg bg-green-500 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-600"
+          disabled={joining}
+          className="flex-1 rounded-lg bg-green-500 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-600 disabled:opacity-60"
         >
-          Join Call
+          {joining ? "Joining…" : "Join Call"}
         </button>
         <button
           onClick={handleDismiss}
@@ -175,10 +190,9 @@ function CallDeclinedToast() {
   );
 }
 
-function GlobalJitsiModal() {
+function GlobalLiveKitPanel() {
   const { activeCall, setActiveCall } = useChatStore();
-  const { user } = useAuth();
-  if (!activeCall || !user) return null;
+  if (!activeCall) return null;
 
   const handleClose = () => {
     const socket = getSocket();
@@ -187,7 +201,7 @@ function GlobalJitsiModal() {
         ? Math.round((Date.now() - activeCall.startedAt) / 1000)
         : undefined;
       socket.emit("call:ended", {
-        channelId: activeCall.channelId,
+        channelId:     activeCall.channelId,
         callMessageId: activeCall.callMessageId,
         duration,
       });
@@ -196,9 +210,9 @@ function GlobalJitsiModal() {
   };
 
   return (
-    <JitsiCallModal
-      roomName={activeCall.roomName}
-      displayName={`${user.firstName} ${user.lastName}`}
+    <LiveKitCallPanel
+      token={activeCall.livekitToken}
+      serverUrl={activeCall.livekitUrl}
       startWithVideoMuted={activeCall.startWithVideoMuted}
       startedAt={activeCall.startedAt}
       onClose={handleClose}
@@ -241,7 +255,7 @@ export function AppShell({ children }: AppShellProps) {
               <AskAiWidget />
               <CallToast />
               <CallDeclinedToast />
-              <GlobalJitsiModal />
+              <GlobalLiveKitPanel />
               <PushPermissionBanner />
             </NotificationStreamProvider>
           </ImportJobProvider>

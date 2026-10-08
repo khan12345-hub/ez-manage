@@ -381,7 +381,19 @@ export function Notifications() {
         }
         className="relative cursor-pointer rounded-full p-1.5 text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-border focus-visible:ring-offset-2"
       >
-        <Bell className="h-5 w-5" />
+        <span
+          className={cn(
+            "relative block",
+            unreadCount > 0 && !open && "animate-bell",
+          )}
+        >
+          <Bell
+            className={cn(
+              "h-5 w-5 transition-colors",
+              unreadCount > 0 ? "text-indigo-500" : "",
+            )}
+          />
+        </span>
         {unreadCount > 0 && (
           <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF3D57] px-1 text-[9px] font-bold leading-none text-white ring-2 ring-white">
             {unreadCount > 99 ? "99+" : unreadCount}

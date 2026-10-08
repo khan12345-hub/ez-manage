@@ -7,9 +7,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { PushModule } from '../push/push.module';
 import { ScheduledMessagesService } from './scheduled-messages.service';
 import { StorageModule } from '../storage/storage.module';
+import { LivekitModule } from '../livekit/livekit.module';
 
 @Module({
-  imports: [NotificationsModule, PushModule, StorageModule],
+  imports: [NotificationsModule, PushModule, StorageModule, LivekitModule],
   controllers: [ChatController, GlobalChatController],
   providers: [ChatGateway, ChatService, NotificationStreamService, ScheduledMessagesService],
   exports: [ChatService, ChatGateway],

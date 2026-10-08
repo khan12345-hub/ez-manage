@@ -80,8 +80,13 @@ export function EditableCell<T>({
     );
 
   useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
+    setLocalValue((prev) => {
+      // Avoid re-render cascade when value is a new object reference but same content
+      if (JSON.stringify(prev) === JSON.stringify(value)) return prev;
+      return value;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(value)]);
 
   useEffect(() => {
     if (!editing) return;

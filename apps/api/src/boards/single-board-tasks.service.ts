@@ -215,44 +215,77 @@ export class GetBoardTasksService {
      */
     if (!hasFilters) {
       const hasMore = tasks.length > take;
-
       const result = hasMore ? tasks.slice(0, take) : tasks;
+      const nextCursor = hasMore ? (result[result.length - 1]?.id ?? null) : null;
 
-      const nextCursor = hasMore
-        ? (result[result.length - 1]?.id ?? null)
-        : null;
+      await this.enrichPersonCells(result);
 
-      return {
-        tasks: result,
-        nextCursor,
-        hasMore,
-        total,
-      };
+      return { tasks: result, nextCursor, hasMore, total };
     }
 
     /*
      * Filters active:
      * Use the original search implementation.
      */
-    const filteredTasks = this.boardSearchService.filterTasks(tasks, {
-      search,
-      person,
-    });
-
+    const filteredTasks = this.boardSearchService.filterTasks(tasks, { search, person });
     const result = filteredTasks.slice(0, take);
-
     const hasMore = filteredTasks.length > take;
+    const nextCursor = hasMore ? (result[result.length - 1]?.id ?? null) : null;
 
-    const nextCursor = hasMore
-      ? (result[result.length - 1]?.id ?? null)
-      : null;
+    await this.enrichPersonCells(result);
 
-    return {
-      tasks: result,
-      nextCursor,
-      hasMore,
-      total: filteredTasks.length,
+    return { tasks: result, nextCursor, hasMore, total: filteredTasks.length };
+  }
+
+  /**
+   * Batch-fetch user details for all PERSON cell values across a task list.
+   * Cell values are stored as { users: [{ id }] } — this injects firstName/lastName/avatarUrl
+   * so the frontend PersonCell can render avatars without extra requests.
+   */
+  private async enrichPersonCells(tasks: any[]): Promise<void> {
+    const ids = new Set<number>();
+
+    const collect = (cells: any[]) => {
+      for (const cell of cells ?? []) {
+        if (cell?.column?.type !== 'PERSON') continue;
+        const val = cell?.value as any;
+        if (Array.isArray(val?.users)) {
+          for (const u of val.users) {
+            if (u?.id) ids.add(u.id);
+          }
+        }
+      }
     };
+
+    for (const task of tasks) {
+      collect(task.cells ?? []);
+      for (const sub of task.subtasks ?? []) collect(sub.cells ?? []);
+    }
+
+    if (ids.size === 0) return;
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, firstName: true, lastName: true, avatarUrl: true, email: true },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    const inject = (cells: any[]) => {
+      for (const cell of cells ?? []) {
+        if (cell?.column?.type !== 'PERSON') continue;
+        const val = cell?.value as any;
+        if (Array.isArray(val?.users)) {
+          cell.value = {
+            users: val.users.map((u: any) => ({ ...u, ...(userMap.get(u?.id) ?? {}) })),
+          };
+        }
+      }
+    };
+
+    for (const task of tasks) {
+      inject(task.cells ?? []);
+      for (const sub of task.subtasks ?? []) inject(sub.cells ?? []);
+    }
   }
 
   async getGroupTasks(

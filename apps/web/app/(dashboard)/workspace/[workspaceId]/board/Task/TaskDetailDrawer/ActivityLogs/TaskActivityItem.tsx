@@ -1,6 +1,7 @@
 "use client";
 
 import { TaskActivity } from "@/services/activity-logs";
+import { resolveUrl } from "@/lib/resolveUrl";
 import {
   ArrowRight,
   CalendarDays,
@@ -551,11 +552,7 @@ export function TaskActivityItem({
       >
         {user.avatarUrl ? (
           <img
-            src={
-              process.env
-                .NEXT_PUBLIC_BACKEND_BASE_URL +
-              user.avatarUrl
-            }
+            src={resolveUrl(user.avatarUrl)}
             alt={actorName}
             className="h-full w-full object-cover"
           />
@@ -585,7 +582,7 @@ export function TaskActivityItem({
         {/* Old -> New */}
         {isCellUpdate ? (
           <>
-            <div className="min-w-0 max-w-[180px] truncate text-muted-foreground">
+            <div className="min-w-0 break-words text-muted-foreground">
               {renderActivityValue(
                 metadata?.oldValue,
                 columnType,
@@ -594,7 +591,7 @@ export function TaskActivityItem({
 
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
 
-            <div className="min-w-0 max-w-[220px] truncate font-medium">
+            <div className="min-w-0 break-words font-medium">
               {renderActivityValue(
                 metadata?.newValue,
                 columnType,
@@ -602,7 +599,7 @@ export function TaskActivityItem({
             </div>
           </>
         ) : (
-          <span className="truncate">
+          <span className="break-words">
             {getActionLabel(
               activity,
             )}

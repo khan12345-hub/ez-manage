@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { BoardGalleryFile } from "@/services/boards.api";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { FileCommentPanel } from "@/app/(dashboard)/workspace/[workspaceId]/board/Cells/File/Previews/FileCommentPanel";
 
 type SidePanel = "gallery" | "info" | "comments" | null;
@@ -63,7 +64,7 @@ export function FilePreviewModal({
   const handleDownload = () => {
     if (!file) return;
     const link = document.createElement("a");
-    link.href = process.env.NEXT_PUBLIC_BACKEND_BASE_URL + file.url;
+    link.href = resolveUrl(file.url);
     link.download = file.name;
     link.target = "_blank";
     document.body.appendChild(link);
@@ -407,7 +408,7 @@ function FileViewer({
   file: BoardGalleryFile;
   onDownload: () => void;
 }) {
-  const src = process.env.NEXT_PUBLIC_BACKEND_BASE_URL + file.url;
+  const src = resolveUrl(file.url);
 
   if (file.type === "image") {
     return (
@@ -540,7 +541,7 @@ function GalleryPanel({
             >
               {isImage ? (
                 <img
-                  src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL + f.url}
+                  src={resolveUrl(f.url)}
                   alt={f.name}
                   className="h-full w-full object-cover"
                 />

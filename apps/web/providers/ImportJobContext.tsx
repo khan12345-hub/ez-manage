@@ -13,12 +13,20 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { getImportJob } from "@/services/boards.api";
+import { getImportJob, type ImportJobSummary } from "@/services/boards.api";
+import { ImportSummaryModal } from "@/components/ImportSummaryModal";
 
 interface ActiveJob {
   jobId: number;
   boardName: string;
   workspaceId: number;
+}
+
+interface CompletedJobSummary {
+  boardName: string;
+  boardId: number;
+  workspaceId: number;
+  summary: ImportJobSummary;
 }
 
 interface ImportJobContextValue {
@@ -41,6 +49,7 @@ export function ImportJobProvider({
   children: React.ReactNode;
 }) {
   const [jobs, setJobs] = useState<ActiveJob[]>([]);
+  const [completedJob, setCompletedJob] = useState<CompletedJobSummary | null>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
   const timersRef = useRef<Map<number, ReturnType<typeof setInterval>>>(new Map());
@@ -65,11 +74,20 @@ export function ImportJobProvider({
           void queryClient.invalidateQueries({
             queryKey: ["boards", job.workspaceId],
           });
-          toast.success(`Board "${job.boardName}" imported successfully.`);
-          if (status.boardId) {
-            router.push(
-              `/workspace/${job.workspaceId}/board/${status.boardId}`,
-            );
+          if (status.summary && status.boardId) {
+            setCompletedJob({
+              boardName: job.boardName,
+              boardId: status.boardId,
+              workspaceId: job.workspaceId,
+              summary: status.summary,
+            });
+          } else {
+            toast.success(`Board "${job.boardName}" imported successfully.`);
+            if (status.boardId) {
+              router.push(
+                `/workspace/${job.workspaceId}/board/${status.boardId}`,
+              );
+            }
           }
         } else if (status.status === "failed") {
           removeJob(job.jobId);
@@ -112,9 +130,30 @@ export function ImportJobProvider({
     };
   }, []);
 
+  const handleDismissSummary = () => {
+    setCompletedJob(null);
+  };
+
+  const handleGoToBoard = () => {
+    if (!completedJob) return;
+    const { workspaceId, boardId } = completedJob;
+    setCompletedJob(null);
+    router.push(`/workspace/${workspaceId}/board/${boardId}`);
+  };
+
   return (
     <ImportJobContext.Provider value={{ jobs, startJob }}>
       {children}
+      {completedJob && (
+        <ImportSummaryModal
+          boardName={completedJob.boardName}
+          boardId={completedJob.boardId}
+          workspaceId={completedJob.workspaceId}
+          summary={completedJob.summary}
+          onClose={handleDismissSummary}
+          onGoToBoard={handleGoToBoard}
+        />
+      )}
     </ImportJobContext.Provider>
   );
 }

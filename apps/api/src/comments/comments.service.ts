@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,10 +10,12 @@ import { PrismaService } from 'prisma/prisma.service';
 
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
-import { LocalStorageService } from 'src/storage/local-storage.service';
+import { STORAGE_SERVICE } from 'src/storage/storage.module';
+import { StorageProvider } from 'src/storage/storage.types';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CommentMentionedEvent } from 'src/notifications/events/comment-mentioned.event';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { NotificationStreamService } from 'src/notifications/notification-stream.service';
 import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
 import { ActivityAction, ActivityEntityType } from 'generated/prisma/enums';
 
@@ -21,11 +24,13 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
 
-    private readonly storageService: LocalStorageService,
+    @Inject(STORAGE_SERVICE) private readonly storageService: StorageProvider,
 
     private readonly eventEmitter: EventEmitter2,
 
     private readonly notificationService: NotificationsService,
+
+    private readonly notificationStreamService: NotificationStreamService,
 
     private readonly activityLogsService: ActivityLogsService,
   ) {}
@@ -273,7 +278,7 @@ export class CommentsService {
       for (const recipientId of candidateIds) {
         if (alreadyNotified.has(recipientId)) continue;
 
-        await this.notificationService.notify({
+        const notification = await this.notificationService.notify({
           recipientId,
           type: 'COMMENT_CREATED',
           title: 'New comment on a task',
@@ -290,6 +295,10 @@ export class CommentsService {
           eventKey: `comment-created:${comment.id}:${recipientId}`,
           sendEmail: true,
         });
+
+        if (notification) {
+          this.notificationStreamService.emit(recipientId, notification);
+        }
       }
     }
 
@@ -479,7 +488,7 @@ export class CommentsService {
       : 'Someone';
 
     if (parentComment.userId !== userId) {
-      await this.notificationService.notify({
+      const replyNotification = await this.notificationService.notify({
         recipientId: parentComment.userId,
         type: 'COMMENT_REPLY',
         title: 'Someone replied to your comment',
@@ -497,6 +506,10 @@ export class CommentsService {
         eventKey: `comment-reply:${reply.id}:${parentComment.userId}`,
         sendEmail: true,
       });
+
+      if (replyNotification) {
+        this.notificationStreamService.emit(parentComment.userId, replyNotification);
+      }
     }
 
     const mentionedUserIds = this.extractMentionedUserIds(dto.content);
@@ -513,7 +526,7 @@ export class CommentsService {
     }
 
     for (const recipientId of mentionedRecipients) {
-      await this.notificationService.notify({
+      const mentionNotification = await this.notificationService.notify({
         recipientId,
         type: 'COMMENT_MENTION',
         title: 'You were mentioned in a reply',
@@ -531,6 +544,10 @@ export class CommentsService {
         eventKey: `comment-mention:${reply.id}:${recipientId}`,
         sendEmail: true,
       });
+
+      if (mentionNotification) {
+        this.notificationStreamService.emit(recipientId, mentionNotification);
+      }
     }
 
     return this.prisma.taskComment.findUnique({

@@ -2,6 +2,7 @@ import {
   IsArray,
   IsBoolean,
   IsInt,
+  IsObject,
   IsOptional,
   IsString,
   IsNumber,
@@ -64,6 +65,10 @@ export class CreateBoardFormDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  design?: Record<string, unknown>;
 
   @IsArray()
   @ValidateNested({ each: true })

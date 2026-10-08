@@ -42,8 +42,8 @@ import { PushModule } from './push/push.module';
   imports: [
     ThrottlerModule.forRoot({
       throttlers: [
-        { name: 'default', ttl: 60_000, limit: 1200 },  // 1200 req/min (chat + boards generate bursts)
-        { name: 'auth',    ttl: 60_000, limit: 10   },  // 10 req/min on auth routes
+        { name: 'default', ttl: 60_000, limit: 30_000 }, // 30k req/min — boards can burst 100+ concurrent on load
+        { name: 'auth',    ttl: 60_000, limit: 10   },   // 10 req/min on auth routes (login, forgot-password)
       ],
     }),
     BullModule.forRoot({

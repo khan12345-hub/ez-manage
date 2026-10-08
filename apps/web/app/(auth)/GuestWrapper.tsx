@@ -15,7 +15,10 @@ export function GuestWrapper({ children }: { children: React.ReactNode }) {
     if (!isLoading && user) {
       router.replace("/dashboard");
     }
-  }, [isLoading, user, router]);
+    // router is intentionally excluded — stable reference but listing it re-fires
+    // this effect on navigation and can cause a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, user]);
 
   if (isLoading) {
     return <FullScreenLoader />;

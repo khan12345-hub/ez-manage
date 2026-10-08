@@ -350,7 +350,7 @@ export class ChatService {
           entityType: NotificationEntityType.COMMENT,
           entityId: messageId,
           eventKey: `chat_mention_${messageId}_${m.userId}`,
-          sendEmail: false,
+          sendEmail: true,
         });
       }
     }
@@ -533,6 +533,15 @@ export class ChatService {
   }
 
   // All channels for a user (used on socket connect to auto-join rooms)
+  async getUserName(userId: number): Promise<string | null> {
+    const u = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
+    if (!u) return null;
+    return `${u.firstName} ${u.lastName}`.trim();
+  }
+
   async getUserChannelIds(userId: number): Promise<number[]> {
     const memberships = await this.prisma.chatMember.findMany({
       where: { userId },

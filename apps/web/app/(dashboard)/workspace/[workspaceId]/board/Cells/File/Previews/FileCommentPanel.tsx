@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Trash2, UserPlus, X } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
@@ -32,11 +33,7 @@ function UserAvatar({
   const cls =
     size === "sm" ? "h-6 w-6 text-[10px]" : "h-8 w-8 text-xs";
 
-  const src = user.avatarUrl
-    ? user.avatarUrl.startsWith("http")
-      ? user.avatarUrl
-      : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${user.avatarUrl}`
-    : null;
+  const src = resolveUrl(user.avatarUrl) || null;
 
   if (src) {
     return (

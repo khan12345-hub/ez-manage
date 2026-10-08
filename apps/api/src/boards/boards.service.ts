@@ -452,6 +452,11 @@ export class BoardsService {
             name: true,
             color: true,
             order: true,
+            _count: {
+              select: {
+                tasks: { where: { parentId: null } },
+              },
+            },
           },
         },
       },

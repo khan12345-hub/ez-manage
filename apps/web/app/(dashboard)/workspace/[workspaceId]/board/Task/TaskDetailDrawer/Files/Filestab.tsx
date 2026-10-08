@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { Loader2, Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
@@ -76,9 +77,7 @@ export function FilesTab({ taskId }: FilesTabProps) {
   });
 
   const handleDownload = (file: TaskFile) => {
-    const href = file.url.startsWith("http")
-      ? file.url
-      : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${file.url}`;
+    const href = resolveUrl(file.url);
     const a = document.createElement("a");
     a.href = href;
     a.download = file.fileName;

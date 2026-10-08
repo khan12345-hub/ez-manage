@@ -43,6 +43,23 @@ function looksLikeBoolean(values: unknown[]): boolean {
   return nonEmpty.every((v) => BOOLEAN_VALUES.has(v.toLowerCase()));
 }
 
+function looksLikeEmail(values: unknown[]): boolean {
+  const nonEmpty = getNonEmpty(values);
+  if (nonEmpty.length < 1) return false;
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const matches = nonEmpty.filter((v) => emailRe.test(v)).length;
+  return matches / nonEmpty.length >= 0.7;
+}
+
+function looksLikePrice(values: unknown[]): boolean {
+  const nonEmpty = getNonEmpty(values);
+  if (nonEmpty.length < 2) return false;
+  // All numeric AND at least one looks like a currency value (has decimals or $ prefix)
+  const currencyRe = /^\$?[\d,]+(\.\d{1,2})?$/;
+  const matches = nonEmpty.filter((v) => currencyRe.test(v.replace(/,/g, ""))).length;
+  return matches / nonEmpty.length >= 0.8;
+}
+
 /*
  * ============================================================================
  * NAME-BASED KEYWORD SETS
@@ -59,6 +76,46 @@ type NameRule = {
 };
 
 const NAME_RULES: NameRule[] = [
+  /*
+   * EMAIL — email address columns (before LINK so "email" beats TEXT)
+   */
+  {
+    exact: [
+      "email", "e-mail", "mail", "email address", "e-mail address",
+      "contact email", "work email", "personal email",
+    ],
+    contains: ["email", "e-mail"],
+    type: "EMAIL",
+  },
+
+  /*
+   * PRICE — currency / money columns
+   */
+  {
+    exact: [
+      "price", "prices", "amount", "amounts", "cost", "costs",
+      "fee", "fees", "total", "totals", "budget", "budgets",
+      "rate", "rates", "salary", "salaries", "payment", "payments",
+      "revenue", "expense", "expenses", "charge", "charges",
+      "invoice amount", "subtotal", "grand total", "unit price",
+    ],
+    contains: ["price", "amount", "cost", "fee", "budget", "salary", "revenue", "expense"],
+    type: "PRICE",
+  },
+
+  /*
+   * TIME_TRACKING — duration / hours logged columns
+   */
+  {
+    exact: [
+      "time tracking", "time_tracking", "time spent", "time logged",
+      "hours", "duration", "logged hours", "tracked time",
+      "billable hours", "hours spent", "time", "total time",
+    ],
+    contains: ["time tracking", "time spent", "time logged", "hours logged", "billable hours"],
+    type: "TIME_TRACKING",
+  },
+
   /*
    * LINK — URL / website columns
    * Checked early so "url" beats TEXT fallback.
@@ -237,6 +294,12 @@ export const getDefaultColumnType = (
   // All look like URLs?
   const allUrls = nonEmpty.every((v) => /^https?:\/\//i.test(v) || /^www\./i.test(v));
   if (allUrls) return "LINK";
+
+  // All look like email addresses?
+  if (looksLikeEmail(values)) return "EMAIL";
+
+  // All look like currency/price values?
+  if (looksLikePrice(values)) return "PRICE";
 
   // All numeric?
   const allNumbers = nonEmpty.every(

@@ -1,6 +1,7 @@
 "use client";
 
 import { LogOut, Settings, User, UserPlus } from "lucide-react";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -59,9 +60,7 @@ export default function UserProfile() {
     return <BasicLoader />;
   }
 
-  const avatarUrl = user?.avatarUrl
-    ? `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${user.avatarUrl}`
-    : null;
+  const avatarUrl = resolveUrl(user?.avatarUrl) || null;
 
   const initials =
     `${user?.firstName?.charAt(0) ?? ""}${user?.lastName?.charAt(0) ?? ""}`.toUpperCase();

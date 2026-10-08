@@ -46,9 +46,6 @@ export function ChatWindow({ channel }: Props) {
     ? `${otherMember?.user?.firstName ?? ""} ${otherMember?.user?.lastName ?? ""}`
     : `# ${channel.name}`;
 
-  const jitsiRoom = `ezmanage${workspaceId}x${channel.id}`;
-  const jitsiHost = process.env.NEXT_PUBLIC_JITSI_HOST ?? "meet.ffmuc.net";
-  const jitsiUrl = `https://${jitsiHost}/${jitsiRoom}`;
 
   // Load messages
   useEffect(() => {
@@ -141,13 +138,16 @@ export function ChatWindow({ channel }: Props) {
           <button
             onClick={() => {
               const socket = getSocket();
-              setActiveCall({ roomName: jitsiRoom, channelId: channel.id, startWithVideoMuted: false });
               socket?.emit("call:start", {
-                channelId: channel.id, callType: "video", jitsiUrl,
+                channelId: channel.id, callType: "video",
                 workspaceId, callerName: `${user?.firstName} ${user?.lastName}`, channelName: displayName,
-              }, (ack: { callMessageId?: number }) => {
-                if (ack?.callMessageId) {
-                  setActiveCall({ roomName: jitsiRoom, channelId: channel.id, startWithVideoMuted: false, callMessageId: ack.callMessageId });
+              }, (ack: { callMessageId?: number; roomName?: string; livekitToken?: string; livekitUrl?: string }) => {
+                if (ack?.roomName && ack?.livekitToken) {
+                  setActiveCall({
+                    roomName: ack.roomName, channelId: channel.id, startWithVideoMuted: false,
+                    livekitToken: ack.livekitToken, livekitUrl: ack.livekitUrl ?? "",
+                    callMessageId: ack.callMessageId,
+                  });
                 }
               });
             }}
@@ -159,13 +159,16 @@ export function ChatWindow({ channel }: Props) {
           <button
             onClick={() => {
               const socket = getSocket();
-              setActiveCall({ roomName: jitsiRoom, channelId: channel.id, startWithVideoMuted: true });
               socket?.emit("call:start", {
-                channelId: channel.id, callType: "voice", jitsiUrl,
+                channelId: channel.id, callType: "voice",
                 workspaceId, callerName: `${user?.firstName} ${user?.lastName}`, channelName: displayName,
-              }, (ack: { callMessageId?: number }) => {
-                if (ack?.callMessageId) {
-                  setActiveCall({ roomName: jitsiRoom, channelId: channel.id, startWithVideoMuted: true, callMessageId: ack.callMessageId });
+              }, (ack: { callMessageId?: number; roomName?: string; livekitToken?: string; livekitUrl?: string }) => {
+                if (ack?.roomName && ack?.livekitToken) {
+                  setActiveCall({
+                    roomName: ack.roomName, channelId: channel.id, startWithVideoMuted: true,
+                    livekitToken: ack.livekitToken, livekitUrl: ack.livekitUrl ?? "",
+                    callMessageId: ack.callMessageId,
+                  });
                 }
               });
             }}

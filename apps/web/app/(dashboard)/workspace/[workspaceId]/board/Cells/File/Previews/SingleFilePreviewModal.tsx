@@ -5,6 +5,7 @@ import {
   ChevronLeft, ChevronRight, Download,
   Info, LayoutGrid, MessageSquare, Printer, Trash2, X,
 } from "lucide-react";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { format } from "date-fns";
 
 import { TaskFile } from "@/app/(dashboard)/workspace/[workspaceId]/board/Task/TaskDetailDrawer/Files/FileItem";
@@ -35,9 +36,7 @@ export default function SingleFilePreviewModal({ file, files, onClose, onNavigat
 
   const handleDownload = () => {
     if (!file) return;
-    const href = file.url.startsWith("http")
-      ? file.url
-      : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${file.url}`;
+    const href = resolveUrl(file.url);
     const a = document.createElement("a");
     a.href = href; a.download = file.fileName; a.target = "_blank";
     document.body.appendChild(a); a.click(); a.remove();
@@ -232,9 +231,7 @@ function GalleryPanel({
         {files.map((f) => {
           const isActive = f.id === currentFile.id;
           const isImg = f.mimeType.startsWith("image/");
-          const imgUrl = f.url.startsWith("http")
-            ? f.url
-            : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${f.url}`;
+          const imgUrl = resolveUrl(f.url);
           return (
             <button
               key={f.id}

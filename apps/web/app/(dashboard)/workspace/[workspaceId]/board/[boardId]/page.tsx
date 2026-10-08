@@ -63,6 +63,7 @@ export default function BoardPage() {
     data: board,
     isLoading,
     isFetching,
+    isPlaceholderData,
     isError,
   } = useQuery({
     queryKey: ["board", boardId, debouncedSearch, selectedPersonSearch],
@@ -75,7 +76,8 @@ export default function BoardPage() {
     enabled: Number.isFinite(boardId),
     retry: 0,
     placeholderData: keepPreviousData,
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   /**
@@ -200,17 +202,7 @@ export default function BoardPage() {
   return (
     <>
       <div className="relative bg-background p-3 sm:p-6">
-        {/**
-         * Keep the previous board visible while the new board
-         * is being fetched.
-         */}
-        <div
-          className={
-            isFetching
-              ? "pointer-events-none opacity-60 transition-opacity duration-200"
-              : "opacity-100 transition-opacity duration-200"
-          }
-        >
+        <div>
           <BoardHeader board={board} />
 
           <ImportProgressBanner boardId={boardId} />
@@ -238,7 +230,7 @@ export default function BoardPage() {
          * Small loading indicator while switching boards/searching.
          * The previous board stays visible underneath it.
          */}
-        {isFetching && (
+        {isFetching && isPlaceholderData && (
           <div className="absolute right-6 top-6 z-50 flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground shadow-sm">
             <span className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
             Loading board...

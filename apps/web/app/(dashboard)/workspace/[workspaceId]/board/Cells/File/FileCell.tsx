@@ -7,6 +7,7 @@ import {
   Plus,
   Upload,
 } from "lucide-react";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -220,9 +221,7 @@ function MiniThumbnail({ file }: { file: FileItem }) {
     lowerName.endsWith(".xls");
 
   if (isImage && file.url) {
-    const src = file.url.startsWith("http")
-      ? file.url
-      : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${file.url}`;
+    const src = resolveUrl(file.url);
 
     return (
       <img

@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { extractExcelBoard } from "./excelParser";
+import { extractExcelBoard, parseSheet2Comments } from "./excelParser";
 
 import type {
   BoardColumnType,
   ExcelColumnMappingDto,
   ExcelImportData,
+  ImportedComment,
+  UserToCreate,
 } from "./excelImport.types";
 
 import {
@@ -15,6 +17,14 @@ import {
   getDetectedTaskColumn,
   isExcelFile,
 } from "./excelImport.utils";
+
+/** Split a raw display name into firstName / lastName best-effort. */
+function splitName(raw: string): { firstName: string; lastName: string } {
+  const parts = raw.trim().split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0]!, lastName: "" };
+  const lastName = parts.pop()!;
+  return { firstName: parts.join(" "), lastName };
+}
 
 interface UseExcelImportOptions {
   file: File | null;
@@ -51,6 +61,10 @@ export function useExcelImport({
     [],
   );
 
+  const [comments, setComments] = useState<ImportedComment[]>([]);
+
+  const [usersToCreate, setUsersToCreate] = useState<UserToCreate[]>([]);
+
   const [parseError, setParseError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,6 +82,8 @@ export function useExcelImport({
       setTaskColumn("");
       setGroupColumn("");
       setColumnMappings([]);
+      setComments([]);
+      setUsersToCreate([]);
       setParseError(null);
       return;
     }
@@ -78,7 +94,10 @@ export function useExcelImport({
       try {
         setParseError(null);
 
-        const parsedData = await extractExcelBoard(file);
+        const [parsedData, parsedComments] = await Promise.all([
+          extractExcelBoard(file),
+          parseSheet2Comments(file),
+        ]);
 
         console.log("========== EXTRACTED DATA FROM PARSER ==========");
 
@@ -112,6 +131,7 @@ export function useExcelImport({
 
         setHeaders(parsedHeaders);
         setRows(parsedRows);
+        setComments(parsedComments);
 
         setBoardName(parsedData.boardName || defaultBoardName);
 
@@ -144,6 +164,8 @@ export function useExcelImport({
           setTaskColumn("");
           setGroupColumn("");
           setColumnMappings([]);
+          setComments([]);
+          setUsersToCreate([]);
         }
       }
     };
@@ -177,6 +199,8 @@ export function useExcelImport({
     setTaskColumn("");
     setGroupColumn("");
     setColumnMappings([]);
+    setComments([]);
+    setUsersToCreate([]);
     setParseError(null);
   };
 
@@ -246,6 +270,17 @@ export function useExcelImport({
     };
     console.log(JSON.stringify(importPayload, null, 2));
     console.log("====================================");
+    // Only send users that the operator opted in to create and have an email.
+    const usersPayload = usersToCreate
+      .filter((u) => u.include && u.email.trim() && u.firstName.trim())
+      .map(({ firstName, lastName, email, workspaceRole, boardRole }) => ({
+        firstName,
+        lastName,
+        email,
+        workspaceRole,
+        boardRole,
+      }));
+
     try {
       await onImport({
         boardName: boardName.trim(),
@@ -254,6 +289,8 @@ export function useExcelImport({
         groupColumn: groupColumn || undefined,
         columns: columnMappings,
         rows,
+        comments: comments.length > 0 ? comments : undefined,
+        usersToCreate: usersPayload.length > 0 ? usersPayload : undefined,
       });
 
       setOpen(false);
@@ -261,6 +298,61 @@ export function useExcelImport({
       console.error("Excel import failed:", error);
     }
   };
+
+  // Unique person tokens from all PERSON-typed column mappings.
+  // Seeded into the People step so the user can fill in emails and roles.
+  const unresolvedPersonTokens = useMemo<UserToCreate[]>(() => {
+    const personColumns = columnMappings
+      .filter((m) => m.type === "PERSON")
+      .map((m) => m.sourceColumn);
+
+    if (!personColumns.length || !rows.length) return [];
+
+    const seen = new Set<string>();
+    const result: UserToCreate[] = [];
+
+    for (const col of personColumns) {
+      for (const row of rows) {
+        const cell = row[col];
+        if (!cell) continue;
+        const raw = typeof cell === "object" && cell !== null && "label" in cell
+          ? String((cell as Record<string, unknown>).label ?? "")
+          : String(cell);
+        const tokens = raw.split(/,\s*/).map((t) => t.trim()).filter(Boolean);
+        for (const token of tokens) {
+          const key = token.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const { firstName, lastName } = splitName(token);
+          // Auto-detect email-format tokens — treat them as email field.
+          const looksLikeEmail = token.includes("@");
+          result.push({
+            rawName: token,
+            firstName: looksLikeEmail ? "" : firstName,
+            lastName: looksLikeEmail ? "" : lastName,
+            email: looksLikeEmail ? token : "",
+            workspaceRole: "MEMBER",
+            boardRole: "MEMBER",
+            include: false,
+          });
+        }
+      }
+    }
+
+    return result;
+  }, [columnMappings, rows]);
+
+  // Keep usersToCreate in sync when column mappings or rows change.
+  // Preserve existing edits (by rawName) so the user doesn't lose typed emails.
+  useEffect(() => {
+    setUsersToCreate((prev) => {
+      const prevByKey = new Map(prev.map((u) => [u.rawName.toLowerCase(), u]));
+      return unresolvedPersonTokens.map((token) => {
+        const existing = prevByKey.get(token.rawName.toLowerCase());
+        return existing ?? token;
+      });
+    });
+  }, [unresolvedPersonTokens]);
 
   const isReadyToImport = useMemo(
     () =>
@@ -291,6 +383,7 @@ export function useExcelImport({
 
     headers,
     rows,
+    comments,
 
     taskColumn,
     setTaskColumn,
@@ -299,6 +392,9 @@ export function useExcelImport({
     setGroupColumn,
 
     columnMappings,
+
+    usersToCreate,
+    setUsersToCreate,
 
     parseError,
 

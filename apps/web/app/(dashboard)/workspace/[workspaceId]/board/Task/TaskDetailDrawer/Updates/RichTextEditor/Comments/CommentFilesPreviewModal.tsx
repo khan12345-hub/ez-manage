@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { resolveUrl as resolveFileUrl } from "@/lib/resolveUrl";
 import {
   ChevronLeft,
   ChevronRight,
@@ -47,7 +48,7 @@ export function CommentFilesPreviewModal({ files, activeIndex, onClose, onNaviga
 
   const fileUrl = (f: CommentFile | undefined) => {
     if (!f?.url) return null;
-    return f.url.startsWith("http") ? f.url : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${f.url}`;
+    return resolveFileUrl(f.url);
   };
 
   const handleDownload = () => {
@@ -261,9 +262,9 @@ function GalleryPanel({
   activeIndex: number;
   onSelect: (index: number) => void;
 }) {
-  const resolveUrl = (f: CommentFile) => {
+  const getGalleryUrl = (f: CommentFile) => {
     if (!f.url) return null;
-    return f.url.startsWith("http") ? f.url : `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${f.url}`;
+    return resolveFileUrl(f.url);
   };
 
   return (
@@ -272,7 +273,7 @@ function GalleryPanel({
       <div className="grid grid-cols-3 gap-2">
         {files.map((f, i) => {
           const isImg = f.mimeType?.startsWith("image/");
-          const url = resolveUrl(f);
+          const url = getGalleryUrl(f);
           return (
             <button
               key={f.id}

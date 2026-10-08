@@ -47,6 +47,7 @@ import {
   type BoardGalleryFile,
 } from "@/services/boards.api";
 import { getErrorMessage } from "@/lib/error-message";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 type FileType = "all" | "image" | "pdf" | "video" | "audio" | "document" | "excel";
 
@@ -313,7 +314,7 @@ export function FileGallery() {
 
 function handleDownloadFile(file: BoardGalleryFile) {
   const link = document.createElement("a");
-  link.href = process.env.NEXT_PUBLIC_BACKEND_BASE_URL + file.url;
+  link.href = resolveUrl(file.url);
   link.download = file.name;
   link.target = "_blank";
   document.body.appendChild(link);
@@ -404,7 +405,7 @@ function FileCard({
         >
           {isImage ? (
             <img
-              src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL + file.url}
+              src={resolveUrl(file.url)}
               alt={file.name}
               loading="lazy"
               className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
@@ -473,7 +474,7 @@ function ListView({
             <div className="h-12 w-16 shrink-0 overflow-hidden rounded border bg-muted">
               {isImage ? (
                 <img
-                  src={process.env.NEXT_PUBLIC_BACKEND_BASE_URL + file.url}
+                  src={resolveUrl(file.url)}
                   alt={file.name}
                   loading="lazy"
                   className="h-full w-full object-cover"

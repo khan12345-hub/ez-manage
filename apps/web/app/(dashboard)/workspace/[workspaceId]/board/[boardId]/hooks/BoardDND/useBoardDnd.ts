@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { DragStartEvent, DragOverEvent, DragEndEvent } from "@dnd-kit/core";
 
@@ -114,26 +114,37 @@ export function useBoardDnd({
 
   const [activeItem, setActiveItem] = useState<ActiveItem>(null);
 
+  // Keep a ref so effects can read whether a drag is in progress
+  // without adding activeItem as a dependency (which would cause
+  // dragGroups to reset the moment a drag ends).
+  const isDraggingRef = useRef(false);
+
   /* ============================================================
      SYNC DRAG STATE WITH SERVER STATE
   ============================================================ */
 
-  useEffect(() => {
-    setDragGroups((currentGroups) => {
-      if (JSON.stringify(currentGroups) === JSON.stringify(groups)) {
-        return currentGroups;
-      }
+  // Lightweight signature: group IDs + per-group task count.
+  // Avoids triggering re-renders when only object references change
+  // (which happens on every Board render because groupsWithTasks is
+  // recreated via .map()), while still picking up real changes such
+  // as new pages loading, groups being added/removed, or DnD reorders.
+  const getGroupsSig = (gs: any[]) =>
+    gs.map((g) => `${g.id}:${(g.tasks ?? []).length}`).join('|');
 
-      return groups;
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+    setDragGroups((prev) => {
+      const ps = getGroupsSig(prev);
+      const ns = getGroupsSig(groups);
+      return ps === ns ? prev : groups;
     });
   }, [groups]);
 
   useEffect(() => {
-    setDragColumns((currentColumns) => {
-      if (JSON.stringify(currentColumns) === JSON.stringify(columns)) {
-        return currentColumns;
-      }
-
+    if (isDraggingRef.current) return;
+    setDragColumns((prev) => {
+      if (prev.length !== columns.length) return columns;
+      if (prev.every((c: any, i: number) => c.id === columns[i]?.id && c.order === columns[i]?.order)) return prev;
       return columns;
     });
   }, [columns]);
@@ -257,6 +268,7 @@ export function useBoardDnd({
   });
 
   function handleDragStart({ active }: DragStartEvent) {
+    isDraggingRef.current = true;
     const activeData = active.data.current as DragData | undefined;
 
     if (!activeData) {
@@ -518,14 +530,9 @@ export function useBoardDnd({
   ============================================================ */
 
   function handleDragCancel() {
-    /*
-     * Restore original server state.
-     */
-
+    isDraggingRef.current = false;
     setDragGroups(groups);
-
     setDragColumns(columns);
-
     setActiveItem(null);
   }
 
@@ -683,6 +690,7 @@ export function useBoardDnd({
       default:
         break;
     }
+    isDraggingRef.current = false;
     setActiveItem(null);
   }
 

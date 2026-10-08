@@ -21,6 +21,7 @@ interface BoardContentProps {
   board: any;
   search: string;
   isLoading: boolean;
+  isTasksLoading?: boolean;
   isFetching: boolean;
   isError: boolean;
   dragGroups: any[];
@@ -41,6 +42,7 @@ export function BoardContent({
   board,
   search,
   isLoading,
+  isTasksLoading = false,
   isFetching,
   isError,
   dragGroups,
@@ -53,6 +55,7 @@ export function BoardContent({
   handleDragCancel,
   selection,
   newGroupFocusToken,
+  isFetchingNextPage = false,
 }: BoardContentProps) {
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
 
@@ -67,7 +70,7 @@ export function BoardContent({
     return <BoardSkeleton />;
   }
 
-  if (isError) {
+  if (isError && !board) {
     return (
       <div className="flex min-h-96 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
         Board not found.
@@ -77,14 +80,6 @@ export function BoardContent({
 
   if (!board) {
     return <BoardSkeleton />;
-  }
-
-  if (isError) {
-    return (
-      <div className="flex min-h-96 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground ">
-        Board not found.
-      </div>
-    );
   }
 
   const groupsToRender = dragGroups;
@@ -164,6 +159,8 @@ export function BoardContent({
                           group.isNew ? newGroupFocusToken : 0
                         }
                         members={board.members}
+                        isTasksLoading={isTasksLoading}
+                        isFetchingNextPage={isFetchingNextPage}
                       />
                     </SortableGroup>
                   )}

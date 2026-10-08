@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircleMore } from "lucide-react";
+import { MessageCircleMore, FileInput } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -96,7 +96,7 @@ export function Cell({
             cell={cell}
             column={column}
             isDragging={isDragging}
-            editable={column.type !== "CREATION_LOG"}
+            editable={column.type !== "CREATION_LOG" && column.type !== "TIME_TRACKING"}
             onSave={(value) =>
               config.save({
                 task,
@@ -109,6 +109,16 @@ export function Cell({
             }
           />
         </div>
+
+        {isPrimary && task?.isFormSubmission && (
+          <span
+            title="Submitted via form"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+          >
+            <FileInput className="h-3 w-3" />
+            Form
+          </span>
+        )}
 
         {isPrimary && (
           <button

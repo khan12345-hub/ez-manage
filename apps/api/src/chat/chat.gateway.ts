@@ -11,6 +11,7 @@ import { Namespace, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 import { NotificationStreamService } from '../notifications/notification-stream.service';
 import { PushService } from '../push/push.service';
+import { LivekitService } from '../livekit/livekit.service';
 
 @WebSocketGateway({
   cors: { origin: '*', credentials: true },
@@ -49,6 +50,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatService: ChatService,
     private readonly notificationStream: NotificationStreamService,
     private readonly pushService: PushService,
+    private readonly livekitService: LivekitService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -235,7 +237,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: {
       channelId: number;
       callType: 'video' | 'voice';
-      jitsiUrl: string;
       workspaceId: number;
       callerName: string;
       channelName: string;
@@ -243,6 +244,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const userId = client.data.userId;
     if (!userId) return;
+
+    // Generate a unique LiveKit room name for this call
+    const roomName = this.livekitService.roomName(data.channelId);
+
+    // Generate a LiveKit token for the caller
+    let livekitToken: string | undefined;
+    try {
+      livekitToken = await this.livekitService.createToken(
+        String(userId),
+        data.callerName,
+        roomName,
+      );
+    } catch (e) {
+      // If LiveKit is not configured, token will be undefined — callers handle gracefully
+    }
 
     // Save a system call message so it appears in chat history
     let callMessageId: number | undefined;
@@ -252,7 +268,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(`channel:${data.channelId}`).emit('message:new', callMsg);
     } catch {}
 
-    const payload = { ...data, callerUserId: userId, callMessageId };
+    const payload = {
+      channelId:    data.channelId,
+      callType:     data.callType,
+      roomName,
+      workspaceId:  data.workspaceId,
+      callerName:   data.callerName,
+      channelName:  data.channelName,
+      callerUserId: userId,
+      callMessageId,
+    };
 
     // Notify everyone currently in the channel room (via socket)
     client.to(`channel:${data.channelId}`).emit('call:incoming', payload);
@@ -276,8 +301,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     } catch {}
 
-    // Return callMessageId as socket ACK so the caller can store it in ActiveCall
-    return { callMessageId };
+    // Return room info + caller's LiveKit token as socket ACK
+    return { callMessageId, roomName, livekitToken, livekitUrl: this.livekitService.wsUrl };
   }
 
   // Track which callMessageIds have been answered (callee clicked Join)

@@ -1,79 +1,66 @@
-import {
-  Processor,
-  WorkerHost,
-} from "@nestjs/bullmq";
-import { Job } from "bullmq";
-import { PrismaService } from "../../prisma/prisma.service";
-import { MailService } from "src/mail/mail.service";
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Worker, Job } from 'bullmq';
+import { PrismaService } from '../../prisma/prisma.service';
+import { MailService } from 'src/mail/mail.service';
 
-@Processor("notifications")
-export class NotificationsProcessor
-  extends WorkerHost
-{
+/**
+ * Plain injectable — no @Processor / WorkerHost.
+ * WorkerHost creates the BullMQ Worker at DI time (before onModuleInit),
+ * which immediately runs Lua scripts that require Redis 7+.
+ * Local dev uses Redis 3/5 so we create the Worker manually and only in production.
+ */
+@Injectable()
+export class NotificationsProcessor implements OnModuleInit, OnModuleDestroy {
+  private worker: Worker | null = null;
+
   constructor(
     private readonly prisma: PrismaService,
-
     private readonly mailService: MailService,
-  ) {
-    super();
-  }
+  ) {}
 
-  /**
-   * Skip BullMQ Worker startup outside production.
-   * Local dev uses Redis 3.x which doesn't support the Lua commands BullMQ requires.
-   * On production (Redis 5+) the worker starts normally.
-   */
   async onModuleInit() {
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[NotificationsProcessor] Skipping worker startup (Redis <5 local dev mode)');
+      console.log('[NotificationsProcessor] Skipping worker (local dev — Redis <7 incompatible with BullMQ 6 Lua scripts)');
       return;
     }
-    // Call WorkerHost.prototype.onModuleInit without using "super as any" (invalid cast)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const parentProto = Object.getPrototypeOf(NotificationsProcessor.prototype) as any;
-    return parentProto.onModuleInit?.call(this);
+
+    this.worker = new Worker(
+      'notifications',
+      async (job: Job) => {
+        switch (job.name) {
+          case 'send-email':
+            return this.sendEmail(job as Job<{ notificationId: string }>);
+          default:
+            throw new Error(`Unknown notification job: ${job.name}`);
+        }
+      },
+      {
+        connection: {
+          host: process.env.REDIS_HOST || 'localhost',
+          port: Number(process.env.REDIS_PORT || 6379),
+        },
+        concurrency: 5,
+      },
+    );
+
+    this.worker.on('error', (err) => {
+      console.error('[NotificationsProcessor] Worker error:', err.message);
+    });
   }
 
-  async process(
-    job: Job,
-  ) {
-    switch (job.name) {
-      case "send-email":
-        return this.sendEmail(job);
-
-      default:
-        throw new Error(
-          `Unknown notification job: ${job.name}`,
-        );
-    }
+  async onModuleDestroy() {
+    await this.worker?.close();
   }
 
-  private async sendEmail(
-    job: Job<{
-      notificationId: string;
-    }>,
-  ) {
-    const notification =
-      await this.prisma.notification.findUnique({
-        where: {
-          id: job.data.notificationId,
-        },
+  private async sendEmail(job: Job<{ notificationId: string }>) {
+    const notification = await this.prisma.notification.findUnique({
+      where: { id: job.data.notificationId },
+      include: { recipient: true },
+    });
 
-        include: {
-          recipient: true,
-        },
-      });
-
-    if (!notification) {
-      return;
-    }
-
-    const user =
-      notification.recipient;
-
-    if (!user.email) {
-      return;
-    }
+    if (!notification) return;
+    const user = notification.recipient;
+    if (!user.email) return;
 
     await this.mailService.sendNotificationEmail({
       to: user.email,

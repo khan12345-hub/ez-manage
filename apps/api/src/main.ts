@@ -8,14 +8,34 @@ import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import cookieParser from 'cookie-parser';
 import { join, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import * as express from 'express';
 
 import { AppModule } from './app.module';
 import { postgresProvider } from './database/postgres.provider';
 
-dotenv.config({ override: true, path: resolve(__dirname, '../../.env') });
+// .env search: handles both ts-node (src/) and compiled (dist/src/)
+// - compiled: __dirname = apps/api/dist/src  →  ../../.env = apps/api/.env ✓
+// - ts-node:  __dirname = apps/api/src       →  ../../.env = apps/.env (miss)
+//             falls back to                       ../. env  = apps/api/.env ✓
+const envCandidates = [
+  resolve(__dirname, '../../.env'),
+  resolve(__dirname, '../.env'),
+];
+for (const p of envCandidates) {
+  if (existsSync(p)) { dotenv.config({ override: true, path: p }); break; }
+}
 
 const isProd = process.env.NODE_ENV === 'production';
+
+// Prevent unhandled EventEmitter 'error' events (e.g. from BullMQ/ioredis on Redis 3.x)
+// from crashing the process. NestJS does not install these by default.
+process.on('uncaughtException', (err) => {
+  console.error('[Process] Uncaught exception (server continues):', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Process] Unhandled rejection (server continues):', reason);
+});
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);

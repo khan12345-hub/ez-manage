@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   InfiniteData,
@@ -114,6 +114,17 @@ export function Board({
 
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextCursor : null,
+
+    retry: (failureCount, error: any) => {
+      const status = error?.response?.status ?? error?.status;
+      if (status === 429) return failureCount < 6; // retry up to 6× on rate-limit
+      return failureCount < 2;
+    },
+    retryDelay: (failureCount, error: any) => {
+      const status = (error as any)?.response?.status ?? (error as any)?.status;
+      if (status === 429) return Math.min(5000 * (failureCount + 1), 30_000); // 5s→10s→15s…
+      return Math.min(1000 * 2 ** failureCount, 10_000);
+    },
   });
 
 
@@ -121,28 +132,40 @@ export function Board({
    * ---------------------------------------------------------
    * FLATTEN LOADED PAGES
    * ---------------------------------------------------------
+   * Memoized so the array reference is stable between renders —
+   * a new reference on every render would cascade through
+   * useBoard → useBoardDnd → Group → EditableCell and trigger
+   * "Maximum update depth exceeded" in EditableCell.useEffect.
    */
-  const loadedTasks = Array.from(
-    new Map(
-      (tasksData?.pages.flatMap((page: any) => page.tasks) ?? []).map(
-        (task: any) => [task.id, task],
+  const loadedTasks = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          (tasksData?.pages.flatMap((page: any) => page.tasks) ?? []).map(
+            (task: any) => [task.id, task],
+          ),
+        ).values(),
       ),
-    ).values(),
+    [tasksData],
   );
 
   const totalTaskCount = tasksData?.pages[0]?.total ?? 0;
-  const remainingTasks = Math.max(0, totalTaskCount - loadedTasks.length);
 
   /**
    * ---------------------------------------------------------
    * PUT TASKS BACK INTO GROUPS
    * ---------------------------------------------------------
+   * Also memoized — board.groups is stable (React Query cache),
+   * and loadedTasks only changes when a new page loads.
    */
-  const groupsWithTasks = (board.groups ?? []).map((group: any) => ({
-    ...group,
-
-    tasks: loadedTasks.filter((task: any) => task.groupId === group.id),
-  }));
+  const groupsWithTasks = useMemo(
+    () =>
+      (board.groups ?? []).map((group: any) => ({
+        ...group,
+        tasks: loadedTasks.filter((task: any) => task.groupId === group.id),
+      })),
+    [board.groups, loadedTasks],
+  );
 
   /**
    * ---------------------------------------------------------
@@ -306,25 +329,35 @@ export function Board({
    * ---------------------------------------------------------
    * AUTO INFINITE SCROLL
    * ---------------------------------------------------------
-   * When the sentinel div scrolls into view (300 px before
-   * it's visible), fetch the next page automatically.
+   * The observer is torn down while a fetch is in progress and
+   * re-created when it finishes. This re-creation fires the
+   * callback immediately if the sentinel is still in view —
+   * ensuring every page auto-loads even when the board content
+   * is shorter than the viewport (no user scroll needed).
    */
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const isFetchingNextPageRef = useRef(isFetchingNextPage);
+  useEffect(() => {
+    isFetchingNextPageRef.current = isFetchingNextPage;
+  }, [isFetchingNextPage]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel || !hasNextPage) return;
+    // Skip while fetching — observer re-connects when isFetchingNextPage goes false
+    if (!sentinel || !hasNextPage || isTasksError || isFetchingNextPage) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !isFetchingNextPage) fetchNextPage();
+        if (entry?.isIntersecting && !isFetchingNextPageRef.current) {
+          fetchNextPage();
+        }
       },
       { rootMargin: "300px" },
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, isTasksError, fetchNextPage, isFetchingNextPage]);
 
   /**
    * ---------------------------------------------------------
@@ -353,9 +386,10 @@ export function Board({
           groups: sortedGroups,
         }}
         search={search}
-        isLoading={isLoading || isTasksLoading}
+        isLoading={isLoading}
+        isTasksLoading={isTasksLoading}
         isFetching={isFetching || isTasksFetching}
-        isError={isError || isTasksError}
+        isError={isError}
         dragGroups={sortedGroups}
         filteredColumns={filteredColumns}
         activeItem={activeItem}
@@ -374,20 +408,6 @@ export function Board({
 
       {/* Sentinel — triggers next page when scrolled into view */}
       <div ref={sentinelRef} className="h-1" />
-
-      {isFetchingNextPage && (
-        <div className="flex justify-center py-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
-            Loading tasks…
-            {remainingTasks > 0 && (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
-                {remainingTasks.toLocaleString()} remaining
-              </span>
-            )}
-          </div>
-        </div>
-      )}
 
       {!hasNextPage && totalTaskCount > 100 && (
         <p className="py-3 text-center text-xs text-muted-foreground">

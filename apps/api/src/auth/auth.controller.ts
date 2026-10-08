@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Patch, Post, Req, Res, UseGuards, Param } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SessionAuthGuard } from './guards/session.guard';
@@ -29,9 +29,9 @@ export class AuthController {
     return user;
   }
 
+  @SkipThrottle()
   @Get('me')
-  async me(@CurrentUser() user: SessionUser
-  ) {
+  async me(@CurrentUser() user: SessionUser) {
     return this.authService.me(user);
   }
 

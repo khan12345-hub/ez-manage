@@ -1,5 +1,6 @@
 // src/utils/excelParser.ts
 import * as XLSX from "xlsx-js-style";
+import type { ImportedComment } from "./excelImport.types";
 
 export interface ExcelColumn {
   name: string;
@@ -128,6 +129,21 @@ export const findGroupRows = (worksheet: XLSX.WorkSheet): ExcelGroup[] => {
       // Group name must be the only value in
       // that area of the row.
       if (leftVal) {
+        continue;
+      }
+
+      // A Monday.com group header row has content in exactly ONE column.
+      // Task/data rows have values in multiple columns. If any other column
+      // in this row is non-empty, this is not a group header — it is a task row.
+      let hasOtherContent = false;
+      for (let oc = range.s.c; oc <= range.e.c; oc++) {
+        if (oc === c) continue;
+        if (getCellValue(worksheet, r, oc)) {
+          hasOtherContent = true;
+          break;
+        }
+      }
+      if (hasOtherContent) {
         continue;
       }
 
@@ -500,6 +516,7 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
    * =========================================================
    */
   const fixedColumns: ExcelColumn[] = [];
+  const seenColumnNames = new Map<string, number>(); // lowercase → occurrence count
 
   for (let c = range.s.c; c <= range.e.c; c++) {
     const colName = getCellValue(worksheet, masterHeaderRow, c);
@@ -508,8 +525,16 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
       continue;
     }
 
+    const trimmed = colName.trim();
+    const lower = trimmed.toLowerCase();
+    const count = seenColumnNames.get(lower) ?? 0;
+    seenColumnNames.set(lower, count + 1);
+
+    // Give duplicates a unique suffix instead of dropping them
+    const uniqueName = count === 0 ? trimmed : `${trimmed} (${count + 1})`;
+
     fixedColumns.push({
-      name: colName.trim(),
+      name: uniqueName,
       index: c,
     });
   }
@@ -695,13 +720,7 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
        * -----------------------------------------------------
        */
       fixedColumns.forEach((column) => {
-        /*
-         * We already populated the task column above.
-         */
-        if (column.name.trim().toLowerCase() === "name") {
-          return;
-        }
-        
+        // Skip the task/name column — already written as taskName above
         if (column.index === taskColumnIndex) {
           return;
         }
@@ -745,12 +764,8 @@ export async function extractExcelBoard(file: File): Promise<ExcelBoardData> {
    * 5. REMOVE DUPLICATE COLUMNS
    * =========================================================
    */
-  const uniqueColumns = fixedColumns.filter(
-    (column, index, array) =>
-      array.findIndex(
-        (c) => c.name.trim().toLowerCase() === column.name.trim().toLowerCase(),
-      ) === index,
-  );
+  // Column names are already made unique in step 2 (duplicates get a "(2)" suffix)
+  const uniqueColumns = fixedColumns;
 
   /*
    * =========================================================
@@ -812,11 +827,17 @@ function parseFlatTable(
     }
   }
 
-  // Read column headers from that row
+  // Read column headers from that row (rename duplicates to keep all columns)
   const columns: ExcelColumn[] = [];
+  const seenFlatNames = new Map<string, number>();
   for (let c = range.s.c; c <= range.e.c; c++) {
     const name = getCellValue(worksheet, headerRowIndex, c);
-    if (name) columns.push({ name: name.trim(), index: c });
+    if (!name) continue;
+    const trimmed = name.trim();
+    const lower = trimmed.toLowerCase();
+    const count = seenFlatNames.get(lower) ?? 0;
+    seenFlatNames.set(lower, count + 1);
+    columns.push({ name: count === 0 ? trimmed : `${trimmed} (${count + 1})`, index: c });
   }
 
   if (!columns.length) {
@@ -866,13 +887,8 @@ function parseFlatTable(
     rows.push(rowItem);
   }
 
-  // Deduplicate columns
-  const uniqueColumns = columns.filter(
-    (col, idx, arr) =>
-      arr.findIndex(
-        (c) => c.name.toLowerCase() === col.name.toLowerCase(),
-      ) === idx,
-  );
+  // Names already unique (duplicates renamed in read step above)
+  const uniqueColumns = columns;
 
   return {
     boardName: file.name.replace(/\.(xlsx|xls)$/i, "").trim(),
@@ -881,4 +897,77 @@ function parseFlatTable(
     rows,
     taskColumn: taskColumnName,
   };
+}
+
+/**
+ * Parse Sheet 2 (Monday.com "updates" sheet) to extract comment rows.
+ *
+ * Expected layout (row 0 = title, row 1 = headers, rows 2+ = data):
+ *   Col 0  Item ID
+ *   Col 2  Content Type  ("Update")
+ *   Col 3  Content Type  ("Reply")
+ *   Col 4  User
+ *   Col 5  Created At
+ *   Col 6  Update Content
+ *   Col 8  Asset IDs (comma-separated numbers; "0" means none)
+ *   Col 9  Post ID
+ *   Col 10 Parent Post ID
+ *
+ * Returns an empty array when Sheet 2 is absent or has no data rows.
+ */
+export async function parseSheet2Comments(
+  file: File,
+): Promise<ImportedComment[]> {
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+
+  if (workbook.SheetNames.length < 2) return [];
+
+  const sheet2Name = workbook.SheetNames[1];
+  if (!sheet2Name) return [];
+
+  const ws = workbook.Sheets[sheet2Name];
+  if (!ws || !ws["!ref"]) return [];
+
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  if (range.e.r < 2) return []; // need at least header + 1 data row
+
+  const raw = (r: number, c: number): string => {
+    const cell = ws[XLSX.utils.encode_cell({ r, c })];
+    return cell ? String(cell.v ?? "").trim() : "";
+  };
+
+  const comments: ImportedComment[] = [];
+
+  for (let r = 2; r <= range.e.r; r++) {
+    const itemId = raw(r, 0);
+    if (!itemId) continue;
+
+    const ct2 = raw(r, 2); // "Update" column
+    const ct3 = raw(r, 3); // "Reply" column
+    const contentType: "Update" | "Reply" =
+      ct2 === "Update" ? "Update" : ct3 === "Reply" ? "Reply" : "Update";
+
+    const assetRaw = raw(r, 8);
+    const assetIds =
+      assetRaw && assetRaw !== "0"
+        ? assetRaw
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+
+    comments.push({
+      itemId,
+      contentType,
+      user: raw(r, 4) || "Unknown",
+      createdAt: raw(r, 5),
+      content: raw(r, 6),
+      assetIds,
+      postId: raw(r, 9),
+      parentPostId: raw(r, 10),
+    });
+  }
+
+  return comments;
 }

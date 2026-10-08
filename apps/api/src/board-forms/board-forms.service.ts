@@ -136,10 +136,6 @@ export class BoardFormsService {
    * Create board form.
    */
   async create(boardId: number, dto: CreateBoardFormDto) {
-    console.log('CREATE BOARD FORM');
-    console.log('boardId:', boardId);
-    console.log('dto:', JSON.stringify(dto, null, 2));
-
     await this.validateBoard(boardId);
 
     await this.validateColumns(boardId, dto.fields);

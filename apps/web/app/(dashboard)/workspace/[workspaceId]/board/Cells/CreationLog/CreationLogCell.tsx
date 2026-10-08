@@ -2,6 +2,7 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserCircle2 } from "lucide-react";
+import { resolveUrl } from "@/lib/resolveUrl";
 import type { CellEditorProps } from "../../EditableCells/EditableCell";
 
 interface CreationLogValue {
@@ -37,9 +38,7 @@ export function CreationLogCell({ value }: CellEditorProps<CreationLogValue>) {
     );
   }
 
-  const avatarUrl = user.avatarUrl
-    ? `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${user.avatarUrl}`
-    : undefined;
+  const avatarUrl = resolveUrl(user.avatarUrl) || undefined;
 
   const initials =
     (user.firstName?.[0] ?? "") + (user.lastName?.[0] ?? "");

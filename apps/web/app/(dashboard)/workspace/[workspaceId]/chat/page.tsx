@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
@@ -210,8 +211,7 @@ function formatFileSize(bytes: number) {
 }
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
-const av = (url?: string | null) => url ? `${BASE_URL}${url}` : undefined;
+const av = (url?: string | null) => resolveUrl(url) || undefined;
 
 
 export default function ChatPage() {
@@ -853,9 +853,6 @@ export default function ChatPage() {
   const displayName = isDM
     ? `${(otherMember as any)?.user?.firstName ?? ""} ${(otherMember as any)?.user?.lastName ?? ""}`.trim()
     : activeChannel?.name ?? "";
-  const jitsiRoom = `ezmanage${workspaceId}x${activeChannelId}`;
-  const jitsiHost = process.env.NEXT_PUBLIC_JITSI_HOST ?? "meet.ffmuc.net";
-  const jitsiUrl = `https://${jitsiHost}/${jitsiRoom}`;
 
   const filteredDMUsers = allUsers.filter((m) =>
     `${m.user.firstName} ${m.user.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
@@ -1209,17 +1206,17 @@ export default function ChatPage() {
                 <button
                   onClick={() => {
                     const socket = getSocket();
-                    const now = Date.now();
                     const chId = activeChannelId!;
-                    // Open Jitsi immediately — don't wait for server ACK
-                    // Don't set startedAt yet — timer only starts when callee joins
-                    setActiveCall({ roomName: jitsiRoom, channelId: chId, startWithVideoMuted: false });
                     socket?.emit("call:start", {
-                      channelId: chId, callType: "video", jitsiUrl,
+                      channelId: chId, callType: "video",
                       workspaceId, callerName: `${user?.firstName} ${user?.lastName}`, channelName: displayName,
-                    }, (ack: { callMessageId?: number }) => {
-                      if (ack?.callMessageId) {
-                        setActiveCall({ roomName: jitsiRoom, channelId: chId, startWithVideoMuted: false, callMessageId: ack.callMessageId });
+                    }, (ack: { callMessageId?: number; roomName?: string; livekitToken?: string; livekitUrl?: string }) => {
+                      if (ack?.roomName && ack?.livekitToken) {
+                        setActiveCall({
+                          roomName: ack.roomName, channelId: chId, startWithVideoMuted: false,
+                          livekitToken: ack.livekitToken, livekitUrl: ack.livekitUrl ?? "",
+                          callMessageId: ack.callMessageId,
+                        });
                       }
                     });
                   }}
@@ -1231,16 +1228,17 @@ export default function ChatPage() {
                 <button
                   onClick={() => {
                     const socket = getSocket();
-                    const now = Date.now();
                     const chId = activeChannelId!;
-                    // Don't set startedAt yet — timer only starts when callee joins
-                    setActiveCall({ roomName: jitsiRoom, channelId: chId, startWithVideoMuted: true });
                     socket?.emit("call:start", {
-                      channelId: chId, callType: "voice", jitsiUrl,
+                      channelId: chId, callType: "voice",
                       workspaceId, callerName: `${user?.firstName} ${user?.lastName}`, channelName: displayName,
-                    }, (ack: { callMessageId?: number }) => {
-                      if (ack?.callMessageId) {
-                        setActiveCall({ roomName: jitsiRoom, channelId: chId, startWithVideoMuted: true, callMessageId: ack.callMessageId });
+                    }, (ack: { callMessageId?: number; roomName?: string; livekitToken?: string; livekitUrl?: string }) => {
+                      if (ack?.roomName && ack?.livekitToken) {
+                        setActiveCall({
+                          roomName: ack.roomName, channelId: chId, startWithVideoMuted: true,
+                          livekitToken: ack.livekitToken, livekitUrl: ack.livekitUrl ?? "",
+                          callMessageId: ack.callMessageId,
+                        });
                       }
                     });
                   }}
@@ -1623,13 +1621,13 @@ export default function ChatPage() {
                         {/* Attachment rendering */}
                         {msg.attachmentUrl && msg.attachmentType === "image" && (
                           <a
-                            href={`${process.env.NEXT_PUBLIC_API_URL?.replace("/api", "")}${msg.attachmentUrl}`}
+                            href={resolveUrl(msg.attachmentUrl)}
                             target="_blank"
                             rel="noreferrer"
                             className="mb-1 block"
                           >
                             <img
-                              src={`${process.env.NEXT_PUBLIC_API_URL?.replace("/api", "")}${msg.attachmentUrl}`}
+                              src={resolveUrl(msg.attachmentUrl)}
                               alt={msg.content}
                               className="max-h-64 max-w-sm rounded-lg border border-border object-contain"
                             />
@@ -1637,7 +1635,7 @@ export default function ChatPage() {
                         )}
                         {msg.attachmentUrl && msg.attachmentType === "file" && (
                           <a
-                            href={`${process.env.NEXT_PUBLIC_API_URL?.replace("/api", "")}${msg.attachmentUrl}`}
+                            href={resolveUrl(msg.attachmentUrl)}
                             target="_blank"
                             rel="noreferrer"
                             className="mb-1 flex w-fit items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-foreground hover:bg-muted"
@@ -2081,11 +2079,11 @@ export default function ChatPage() {
                   <span className="text-[10px] text-muted-foreground">{formatTime(threadMsg.createdAt)}</span>
                 </div>
                 {threadMsg.attachmentUrl && threadMsg.attachmentType === "image" ? (
-                  <a href={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${threadMsg.attachmentUrl}`} target="_blank" rel="noreferrer">
-                    <img src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${threadMsg.attachmentUrl}`} className="mb-1 max-h-32 rounded-lg border border-border object-contain" alt={threadMsg.content} />
+                  <a href={resolveUrl(threadMsg.attachmentUrl)} target="_blank" rel="noreferrer">
+                    <img src={resolveUrl(threadMsg.attachmentUrl)} className="mb-1 max-h-32 rounded-lg border border-border object-contain" alt={threadMsg.content} />
                   </a>
                 ) : threadMsg.attachmentUrl ? (
-                  <a href={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${threadMsg.attachmentUrl}`} className="flex items-center gap-1 text-xs text-indigo-600 underline" target="_blank" rel="noreferrer" download>{threadMsg.content}</a>
+                  <a href={resolveUrl(threadMsg.attachmentUrl)} className="flex items-center gap-1 text-xs text-indigo-600 underline" target="_blank" rel="noreferrer" download>{threadMsg.content}</a>
                 ) : null}
                 {(!threadMsg.attachmentUrl || threadMsg.content !== threadMsg.attachmentUrl) && (
                   <div className="text-sm text-foreground"><RichContent content={threadMsg.content} allUsers={allUsers} onMentionClick={setMentionProfileUserId} /></div>
@@ -2109,11 +2107,11 @@ export default function ChatPage() {
                         <span className="text-[10px] text-muted-foreground">{formatTime(r.createdAt)}</span>
                       </div>
                       {r.attachmentUrl && r.attachmentType === "image" ? (
-                        <a href={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${r.attachmentUrl}`} target="_blank" rel="noreferrer">
-                          <img src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${r.attachmentUrl}`} className="mt-1 max-h-40 max-w-xs rounded-lg border border-border object-contain" alt={r.content} />
+                        <a href={resolveUrl(r.attachmentUrl)} target="_blank" rel="noreferrer">
+                          <img src={resolveUrl(r.attachmentUrl)} className="mt-1 max-h-40 max-w-xs rounded-lg border border-border object-contain" alt={r.content} />
                         </a>
                       ) : r.attachmentUrl ? (
-                        <a href={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api", "")}${r.attachmentUrl}`} className="flex items-center gap-1 text-xs text-indigo-600 underline" target="_blank" rel="noreferrer" download>
+                        <a href={resolveUrl(r.attachmentUrl)} className="flex items-center gap-1 text-xs text-indigo-600 underline" target="_blank" rel="noreferrer" download>
                           <Download className="h-3 w-3" />{r.content}
                         </a>
                       ) : (
