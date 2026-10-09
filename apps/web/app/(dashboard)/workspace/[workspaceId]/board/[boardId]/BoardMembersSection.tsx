@@ -163,9 +163,10 @@ export function BoardMembersSection({
                   )}
                 </div>
 
-                {/* Expanded access panel */}
+                {/* Expanded access panel — key forces remount when server data changes after save */}
                 {isExpanded && !isOwner && (
                   <MemberAccessPanel
+                    key={`${member.id}-${member.accessAllGroups}-${(member.groupAccess ?? []).map((g) => g.groupId).sort().join(",")}`}
                     member={member}
                     groups={groups}
                     columns={columns}
@@ -298,6 +299,13 @@ function MemberAccessPanel({
 
       {!accessAllGroups && groups.length === 0 && (
         <p className="text-xs text-muted-foreground">No groups on this board yet.</p>
+      )}
+
+      {/* Zero-group warning */}
+      {!accessAllGroups && selectedGroupIds.size === 0 && groups.length > 0 && (
+        <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+          No groups selected — member will lose access to all groups on this board.
+        </p>
       )}
 
       {/* Save button */}

@@ -181,8 +181,6 @@ export class CommentsService {
 */
     const mentionedUserIds = this.extractMentionedUserIds(dto.content);
 
-    console.log('[Comment Notification] Mentioned user IDs:', mentionedUserIds);
-
     /**
 
 * 4. Get the comment author's information.
@@ -213,11 +211,6 @@ export class CommentsService {
         (recipientId) => recipientId !== userId,
       );
 
-      console.log(
-        '[Comment Notification] Notification recipients:',
-        recipients,
-      );
-
       for (const recipientId of recipients) {
         const event = new CommentMentionedEvent({
           recipientId,
@@ -229,11 +222,6 @@ export class CommentsService {
           mentionedById: mentionedBy.id,
           mentionedByName: `${mentionedBy.firstName} ${mentionedBy.lastName}`,
         });
-
-        console.log(
-          '[Comment Notification] Emitting comment.mentioned event:',
-          event,
-        );
 
         this.eventEmitter.emit(
           'comment.mentioned',
