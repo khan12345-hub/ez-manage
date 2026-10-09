@@ -7,13 +7,17 @@ export type BoardColumnType =
   | "PERSON"
   | "DROPDOWN"
   | "DATE"
+  | "PLAIN_DATE"
   | "NUMBER"
+  | "PRICE"
   | "FILE"
   | "TIMELINE"
   | "CHECKBOX"
   | "CREATION_LOG"
   | "TIME_TRACKING"
-  | "EMAIL";
+  | "EMAIL"
+  | "LABEL"
+  | "FORMULA";
 
 export const createColumn = async (boardId: number, type: BoardColumnType) => {
   const { data } = await api.post("/columns", {
@@ -29,6 +33,16 @@ export const updateColumn = async (id: number, name: string) => {
     name,
   });
 
+  return data;
+};
+
+export const saveColumnFormula = async (id: number, formula: string) => {
+  const { data } = await api.patch(`/columns/${id}`, { formula });
+  return data;
+};
+
+export const updateColumnType = async (id: number, type: BoardColumnType) => {
+  const { data } = await api.patch(`/columns/${id}`, { type });
   return data;
 };
 

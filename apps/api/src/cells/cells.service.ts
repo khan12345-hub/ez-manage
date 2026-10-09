@@ -46,11 +46,6 @@ import { NotificationStreamService } from 'src/notifications/notification-stream
 @Injectable()
 export class CellsService {
   private extractPersonIds(value: unknown): number[] {
-    console.log(
-      '[Notification Debug] Extracting person IDs from value:',
-      JSON.stringify(value),
-    );
-
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return [];
     }
@@ -82,8 +77,6 @@ export class CellsService {
         return null;
       })
       .filter((id): id is number => id !== null);
-
-    console.log('[Notification Debug] Extracted person IDs:', userIds);
 
     return userIds;
   }
@@ -120,7 +113,6 @@ export class CellsService {
       assignedByName: `${assignedBy.firstName} ${assignedBy.lastName}`,
     });
 
-    console.log('[CellsService] Emitting TaskAssignedEvent:', event);
     this.eventEmitter.emit('task.assigned', event);
   }
   constructor(
@@ -401,8 +393,6 @@ export class CellsService {
 
     const previousValue = cell.value;
 
-    console.log({ cell });
-
     const columnType = cell.column.type;
 
     const previousAssigneeIds =
@@ -437,8 +427,6 @@ export class CellsService {
       },
     });
 
-    console.log('[ActivityLog] Cell updated:', activityLog);
-
     //
     if (
       columnType === BoardColumnType.STATUS &&
@@ -461,12 +449,6 @@ export class CellsService {
           label: true,
           color: true,
         },
-      });
-
-      console.log('[Automation] Resolved status:', {
-        columnId: cell.columnId,
-        value: newStatusValue,
-        statusOption,
       });
 
       if (!statusOption) {
@@ -610,20 +592,8 @@ export class CellsService {
     if (columnType === BoardColumnType.PERSON) {
       const newAssigneeIds = this.extractPersonIds(dto.value);
 
-      console.log(
-        '[Notification Debug] Previous assignees:',
-        previousAssigneeIds,
-      );
-
-      console.log('[Notification Debug] New assignees:', newAssigneeIds);
-
       const newlyAssignedUsers = newAssigneeIds.filter(
         (id) => !previousAssigneeIds.includes(id) && id !== userId,
-      );
-
-      console.log(
-        '[Notification Debug] Newly assigned users:',
-        newlyAssignedUsers,
       );
 
       for (const recipientId of newlyAssignedUsers) {

@@ -3,6 +3,7 @@
 import { useAuth } from "@/providers/AuthProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CalendarDays, Sparkles } from "lucide-react";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -20,8 +21,6 @@ function getFormattedDate() {
   });
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
-
 export function DashboardHeader() {
   const { user } = useAuth();
 
@@ -31,11 +30,7 @@ export function DashboardHeader() {
     .map((n) => n?.charAt(0).toUpperCase())
     .join("") || "U";
 
-  const avatarUrl = user?.avatarUrl
-    ? user.avatarUrl.startsWith("http")
-      ? user.avatarUrl
-      : `${BASE_URL}${user.avatarUrl}`
-    : null;
+  const avatarUrl = resolveUrl(user?.avatarUrl) || null;
 
   const workspaceCount = user?.workspaceMemberships?.length ?? 0;
   const boardCount = user?.boardMemberships?.length ?? 0;

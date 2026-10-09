@@ -176,7 +176,24 @@ export class ChatController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+      limits: { fileSize: 20 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => {
+        const ALLOWED: ReadonlySet<string> = new Set([
+          'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'text/plain', 'text/csv',
+          'application/zip', 'application/x-zip-compressed', 'application/x-zip',
+        ]);
+        if (ALLOWED.has(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException(`File type "${file.mimetype}" is not allowed`), false);
+        }
+      },
     }),
   )
   async uploadFile(

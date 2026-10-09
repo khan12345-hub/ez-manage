@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,52 @@ import {
 
 import { GroupActions } from "./GroupActions";
 
+// ── collapsed summary helpers ─────────────────────────────────────────────────
+
+function getStoredAgg(columnId: number): string {
+  try { return localStorage.getItem(`footer-agg-${columnId}`) || "none"; }
+  catch { return "none"; }
+}
+
+function computeCollapsedSummary(tasks: any[], column: any): string | null {
+  const agg = getStoredAgg(column.id);
+  if (agg === "none") return null;
+
+  const cells = tasks.flatMap((t: any) =>
+    (t.cells ?? []).filter((c: any) => c.columnId === column.id),
+  );
+
+  if (agg === "count") {
+    const n = cells.filter((c: any) => {
+      if (column.type === "CHECKBOX") return true;
+      const v = c.value;
+      if (v == null || v === "") return false;
+      if (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0) return false;
+      return true;
+    }).length;
+    return `${n} (count)`;
+  }
+
+  if (["sum", "avg", "min", "max"].includes(agg)) {
+    const nums = cells
+      .map((c: any) => parseFloat(String(c.value?.text ?? c.value ?? "").replace(/[$,]/g, "")))
+      .filter((n: number) => !isNaN(n));
+    if (!nums.length) return null;
+    let result: number;
+    if (agg === "sum") result = nums.reduce((a: number, b: number) => a + b, 0);
+    else if (agg === "avg") result = nums.reduce((a: number, b: number) => a + b, 0) / nums.length;
+    else if (agg === "min") result = Math.min(...nums);
+    else result = Math.max(...nums);
+    const isPrice = column.type === "PRICE";
+    const display = isPrice
+      ? `$${result.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : (result % 1 === 0 ? result.toLocaleString() : result.toFixed(2));
+    return `${display} (${agg})`;
+  }
+
+  return null;
+}
+
 interface Props {
   group: any;
   focusToken?: number;
@@ -25,6 +71,8 @@ interface Props {
   onAddGroup?: () => void;
   taskCount?: number;
   completedTaskCount?: number;
+  tasks?: any[];
+  columns?: any[];
 }
 
 export function GroupHeader({
@@ -35,6 +83,8 @@ export function GroupHeader({
   onAddGroup,
   taskCount,
   completedTaskCount,
+  tasks = [],
+  columns = [],
 }: Props) {
   /*
    * IMPORTANT:
@@ -59,6 +109,18 @@ export function GroupHeader({
    * Fallback to prop while Zustand is initializing.
    */
   const activeGroup = currentGroup ?? group;
+
+  // Compute summary chips for collapsed state (only non-primary columns with a stored agg)
+  const collapsedSummaries = useMemo(() => {
+    if (!isCollapsed || !columns.length || !tasks.length) return [];
+    return columns
+      .filter((col: any) => !col.isPrimary)
+      .map((col: any) => {
+        const display = computeCollapsedSummary(tasks, col);
+        return display ? { name: col.name, display } : null;
+      })
+      .filter(Boolean) as { name: string; display: string }[];
+  }, [isCollapsed, columns, tasks]);
 
   useEffect(() => {
     if (activeGroup.isNew && inputRef.current) {
@@ -214,7 +276,8 @@ export function GroupHeader({
   };
 
   return (
-    <div className="flex items-center justify-between border-b p-3">
+    <div className="border-b">
+    <div className="flex items-center justify-between p-3">
       <div className="flex items-center gap-3">
         <ColorPicker
           value={activeGroup.color ?? undefined}
@@ -272,6 +335,24 @@ export function GroupHeader({
         />
       )}
     </div>
+
+    {/* Collapsed summary strip */}
+    {isCollapsed && collapsedSummaries.length > 0 && (
+      <div className="flex flex-wrap items-center gap-2 px-4 pb-2">
+        {collapsedSummaries.map((s) => (
+          <div
+            key={s.name}
+            className="flex items-center gap-1 rounded-full border bg-muted/50 px-2.5 py-0.5 text-xs"
+          >
+            <span className="font-medium text-muted-foreground">{s.name}:</span>
+            <span className="font-semibold text-foreground">{s.display}</span>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
   );
 }
+
+
 

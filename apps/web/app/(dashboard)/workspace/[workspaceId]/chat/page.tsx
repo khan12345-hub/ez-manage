@@ -264,6 +264,8 @@ export default function ChatPage() {
   const rateLimitTimer = useRef<NodeJS.Timeout | null>(null);
   const [assigningMsgId, setAssigningMsgId] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
+  type PendingFile = { file: File; previewUrl: string; name: string; fileType: "image" | "file" };
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   // Thread panel
   const [threadMsg, setThreadMsg] = useState<ChatMessage | null>(null);
   const [replies, setReplies] = useState<ChatMessage[]>([]);
@@ -671,15 +673,46 @@ export default function ChatPage() {
     setMobileSidebarOpen(false);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!activeChannelId) return;
     const html = editorRef.current?.getHTML() ?? "";
     const text = editorRef.current?.getText() ?? input;
-    if (!text.trim()) return;
-    sendChatMessage({ channelId: activeChannelId, content: html });
-    editorRef.current?.clearContent();
-    setInput("");
-    setMentionQuery(null);
+    const hasText = text.trim().length > 0;
+    const hasFiles = pendingFiles.length > 0;
+    if (!hasText && !hasFiles) return;
+
+    // Upload pending files first, each sends as its own message
+    if (hasFiles) {
+      setUploading(true);
+      try {
+        for (const item of pendingFiles) {
+          const result = await uploadChatFile(workspaceId, activeChannelId, item.file);
+          const socket = getSocket();
+          socket?.emit("message:send", {
+            channelId: activeChannelId,
+            content: result.originalName,
+            attachmentUrl: result.url,
+            attachmentType: result.type,
+          });
+          if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        }
+        setPendingFiles([]);
+      } catch {
+        alert("File upload failed. Max size is 20MB.");
+        setUploading(false);
+        return;
+      }
+      setUploading(false);
+    }
+
+    // Send text message if any
+    if (hasText) {
+      sendChatMessage({ channelId: activeChannelId, content: html });
+      editorRef.current?.clearContent();
+      setInput("");
+      setMentionQuery(null);
+    }
+
     const socket = getSocket();
     socket?.emit("typing:stop", { channelId: activeChannelId });
   };
@@ -808,25 +841,19 @@ export default function ChatPage() {
     }
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !activeChannelId) return;
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length || !activeChannelId) return;
     e.target.value = "";
-    setUploading(true);
-    try {
-      const result = await uploadChatFile(workspaceId, activeChannelId, file);
-      const socket = getSocket();
-      socket?.emit("message:send", {
-        channelId: activeChannelId,
-        content: result.originalName,
-        attachmentUrl: result.url,
-        attachmentType: result.type,
-      });
-    } catch {
-      alert("File upload failed. Max size is 20MB.");
-    } finally {
-      setUploading(false);
-    }
+    setPendingFiles((prev) => [
+      ...prev,
+      ...files.map((file) => ({
+        file,
+        previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
+        name: file.name,
+        fileType: (file.type.startsWith("image/") ? "image" : "file") as "image" | "file",
+      })),
+    ]);
   };
 
   const handleAddMember = async (targetUserId: number) => {
@@ -1925,6 +1952,42 @@ export default function ChatPage() {
                   )}
                 </div>
               )}
+              {/* Pending file previews — shown above the input */}
+              {pendingFiles.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2 rounded-xl border border-border bg-muted/20 p-2">
+                  {pendingFiles.map((item, idx) => (
+                    <div key={idx} className="relative">
+                      {item.fileType === "image" ? (
+                        <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-border">
+                          <img src={item.previewUrl} alt={item.name} className="h-full w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+                              setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+                            }}
+                            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-foreground shadow"
+                          >
+                            <X className="h-2.5 w-2.5 text-background" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5 pr-6 text-xs">
+                          <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="max-w-[120px] truncate text-foreground">{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="relative flex items-end gap-3 rounded-xl border border-border bg-muted/30 px-4 py-2.5 focus-within:border-indigo-300 focus-within:bg-background focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
                 {/* File attachment button */}
                 <button
@@ -1933,11 +1996,12 @@ export default function ChatPage() {
                   className="shrink-0 text-muted-foreground hover:text-indigo-500 transition-colors disabled:opacity-50"
                   title="Attach file or image"
                 >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                  <Paperclip className="h-4 w-4" />
                 </button>
                 <input
                   ref={fileInputRef}
                   type="file"
+                  multiple
                   accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.csv"
                   className="hidden"
                   onChange={handleFileSelect}
@@ -2040,10 +2104,10 @@ export default function ChatPage() {
 
                 <button
                   onClick={handleSend}
-                  disabled={!input.trim()}
+                  disabled={uploading || (!input.trim() && pendingFiles.length === 0)}
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-white transition-colors hover:bg-indigo-600 disabled:opacity-30"
                 >
-                  <Send className="h-3.5 w-3.5" />
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                 </button>
               </div>
               <p className="mt-1.5 text-[10px] text-muted-foreground">

@@ -96,7 +96,7 @@ export function Cell({
             cell={cell}
             column={column}
             isDragging={isDragging}
-            editable={column.type !== "CREATION_LOG" && column.type !== "TIME_TRACKING"}
+            editable={column.type !== "CREATION_LOG" && column.type !== "TIME_TRACKING" && column.type !== "FORMULA"}
             onSave={(value) =>
               config.save({
                 task,

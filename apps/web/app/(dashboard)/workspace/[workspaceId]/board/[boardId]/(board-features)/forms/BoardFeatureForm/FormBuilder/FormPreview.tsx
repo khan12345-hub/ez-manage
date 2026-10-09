@@ -1,9 +1,12 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import {
   Calendar,
   CalendarRange,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Link,
   Paperclip,
 } from "lucide-react";
@@ -35,16 +38,30 @@ interface FormPreviewProps {
 }
 
 export function FormPreview({ form, design = DEFAULT_DESIGN, fill }: FormPreviewProps) {
-  const visibleFields = form.fields.filter(
-    (f) => !f.hidden && !SYSTEM_COLUMN_TYPES.has(f.columnType ?? ""),
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const visibleFields = useMemo(
+    () => form.fields.filter((f) => !f.hidden && !SYSTEM_COLUMN_TYPES.has(f.columnType ?? "")),
+    [form.fields],
   );
 
+  // Group fields by pageIndex — mirrors the decodePageIndex logic in PublicBoardForm
+  const pages = useMemo(() => {
+    const maxPage = visibleFields.reduce((m, f) => Math.max(m, f.pageIndex ?? 0), 0);
+    const grouped: typeof visibleFields[] = Array.from({ length: maxPage + 1 }, () => []);
+    for (const f of visibleFields) grouped[f.pageIndex ?? 0].push(f);
+    return grouped;
+  }, [visibleFields]);
+
+  const totalPages = pages.length;
+  const safePage = Math.min(currentPage, totalPages - 1);
+  const isLastPage = safePage === totalPages - 1;
+  const pageFields = pages[safePage] ?? [];
+
   const justifyClass =
-    design.position === "left"
-      ? "justify-start"
-      : design.position === "right"
-        ? "justify-end"
-        : "justify-center";
+    design.position === "left" ? "justify-start"
+    : design.position === "right" ? "justify-end"
+    : "justify-center";
 
   return (
     <div
@@ -52,57 +69,102 @@ export function FormPreview({ form, design = DEFAULT_DESIGN, fill }: FormPreview
       style={{ backgroundColor: design.bgColor }}
     >
       <div className="w-full max-w-2xl">
+        {/* Progress bar — only for multi-page forms */}
+        {totalPages > 1 && (
+          <div className="mb-4">
+            <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+              <span>Step {safePage + 1} of {totalPages}</span>
+              <span>{Math.round(((safePage + 1) / totalPages) * 100)}%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${((safePage + 1) / totalPages) * 100}%`, backgroundColor: design.accentColor }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Card */}
         <div
           className="rounded-2xl shadow-lg"
-          style={{ backgroundColor: design.cardBg }}
+          style={{ backgroundColor: design.cardBg, color: design.textColor }}
         >
           {/* Accent top bar */}
-          <div
-            className="h-2 rounded-t-2xl"
-            style={{ backgroundColor: design.accentColor }}
-          />
+          <div className="h-2 rounded-t-2xl" style={{ backgroundColor: design.accentColor }} />
 
           <div className="px-8 pb-8 pt-7">
-            {/* Title & description */}
-            <div className="mb-7 space-y-1.5">
-              <h1
-                className="text-2xl font-bold tracking-tight"
-                style={{ color: design.textColor }}
-              >
-                {form.name || (
-                  <span className="italic opacity-30">Form title</span>
+            {/* Title & description — only on first page */}
+            {safePage === 0 && (
+              <div className="mb-7 space-y-1.5">
+                <h1 className="text-2xl font-bold tracking-tight" style={{ color: design.textColor }}>
+                  {form.name || <span className="italic opacity-30">Form title</span>}
+                </h1>
+                {form.description && (
+                  <p className="text-sm" style={{ color: design.textColor, opacity: 0.6 }}>
+                    {form.description}
+                  </p>
                 )}
-              </h1>
-              {form.description && (
-                <p className="text-sm" style={{ color: design.textColor, opacity: 0.6 }}>
-                  {form.description}
-                </p>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Page label for non-first pages */}
+            {totalPages > 1 && safePage > 0 && (
+              <div className="mb-5">
+                <h2 className="text-lg font-semibold" style={{ color: design.textColor }}>
+                  {form.pages[safePage]?.title ?? `Page ${safePage + 1}`}
+                </h2>
+              </div>
+            )}
 
             {/* Fields */}
             <div className="space-y-5">
-              {visibleFields.length === 0 && (
+              {pageFields.length === 0 && (
                 <p className="py-6 text-center text-sm italic opacity-40" style={{ color: design.textColor }}>
                   No visible fields — toggle the eye icon to show fields.
                 </p>
               )}
-              {visibleFields.map((field) => (
+              {pageFields.map((field) => (
                 <PreviewField key={field.id} field={field} design={design} />
               ))}
             </div>
 
-            {/* Submit button */}
-            <div className="mt-7">
-              <button
-                type="button"
-                disabled
-                className="w-full cursor-default rounded-lg py-3 text-base font-semibold text-white opacity-90"
-                style={{ backgroundColor: design.accentColor }}
-              >
-                {form.submitLabel || "Submit"}
-              </button>
+            {/* Navigation */}
+            <div className="mt-7 flex items-center justify-between gap-3">
+              {safePage > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="flex items-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-muted/30"
+                  style={{ color: design.textColor, borderColor: `${design.textColor}30` }}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Back
+                </button>
+              ) : (
+                <div />
+              )}
+
+              {isLastPage ? (
+                <button
+                  type="button"
+                  disabled
+                  className="flex flex-1 cursor-default items-center justify-center rounded-lg py-3 text-base font-semibold text-white opacity-90"
+                  style={{ backgroundColor: design.accentColor }}
+                >
+                  {form.submitLabel || "Submit"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages - 1))}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-3 text-base font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: design.accentColor }}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>

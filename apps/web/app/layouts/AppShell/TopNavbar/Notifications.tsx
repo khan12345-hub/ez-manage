@@ -280,8 +280,7 @@ export function Notifications() {
   const { data: unreadData } = useQuery({
     queryKey: notificationKeys.unreadCount,
     queryFn: getUnreadNotificationCount,
-    staleTime: 0,
-    refetchInterval: 30_000,
+    staleTime: 60_000, // SSE invalidates instantly on new notifications — no need to poll
   });
 
   const { data, isLoading, isFetching } = useQuery({

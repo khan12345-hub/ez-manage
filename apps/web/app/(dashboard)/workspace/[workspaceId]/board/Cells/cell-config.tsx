@@ -25,6 +25,7 @@ import { StatusCell } from "./Status/StatusCell";
 import { CreationLogCell } from "./CreationLog/CreationLogCell";
 import { TimeTrackingCell } from "./TimeTracking/TimeTrackingCell";
 import { EmailEditor } from "../EditableCells/EmailEditor";
+import { FormulaCell } from "./Formula/FormulaCell";
 
 export interface CellConfig<T = any> {
   /**
@@ -352,5 +353,18 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       if (!cell?.id) return Promise.resolve(null);
       return updateCell(boardId!, cell.id, { value });
     },
+  },
+
+  FORMULA: {
+    component: FormulaCell as any,
+
+    getValue: (task, _cell, column) => ({
+      formula: column?.formula ?? "",
+      cells: task?.cells ?? [],
+    }),
+
+    renderValue: (value) => <FormulaCell value={value} />,
+
+    save: async () => Promise.resolve(null),
   },
 };

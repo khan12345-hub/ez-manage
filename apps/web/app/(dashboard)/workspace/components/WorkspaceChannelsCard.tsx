@@ -9,8 +9,8 @@ import { useAuth } from "@/providers/AuthProvider";
 import { getChannels, getDMs } from "@/services/chat.api";
 import type { ChatChannel } from "@/services/chat.api";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
-const av = (url?: string | null) => url ? `${BASE_URL}${url}` : undefined;
+import { resolveUrl } from "@/lib/resolveUrl";
+const av = (url?: string | null) => resolveUrl(url) || undefined;
 
 const MAX_ROWS = 6;
 

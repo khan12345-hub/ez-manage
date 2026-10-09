@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { getBoardMembers } from "@/services/boards.api";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 interface Props {
   boardId: number;
@@ -72,7 +73,7 @@ function MemberList({ boardId }: { boardId: number }) {
           >
             {m.avatarUrl ? (
               <img
-                src={m.avatarUrl}
+                src={resolveUrl(m.avatarUrl) || undefined}
                 alt=""
                 className="h-7 w-7 shrink-0 rounded-full object-cover"
               />

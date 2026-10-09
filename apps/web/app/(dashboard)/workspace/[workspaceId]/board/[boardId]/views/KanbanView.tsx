@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -415,23 +415,28 @@ export function KanbanView({ board }: KanbanViewProps) {
   const statusCol = board.columns?.find((c: any) => c.type === "STATUS") ?? null;
 
   // Reuse main board cache (no-filter key) so switching tabs doesn't refetch
-  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery<any>({
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage, isError } = useInfiniteQuery<any>({
     queryKey: ["board-tasks", board.id, "", null],
     queryFn: ({ pageParam }) =>
-      getBoardTasks(board.id, { cursor: (pageParam as number | undefined) ?? undefined, limit: 100 }),
+      getBoardTasks(board.id, { cursor: (pageParam as number | undefined) ?? undefined, limit: 200 }),
     initialPageParam: null as number | null,
     getNextPageParam: (last: any) => (last.hasMore ? last.nextCursor : null),
     staleTime: 30_000,
     enabled: !!board.id,
   });
 
+  // Auto-cascade: fetch all pages in background, no scroll needed
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage && !isError) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
+
   const allTasks: any[] = Array.from(
     new Map(
       (data?.pages.flatMap((p: any) => p.tasks) ?? []).map((t: any) => [t.id, t])
     ).values()
   );
-  const totalTaskCount: number = (data?.pages[0] as any)?.total ?? 0;
-  const remainingTasks = Math.max(0, totalTaskCount - allTasks.length);
 
   const handleDragStart = (item: DragItem) => {
     dragItem.current = item;
@@ -571,29 +576,11 @@ export function KanbanView({ board }: KanbanViewProps) {
         ))}
       </div>
 
-      {/* Load more — below all columns */}
-      {hasNextPage && (
-        <div className="flex justify-center">
-          <button
-            type="button"
-            onClick={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            className="flex items-center gap-2 rounded-md border bg-background px-5 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50 shadow-sm"
-          >
-            {isFetchingNextPage ? (
-              "Loading..."
-            ) : (
-              <>
-                Load more
-                {remainingTasks > 0 && (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-                    {remainingTasks.toLocaleString()} remaining
-                  </span>
-                )}
-              </>
-            )}
-          </button>
-        </div>
+      {/* Background loading indicator */}
+      {isFetchingNextPage && (
+        <p className="py-2 text-center text-xs text-muted-foreground animate-pulse">
+          Loading tasks…
+        </p>
       )}
     </div>
   );

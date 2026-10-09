@@ -14,8 +14,8 @@ import {
 } from "@/services/tasks.api";
 import type { AssignedTask, ActivityItem } from "@/services/tasks.api";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
-const av = (url?: string | null) => (url ? `${BASE_URL}${url}` : undefined);
+import { resolveUrl } from "@/lib/resolveUrl";
+const av = (url?: string | null) => resolveUrl(url) || undefined;
 
 function formatLastSeen(iso: string | null | undefined) {
   if (!iso) return "Never logged in";

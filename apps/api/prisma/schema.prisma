@@ -414,6 +414,7 @@ enum BoardColumnType {
   CREATION_LOG
   TIME_TRACKING
   EMAIL
+  FORMULA
 }
 model StatusOption {
   id          Int         @id @default(autoincrement())
@@ -464,6 +465,8 @@ model BoardColumn {
   automationTriggers AutomationRule[] @relation("AutomationTriggerColumn")
 
   accessControlEnabled Boolean         @default(false)
+
+  formula String?
 
   @@index([boardId])
   @@map("board_columns")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   InfiniteData,
@@ -103,7 +103,7 @@ export function Board({
     queryFn: ({ pageParam }) =>
       getBoardTasks(board.id, {
         cursor: pageParam ?? undefined,
-        limit: 100,
+        limit: 200,
         search: debouncedSearch.trim() || undefined,
         person: personFilter?.users?.length
           ? personFilter.users.map((u) => u.id).join(",")
@@ -114,6 +114,8 @@ export function Board({
 
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextCursor : null,
+
+    staleTime: 5 * 60_000,
 
     retry: (failureCount, error: any) => {
       const status = error?.response?.status ?? error?.status;
@@ -220,12 +222,26 @@ export function Board({
         board.id,
       ),
 
-    onSuccess: () => {
+    onSuccess: (newTask) => {
       toast.success("Task created");
 
-      queryClient.invalidateQueries({
-        queryKey: ["board-tasks", board.id],
-      });
+      // Insert the new task immediately into the last loaded page so it's
+      // visible at the bottom of its group without waiting for a full refetch.
+      queryClient.setQueryData<InfiniteData<BoardTasksResponse>>(
+        ["board-tasks", board.id, debouncedSearch, personFilter],
+        (old) => {
+          if (!old?.pages.length) return old;
+          const lastIdx = old.pages.length - 1;
+          return {
+            ...old,
+            pages: old.pages.map((page, i) =>
+              i === lastIdx
+                ? { ...page, tasks: [...page.tasks, newTask], total: page.total + 1 }
+                : page,
+            ),
+          };
+        },
+      );
     },
 
     onError: (error: unknown) => {
@@ -327,37 +343,18 @@ export function Board({
 
   /**
    * ---------------------------------------------------------
-   * AUTO INFINITE SCROLL
+   * AUTO BACKGROUND FETCH — all pages load automatically
    * ---------------------------------------------------------
-   * The observer is torn down while a fetch is in progress and
-   * re-created when it finishes. This re-creation fires the
-   * callback immediately if the sentinel is still in view —
-   * ensuring every page auto-loads even when the board content
-   * is shorter than the viewport (no user scroll needed).
+   * As soon as page N finishes, this effect fires and kicks off
+   * page N+1 without waiting for the user to scroll anywhere.
+   * The board is never "locked" waiting for scroll; all tasks
+   * arrive in the background while the user reads page 1.
    */
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const isFetchingNextPageRef = useRef(isFetchingNextPage);
   useEffect(() => {
-    isFetchingNextPageRef.current = isFetchingNextPage;
-  }, [isFetchingNextPage]);
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    // Skip while fetching — observer re-connects when isFetchingNextPage goes false
-    if (!sentinel || !hasNextPage || isTasksError || isFetchingNextPage) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting && !isFetchingNextPageRef.current) {
-          fetchNextPage();
-        }
-      },
-      { rootMargin: "300px" },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasNextPage, isTasksError, fetchNextPage, isFetchingNextPage]);
+    if (hasNextPage && !isFetchingNextPage && !isTasksError) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, isTasksError, fetchNextPage]);
 
   /**
    * ---------------------------------------------------------
@@ -388,7 +385,7 @@ export function Board({
         search={search}
         isLoading={isLoading}
         isTasksLoading={isTasksLoading}
-        isFetching={isFetching || isTasksFetching}
+        isFetching={isFetching || (isTasksFetching && !isFetchingNextPage)}
         isError={isError}
         dragGroups={sortedGroups}
         filteredColumns={filteredColumns}
@@ -402,14 +399,18 @@ export function Board({
         newGroupFocusToken={newGroupFocusToken}
         hasNextPage={hasNextPage}
         isFetchingNextPage={isFetchingNextPage}
+        allTasksLoaded={!hasNextPage && !isFetchingNextPage && !isTasksLoading}
       />
 
       <BoardHorizontalScrollbar />
 
-      {/* Sentinel — triggers next page when scrolled into view */}
-      <div ref={sentinelRef} className="h-1" />
+      {isFetchingNextPage && (
+        <p className="py-2 text-center text-xs text-muted-foreground animate-pulse">
+          Loading tasks…
+        </p>
+      )}
 
-      {!hasNextPage && totalTaskCount > 100 && (
+      {!hasNextPage && totalTaskCount > 200 && (
         <p className="py-3 text-center text-xs text-muted-foreground">
           All {totalTaskCount.toLocaleString()} tasks loaded
         </p>

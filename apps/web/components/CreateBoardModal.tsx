@@ -92,8 +92,11 @@ export function CreateBoardModal({
   const [excelModalOpen, setExcelModalOpen] = useState(false);
 
   // Template state
+  // undefined = nothing chosen yet (Continue disabled)
+  // null      = "Blank board" explicitly chosen
+  // number    = specific template chosen
   const [showTemplates, setShowTemplates] = useState(false);
-  const [templateId, setTemplateId] = useState<number | null>(null);
+  const [templateId, setTemplateId] = useState<number | null | undefined>(undefined);
 
   const {
     data: templates = [],
@@ -112,11 +115,7 @@ export function CreateBoardModal({
       createBoard({
         ...values,
         workspaceId,
-        ...(templateId !== null
-          ? {
-              templateId,
-            }
-          : {}),
+        ...(typeof templateId === "number" ? { templateId } : {}),
       }),
 
     onSuccess: (board) => {
@@ -179,7 +178,7 @@ export function CreateBoardModal({
       setExcelFile(null);
       setExcelModalOpen(false);
       setShowTemplates(false);
-      setTemplateId(null);
+      setTemplateId(undefined);
     }
   }, [isOpen, reset]);
 
@@ -223,7 +222,7 @@ export function CreateBoardModal({
    * Template selection.
    */
   const handleTemplateContinue = () => {
-    if (templateId === null) {
+    if (templateId === undefined) {
       toast.error("Please select a template.");
       return;
     }
@@ -309,7 +308,34 @@ export function CreateBoardModal({
                   <button
                     type="button"
                     onClick={() => {
-                      setTemplateId(null);
+                      setTemplateId(undefined);
+                      setShowTemplates(true);
+                    }}
+                    disabled={isSubmitting}
+                    className="shrink-0 text-xs font-medium text-cyan-600 hover:underline disabled:pointer-events-none disabled:opacity-50 dark:text-cyan-400"
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+
+              {/* Blank board selected */}
+              {templateId === null && (
+                <div className="mb-4 flex items-center justify-between rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2.5 dark:border-cyan-900 dark:bg-cyan-950/30">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium text-cyan-600 dark:text-cyan-400">
+                      Starting with
+                    </p>
+
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      Blank board
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTemplateId(undefined);
                       setShowTemplates(true);
                     }}
                     disabled={isSubmitting}
@@ -365,7 +391,7 @@ export function CreateBoardModal({
                   </div>
 
                   {/* Template */}
-                  {!selectedTemplate && !excelFile && (
+                  {templateId === undefined && !excelFile && (
                     <div className="border-t border-border pt-4">
                       <button
                         type="button"
@@ -434,7 +460,7 @@ export function CreateBoardModal({
                   onClick={handleTemplateContinue}
                   disabled={
                     isSubmitting ||
-                    templateId === null
+                    templateId === undefined
                   }
                   className="bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700"
                 >

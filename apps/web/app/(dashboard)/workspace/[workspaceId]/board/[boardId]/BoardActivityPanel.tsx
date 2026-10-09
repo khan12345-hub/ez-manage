@@ -2,8 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
+import { resolveUrl } from "@/lib/resolveUrl";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow, format } from "date-fns";
 import {
@@ -190,7 +189,7 @@ function Avatar({ user }: { user: TaskActivity["user"] }) {
   if (user.avatarUrl && !imgError) {
     return (
       <img
-        src={`${BASE_URL}${user.avatarUrl}`}
+        src={resolveUrl(user.avatarUrl)}
         alt={initials}
         className="h-7 w-7 shrink-0 rounded-full object-cover"
         onError={() => setImgError(true)}
@@ -458,7 +457,7 @@ function UserAvatar({ user }: { user: BoardViewEntry["user"] }) {
   if (user.avatarUrl && !imgError) {
     return (
       <img
-        src={`${BASE_URL}${user.avatarUrl}`}
+        src={resolveUrl(user.avatarUrl)}
         alt={initials}
         className="h-9 w-9 shrink-0 rounded-full object-cover"
         onError={() => setImgError(true)}
@@ -710,7 +709,7 @@ export function BoardActivityPanel({ board, open, onClose }: Props) {
                             >
                               {m.user.avatarUrl ? (
                                 <img
-                                  src={`${BASE_URL}${m.user.avatarUrl}`}
+                                  src={resolveUrl(m.user.avatarUrl)}
                                   alt={initials}
                                   className="h-9 w-9 rounded-full object-cover"
                                 />

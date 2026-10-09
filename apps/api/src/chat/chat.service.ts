@@ -427,7 +427,7 @@ export class ChatService {
     const memberships = await this.prisma.chatMember.findMany({
       where: {
         userId,
-        channel: { workspaceId }, // all channels (CHANNEL + DIRECT) scoped to workspace
+        channel: { workspaceId },
       },
       select: {
         channelId: true,
@@ -435,17 +435,23 @@ export class ChatService {
       },
     });
 
-    const counts: Record<number, number> = {};
-    for (const m of memberships) {
-      counts[m.channelId] = await this.prisma.chatMessage.count({
-        where: {
-          channelId: m.channelId,
-          userId: { not: userId },
-          createdAt: m.lastReadAt ? { gt: m.lastReadAt } : undefined,
-        },
-      });
-    }
-    return counts;
+    if (!memberships.length) return {};
+
+    // Fire all count queries concurrently instead of sequentially (N → parallel N)
+    const entries = await Promise.all(
+      memberships.map(async (m) => {
+        const count = await this.prisma.chatMessage.count({
+          where: {
+            channelId: m.channelId,
+            userId: { not: userId },
+            ...(m.lastReadAt ? { createdAt: { gt: m.lastReadAt } } : {}),
+          },
+        });
+        return [m.channelId, count] as const;
+      }),
+    );
+
+    return Object.fromEntries(entries);
   }
 
   async getWorkspaceMembers(workspaceId: number) {

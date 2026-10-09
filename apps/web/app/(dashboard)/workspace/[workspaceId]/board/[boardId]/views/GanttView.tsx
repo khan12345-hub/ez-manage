@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { getBoardTasks } from "@/services/boards.api";
 import { updateCell } from "@/services/cells.api";
@@ -343,15 +343,22 @@ export function GanttView({ board }: GanttViewProps) {
   const [dragInfo, setDragInfo] = useState<{ taskId: number; deltaDays: number } | null>(null);
 
   // Fetch tasks — reuse main board cache
-  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage, isError } = useInfiniteQuery({
     queryKey: ["board-tasks", board.id, "", null],
     queryFn: ({ pageParam }) =>
-      getBoardTasks(board.id, { cursor: pageParam ?? undefined, limit: 100 }),
+      getBoardTasks(board.id, { cursor: pageParam ?? undefined, limit: 200 }),
     initialPageParam: null as number | null,
     getNextPageParam: (last: any) => (last.hasMore ? last.nextCursor : null),
     staleTime: 30_000,
     enabled: !!board.id,
   });
+
+  // Auto-cascade: load all pages in background without needing user interaction
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage && !isError) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
 
 
   const allTasks: any[] = useMemo(() => Array.from(
@@ -761,16 +768,10 @@ export function GanttView({ board }: GanttViewProps) {
               })
             )}
 
-            {/* Load more */}
-            {hasNextPage && (
-              <div className="flex items-center justify-center border-t py-3">
-                <button
-                  onClick={() => fetchNextPage()}
-                  disabled={isFetchingNextPage}
-                  className="flex items-center gap-2 rounded-lg border bg-background px-4 py-2 text-xs font-medium hover:bg-muted disabled:opacity-50"
-                >
-                  {isFetchingNextPage ? "Loading…" : `Load more tasks`}
-                </button>
+            {/* Background loading indicator */}
+            {isFetchingNextPage && (
+              <div className="flex items-center justify-center border-t py-2">
+                <p className="text-xs text-muted-foreground animate-pulse">Loading tasks…</p>
               </div>
             )}
           </div>

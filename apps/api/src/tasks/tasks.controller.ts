@@ -120,7 +120,6 @@ export class TasksController {
     @Body() dto: BulkUpdateDto,
     @CurrentUser() user: SessionUser,
   ) {
-    console.log("reached");
     return this.taskbulkActions.bulkUpdate(boardId, dto, user.id);
   }
 

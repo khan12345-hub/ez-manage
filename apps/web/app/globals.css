@@ -266,7 +266,7 @@ button{
   line-height: 1.5;
   color: #1e293b;         /* slate-800 */
   outline: none;
-  min-height: 1.5rem;
+  min-height: 3rem;
   max-height: 8rem;
   overflow-y: auto;
   word-break: break-word;

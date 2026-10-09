@@ -18,8 +18,7 @@ import { FormInput } from "@/components/form/FormInput";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { setUserStatus } from "@/services/chat.api";
 import { User } from "./ProfileSettings";
-
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 const STATUS_PRESETS = [
   { emoji: "🗓️", text: "In a meeting" },
@@ -67,7 +66,7 @@ export function ProfileSection({
   const imageSrc = previewUrl
     ? previewUrl.startsWith("blob:")
       ? previewUrl
-      : `${BASE_URL}${previewUrl}`
+      : resolveUrl(previewUrl)
     : undefined;
 
   function handleAvatarChange(e: ChangeEvent<HTMLInputElement>) {

@@ -28,7 +28,7 @@ import {
   Sparkles, ChevronRight, Zap,
 } from "lucide-react";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
+import { resolveUrl } from "@/lib/resolveUrl";
 const DEFAULT_COVER =
   "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1600&q=80";
 
@@ -531,11 +531,7 @@ export default function WorkspacePage() {
                               <div className="relative shrink-0">
                                 <Avatar className="h-9 w-9">
                                   <AvatarImage
-                                    src={
-                                      member.user.avatarUrl
-                                        ? `${BASE_URL}${member.user.avatarUrl}`
-                                        : undefined
-                                    }
+                                    src={resolveUrl(member.user.avatarUrl) || undefined}
                                   />
                                   <AvatarFallback className="bg-indigo-500/10 text-xs font-bold text-indigo-700 dark:text-indigo-400">
                                     {member.user.firstName[0]}

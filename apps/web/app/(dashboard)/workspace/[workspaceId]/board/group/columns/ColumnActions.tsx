@@ -15,14 +15,18 @@ import {
   ShieldCheck,
   ShieldOff,
   Users,
+  DollarSign,
+  Hash,
+  FunctionSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/error-message";
 import { useState } from "react";
 
-import { deleteColumn, updateColumnAccess } from "@/services/columns.api";
+import { deleteColumn, updateColumnAccess, updateColumnType } from "@/services/columns.api";
 
 import { ColumnAccessDialog } from "./ColumnAccessModal";
+import { FormulaEditorDialog } from "./FormulaEditorDialog";
 import { useAuth } from "@/providers/AuthProvider";
 
 interface BoardMember {
@@ -43,14 +47,18 @@ interface ColumnPermission {
 interface Props {
   column: {
     id: number;
+    name?: string;
+    type?: string;
+    formula?: string | null;
     isPrimary?: boolean;
     accessControlEnabled?: boolean;
     permissions?: ColumnPermission[];
   };
   members: BoardMember[];
+  boardColumns?: Array<{ id: number; name: string; type: string }>;
 }
 
-export function ColumnActions({ column, members }: Props) {
+export function ColumnActions({ column, members, boardColumns = [] }: Props) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const params = useParams();
@@ -58,6 +66,18 @@ export function ColumnActions({ column, members }: Props) {
   const boardId = Number(params.boardId);
 
   const [accessOpen, setAccessOpen] = useState(false);
+  const [formulaOpen, setFormulaOpen] = useState(false);
+
+  const changeTypeMutation = useMutation({
+    mutationFn: (type: "NUMBER" | "PRICE") => updateColumnType(column.id, type),
+    onSuccess: () => {
+      toast.success("Column type updated");
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Failed to change column type"));
+    },
+  });
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteColumn(column.id),
@@ -122,11 +142,12 @@ export function ColumnActions({ column, members }: Props) {
    */
   const canShowDelete = canDeleteColumn && !column.isPrimary;
 
-  /**
-   * Show the three-dot menu only when there
-   * is at least one actual action available.
-   */
-  const hasActions = canManageColumnProtection || canShowDelete;
+  const canChangeType =
+    !column.isPrimary && (column.type === "NUMBER" || column.type === "PRICE");
+
+  const isFormulaColumn = column.type === "FORMULA" && !column.isPrimary;
+
+  const hasActions = canManageColumnProtection || canShowDelete || canChangeType || isFormulaColumn;
 
   if (!hasActions) {
     return null;
@@ -146,6 +167,39 @@ export function ColumnActions({ column, members }: Props) {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-52">
+          {/* Edit formula */}
+          {isFormulaColumn && (
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onSelect={(e) => { e.preventDefault(); setFormulaOpen(true); }}
+            >
+              <FunctionSquare className="mr-2 h-4 w-4 text-rose-500" />
+              Edit formula…
+            </DropdownMenuItem>
+          )}
+
+          {/* Change type: NUMBER ↔ PRICE */}
+          {canChangeType && column.type === "NUMBER" && (
+            <DropdownMenuItem
+              disabled={changeTypeMutation.isPending}
+              className="cursor-pointer"
+              onClick={() => changeTypeMutation.mutate("PRICE")}
+            >
+              <DollarSign className="mr-2 h-4 w-4 text-green-600" />
+              Change to Currency ($)
+            </DropdownMenuItem>
+          )}
+          {canChangeType && column.type === "PRICE" && (
+            <DropdownMenuItem
+              disabled={changeTypeMutation.isPending}
+              className="cursor-pointer"
+              onClick={() => changeTypeMutation.mutate("NUMBER")}
+            >
+              <Hash className="mr-2 h-4 w-4" />
+              Change to Number (#)
+            </DropdownMenuItem>
+          )}
+
           {/* Protection controls */}
           {canManageColumnProtection && (
             <>
@@ -208,6 +262,20 @@ export function ColumnActions({ column, members }: Props) {
           columnId={column.id}
           permissions={column.permissions ?? []}
           members={members}
+        />
+      )}
+
+      {/* Formula editor dialog */}
+      {isFormulaColumn && (
+        <FormulaEditorDialog
+          open={formulaOpen}
+          onOpenChange={setFormulaOpen}
+          column={{
+            id: column.id,
+            name: column.name ?? "Formula",
+            formula: column.formula,
+          }}
+          boardColumns={boardColumns}
         />
       )}
     </div>

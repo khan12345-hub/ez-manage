@@ -119,20 +119,22 @@ export class ColumnsService {
         throw new NotFoundException('Column not found');
       }
 
-      const existing = await tx.boardColumn.findFirst({
-        where: {
-          boardId: column.boardId,
-          name: dto.name,
-          NOT: {
-            id: columnId,
+      if (dto.name !== undefined) {
+        const existing = await tx.boardColumn.findFirst({
+          where: {
+            boardId: column.boardId,
+            name: dto.name,
+            NOT: {
+              id: columnId,
+            },
           },
-        },
-      });
+        });
 
-      if (existing) {
-        throw new BadRequestException(
-          'A column with this name already exists.',
-        );
+        if (existing) {
+          throw new BadRequestException(
+            'A column with this name already exists.',
+          );
+        }
       }
 
       const updated = await tx.boardColumn.update({
@@ -140,7 +142,9 @@ export class ColumnsService {
           id: columnId,
         },
         data: {
-          name: dto.name,
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.type !== undefined && { type: dto.type }),
+          ...(dto.formula !== undefined && { formula: dto.formula }),
         },
       });
 
@@ -150,7 +154,10 @@ export class ColumnsService {
         entityType: ActivityEntityType.COLUMN,
         entityId: columnId,
         action: ActivityAction.UPDATED,
-        metadata: { oldName: column.name, newName: dto.name },
+        metadata: {
+          ...(dto.name !== undefined && { oldName: column.name, newName: dto.name }),
+          ...(dto.type !== undefined && { oldType: column.type, newType: dto.type }),
+        },
       }, tx);
 
       return updated;

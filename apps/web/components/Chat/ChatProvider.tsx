@@ -183,6 +183,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       socket?.off("message:updated");
       socket?.off("connect", handleConnect);
       socket?.off("disconnect", handleDisconnect);
+      // Disconnect on logout or user change — prevents zombie connections
+      socket?.disconnect();
+      socket = null;
     };
   }, [user?.id]);
 

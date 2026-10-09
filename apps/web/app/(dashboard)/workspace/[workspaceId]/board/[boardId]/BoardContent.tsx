@@ -36,6 +36,7 @@ interface BoardContentProps {
   newGroupFocusToken: number;
   hasNextPage?:boolean
   isFetchingNextPage?:boolean
+  allTasksLoaded?: boolean
 }
 
 export function BoardContent({
@@ -56,6 +57,7 @@ export function BoardContent({
   selection,
   newGroupFocusToken,
   isFetchingNextPage = false,
+  allTasksLoaded = false,
 }: BoardContentProps) {
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
 
@@ -161,6 +163,7 @@ export function BoardContent({
                         members={board.members}
                         isTasksLoading={isTasksLoading}
                         isFetchingNextPage={isFetchingNextPage}
+                        allTasksLoaded={allTasksLoaded}
                       />
                     </SortableGroup>
                   )}

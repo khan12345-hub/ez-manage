@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ColumnActions } from "./ColumnActions";
 import { useColumnRename } from "./useColumnRename.hooks";
 
-export const Headers = ({ column, members }: any) => {
+export const Headers = ({ column, members, allColumns }: any) => {
   const { name, setName, save, handleKeyDown, isSaving } =
     useColumnRename({
       columnId: column.id,
@@ -159,6 +159,7 @@ export const Headers = ({ column, members }: any) => {
         <ColumnActions
           members={members}
           column={column}
+          boardColumns={allColumns ?? []}
         />
       </div>
 

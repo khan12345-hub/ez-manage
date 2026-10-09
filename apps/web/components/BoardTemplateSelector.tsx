@@ -8,7 +8,7 @@ import { BoardTemplate } from "@/app/(dashboard)/system-settings/board-template/
 
 interface BoardTemplateSelectorProps {
   templates: BoardTemplate[];
-  selectedTemplateId: number | null;
+  selectedTemplateId: number | null | undefined;
   onSelect: (templateId: number | null) => void;
   isLoading?: boolean;
 }

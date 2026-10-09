@@ -449,6 +449,7 @@ export class BoardsService {
           },
           select: {
             id: true,
+            boardId: true,
             name: true,
             color: true,
             order: true,

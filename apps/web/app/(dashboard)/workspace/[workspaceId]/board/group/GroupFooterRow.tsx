@@ -157,7 +157,7 @@ function setStoredAgg(columnId: number, agg: AggType) {
 }
 
 // ── Individual footer cell ────────────────────────────────────────────────────
-function FooterCell({ column, tasks }: { column: any; tasks: any[] }) {
+function FooterCell({ column, tasks, allTasksLoaded }: { column: any; tasks: any[]; allTasksLoaded?: boolean }) {
   const [aggType, setAggType] = useState<AggType>("none");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLTableCellElement>(null);
@@ -205,6 +205,10 @@ function FooterCell({ column, tasks }: { column: any; tasks: any[] }) {
         {result ? (
           <div className="flex flex-col items-start leading-none gap-0.5 min-w-0">
             <div className="flex items-center gap-1 max-w-full">
+              {/* Show ~ when the agg is a numeric aggregate and not all tasks are loaded */}
+              {!allTasksLoaded && ["sum","avg","min","max"].includes(aggType) && (
+                <span className="text-[11px] text-amber-500" title="Loading all tasks…">~</span>
+              )}
               <span className="truncate text-[13px] font-semibold text-foreground">{result.display}</span>
               {result.extra != null && result.extra > 0 && (
                 <span className="shrink-0 rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground/70">
@@ -259,10 +263,12 @@ export function GroupFooterRow({
   tasks,
   columns,
   color,
+  allTasksLoaded = false,
 }: {
   tasks: any[];
   columns: any[];
   color?: string;
+  allTasksLoaded?: boolean;
 }) {
   return (
     <tfoot>
@@ -280,7 +286,7 @@ export function GroupFooterRow({
 
         {/* One cell per board column */}
         {columns.map((col) => (
-          <FooterCell key={col.id} column={col} tasks={tasks} />
+          <FooterCell key={col.id} column={col} tasks={tasks} allTasksLoaded={allTasksLoaded} />
         ))}
 
         {/* Empty spacer for "Add Column" slot */}

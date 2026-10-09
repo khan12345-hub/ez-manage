@@ -2,8 +2,7 @@
 
 import { Bot, ChevronDown, MoreHorizontal, Users } from "lucide-react";
 import { useState } from "react";
-
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -207,7 +206,7 @@ export function BoardHeader({ board }: BoardHeaderProps) {
           >
             {user?.avatarUrl && !avatarError ? (
               <img
-                src={`${BASE_URL}${user.avatarUrl}`}
+                src={resolveUrl(user.avatarUrl)}
                 alt={initials}
                 className="h-9 w-9 rounded-full object-cover"
                 onError={() => setAvatarError(true)}

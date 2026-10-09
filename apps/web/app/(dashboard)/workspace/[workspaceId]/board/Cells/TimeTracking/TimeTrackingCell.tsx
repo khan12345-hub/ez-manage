@@ -25,18 +25,18 @@ function formatDuration(ms: number): string {
 }
 
 export function TimeTrackingCell({
-  task,
+  value: taskId,
   boardId,
 }: CellEditorProps<number>) {
   const qc = useQueryClient();
   const [runningMs, setRunningMs] = useState(0);
 
   const { data: entries = [] } = useQuery({
-    queryKey: ["time-entries", boardId, task?.id],
-    queryFn: () => getTimeEntries(boardId!, task!.id),
-    enabled: Boolean(boardId && task?.id),
-    staleTime: 120_000,        // 2 minutes — avoid re-fetching every tab switch
-    gcTime: 300_000,           // keep cached for 5 minutes
+    queryKey: ["time-entries", boardId, taskId],
+    queryFn: () => getTimeEntries(boardId!, taskId!),
+    enabled: Boolean(boardId && taskId),
+    staleTime: 120_000,
+    gcTime: 300_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
@@ -64,16 +64,16 @@ export function TimeTrackingCell({
   const isRunning = Boolean(activeEntry);
 
   const invalidate = () =>
-    qc.invalidateQueries({ queryKey: ["time-entries", boardId, task?.id] });
+    qc.invalidateQueries({ queryKey: ["time-entries", boardId, taskId] });
 
   const startMutation = useMutation({
-    mutationFn: () => startTimer(boardId!, task!.id),
+    mutationFn: () => startTimer(boardId!, taskId!),
     onSuccess: invalidate,
     onError: () => toast.error("Could not start timer"),
   });
 
   const stopMutation = useMutation({
-    mutationFn: () => stopTimer(boardId!, task!.id),
+    mutationFn: () => stopTimer(boardId!, taskId!),
     onSuccess: invalidate,
     onError: () => toast.error("Could not stop timer"),
   });

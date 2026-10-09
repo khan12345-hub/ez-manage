@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 export function GuestHeader() {
   const { user } = useAuth();
@@ -27,7 +28,7 @@ export function GuestHeader() {
           <div className="flex items-center gap-2.5">
             {user.avatarUrl ? (
               <img
-                src={user.avatarUrl}
+                src={resolveUrl(user.avatarUrl) || undefined}
                 alt={`${user.firstName} ${user.lastName}`}
                 className="h-8 w-8 rounded-full object-cover"
               />

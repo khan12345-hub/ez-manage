@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import { useInviteModalStore } from "@/store/invite-modal";
 import { useGroupStore } from "@/store/create-group-store";
 
 import { GroupTable } from "./GroupTable";
@@ -65,9 +64,10 @@ export function Group({
   members,
   isTasksLoading = false,
   isFetchingNextPage = false,
+  allTasksLoaded = false,
   ...props
 }: any) {
-  const { boardId } = useInviteModalStore();
+  const boardId = group?.boardId;
   const addNewGroup = useGroupStore((s) => s.addNewGroup);
 
   const [open, setOpen] = useState(false);
@@ -137,6 +137,8 @@ export function Group({
           onAddGroup={addNewGroup}
           taskCount={rootTaskCount}
           completedTaskCount={showProgress ? completedTaskCount : undefined}
+          tasks={rootTasks}
+          columns={colList}
         />
 
         {!isCollapsed && (
@@ -153,6 +155,7 @@ export function Group({
                 newTaskFocusToken={newTaskFocusToken}
                 members={members}
                 isFetchingNextPage={isFetchingNextPage}
+                allTasksLoaded={allTasksLoaded}
               />
         )}
       </div>

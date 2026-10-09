@@ -17,6 +17,7 @@ import {
   Type,
   Search,
   History,
+  FunctionSquare,
 } from "lucide-react";
 
 import {
@@ -42,6 +43,7 @@ export type ColumnType =
   | "TIME_TRACKING"
   | "EMAIL"
   | "LABEL"
+  | "FORMULA"
 
 interface ColumnTypeItem {
   label: string;
@@ -149,6 +151,13 @@ const COLUMN_TYPES: ColumnTypeItem[] = [
     category: "Super useful",
     icon: Timer,
     color: "bg-indigo-500",
+  },
+  {
+    label: "Formula",
+    type: "FORMULA",
+    category: "Super useful",
+    icon: FunctionSquare,
+    color: "bg-rose-500",
   },
 ];
 

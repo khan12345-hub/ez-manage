@@ -11,6 +11,7 @@ import {
 
 import { UpdateBoardFormDto } from './dto/update-board-form.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { Prisma } from 'generated/prisma/client';
 
 @Injectable()
 export class BoardFormsService {
@@ -167,6 +168,8 @@ export class BoardFormsService {
 
           isActive: dto.isActive ?? true,
 
+          ...(dto.design !== undefined && { design: dto.design as Prisma.InputJsonValue }),
+
           fields: {
             create: dto.fields.map((field, index) => ({
               columnId: field.columnId,
@@ -279,6 +282,10 @@ export class BoardFormsService {
 
           ...(dto.isActive !== undefined && {
             isActive: dto.isActive,
+          }),
+
+          ...(dto.design !== undefined && {
+            design: dto.design as Prisma.InputJsonValue,
           }),
         },
       });

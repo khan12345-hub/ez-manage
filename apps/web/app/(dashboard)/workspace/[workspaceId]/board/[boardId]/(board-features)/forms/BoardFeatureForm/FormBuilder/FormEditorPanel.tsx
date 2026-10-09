@@ -132,7 +132,7 @@ export function FormEditorPanel({
     <div className="w-full max-w-2xl">
       {/* ── Form header ─────────────────────────────────────── */}
       <div
-        className="mb-2 cursor-text rounded-xl bg-white px-7 py-5 shadow-sm dark:bg-[#2b2c30]"
+        className="mb-3 cursor-text rounded-xl bg-white px-6 py-4 shadow-sm dark:bg-[#2b2c30]"
         onClick={() => onSelectField(null)}
       >
         <input
@@ -153,7 +153,7 @@ export function FormEditorPanel({
       {pages.map((page, pageIndex) => {
         const pageFields = getPageFields(pageIndex);
         return (
-          <div key={page.id} className="mt-4">
+          <div key={page.id} className="mt-3">
             {/* Page label row — shown for all pages */}
             {pageIndex > 0 ? (
               /* Page divider for pages 2+ with title + delete */
@@ -170,14 +170,14 @@ export function FormEditorPanel({
               </p>
             )}
 
-            {/* White page card — wraps all fields for this page */}
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm dark:bg-[#2b2c30]">
+            {/* Field cards — each is its own card on the canvas */}
+            <div className="space-y-1.5">
               {/* + at top of page */}
               <AddBetween onClick={() => setAddModal({ pageIndex, allowPage: false })} />
 
               {/* Fields */}
               {pageFields.length === 0 ? (
-                <div className="px-7 py-8 text-center text-sm text-muted-foreground/60">
+                <div className="rounded-xl bg-white px-7 py-8 text-center text-sm text-muted-foreground/60 shadow-sm dark:bg-[#2b2c30]">
                   No questions on this page — click <strong>+</strong> to add
                 </div>
               ) : (
@@ -209,7 +209,7 @@ export function FormEditorPanel({
       />
 
       {/* ── Submit button ───────────────────────────────────── */}
-      <div className="rounded-xl bg-white px-7 py-4 shadow-sm dark:bg-[#2b2c30]">
+      <div className="rounded-xl bg-white px-6 py-3 shadow-sm dark:bg-[#2b2c30]">
         <button
           type="button"
           disabled
@@ -398,18 +398,18 @@ function PageDivider({
 /* ── Small "+" add button between fields ──────────────────────────── */
 function AddBetween({ onClick, alwaysVisible }: { onClick: () => void; alwaysVisible?: boolean }) {
   return (
-    <div className="group flex items-center justify-center py-1">
+    <div className="group flex items-center justify-center py-0.5">
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onClick(); }}
         className={cn(
-          "flex h-7 w-7 items-center justify-center rounded-full border border-dashed bg-background text-muted-foreground transition-all hover:border-primary hover:bg-primary/5 hover:text-primary",
+          "flex h-5 w-5 items-center justify-center rounded-full border border-dashed bg-background text-muted-foreground transition-all hover:border-primary hover:bg-primary/5 hover:text-primary",
           alwaysVisible
             ? "border-muted-foreground/50 opacity-60 hover:opacity-100"
-            : "border-muted-foreground/30 opacity-30 hover:opacity-100 group-hover:opacity-60"
+            : "border-muted-foreground/30 opacity-0 hover:opacity-100 group-hover:opacity-60"
         )}
       >
-        <Plus className="h-4 w-4" />
+        <Plus className="h-3 w-3" />
       </button>
     </div>
   );
@@ -447,7 +447,7 @@ function FieldEditorCard({
     <div
       onClick={onSelect}
       className={cn(
-        "relative mb-2 cursor-pointer overflow-hidden rounded-xl bg-white transition-all shadow-sm dark:bg-[#2b2c30]",
+        "relative cursor-pointer overflow-hidden rounded-xl bg-white transition-all shadow-sm dark:bg-[#2b2c30]",
         isSelected ? "ring-2 ring-primary" : "hover:shadow-md",
       )}
     >
@@ -455,7 +455,7 @@ function FieldEditorCard({
         <div className="absolute inset-y-0 left-0 w-1 bg-primary" />
       )}
 
-      <div className={cn("px-6 pt-4", isSelected ? "pb-0" : "pb-4")}>
+      <div className={cn("px-5 pt-3", isSelected ? "pb-0" : "pb-3")}>
         {/* Field header */}
         <div className="flex items-center gap-2.5">
           <TypeIcon type={field.type} />
@@ -482,7 +482,7 @@ function FieldEditorCard({
 
         {/* Expanded section */}
         {isSelected && (
-          <div onClick={(e) => e.stopPropagation()} className="mt-3 space-y-3 pb-4">
+          <div onClick={(e) => e.stopPropagation()} className="mt-2 space-y-2.5 pb-3">
             <input
               value={field.description ?? ""}
               onChange={(e) => onUpdate({ ...field, description: e.target.value })}

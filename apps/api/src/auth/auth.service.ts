@@ -276,12 +276,16 @@ export class AuthService {
     });
 
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
-    await this.mailService.sendMail({
-      to: email,
-      subject: 'Reset your password',
-      text: `Click the link to reset your password (expires in 1 hour): ${resetUrl}`,
-      html: `<p>Click the link below to reset your password. The link expires in <strong>1 hour</strong>.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>If you did not request a password reset, please ignore this email.</p>`,
-    });
+    try {
+      await this.mailService.sendMail({
+        to: email,
+        subject: 'Reset your password',
+        text: `Click the link to reset your password (expires in 1 hour): ${resetUrl}`,
+        html: `<p>Click the link below to reset your password. The link expires in <strong>1 hour</strong>.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>If you did not request a password reset, please ignore this email.</p>`,
+      });
+    } catch {
+      // Mail failure must never reveal whether the account exists
+    }
 
     return { message: 'If that email exists, a reset link has been sent.' };
   }

@@ -37,6 +37,7 @@ function CallToast() {
 
   useEffect(() => {
     if (!incomingCall) return;
+    setJoining(false); // reset from any previous call attempt
     stopRingtone.current = playRingtone();
     const t = setTimeout(() => {
       stopRingtone.current?.();

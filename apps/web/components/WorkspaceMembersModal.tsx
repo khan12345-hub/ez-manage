@@ -11,6 +11,7 @@ import {
   updateWorkspaceMemberRole,
   removeWorkspaceMember,
 } from "@/services/workspace.api";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 export interface MemberDetail {
   id: number;
@@ -198,7 +199,7 @@ export function WorkspaceMembersModal({
                     {/* avatar */}
                     {m.user.avatarUrl ? (
                       <img
-                        src={m.user.avatarUrl}
+                        src={resolveUrl(m.user.avatarUrl) || undefined}
                         alt=""
                         className="h-8 w-8 shrink-0 rounded-full object-cover"
                       />

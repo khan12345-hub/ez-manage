@@ -9,6 +9,7 @@ import {
 } from "@livekit/components-react";
 import { useEffect, useState } from "react";
 import { Minimize2, Maximize2, PhoneOff } from "lucide-react";
+import { toast } from "sonner";
 
 // ── Minimized floating bar ───────────────────────────────────────────────────
 // Must render inside <LiveKitRoom> to access participant hooks
@@ -117,8 +118,24 @@ export function LiveKitCallPanel({
         connect={Boolean(token && serverUrl)}
         video={!startWithVideoMuted}
         audio={true}
+        options={{
+          audioCaptureDefaults: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        }}
         onDisconnected={onClose}
-        onError={() => {}}
+        onError={(error) => {
+          const msg = error?.message ?? String(error);
+          if (/permission|denied|notallowed/i.test(msg)) {
+            toast.error("Microphone/Camera access denied — please allow it in your browser and rejoin.");
+          } else if (/notfound|devicenotfound/i.test(msg)) {
+            toast.error("No microphone or camera found. Check your devices and rejoin.");
+          } else {
+            toast.error(`Call error: ${msg}`);
+          }
+        }}
         className={minimized ? "" : "flex flex-1 flex-col overflow-hidden"}
       >
         {/* Always-on audio renderer (works even when minimized) */}

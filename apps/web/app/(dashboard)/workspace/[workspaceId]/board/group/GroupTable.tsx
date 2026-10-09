@@ -37,6 +37,7 @@ interface Props {
   newTaskFocusToken?: number;
   isFetching?: boolean;
   isFetchingNextPage?: boolean;
+  allTasksLoaded?: boolean;
   members?: Array<{
     id: number;
     role: string;
@@ -63,6 +64,7 @@ export function GroupTable({
   members,
   isFetching,
   isFetchingNextPage,
+  allTasksLoaded = false,
 }: Props) {
   const { setNodeRef } = useDroppable({
     id: `group-drop-${group.id}`,
@@ -181,6 +183,7 @@ export function GroupTable({
                     key={column.id}
                     column={column}
                     members={members}
+                    allColumns={columns}
                   />
                 ))}
               </SortableContext>
@@ -266,6 +269,7 @@ export function GroupTable({
           tasks={(group.tasks ?? []).filter((t: any) => !t.parentId)}
           columns={columns}
           color={group.color}
+          allTasksLoaded={allTasksLoaded}
         />
       </table>
     </div>
