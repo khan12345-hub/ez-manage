@@ -351,9 +351,11 @@ export function Board({
    * arrive in the background while the user reads page 1.
    */
   useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage && !isTasksError) {
-      fetchNextPage();
-    }
+    if (!hasNextPage || isFetchingNextPage || isTasksError) return;
+    // Delay next page fetch to avoid burst requests that trigger server 429s.
+    // Each page fires 500 ms after the previous one finishes, not immediately.
+    const timer = setTimeout(() => fetchNextPage(), 500);
+    return () => clearTimeout(timer);
   }, [hasNextPage, isFetchingNextPage, isTasksError, fetchNextPage]);
 
   /**

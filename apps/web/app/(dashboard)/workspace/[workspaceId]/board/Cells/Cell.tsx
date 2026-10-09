@@ -3,6 +3,7 @@
 import { MessageCircleMore, FileInput } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { EditableCell } from "../EditableCells/EditableCell";
 import { CELL_CONFIG } from "./cell-config";
@@ -97,16 +98,15 @@ export function Cell({
             column={column}
             isDragging={isDragging}
             editable={column.type !== "CREATION_LOG" && column.type !== "TIME_TRACKING" && column.type !== "FORMULA"}
-            onSave={(value) =>
-              config.save({
-                task,
-                cell,
-                column,
-                value,
-                boardId,
-                queryClient,
-              })
-            }
+            onSave={(value) => {
+              const promise = config.save({ task, cell, column, value, boardId, queryClient });
+              promise?.catch?.((err: any) => {
+                const status = err?.response?.status ?? err?.status;
+                if (status !== 429) {
+                  toast.error('Failed to save change. Please try again.');
+                }
+              });
+            }}
           />
         </div>
 

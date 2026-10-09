@@ -16,12 +16,11 @@ import {
 import { getBoardTasks } from "@/services/boards.api";
 import { createCell, updateCell } from "@/services/cells.api";
 import { useTaskDetailsStore } from "@/store/task-details-store";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 interface KanbanViewProps {
   board: any;
 }
-
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
 
 /* ─── Types ────────────────────────────────────────────────── */
 
@@ -133,7 +132,7 @@ function FileCarousel({ files }: { files: { id: number; name: string; url: strin
     <div className="relative mb-2 h-[130px] w-full overflow-hidden rounded-md bg-muted">
       {isImage ? (
         <img
-          src={BASE_URL + file.url}
+          src={resolveUrl(file.url)}
           alt={file.name}
           loading="lazy"
           className="h-full w-full object-cover"

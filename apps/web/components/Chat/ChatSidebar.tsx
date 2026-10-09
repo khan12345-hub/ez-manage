@@ -9,6 +9,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserProfilePanel } from "@/components/UserProfilePanel";
 import type { ChatChannel } from "@/services/chat.api";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 interface Props {
   onClose: () => void;
@@ -42,8 +43,7 @@ const CLEAR_AFTER_OPTIONS = [
   { label: "Today", value: "today" },
 ] as const;
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
-const av = (url?: string | null) => url ? `${BASE_URL}${url}` : undefined;
+const av = (url?: string | null) => url ? resolveUrl(url) : undefined;
 
 export function ChatSidebar({ onClose }: Props) {
   const { user } = useAuth();

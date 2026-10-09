@@ -9,8 +9,7 @@ import { MessageSquare, UserCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAllChatUsers, getOrCreateDM } from "@/services/chat.api";
 import { useChatStore } from "@/store/chat-store";
-
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
+import { resolveUrl } from "@/lib/resolveUrl";
 
 interface HoverState {
   userId: number;
@@ -123,7 +122,7 @@ export function CommentContent({ html }: Props) {
                   <AvatarImage
                     src={
                       mentionUser?.user.avatarUrl
-                        ? `${BASE_URL}${mentionUser.user.avatarUrl}`
+                        ? resolveUrl(mentionUser.user.avatarUrl)
                         : undefined
                     }
                   />
