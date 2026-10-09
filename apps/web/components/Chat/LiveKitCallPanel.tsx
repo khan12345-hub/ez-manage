@@ -111,9 +111,10 @@ function PermissionDeniedScreen({
       {isDenied && (
         <div className="flex flex-col items-center gap-1 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-left text-xs text-gray-300">
           <p className="font-medium text-white">How to allow:</p>
-          <p>1. Click the 🔒 or 📷 icon in the address bar</p>
-          <p>2. Set Microphone &amp; Camera to <strong>Allow</strong></p>
-          <p>3. Click <strong>Retry</strong> below</p>
+          <p>1. Click the 🔒 icon in the address bar</p>
+          <p>2. Click <strong>Site settings</strong></p>
+          <p>3. Find <strong>Microphone</strong> &amp; <strong>Camera</strong> → set to <strong>Allow</strong></p>
+          <p>4. Come back and click <strong>Retry</strong> below</p>
         </div>
       )}
 
