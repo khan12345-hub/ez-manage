@@ -1,4 +1,5 @@
 import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class AdminUpdateUserDto {
   @IsOptional()
@@ -18,6 +19,7 @@ export class AdminUpdateUserDto {
   systemRole?: 'USER' | 'SUPER_ADMIN';
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MinLength(8)
   newPassword?: string;

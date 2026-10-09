@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,10 +55,12 @@ export function UserFormDialog({
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [systemRole, setSystemRole] = useState<"USER" | "SUPER_ADMIN">("USER");
 
   useEffect(() => {
     if (open) {
+      setShowPassword(false);
       if (user) {
         const parts = user.name.split(" ");
         setFirstName(parts[0] ?? "");
@@ -131,15 +133,26 @@ export function UserFormDialog({
             <Label htmlFor="password">
               {isEdit ? "New Password (leave blank to keep current)" : "Password"}
             </Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={isEdit ? "••••••••" : "Min. 8 characters"}
-              required={!isEdit}
-              minLength={8}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={isEdit ? "Enter new password to change" : "Min. 8 characters"}
+                required={!isEdit}
+                minLength={8}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1.5">
