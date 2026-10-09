@@ -9,6 +9,7 @@ import {
   Put,
   Req,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
 
@@ -19,7 +20,9 @@ import { UpdateColumnDto } from './dto/update-column.dto';
 import { ReorderColumnDto } from './dto/reorder-column.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SessionUser } from 'src/auth/types/session-user.type';
+import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 
+@UseGuards(SessionAuthGuard)
 @Controller('columns')
 export class ColumnsController {
   constructor(

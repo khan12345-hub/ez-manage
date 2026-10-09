@@ -24,9 +24,7 @@ export class AuthController {
   @Throttle({ auth: { ttl: 60_000, limit: 5 } })
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: any) {
-    const user = this.authService.login(dto, req);
-    
-    return user;
+    return this.authService.login(dto, req);
   }
 
   @SkipThrottle()

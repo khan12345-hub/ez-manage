@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MaxLength, IsEnum, IsOptional, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, MaxLength, IsEnum, IsOptional, IsInt, IsPositive } from 'class-validator';
 import { BoardVisibility } from '../../../generated/prisma/client';
 
 export class CreateBoardDto {
@@ -7,7 +7,8 @@ export class CreateBoardDto {
   @MaxLength(100)
   name!: string;
 
-  @IsNotEmpty()
+  @IsInt()
+  @IsPositive()
   workspaceId!: number;
 
   @IsOptional()

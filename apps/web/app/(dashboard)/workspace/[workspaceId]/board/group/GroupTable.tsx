@@ -38,6 +38,7 @@ interface Props {
   isFetching?: boolean;
   isFetchingNextPage?: boolean;
   allTasksLoaded?: boolean;
+  totalTaskCount?: number;
   members?: Array<{
     id: number;
     role: string;
@@ -65,6 +66,7 @@ export function GroupTable({
   isFetching,
   isFetchingNextPage,
   allTasksLoaded = false,
+  totalTaskCount,
 }: Props) {
   const { setNodeRef } = useDroppable({
     id: `group-drop-${group.id}`,
@@ -236,9 +238,9 @@ export function GroupTable({
               </tr>
             )}
 
-            {/* Skeleton rows while next page loads */}
-            {isFetchingNextPage &&
-              Array.from({ length: 5 }).map((_, i) => (
+            {/* Skeleton rows while next page loads — only for groups that still have tasks loading */}
+            {isFetchingNextPage && !allTasksLoaded &&
+              Array.from({ length: 3 }).map((_, i) => (
                 <tr key={`skeleton-${i}`} className="border-b border-border/40">
                   <td className="w-1.5 p-0" style={{ backgroundColor: group.color }} />
                   <td className="sticky left-1.5 z-20 w-[200px] bg-background px-3 py-2.5 sm:w-[450px]">
@@ -270,6 +272,7 @@ export function GroupTable({
           columns={columns}
           color={group.color}
           allTasksLoaded={allTasksLoaded}
+          totalTaskCount={totalTaskCount ?? group._count?.tasks}
         />
       </table>
     </div>

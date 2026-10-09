@@ -37,45 +37,49 @@ export class RecurringTasksService {
     let spawned = 0;
 
     for (const task of templates) {
-      if (!this.isDueToday(task, today)) continue;
+      try {
+        if (!this.isDueToday(task, today)) continue;
 
-      // Skip if we already spawned one today
-      const latest = task.recurringCopies[0];
-      if (latest) {
-        const latestDate = new Date(latest.createdAt);
-        latestDate.setHours(0, 0, 0, 0);
-        if (latestDate.getTime() === today.getTime()) continue;
-      }
+        // Skip if we already spawned one today
+        const latest = task.recurringCopies[0];
+        if (latest) {
+          const latestDate = new Date(latest.createdAt);
+          latestDate.setHours(0, 0, 0, 0);
+          if (latestDate.getTime() === today.getTime()) continue;
+        }
 
-      const lastSibling = await this.prisma.task.findFirst({
-        where: { groupId: task.groupId, parentId: null },
-        orderBy: { order: 'desc' },
-        select: { order: true },
-      });
+        const lastSibling = await this.prisma.task.findFirst({
+          where: { groupId: task.groupId, parentId: null },
+          orderBy: { order: 'desc' },
+          select: { order: true },
+        });
 
-      const columns = await this.prisma.boardColumn.findMany({
-        where: {
-          board: { groups: { some: { id: task.groupId } } },
-          isPrimary: false,
-        },
-        select: { id: true },
-        orderBy: { order: 'asc' },
-      });
-
-      await this.prisma.task.create({
-        data: {
-          groupId: task.groupId,
-          createdById: task.createdById,
-          name: task.name,
-          order: lastSibling ? lastSibling.order + 1000 : 1000,
-          sourceTaskId: task.id,
-          cells: {
-            create: columns.map((c) => ({ column: { connect: { id: c.id } } })),
+        const columns = await this.prisma.boardColumn.findMany({
+          where: {
+            board: { groups: { some: { id: task.groupId } } },
+            isPrimary: false,
           },
-        },
-      });
+          select: { id: true },
+          orderBy: { order: 'asc' },
+        });
 
-      spawned++;
+        await this.prisma.task.create({
+          data: {
+            groupId: task.groupId,
+            createdById: task.createdById,
+            name: task.name,
+            order: lastSibling ? lastSibling.order + 1000 : 1000,
+            sourceTaskId: task.id,
+            cells: {
+              create: columns.map((c) => ({ column: { connect: { id: c.id } } })),
+            },
+          },
+        });
+
+        spawned++;
+      } catch (err) {
+        this.logger.error(`Failed to spawn recurring task ${task.id}`, err);
+      }
     }
 
     if (spawned > 0) {

@@ -24,7 +24,6 @@ export function FormSelect({
   const { control } = useFormContext();
 
   if (!show) return null;
-  console.log("OPTIONS", options)
   return (
     <Controller
       control={control}

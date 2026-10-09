@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { FormInput } from "@/components/form/FormInput";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setUpAccount } from "@/services/auth/auth.api";
@@ -29,7 +29,8 @@ export const setupAccountSchema = z
       .min(8, "Password must be at least 8 characters")
       .regex(/[A-Z]/, "Must contain an uppercase letter")
       .regex(/[a-z]/, "Must contain a lowercase letter")
-      .regex(/[0-9]/, "Must contain a number"),
+      .regex(/[0-9]/, "Must contain a number")
+      .regex(/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\];'`~]/, "Must contain a special character"),
 
     confirmPassword: z.string(),
   })
@@ -58,12 +59,14 @@ export default function SetupAccountPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const setupAccountMutation = useMutation({
     mutationFn: (data: SetupAccountPayload) => setUpAccount(data),
     onSuccess: () => {
       toast.success(`Account Setup Completed!`);
-      router.push("/dashboard");
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      router.push("/workspace/1");
     },
     onError: (error: any) => {
       const errorMsg =

@@ -673,7 +673,7 @@ export class CellsService {
     // Delete the database relation first
     await this.prisma.taskCellFile.delete({
       where: {
-        id: fileId,
+        id: file.id,
       },
     });
 

@@ -240,6 +240,61 @@ export class BoardAccessManagementService {
   }
 
   /**
+   * Update a board member's group access (accessAllGroups + specific group IDs)
+   */
+  async updateMemberGroupAccess(
+    boardId: number,
+    memberId: number,
+    userId: number,
+    accessAllGroups: boolean,
+    groupIds?: number[],
+  ) {
+    await this.assertCanManageAccess(boardId, userId);
+
+    const member = await this.prisma.boardMember.findFirst({
+      where: { id: memberId, boardId },
+      select: { id: true, role: true },
+    });
+
+    if (!member) {
+      throw new NotFoundException('Board member not found');
+    }
+
+    if (member.role === BoardMemberRole.OWNER) {
+      throw new BadRequestException('Cannot restrict access for the board owner.');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.boardMember.update({
+        where: { id: memberId },
+        data: { accessAllGroups },
+      });
+
+      await tx.boardMemberGroupAccess.deleteMany({
+        where: { boardMemberId: memberId },
+      });
+
+      if (!accessAllGroups && groupIds && groupIds.length > 0) {
+        await tx.boardMemberGroupAccess.createMany({
+          data: groupIds.map((groupId) => ({ boardMemberId: memberId, groupId })),
+          skipDuplicates: true,
+        });
+      }
+    });
+
+    return this.prisma.boardMember.findUnique({
+      where: { id: memberId },
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        accessAllGroups: true,
+        groupAccess: { select: { groupId: true } },
+      },
+    });
+  }
+
+  /**
    * Verify that the current user can manage board access.
    */
   private async assertCanManageAccess(

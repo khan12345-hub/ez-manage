@@ -155,7 +155,8 @@ export function Group({
                 newTaskFocusToken={newTaskFocusToken}
                 members={members}
                 isFetchingNextPage={isFetchingNextPage}
-                allTasksLoaded={allTasksLoaded}
+                allTasksLoaded={allGroupTasksLoaded}
+                totalTaskCount={rootTaskCount}
               />
         )}
       </div>

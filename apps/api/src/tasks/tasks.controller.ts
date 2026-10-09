@@ -92,6 +92,7 @@ export class TasksController {
   }
 
   @Patch(':taskId/reorder-subtask')
+  @RequireBoardPermission(BoardPermission.EDIT)
   async reorderSubtask(
     @Param('taskId', ParseIntPipe) taskId: number,
     @Body() dto: ReorderSubtaskDto,

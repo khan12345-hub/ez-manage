@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
 import { Request } from 'express-session';
 import { LoginDto } from './dto/login.dto';
+import { SessionUser } from './types/session-user.type';
 import { AuthRepository } from './auth.repository';
 import { UserStatus } from '@repo/shared';
 import { Response } from 'express';
@@ -84,15 +85,12 @@ export class AuthService {
     };
   }
 
-  // auth.service.ts
-
-  async me(req: Request) {
-    // Not logged in
-    if (!req.id) {
+  async me(sessionUser: SessionUser) {
+    if (!sessionUser?.id) {
       throw new UnauthorizedException();
     }
 
-    const user = await this.authRepository.findUserById(req.id);
+    const user = await this.authRepository.findUserById(sessionUser.id);
 
     // User deleted
     if (!user) {
@@ -103,8 +101,7 @@ export class AuthService {
     if (user.status !== UserStatus.ACTIVE) {
       throw new ForbiddenException('Your account is inactive.');
     }
-    const { password, ...safeUser } = user;
-    return safeUser;
+    return user;
   }
 
   async logout(req: Request, res: Response) {
@@ -121,14 +118,21 @@ export class AuthService {
   }
 
   async changePassword(userId: number, dto: ChangePasswordDto) {
-    const user = await this.authRepository.findUserById(userId);
-    if (!user) {
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException('Passwords do not match.');
+    }
+
+    const userWithHash = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, password: true },
+    });
+    if (!userWithHash) {
       throw new NotFoundException('User not found');
     }
 
     const passwordMatches = await bcrypt.compare(
       dto.currentPassword,
-      user.password,
+      userWithHash.password,
     );
     if (!passwordMatches) {
       throw new BadRequestException('Invalid current password');

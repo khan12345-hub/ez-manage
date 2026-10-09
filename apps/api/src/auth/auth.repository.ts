@@ -32,7 +32,6 @@ export class AuthRepository {
         phone: true,
         systemRole: true,
         status: true,
-        password: true,
         avatarUrl: true,
         createdAt: true,
         lastLoginAt: true,

@@ -157,7 +157,7 @@ function setStoredAgg(columnId: number, agg: AggType) {
 }
 
 // ── Individual footer cell ────────────────────────────────────────────────────
-function FooterCell({ column, tasks, allTasksLoaded }: { column: any; tasks: any[]; allTasksLoaded?: boolean }) {
+function FooterCell({ column, tasks, allTasksLoaded, totalTaskCount }: { column: any; tasks: any[]; allTasksLoaded?: boolean; totalTaskCount?: number }) {
   const [aggType, setAggType] = useState<AggType>("none");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLTableCellElement>(null);
@@ -168,7 +168,12 @@ function FooterCell({ column, tasks, allTasksLoaded }: { column: any; tasks: any
   }, [column.id]);
 
   const options = AGG_OPTIONS[column.type as string] ?? [{ label: "None", value: "none" as AggType }];
-  const result = computeAgg(tasks, column, aggType);
+  let result = computeAgg(tasks, column, aggType);
+  // When not all tasks are loaded and user wants a count, use the server-side total
+  // so we always show 2600 instead of just the 200 loaded tasks.
+  if (aggType === "count" && !allTasksLoaded && totalTaskCount != null) {
+    result = { display: totalTaskCount.toLocaleString(), label: "count" };
+  }
 
   // Close on outside click
   useEffect(() => {
@@ -264,11 +269,13 @@ export function GroupFooterRow({
   columns,
   color,
   allTasksLoaded = false,
+  totalTaskCount,
 }: {
   tasks: any[];
   columns: any[];
   color?: string;
   allTasksLoaded?: boolean;
+  totalTaskCount?: number;
 }) {
   return (
     <tfoot>
@@ -279,14 +286,18 @@ export function GroupFooterRow({
           style={{ backgroundColor: color ?? "transparent" }}
         />
 
-        {/* Item / name column */}
+        {/* Item / name column — shows server-side total so count is always accurate */}
         <td className="sticky left-1.5 z-10 w-[200px] border px-3 py-1.5 sm:w-[450px]">
-          <span className="text-[11px] font-medium text-muted-foreground/50">Summary</span>
+          <span className="text-[11px] font-medium text-muted-foreground/50">
+            {totalTaskCount != null
+              ? `${totalTaskCount.toLocaleString()} items`
+              : "Summary"}
+          </span>
         </td>
 
         {/* One cell per board column */}
         {columns.map((col) => (
-          <FooterCell key={col.id} column={col} tasks={tasks} allTasksLoaded={allTasksLoaded} />
+          <FooterCell key={col.id} column={col} tasks={tasks} allTasksLoaded={allTasksLoaded} totalTaskCount={totalTaskCount} />
         ))}
 
         {/* Empty spacer for "Add Column" slot */}

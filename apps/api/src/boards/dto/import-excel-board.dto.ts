@@ -8,6 +8,7 @@ enum WorkspaceVisibility {
 }
 import {
   IsArray,
+  IsEmail,
   IsEnum,
   IsInt,
   IsOptional,
@@ -23,7 +24,7 @@ export class UserToCreateDto {
   @IsString()
   lastName!: string;
 
-  @IsString()
+  @IsEmail()
   email!: string;
 
   @IsOptional()

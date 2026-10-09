@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteTask } from "@/services/tasks.api";
 import { toast } from "sonner";
-import { useInviteModalStore } from "@/store/invite-modal";
+import { useParams } from "next/navigation";
 import { getErrorMessage } from "@/lib/error-message";
 interface Props {
   task: any;
@@ -27,13 +27,15 @@ interface Props {
 export function TaskActions({ task }: Props) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { boardId } = useInviteModalStore();
+  const params = useParams();
+  const boardId = Number(params.boardId);
   const deleteTaskMutation = useMutation({
-    mutationFn: (id: number) => deleteTask(id, boardId!),
+    mutationFn: (id: number) => deleteTask(id, boardId),
     onSuccess: () => {
       toast.success("Task deleted");
       setDeleteDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error, "Failed to delete task"));

@@ -22,12 +22,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, isAuthenticated]);
 
-  if (isLoading) {
+  if (isLoading || !isAuthenticated) {
     return <FullScreenLoader />;
-  }
-
-  if (!isAuthenticated) {
-    return null
   }
 
   return children;

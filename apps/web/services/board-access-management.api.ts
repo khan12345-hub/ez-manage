@@ -8,12 +8,15 @@ export interface BoardAccessMember {
   id: number;
   userId: number;
   role: BoardMemberRole;
+  accessAllGroups?: boolean;
+  groupAccess?: { groupId: number }[];
   user: {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
     avatar?: string | null;
+    avatarUrl?: string | null;
   };
 }
 
@@ -60,6 +63,20 @@ export async function updateBoardMemberRole(
 export async function removeBoardMember(boardId: number, userId: number) {
   const { data } = await api.delete(
     `/boards/${boardId}/access/members/${userId}`,
+  );
+
+  return data;
+}
+
+export async function updateMemberGroupAccess(
+  boardId: number,
+  memberId: number,
+  accessAllGroups: boolean,
+  groupIds?: number[],
+) {
+  const { data } = await api.patch(
+    `/boards/${boardId}/access/members/${memberId}/groups`,
+    { accessAllGroups, groupIds },
   );
 
   return data;

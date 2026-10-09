@@ -141,10 +141,6 @@ export class TaskCreateService {
           tx,
         );
   
-        console.log({
-          'Activity is being created': activityLog,
-        });
-
         return task;
       });
 

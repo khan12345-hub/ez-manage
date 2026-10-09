@@ -3,9 +3,7 @@ interface Props {
 }
 
 export function StatusCell({ cell }: Props) {
-  console.log("Status cell before", cell);
   if (!cell) return <>—</>;
-  console.log("Status cell after", cell);
   return (
     <button
       className="absolute top-0 left-0 flex h-full w-full cursor-pointer items-center justify-center text-sm font-medium text-white"

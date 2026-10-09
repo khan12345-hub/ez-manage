@@ -50,8 +50,6 @@ export function FormMultiSelect({
 }: FormMultiSelectProps) {
   const { control } = useFormContext();
 
-  console.log("options", options);
-
   if (!show) return null;
 
   return (
@@ -61,7 +59,6 @@ export function FormMultiSelect({
       defaultValue={[]}
       render={({ field, fieldState }) => {
         const value: (string | number)[] = field.value ?? [];
-        console.log("field.value", field.value);
         const toggleOption = (id: string | number) => {
           if (value.includes(id)) {
             field.onChange(value.filter((v) => v !== id));

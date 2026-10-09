@@ -103,7 +103,7 @@ export function Board({
     queryFn: ({ pageParam }) =>
       getBoardTasks(board.id, {
         cursor: pageParam ?? undefined,
-        limit: 200,
+        limit: 500,
         search: debouncedSearch.trim() || undefined,
         person: personFilter?.users?.length
           ? personFilter.users.map((u) => u.id).join(",")

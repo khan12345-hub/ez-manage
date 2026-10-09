@@ -96,6 +96,8 @@ async function bootstrap() {
         pool: postgresProvider.useFactory(),
         tableName: 'sessions',
         createTableIfMissing: true,
+        ttl: 7 * 24 * 60 * 60, // 7 days in seconds
+        pruneSessionInterval: 24 * 60 * 60, // prune expired sessions daily
       }),
       secret: process.env.SESSION_SECRET!,
       proxy: true,
@@ -110,6 +112,7 @@ async function bootstrap() {
         domain: process.env.NODE_ENV === 'production'
           ? '.ezify.pk'
           : undefined,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       },
     }),
   );

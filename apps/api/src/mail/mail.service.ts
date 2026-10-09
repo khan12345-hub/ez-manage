@@ -7,15 +7,23 @@ import { notificationEmailTemplate } from './templates/comment-mention.template'
 export class MailService {
   private readonly logger = new Logger(MailService.name);
 
-  private transporter = nodemailer.createTransport({
-    host: process.env.MAIL_HOST,
-    port: Number(process.env.MAIL_PORT),
-    secure: process.env.MAIL_SECURE === 'true',
-    auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASSWORD,
-    },
-  });
+  private readonly isConfigured =
+    !!process.env.MAIL_HOST &&
+    !!process.env.MAIL_PORT &&
+    !!process.env.MAIL_USER &&
+    !!process.env.MAIL_PASSWORD;
+
+  private transporter = this.isConfigured
+    ? nodemailer.createTransport({
+        host: process.env.MAIL_HOST,
+        port: Number(process.env.MAIL_PORT),
+        secure: process.env.MAIL_SECURE === 'true',
+        auth: {
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASSWORD,
+        },
+      })
+    : null;
 
   async sendMail(options: {
     to: string;
@@ -23,6 +31,10 @@ export class MailService {
     html: string;
     text?: string;
   }) {
+    if (!this.isConfigured || !this.transporter) {
+      this.logger.warn('Mail not configured — skipping email send');
+      return null;
+    }
     try {
       const info = await this.transporter.sendMail({
         from: process.env.MAIL_FROM || process.env.MAIL_USER,

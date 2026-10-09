@@ -41,7 +41,10 @@ export class WorkspacePermissionGuard
       request.params.id,
     );
 
-    const userId = request.user.id;
+    const userId = request.session?.user?.id;
+    if (!userId) {
+      return false;
+    }
 
     return this.workspaceAccess.requirePermission(
       workspaceId,

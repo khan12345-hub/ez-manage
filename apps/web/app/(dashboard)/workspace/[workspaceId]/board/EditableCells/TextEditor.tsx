@@ -179,7 +179,7 @@ export function TextEditor({
           value={value ?? ""}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onBlur={() => save}
+          onBlur={save}
           placeholder="Write something..."
           rows={6}
           autoFocus

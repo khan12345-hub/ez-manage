@@ -18,6 +18,7 @@ import {
   updateBoardVisibility,
   updateBoardMemberRole,
   removeBoardMember,
+  updateMemberGroupAccess,
   BoardVisibility,
 } from "@/services/board-access-management.api";
 
@@ -182,6 +183,25 @@ export function BoardHeader({ board }: BoardHeaderProps) {
     },
   });
 
+  /**
+   * Update member group access
+   */
+  const groupAccessMutation = useMutation({
+    mutationFn: ({
+      memberId,
+      accessAllGroups,
+      groupIds,
+    }: {
+      memberId: number;
+      accessAllGroups: boolean;
+      groupIds?: number[];
+    }) => updateMemberGroupAccess(board.id, memberId, accessAllGroups, groupIds),
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["board", board.id] });
+    },
+  });
+
   const { canManageBoard } = usePermissions();
 
   return (
@@ -269,19 +289,22 @@ export function BoardHeader({ board }: BoardHeaderProps) {
         boardName={board.name}
         visibility={board?.visibility ?? "PRIVATE"}
         members={board?.members ?? []}
+        groups={board?.groups ?? []}
+        columns={board?.columns ?? []}
         onVisibilityChange={(visibility) =>
           visibilityMutation.mutate(visibility)
         }
         onRoleChange={(memberId, role) => {
-          roleMutation.mutate({
-            memberId,
-            role,
-          });
+          roleMutation.mutate({ memberId, role });
         }}
+        onGroupAccessChange={(memberId, accessAllGroups, groupIds) =>
+          groupAccessMutation.mutate({ memberId, accessAllGroups, groupIds })
+        }
         isRoleUpdating={roleMutation.isPending}
         onRemoveMember={(memberId) => removeMutation.mutate(memberId)}
         isVisibilityUpdating={visibilityMutation.isPending}
         isRemovingMember={removeMutation.isPending}
+        isGroupAccessUpdating={groupAccessMutation.isPending}
       />
 
       <AutomationModal

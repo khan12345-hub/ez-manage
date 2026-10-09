@@ -2,6 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe, login, logout } from "./auth.api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { useChatStore } from "@/store/chat-store";
+import { useTaskDetailsStore } from "@/store/task-details-store";
+import { useInviteModalStore } from "@/store/invite-modal";
+
 export function useLogin() {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -15,7 +19,8 @@ export function useLogin() {
         queryKey: ["me"],
       });
       const redirect = searchParams.get("redirect");
-      router.push(redirect && redirect.startsWith("/") ? redirect : "/workspace/1");
+      const isSafe = redirect && redirect.startsWith("/") && !redirect.startsWith("//");
+      router.push(isSafe ? redirect : "/workspace/1");
     },
     onError: (error: any) => {
       const errorMsg =
@@ -47,7 +52,35 @@ export function useLogout() {
   return useMutation({
     mutationFn: logout,
     onSuccess: () => {
+      // Clear server-state cache
       queryClient.clear();
+
+      // Reset all Zustand stores so stale data doesn't leak to the next user
+      useChatStore.setState({
+        activeChannelId: null,
+        channels: [],
+        dms: [],
+        messages: {},
+        unreadCounts: {},
+        onlineUserIds: new Set(),
+        userStatuses: {},
+        isChatOpen: false,
+        incomingCall: null,
+        activeCall: null,
+        callDeclinedMsg: null,
+        channelWorkspaceMap: {},
+        workspaceUnreads: [],
+        isSocketConnected: false,
+      });
+      useTaskDetailsStore.setState({ isOpen: false, context: {} });
+      useInviteModalStore.setState({
+        isOpen: false,
+        workspaceId: undefined,
+        boardId: undefined,
+        boardRole: undefined,
+        workspaceRole: undefined,
+      });
+
       router.push("/login");
     },
   });

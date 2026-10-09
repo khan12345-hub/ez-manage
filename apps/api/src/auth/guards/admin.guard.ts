@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { SystemRole } from 'generated/prisma/enums';
 
 @Injectable()
@@ -7,7 +7,11 @@ export class AdminGuard implements CanActivate {
     const req = context.switchToHttp().getRequest();
     const sessionUser = req.session?.user;
 
-    if (sessionUser?.systemRole !== SystemRole.SUPER_ADMIN) {
+    if (!sessionUser) {
+      throw new UnauthorizedException('Authentication required.');
+    }
+
+    if (sessionUser.systemRole !== SystemRole.SUPER_ADMIN) {
       throw new ForbiddenException('Admin access required.');
     }
 

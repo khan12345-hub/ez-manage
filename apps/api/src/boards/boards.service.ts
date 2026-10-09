@@ -431,12 +431,16 @@ export class BoardsService {
             role: true,
             userId: true,
             accessAllGroups: true,
+            groupAccess: {
+              select: { groupId: true },
+            },
             user: {
               select: {
                 id: true,
                 firstName: true,
                 lastName: true,
                 avatarUrl: true,
+                email: true,
               },
             },
           },

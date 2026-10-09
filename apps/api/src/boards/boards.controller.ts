@@ -36,6 +36,7 @@ import { UpdateColumnAccessDto } from './dto/update-column-access.dto';
 import {
   UpdateBoardMemberRoleDto,
   UpdateBoardVisibilityDto,
+  UpdateMemberGroupAccessDto,
 } from './dto/update-board-access-management.dto';
 import { BoardAccessManagementService } from './board-access-management.service';
 import { ImportExcelBoardDto } from './dto/import-excel-board.dto';
@@ -81,12 +82,14 @@ export class BoardsController {
   }
 
   @Delete(':boardId/import')
+  @RequireBoardPermission(BoardPermission.EDIT)
   async pauseImport(@Param('boardId', ParseIntPipe) boardId: number) {
     await this.fileImportService.pause(boardId);
     return { paused: true };
   }
 
   @Post(':boardId/import/resume')
+  @RequireBoardPermission(BoardPermission.EDIT)
   async resumeImport(@Param('boardId', ParseIntPipe) boardId: number) {
     await this.fileImportService.resume(boardId);
     return { resumed: true };
@@ -214,7 +217,7 @@ export class BoardsController {
   @Patch(':boardId/access/visibility')
   @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
   async updateVisibility(
-    @Param('boardId') boardId: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
     @Body() dto: UpdateBoardVisibilityDto,
     @CurrentUser() user: SessionUser,
   ) {
@@ -255,6 +258,23 @@ export class BoardsController {
     );
   }
 
+  @Patch(':boardId/access/members/:memberId/groups')
+  @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
+  async updateMemberGroupAccess(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
+    @Body() dto: UpdateMemberGroupAccessDto,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.boardAccessManagementService.updateMemberGroupAccess(
+      boardId,
+      memberId,
+      user.id,
+      dto.accessAllGroups,
+      dto.groupIds,
+    );
+  }
+
   @Put(':boardId/columns/:columnId/access')
   @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
   async updateColumnAccess(
@@ -289,6 +309,7 @@ export class BoardsController {
   }
 
   @Post('import/excel')
+  @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
   async importExcelBoard(
     @Body() dto: ImportExcelBoardDto,
     @CurrentUser() user: SessionUser,
