@@ -76,7 +76,8 @@ export default function BoardPage() {
     enabled: Number.isFinite(boardId),
     retry: 0,
     placeholderData: keepPreviousData,
-    staleTime: 5 * 60_000,
+    staleTime: 15 * 60_000,
+    gcTime: 30 * 60_000,
     refetchOnWindowFocus: false,
   });
 

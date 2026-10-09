@@ -115,7 +115,9 @@ export function Board({
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextCursor : null,
 
-    staleTime: 5 * 60_000,
+    staleTime: 15 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
 
     retry: (failureCount, error: any) => {
       const status = error?.response?.status ?? error?.status;
