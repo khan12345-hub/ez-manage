@@ -33,6 +33,8 @@ import {
   ActivityAction,
   ActivityEntityType,
   BoardColumnType,
+  NotificationType,
+  NotificationEntityType,
 } from 'generated/prisma/enums';
 import { STORAGE_SERVICE } from 'src/storage/storage.module';
 import { StorageProvider } from 'src/storage/storage.types';
@@ -400,6 +402,11 @@ export class CellsService {
         ? this.extractPersonIds(previousValue)
         : [];
 
+    const newAssigneeIds =
+      columnType === BoardColumnType.PERSON
+        ? this.extractPersonIds(dto.value)
+        : [];
+
     const updatedCell = await this.prisma.taskCell.update({
       where: {
         id: cellId,
@@ -531,8 +538,11 @@ export class CellsService {
           const recipientIds = new Set<number>();
 
           if (columnType === BoardColumnType.PERSON) {
-            for (const id of previousAssigneeIds) {
-              if (id !== userId) recipientIds.add(id);
+            // Notify only "watcher" assignees — those who remain assigned after this change.
+            // Added users get a dedicated "you were assigned" notification.
+            // Removed users get a dedicated "you were removed" notification below.
+            for (const id of newAssigneeIds) {
+              if (id !== userId && previousAssigneeIds.includes(id)) recipientIds.add(id);
             }
           } else {
             const personCells = await this.prisma.taskCell.findMany({
@@ -556,16 +566,16 @@ export class CellsService {
           const actorName = actor ? `${actor.firstName} ${actor.lastName}` : 'Someone';
           const message =
             columnType === BoardColumnType.PERSON
-              ? `${actorName} updated the Person field on "${cell.task.name}"`
+              ? `${actorName} updated who is assigned to "${cell.task.name}"`
               : `${actorName} updated "${cell.column.name}" on "${cell.task.name}"`;
 
           for (const recipientId of recipientIds) {
             const notification = await this.notificationsService.notify({
               recipientId,
-              type: 'TASK_UPDATED' as any,
+              type: NotificationType.TASK_STATUS_CHANGED,
               title: 'Task updated',
               message,
-              entityType: 'TASK' as any,
+              entityType: NotificationEntityType.TASK,
               entityId: cell.taskId,
               metadata: {
                 taskId: cell.taskId,
@@ -590,13 +600,11 @@ export class CellsService {
     }
 
     if (columnType === BoardColumnType.PERSON) {
-      const newAssigneeIds = this.extractPersonIds(dto.value);
-
-      const newlyAssignedUsers = newAssigneeIds.filter(
+      // Notify newly assigned users
+      const addedUserIds = newAssigneeIds.filter(
         (id) => !previousAssigneeIds.includes(id) && id !== userId,
       );
-
-      for (const recipientId of newlyAssignedUsers) {
+      for (const recipientId of addedUserIds) {
         await this.handleTaskAssignment({
           recipientId,
           taskId: cell.task.id,
@@ -604,6 +612,51 @@ export class CellsService {
           taskName: cell.task.name,
           assignedById: userId,
         });
+      }
+
+      // Notify removed users
+      const removedUserIds = previousAssigneeIds.filter(
+        (id) => !newAssigneeIds.includes(id) && id !== userId,
+      );
+      if (removedUserIds.length > 0) {
+        void (async () => {
+          try {
+            const [actor, board] = await Promise.all([
+              this.prisma.user.findUnique({
+                where: { id: userId },
+                select: { firstName: true, lastName: true },
+              }),
+              this.prisma.board.findUnique({
+                where: { id: boardId },
+                select: { workspaceId: true },
+              }),
+            ]);
+            const actorName = actor ? `${actor.firstName} ${actor.lastName}` : 'Someone';
+            for (const recipientId of removedUserIds) {
+              const notification = await this.notificationsService.notify({
+                recipientId,
+                type: NotificationType.TASK_ASSIGNED,
+                title: 'Removed from task',
+                message: `${actorName} removed you from "${cell.task.name}"`,
+                entityType: NotificationEntityType.TASK,
+                entityId: cell.taskId,
+                metadata: {
+                  taskId: cell.taskId,
+                  boardId,
+                  workspaceId: board?.workspaceId ?? 0,
+                  removedById: userId,
+                },
+                eventKey: `task-unassigned:${cell.taskId}:${recipientId}`,
+                sendEmail: true,
+              });
+              if (notification) {
+                this.notificationStreamService.emit(recipientId, notification);
+              }
+            }
+          } catch (err) {
+            console.error('[CellsService] Unassignment notification failed:', err);
+          }
+        })();
       }
     }
 
