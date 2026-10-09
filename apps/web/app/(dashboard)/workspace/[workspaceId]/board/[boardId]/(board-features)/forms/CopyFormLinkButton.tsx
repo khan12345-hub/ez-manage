@@ -15,14 +15,17 @@ interface CopyFormLinkButtonProps {
   boardId: number;
   /** undefined means the form has not been saved yet */
   formId?: number;
+  /** UUID share token — when present the public URL uses this instead of numeric boardId */
+  shareToken?: string | null;
 }
 
-export function CopyFormLinkButton({ boardId, formId }: CopyFormLinkButtonProps) {
+export function CopyFormLinkButton({ boardId, formId, shareToken }: CopyFormLinkButtonProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     if (!formId) return;
-    const url = `${window.location.origin}/form/${boardId}`;
+    const slug = shareToken ?? boardId;
+    const url = `${window.location.origin}/form/${slug}`;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

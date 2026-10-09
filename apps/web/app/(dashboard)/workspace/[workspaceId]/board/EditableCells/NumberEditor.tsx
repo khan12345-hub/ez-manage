@@ -20,16 +20,16 @@ export function NumberEditor({
       return <span className="text-muted-foreground/30 text-sm"></span>;
     }
     const num = parseFloat(String(value).replace(/[$,]/g, ""));
-    if (isNaN(num)) return <span className="text-sm">{value}</span>;
+    if (isNaN(num)) return <span className="text-[15px]">{value}</span>;
     if (isPrice) {
       return (
-        <span className="font-mono text-sm tabular-nums">
+        <span className="font-mono text-[15px] tabular-nums">
           ${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
       );
     }
     return (
-      <span className="text-sm tabular-nums">
+      <span className="text-[15px] tabular-nums">
         {num % 1 === 0 ? num.toLocaleString() : num.toFixed(2)}
       </span>
     );

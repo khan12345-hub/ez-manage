@@ -18,7 +18,7 @@ import { arrayMove, SortableContext, verticalListSortingStrategy } from "@dnd-ki
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BoardColumnType, deleteColumn } from "@/services/columns.api";
-import { getBoardForm } from "@/services/board-form.api";
+import { getBoardForm, uploadPublicFormFile } from "@/services/board-form.api";
 
 import { FormField, FormFieldType, FormPage } from "./board-feature-form.types";
 import { getDefaultLabel, SYSTEM_COLUMN_TYPES, mapColumnTypeToFormType } from "./board-form.utils";
@@ -216,7 +216,7 @@ export function FormBuilder({ board }: FormBuilderProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <CopyFormLinkButton boardId={boardId} formId={existingForm?.id} />
+          <CopyFormLinkButton boardId={boardId} formId={existingForm?.id} shareToken={existingForm?.shareToken} />
           <Button
             size="sm"
             onClick={handleSave}
@@ -306,7 +306,14 @@ export function FormBuilder({ board }: FormBuilderProps) {
         {mode === "design" && (
           <>
             <aside className="flex w-64 shrink-0 flex-col border-r bg-background">
-              <FormDesignPanel design={design} onChange={setDesign} />
+              <FormDesignPanel
+                design={design}
+                onChange={setDesign}
+                onLogoUpload={async (file) => {
+                  const result = await uploadPublicFormFile(boardId, file);
+                  return result.url;
+                }}
+              />
             </aside>
             <main className="flex-1 overflow-y-auto" style={{ backgroundColor: design.bgColor }}>
               <FormPreview form={form} design={design} fill />

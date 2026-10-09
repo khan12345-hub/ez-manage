@@ -20,6 +20,7 @@ export interface FormDesign {
   accentColor: string;
   cardBg: string;
   textColor: string;
+  logoUrl?: string | null;
 }
 
 export const DEFAULT_DESIGN: FormDesign = {
@@ -94,9 +95,16 @@ export function FormPreview({ form, design = DEFAULT_DESIGN, fill }: FormPreview
           <div className="h-2 rounded-t-2xl" style={{ backgroundColor: design.accentColor }} />
 
           <div className="px-8 pb-8 pt-7">
-            {/* Title & description — only on first page */}
+            {/* Logo + Title + description — only on first page */}
             {safePage === 0 && (
               <div className="mb-7 space-y-1.5">
+                {design.logoUrl && (
+                  <img
+                    src={design.logoUrl}
+                    alt="Form logo"
+                    className="mb-3 max-h-14 max-w-[160px] object-contain"
+                  />
+                )}
                 <h1 className="text-2xl font-bold tracking-tight" style={{ color: design.textColor }}>
                   {form.name || <span className="italic opacity-30">Form title</span>}
                 </h1>

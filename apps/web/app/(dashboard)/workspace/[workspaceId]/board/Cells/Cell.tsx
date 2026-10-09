@@ -77,7 +77,7 @@ export function Cell({
   return (
     <td
       className={cn(
-        "relative border px-3 py-1",
+        "relative border px-3 py-2.5",
 
         isPrimary &&
           "sticky left-36 z-20 min-w-[300px] bg-background",

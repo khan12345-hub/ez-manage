@@ -1,6 +1,7 @@
 "use client";
 
-import { AlignLeft, AlignCenter, AlignRight, RotateCcw } from "lucide-react";
+import { useRef, useState } from "react";
+import { AlignLeft, AlignCenter, AlignRight, RotateCcw, Upload, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FormDesign, DEFAULT_DESIGN } from "./FormPreview";
@@ -8,6 +9,8 @@ import { FormDesign, DEFAULT_DESIGN } from "./FormPreview";
 interface FormDesignPanelProps {
   design: FormDesign;
   onChange: (design: FormDesign) => void;
+  /** Called when the user selects a logo file — should upload and return the URL */
+  onLogoUpload?: (file: File) => Promise<string>;
 }
 
 /* ── Preset palettes ─────────────────────────────────────────────── */
@@ -46,9 +49,26 @@ const CARD_PRESETS = [
   { label: "Navy card", value: "#1e293b" },
 ];
 
-export function FormDesignPanel({ design, onChange }: FormDesignPanelProps) {
+export function FormDesignPanel({ design, onChange, onLogoUpload }: FormDesignPanelProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
   function update(partial: Partial<FormDesign>) {
     onChange({ ...design, ...partial });
+  }
+
+  async function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !onLogoUpload) return;
+    setUploading(true);
+    try {
+      const url = await onLogoUpload(file);
+      update({ logoUrl: url });
+    } finally {
+      setUploading(false);
+      // reset input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   return (
@@ -58,7 +78,7 @@ export function FormDesignPanel({ design, onChange }: FormDesignPanelProps) {
         <span className="text-sm font-semibold">Design</span>
         <button
           type="button"
-          onClick={() => onChange(DEFAULT_DESIGN)}
+          onClick={() => onChange({ ...DEFAULT_DESIGN, logoUrl: null })}
           className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
           title="Reset to defaults"
         >
@@ -68,6 +88,52 @@ export function FormDesignPanel({ design, onChange }: FormDesignPanelProps) {
       </div>
 
       <div className="space-y-6 px-4 py-4">
+
+        {/* ── Logo ── */}
+        <section>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Form logo
+          </p>
+          {design.logoUrl ? (
+            <div className="flex items-center gap-3">
+              <img
+                src={design.logoUrl}
+                alt="Logo"
+                className="max-h-12 max-w-[120px] rounded-md border object-contain bg-muted/30 p-1"
+              />
+              <button
+                type="button"
+                onClick={() => update({ logoUrl: null })}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+              >
+                <X className="h-3 w-3" />
+                Remove
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={uploading || !onLogoUpload}
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 rounded-lg border border-dashed px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {uploading ? "Uploading…" : "Upload logo"}
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleLogoFile}
+          />
+          <p className="mt-1.5 text-[11px] text-muted-foreground">PNG, JPG, SVG · max 2 MB</p>
+        </section>
 
         {/* ── Form alignment ── */}
         <section>

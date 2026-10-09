@@ -4,7 +4,6 @@ import {
   Get,
   Inject,
   Param,
-  ParseIntPipe,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -25,27 +24,26 @@ export class PublicBoardFormsController {
     @Inject(STORAGE_SERVICE) private readonly storage: StorageProvider,
   ) {}
 
-  /** GET /public/form/:boardId — fetch the public form definition */
+  /**
+   * GET /public/form/:identifier
+   * :identifier can be a numeric board ID (legacy) or a UUID share token.
+   */
   @Public()
-  @Get('form/:boardId')
-  async getPublicForm(
-    @Param('boardId', ParseIntPipe) boardId: number,
-  ) {
-    return this.publicBoardFormsService.findPublicByBoardId(boardId);
+  @Get('form/:identifier')
+  async getPublicForm(@Param('identifier') identifier: string) {
+    return this.publicBoardFormsService.findPublicByIdentifier(identifier);
   }
 
-  /** GET /public/form/:boardId/members — board members for person picker (no auth) */
+  /** GET /public/form/:identifier/members — board members for person picker (no auth) */
   @Public()
-  @Get('form/:boardId/members')
-  async getFormMembers(
-    @Param('boardId', ParseIntPipe) boardId: number,
-  ) {
-    return this.publicBoardFormsService.getBoardMembers(boardId);
+  @Get('form/:identifier/members')
+  async getFormMembers(@Param('identifier') identifier: string) {
+    return this.publicBoardFormsService.getMembersByIdentifier(identifier);
   }
 
-  /** POST /public/form/:boardId/upload — upload a file from a public form (no auth) */
+  /** POST /public/form/:identifier/upload — upload a file from a public form (no auth) */
   @Public()
-  @Post('form/:boardId/upload')
+  @Post('form/:identifier/upload')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -63,13 +61,13 @@ export class PublicBoardFormsController {
     };
   }
 
-  /** POST /public/form/:boardId/submit — submit the public form (no auth) */
+  /** POST /public/form/:identifier/submit — submit the public form (no auth) */
   @Public()
-  @Post('form/:boardId/submit')
+  @Post('form/:identifier/submit')
   async submitPublicForm(
-    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('identifier') identifier: string,
     @Body() dto: SubmitBoardFormDto,
   ) {
-    return this.publicBoardFormsService.submit(boardId, dto);
+    return this.publicBoardFormsService.submitByIdentifier(identifier, dto);
   }
 }

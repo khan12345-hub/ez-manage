@@ -25,12 +25,14 @@ export interface FormDesign {
   accentColor: string;
   cardBg: string;
   textColor: string;
+  logoUrl?: string | null;
 }
 
 export interface BoardForm {
   id: number;
   boardId: number;
   groupId: number;
+  shareToken?: string | null;
 
   title?: string;
   description?: string;
@@ -133,6 +135,7 @@ export interface PublicBoardForm {
   id: number;
   boardId: number;
   groupId: number;
+  shareToken: string | null;
 
   title: string | null;
   description: string | null;
@@ -170,21 +173,21 @@ export interface SubmitBoardFormResponse {
 }
 
 export const getPublicBoardForm = async (
-  boardId: number,
+  identifier: string | number,
 ): Promise<PublicBoardForm> => {
   const { data } = await api.get<PublicBoardForm>(
-    `/public/form/${boardId}`,
+    `/public/form/${identifier}`,
   );
 
   return data;
 };
 
 export const submitBoardForm = async (
-  boardId: number,
+  identifier: string | number,
   payload: SubmitBoardFormPayload,
 ): Promise<SubmitBoardFormResponse> => {
   const { data } = await api.post<SubmitBoardFormResponse>(
-    `/public/form/${boardId}/submit`,
+    `/public/form/${identifier}/submit`,
     payload,
   );
 
@@ -209,22 +212,22 @@ export interface PublicFormMember {
 }
 
 export const getPublicFormMembers = async (
-  boardId: number,
+  identifier: string | number,
 ): Promise<PublicFormMember[]> => {
   const { data } = await api.get<PublicFormMember[]>(
-    `/public/form/${boardId}/members`,
+    `/public/form/${identifier}/members`,
   );
   return data;
 };
 
 export const uploadPublicFormFile = async (
-  boardId: number,
+  identifier: string | number,
   file: File,
 ): Promise<PublicFormUploadResponse> => {
   const formData = new FormData();
   formData.append('file', file);
   const { data } = await api.post<PublicFormUploadResponse>(
-    `/public/form/${boardId}/upload`,
+    `/public/form/${identifier}/upload`,
     formData,
     { headers: { 'Content-Type': 'multipart/form-data' } },
   );

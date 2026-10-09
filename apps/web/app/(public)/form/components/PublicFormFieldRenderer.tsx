@@ -37,7 +37,7 @@ interface UploadedFile {
 
 interface PublicFormFieldRendererProps {
   field: PublicBoardFormField;
-  boardId: number;
+  boardId: string | number;
   value: unknown;
   error?: string;
   disabled?: boolean;
@@ -309,7 +309,7 @@ function PersonField({
   onChange,
 }: {
   fieldId: string;
-  boardId: number;
+  boardId: string | number;
   label: string;
   description?: string | null;
   required: boolean;
@@ -458,7 +458,7 @@ function FileUploadInput({
   value,
   onChange,
 }: {
-  boardId: number;
+  boardId: string | number;
   fieldId: string;
   disabled: boolean;
   value: UploadedFile | undefined;

@@ -875,6 +875,7 @@ model BoardForm {
   id          Int      @id @default(autoincrement())
   boardId     Int      @unique
   groupId     Int      @unique
+  shareToken  String?  @unique @default(uuid())
 
   title       String?
   description String?
@@ -889,6 +890,7 @@ model BoardForm {
   fields BoardFormField[]
 
   @@index([boardId])
+  @@index([shareToken])
 }
 
 model BoardFormField {

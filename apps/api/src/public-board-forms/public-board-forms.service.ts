@@ -146,6 +146,19 @@ function normalizeCellValue(
   }
 }
 
+const FORM_INCLUDE = {
+  fields: {
+    include: {
+      column: {
+        include: {
+          statusOptions: true,
+        },
+      },
+    },
+    orderBy: { position: "asc" as const },
+  },
+} as const;
+
 @Injectable()
 export class PublicBoardFormsService {
   constructor(
@@ -153,6 +166,65 @@ export class PublicBoardFormsService {
     private readonly notificationsService: NotificationsService,
     private readonly notificationStreamService: NotificationStreamService,
   ) {}
+
+  /**
+   * Resolve a URL identifier to a boardId.
+   * Accepts either a numeric board ID (legacy links like /form/17)
+   * or a UUID share token (new links like /form/550e8400-...).
+   */
+  private async resolveBoardId(identifier: string): Promise<number> {
+    const numericId = parseInt(identifier, 10);
+    if (!isNaN(numericId) && String(numericId) === identifier) {
+      return numericId;
+    }
+    const form = await this.prisma.boardForm.findFirst({
+      where: { shareToken: identifier },
+      select: { boardId: true },
+    });
+    if (!form) {
+      throw new NotFoundException("Form not found");
+    }
+    return form.boardId;
+  }
+
+  /**
+   * Ensure a form has a shareToken, generating one lazily if missing
+   * (handles rows created before the column was added).
+   */
+  private async ensureShareToken(formId: number, existing: string | null): Promise<string> {
+    if (existing) return existing;
+    const { randomUUID } = await import("crypto");
+    const token = randomUUID();
+    await this.prisma.boardForm.update({
+      where: { id: formId },
+      data: { shareToken: token },
+    });
+    return token;
+  }
+
+  /**
+   * Return the public form definition by a URL identifier (boardId or shareToken).
+   */
+  async findPublicByIdentifier(identifier: string) {
+    const boardId = await this.resolveBoardId(identifier);
+    return this.findPublicByBoardId(boardId);
+  }
+
+  /**
+   * Return board members by URL identifier (boardId or shareToken).
+   */
+  async getMembersByIdentifier(identifier: string) {
+    const boardId = await this.resolveBoardId(identifier);
+    return this.getBoardMembers(boardId);
+  }
+
+  /**
+   * Submit a public form by URL identifier (boardId or shareToken).
+   */
+  async submitByIdentifier(identifier: string, dto: SubmitBoardFormDto) {
+    const boardId = await this.resolveBoardId(identifier);
+    return this.submit(boardId, dto);
+  }
 
   /**
    * Return the list of board members for the member picker on public forms.
@@ -197,23 +269,8 @@ export class PublicBoardFormsService {
    */
   async findPublicByBoardId(boardId: number) {
     const form = await this.prisma.boardForm.findUnique({
-      where: {
-        boardId,
-      },
-      include: {
-        fields: {
-          include: {
-            column: {
-              include: {
-                statusOptions: true,
-              },
-            },
-          },
-          orderBy: {
-            position: "asc",
-          },
-        },
-      },
+      where: { boardId },
+      include: FORM_INCLUDE,
     });
 
     if (!form) {
@@ -224,7 +281,10 @@ export class PublicBoardFormsService {
       throw new NotFoundException("Form is not active");
     }
 
-    return form;
+    // Lazily generate shareToken for forms created before the column existed
+    const shareToken = await this.ensureShareToken(form.id, form.shareToken);
+
+    return { ...form, shareToken };
   }
 
   /**

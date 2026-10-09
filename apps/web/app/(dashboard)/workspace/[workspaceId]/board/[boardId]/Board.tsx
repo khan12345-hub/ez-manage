@@ -367,19 +367,21 @@ export function Board({
    */
   return (
     <>
-      <BoardHeader
-        boardId={board?.id}
-        boardName={board?.name}
-        onHideColumns={filters.openHideColumnModal}
-        personFilter={personFilter}
-        onPersonFilterChange={setPersonFilter}
-        search={search}
-        setSearch={setSearch}
-        onCreateTask={handleCreateTask}
-        onCreateGroup={handleCreateGroup}
-        groupSort={groupSort}
-        onGroupSortChange={handleGroupSortChange}
-      />
+      <div className="sticky top-[41px] z-10 -mx-3 sm:-mx-6 bg-background border-b px-3 sm:px-6 py-2">
+        <BoardHeader
+          boardId={board?.id}
+          boardName={board?.name}
+          onHideColumns={filters.openHideColumnModal}
+          personFilter={personFilter}
+          onPersonFilterChange={setPersonFilter}
+          search={search}
+          setSearch={setSearch}
+          onCreateTask={handleCreateTask}
+          onCreateGroup={handleCreateGroup}
+          groupSort={groupSort}
+          onGroupSortChange={handleGroupSortChange}
+        />
+      </div>
 
       <BoardContent
         board={{

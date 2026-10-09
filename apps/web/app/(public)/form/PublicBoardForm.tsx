@@ -27,8 +27,107 @@ const DEFAULT_DESIGN: FormDesign = {
 
 import { PublicFormFieldRenderer } from "./components/PublicFormFieldRenderer";
 
+function PageShell({
+  d,
+  user,
+  formTitle,
+  formDescription,
+  formLogoUrl,
+  children,
+}: {
+  d: FormDesign;
+  user?: { firstName?: string; lastName?: string; avatarUrl?: string | null } | null;
+  formTitle?: string | null;
+  formDescription?: string | null;
+  formLogoUrl?: string | null;
+  children: React.ReactNode;
+}) {
+  const initials = user
+    ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase()
+    : null;
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: d.bgColor, color: d.textColor }}>
+      {/* EzManage top nav */}
+      <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b border-black/10 bg-white/90 px-6 backdrop-blur">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-6 w-6 grid-cols-2 gap-[2px] rotate-45">
+            <div className="rounded-[2px] bg-[#FF3D57]" />
+            <div className="rounded-[2px] bg-[#00CFF4]" />
+            <div className="rounded-[2px] bg-[#FFCB00]" />
+            <div className="rounded-[2px] bg-[#00C875]" />
+          </div>
+          <span className="text-sm font-bold tracking-tight">EzManage</span>
+        </div>
+        {user && (
+          <div className="flex items-center gap-2">
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={`${user.firstName} ${user.lastName}`}
+                className="h-7 w-7 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ backgroundColor: d.accentColor }}>
+                {initials}
+              </div>
+            )}
+            <span className="text-sm font-medium">{user.firstName} {user.lastName}</span>
+          </div>
+        )}
+      </header>
+
+      {/* Sticky form identity bar — sits just below the EzManage nav */}
+      {formTitle && (
+        <div
+          className="sticky top-12 z-40 border-b border-black/10 bg-white/95 px-6 py-3 shadow-sm backdrop-blur-sm"
+          style={{ color: d.textColor }}
+        >
+          <div
+            className="mx-auto flex max-w-2xl items-center gap-3"
+            style={{
+              justifyContent:
+                d.position === "left" ? "flex-start"
+                : d.position === "right" ? "flex-end"
+                : "flex-start",
+            }}
+          >
+            {formLogoUrl && (
+              <img
+                src={formLogoUrl}
+                alt="Form logo"
+                className="h-9 max-w-[120px] flex-shrink-0 rounded object-contain"
+              />
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold leading-tight">{formTitle}</p>
+              {formDescription && (
+                <p className="truncate text-xs text-muted-foreground">{formDescription}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scrollable form content */}
+      <div
+        className="flex min-h-[calc(100vh-48px)] items-start px-4 pb-24 pt-8"
+        style={{
+          justifyContent:
+            d.position === "left" ? "flex-start"
+            : d.position === "right" ? "flex-end"
+            : "center",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 interface PublicBoardFormProps {
-  boardId: number;
+  /** Numeric board ID (legacy /form/17) or UUID share token (/form/550e8400-...) */
+  identifier: string | number;
 }
 
 type FormValues = Record<number, unknown>;
@@ -38,7 +137,7 @@ function decodePageIndex(position: number): number {
   return Math.floor(position / 1000);
 }
 
-export function PublicBoardForm({ boardId }: PublicBoardFormProps) {
+export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
   const router = useRouter();
 
   const [values, setValues] = useState<FormValues>({});
@@ -59,18 +158,18 @@ export function PublicBoardForm({ boardId }: PublicBoardFormProps) {
     isLoading,
     isError,
   } = useQuery<PublicBoardFormData>({
-    queryKey: ["public-board-form", boardId],
-    queryFn: () => getPublicBoardForm(boardId),
-    enabled: Boolean(boardId),
+    queryKey: ["public-board-form", identifier],
+    queryFn: () => getPublicBoardForm(identifier),
+    enabled: Boolean(identifier),
     retry: false,
   });
 
   /* ── Submit mutation ── */
   const { mutate: submit, isPending: isSubmitting } = useMutation({
     mutationFn: (payload: SubmitBoardFormPayload) =>
-      submitBoardForm(boardId, payload),
+      submitBoardForm(identifier, payload),
     onSuccess: () => {
-      router.push(`/form/thank-you?boardId=${boardId}`);
+      router.push(`/form/thank-you?ref=${identifier}`);
     },
     onError: () => {
       toast.error("Something went wrong. Please try again.");
@@ -175,59 +274,9 @@ export function PublicBoardForm({ boardId }: PublicBoardFormProps) {
     ? { ...DEFAULT_DESIGN, ...(form.design as Partial<FormDesign>) }
     : DEFAULT_DESIGN;
 
-  /* ── Shared page shell ── */
-  const initials = user
-    ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase()
-    : null;
-
-  function PageShell({ children }: { children: React.ReactNode }) {
-    return (
-      <div className="min-h-screen" style={{ backgroundColor: d.bgColor, color: d.textColor }}>
-        <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b border-black/10 bg-white/90 px-6 backdrop-blur">
-          <div className="flex items-center gap-2.5">
-            <div className="grid h-6 w-6 grid-cols-2 gap-[2px] rotate-45">
-              <div className="rounded-[2px] bg-[#FF3D57]" />
-              <div className="rounded-[2px] bg-[#00CFF4]" />
-              <div className="rounded-[2px] bg-[#FFCB00]" />
-              <div className="rounded-[2px] bg-[#00C875]" />
-            </div>
-            <span className="text-sm font-bold tracking-tight">EzManage</span>
-          </div>
-          {user && (
-            <div className="flex items-center gap-2">
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={`${user.firstName} ${user.lastName}`}
-                  className="h-7 w-7 rounded-full object-cover"
-                />
-              ) : (
-                <div className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ backgroundColor: d.accentColor }}>
-                  {initials}
-                </div>
-              )}
-              <span className="text-sm font-medium">{user.firstName} {user.lastName}</span>
-            </div>
-          )}
-        </header>
-        <div
-          className="flex min-h-[calc(100vh-48px)] items-start px-4 py-10"
-          style={{
-            justifyContent:
-              d.position === "left" ? "flex-start"
-              : d.position === "right" ? "flex-end"
-              : "center",
-          }}
-        >
-          {children}
-        </div>
-      </div>
-    );
-  }
-
   if (isLoading) {
     return (
-      <PageShell>
+      <PageShell d={d} user={user}>
         <div className="w-full max-w-2xl rounded-2xl bg-white p-10 text-center shadow-lg dark:bg-[#2b2c30]">
           <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
           <p className="mt-3 text-sm text-muted-foreground">Loading form…</p>
@@ -238,7 +287,7 @@ export function PublicBoardForm({ boardId }: PublicBoardFormProps) {
 
   if (isError || !form) {
     return (
-      <PageShell>
+      <PageShell d={d} user={user}>
         <div className="w-full max-w-2xl rounded-2xl bg-white p-10 text-center shadow-lg dark:bg-[#2b2c30]">
           <h1 className="text-lg font-semibold">Form not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">This form does not exist or is unavailable.</p>
@@ -249,7 +298,7 @@ export function PublicBoardForm({ boardId }: PublicBoardFormProps) {
 
   if (!form.isActive) {
     return (
-      <PageShell>
+      <PageShell d={d} user={user}>
         <div className="w-full max-w-2xl rounded-2xl bg-white p-10 text-center shadow-lg dark:bg-[#2b2c30]">
           <h1 className="text-lg font-semibold">Form unavailable</h1>
           <p className="mt-2 text-sm text-muted-foreground">This form is currently inactive.</p>
@@ -259,7 +308,13 @@ export function PublicBoardForm({ boardId }: PublicBoardFormProps) {
   }
 
   return (
-    <PageShell>
+    <PageShell
+      d={d}
+      user={user}
+      formTitle={form.title || "Submit Form"}
+      formDescription={form.description}
+      formLogoUrl={d.logoUrl}
+    >
       <div className="w-full max-w-2xl">
         {/* Progress bar — only shown for multi-page forms */}
         {totalPages > 1 && (
@@ -282,14 +337,21 @@ export function PublicBoardForm({ boardId }: PublicBoardFormProps) {
           <div className="h-2 rounded-t-2xl" style={{ backgroundColor: d.accentColor }} />
 
           <div className="px-8 pb-8 pt-7">
-            {/* Title & description — only on first page */}
+            {/* Logo + Title + description on first page */}
             {currentPage === 0 && (
               <div className="mb-7 space-y-1.5">
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                {d.logoUrl && (
+                  <img
+                    src={d.logoUrl}
+                    alt="Form logo"
+                    className="mb-3 max-h-16 max-w-[180px] object-contain"
+                  />
+                )}
+                <h1 className="text-2xl font-bold tracking-tight" style={{ color: d.textColor }}>
                   {form.title || "Submit Form"}
                 </h1>
                 {form.description && (
-                  <p className="text-sm text-muted-foreground">{form.description}</p>
+                  <p className="text-sm" style={{ color: d.textColor, opacity: 0.65 }}>{form.description}</p>
                 )}
               </div>
             )}
@@ -297,65 +359,25 @@ export function PublicBoardForm({ boardId }: PublicBoardFormProps) {
             {/* Multi-page: show page label if > 1 page and not page 0 */}
             {totalPages > 1 && currentPage > 0 && (
               <div className="mb-5">
-                <h2 className="text-lg font-semibold text-foreground">
+                <h2 className="text-lg font-semibold" style={{ color: d.textColor }}>
                   Page {currentPage + 1}
                 </h2>
               </div>
             )}
 
-            {/* Fields */}
-            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            {/* Fields — form id used by the fixed submit bar below */}
+            <form id="public-board-form" onSubmit={handleSubmit} className="space-y-5" noValidate>
               {pageFields.map((field) => (
                 <PublicFormFieldRenderer
                   key={field.id}
                   field={field}
-                  boardId={boardId}
+                  boardId={identifier}
                   value={values[field.id]}
                   error={errors[field.id]}
                   disabled={isSubmitting}
                   onChange={(val) => setFieldValue(field.id, val)}
                 />
               ))}
-
-              {/* Navigation buttons */}
-              <div className="flex items-center justify-between pt-2 gap-3">
-                {currentPage > 0 ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleBack}
-                    disabled={isSubmitting}
-                    className="gap-1.5"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Back
-                  </Button>
-                ) : (
-                  <div />
-                )}
-
-                {isLastPage ? (
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex flex-1 items-center justify-center rounded-lg py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                    style={{ backgroundColor: d.accentColor }}
-                  >
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {form.submitLabel || "Submit"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-3 text-base font-semibold text-white transition-opacity hover:opacity-90"
-                    style={{ backgroundColor: d.accentColor }}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
             </form>
           </div>
         </div>
@@ -369,6 +391,57 @@ export function PublicBoardForm({ boardId }: PublicBoardFormProps) {
             <div className="rounded-[1px] bg-[#00C875]" />
           </div>
           <span>Powered by <strong>EzManage</strong></span>
+        </div>
+      </div>
+
+      {/* ── Fixed bottom bar: Back / Next / Submit ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-black/10 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm">
+        <div
+          className="mx-auto flex max-w-2xl items-center gap-3"
+          style={{
+            justifyContent:
+              d.position === "left" ? "flex-start"
+              : d.position === "right" ? "flex-end"
+              : "center",
+          }}
+        >
+          {currentPage > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBack}
+              disabled={isSubmitting}
+              className="gap-1.5"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </Button>
+          ) : (
+            <div />
+          )}
+
+          {isLastPage ? (
+            <button
+              type="submit"
+              form="public-board-form"
+              disabled={isSubmitting}
+              className="flex flex-1 items-center justify-center rounded-lg py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: d.accentColor }}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {form.submitLabel || "Submit"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleNext}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-3 text-base font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: d.accentColor }}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </PageShell>

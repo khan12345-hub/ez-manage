@@ -51,6 +51,10 @@ export async function deleteUser(id: number): Promise<void> {
   await api.delete(`/users/${id}`);
 }
 
+export async function sendPasswordResetLink(email: string): Promise<void> {
+  await api.post("/auth/forgot-password", { email });
+}
+
 export interface NotificationPreferences {
   emailNotificationsEnabled: boolean;
   inAppNotificationsEnabled: boolean;

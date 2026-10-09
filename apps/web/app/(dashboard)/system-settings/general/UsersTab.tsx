@@ -20,6 +20,7 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  sendPasswordResetLink,
 } from "@/services/users.api";
 
 function formatDate(value?: string) {
@@ -104,6 +105,16 @@ export function UsersTab() {
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.message ?? "Failed to delete user");
+    },
+  });
+
+  const resetLinkMutation = useMutation({
+    mutationFn: (email: string) => sendPasswordResetLink(email),
+    onSuccess: (_data, email) => {
+      toast.success(`Password reset link sent to ${email}`);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? "Failed to send reset link");
     },
   });
 
@@ -253,6 +264,7 @@ export function UsersTab() {
                         <RowActions
                           onEdit={() => handleEdit(user)}
                           onDelete={() => setDeletingUser(user)}
+                          onSendResetLink={() => resetLinkMutation.mutate(user.email)}
                         />
                       </td>
                     </tr>

@@ -1,5 +1,5 @@
 
-import { Pencil, Trash2 } from "lucide-react";
+import { Mail, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -14,12 +14,14 @@ import {
 interface RowActionsProps {
   onEdit: () => void;
   onDelete: () => void;
+  onSendResetLink?: () => void;
   showEdit?: boolean;
 }
 
 export function RowActions({
   onEdit,
   onDelete,
+  onSendResetLink,
   showEdit = true,
 }: RowActionsProps) {
   return (
@@ -41,10 +43,17 @@ export function RowActions({
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
           </>
         )}
+
+        {onSendResetLink && (
+          <DropdownMenuItem onClick={onSendResetLink}>
+            <Mail className="mr-2 h-4 w-4" />
+            Send Reset Link
+          </DropdownMenuItem>
+        )}
+
+        <DropdownMenuSeparator />
 
         <DropdownMenuItem
           onClick={onDelete}
