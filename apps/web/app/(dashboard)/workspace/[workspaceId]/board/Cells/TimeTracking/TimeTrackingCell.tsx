@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import {
+  getMyActiveTimer,
   getTimeEntries,
   startTimer,
   stopTimer,
@@ -30,11 +31,24 @@ export function TimeTrackingCell({
 }: CellEditorProps<number>) {
   const qc = useQueryClient();
   const [runningMs, setRunningMs] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
 
+  // Shared active-timer query — already cached by ActiveTimerBadge, no extra request
+  const { data: activeTimerData } = useQuery({
+    queryKey: ["my-active-timer"],
+    queryFn: getMyActiveTimer,
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+  });
+  const isActiveTask =
+    activeTimerData?.taskId === taskId && activeTimerData?.boardId === boardId;
+
+  // Only fetch per-task entries when this task has an active timer OR the user hovered.
+  // Avoids firing N simultaneous requests on board load (one per task row → 429s).
   const { data: entries = [] } = useQuery({
     queryKey: ["time-entries", boardId, taskId],
     queryFn: () => getTimeEntries(boardId!, taskId!),
-    enabled: Boolean(boardId && taskId),
+    enabled: Boolean(boardId && taskId && (isHovered || isActiveTask)),
     staleTime: 120_000,
     gcTime: 300_000,
     refetchOnWindowFocus: false,
@@ -43,25 +57,28 @@ export function TimeTrackingCell({
 
   const activeEntry = entries.find((e) => !e.endedAt) ?? null;
 
-  // Live tick while a timer is running
+  // Live tick — prefer entry data when loaded, fall back to activeTimerData startedAt
+  const timerStartedAt = activeEntry?.startedAt ?? (isActiveTask ? activeTimerData?.startedAt : undefined);
+
   useEffect(() => {
-    if (!activeEntry) {
+    if (!timerStartedAt) {
       setRunningMs(0);
       return;
     }
-    const startedAt = new Date(activeEntry.startedAt).getTime();
-    const update = () => setRunningMs(Date.now() - startedAt);
+    const startMs = new Date(timerStartedAt).getTime();
+    const update = () => setRunningMs(Date.now() - startMs);
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
-  }, [activeEntry?.id, activeEntry?.startedAt]);
+  }, [timerStartedAt]);
 
   const completedMs = entries
     .filter((e) => e.endedAt && e.durationMs != null)
     .reduce((sum, e) => sum + (e.durationMs ?? 0), 0);
 
   const totalMs = completedMs + runningMs;
-  const isRunning = Boolean(activeEntry);
+  // isActiveTask: from shared cache (no extra request). activeEntry: from full fetch (after hover).
+  const isRunning = Boolean(activeEntry) || isActiveTask;
 
   const invalidate = () =>
     qc.invalidateQueries({ queryKey: ["time-entries", boardId, taskId] });
@@ -81,7 +98,11 @@ export function TimeTrackingCell({
   const isMutating = startMutation.isPending || stopMutation.isPending;
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div
+      className="flex items-center gap-1.5"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <button
         type="button"
         disabled={isMutating}

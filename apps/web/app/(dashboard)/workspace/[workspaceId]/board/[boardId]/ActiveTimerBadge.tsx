@@ -21,8 +21,10 @@ export function ActiveTimerBadge() {
   const { data: entry } = useQuery({
     queryKey: ["my-active-timer"],
     queryFn: getMyActiveTimer,
-    refetchInterval: 10_000,
-    staleTime: 5_000,
+    // Live elapsed time is tracked locally via setInterval below — no need to poll frequently.
+    // 60s is enough to sync if a timer is stopped/started on another tab.
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
   const [elapsed, setElapsed] = useState("");

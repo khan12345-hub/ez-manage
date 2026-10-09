@@ -46,6 +46,7 @@ import {
 
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { useDesktopNotifications } from "@/hooks/useDesktopNotifications";
 import {
   Notification,
   NotificationType,
@@ -276,6 +277,8 @@ export function Notifications() {
   const [search, setSearch] = React.useState("");
   const [unreadOnly, setUnreadOnly] = React.useState(false);
 
+  const { permission: desktopPermission, requestPermission } = useDesktopNotifications();
+
   /* ---- queries ---- */
   const { data: unreadData } = useQuery({
     queryKey: notificationKeys.unreadCount,
@@ -485,6 +488,29 @@ export function Notifications() {
             </button>
           </div>
         </div>
+
+        {/* === Desktop notifications opt-in === */}
+        {desktopPermission !== "granted" && (
+          <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/40 px-4 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <Bell className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground truncate">
+                {desktopPermission === "denied"
+                  ? "Desktop notifications blocked in browser settings"
+                  : "Enable desktop notifications"}
+              </span>
+            </div>
+            {desktopPermission !== "denied" && (
+              <button
+                type="button"
+                onClick={requestPermission}
+                className="shrink-0 rounded-md bg-[#0073EA] px-2.5 py-1 text-xs font-medium text-white transition hover:bg-[#0060C0]"
+              >
+                Enable
+              </button>
+            )}
+          </div>
+        )}
 
         {/* === Tabs === */}
         <div className="flex border-b border-border px-4">

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { connectNotificationStream, ChatUnreadEvent, ChatCallEvent } from "@/services/notifications.sse";
 import { getUnreadNotificationCount } from "@/services/notifications.api";
 import { useChatStore } from "@/store/chat-store";
+import { useDesktopNotifications } from "@/hooks/useDesktopNotifications";
 
 interface Notification {
   id: string;
@@ -46,6 +47,7 @@ export function NotificationStreamProvider({
   const pathname = usePathname();
   const incrementUnread = useChatStore((s) => s.incrementUnread);
   const setIncomingCall = useChatStore((s) => s.setIncomingCall);
+  const { fire: fireDesktop } = useDesktopNotifications();
 
   // ── Tab title badge: (N) Board Name ───────────────────────────────────────
   const { data: unreadData } = useQuery({
@@ -79,14 +81,14 @@ export function NotificationStreamProvider({
       return;
     }
 
-    console.log(
-      "[SSE] Connecting notification stream for user:",
-      userId,
-    );
-
     const disconnect = connectNotificationStream(
       (notification: Notification) => {
-        console.log("[SSE] New notification received:", notification);
+        // Desktop notification when tab is not focused
+        const meta = notification.metadata as Record<string, any> | null | undefined;
+        const url = meta?.workspaceId && meta?.boardId
+          ? `/workspace/${meta.workspaceId}/board/${meta.boardId}`
+          : undefined;
+        fireDesktop(notification.title, notification.message, url);
 
         queryClient.setQueryData<{ count: number }>(
           ["notifications", "unread-count"],
@@ -128,14 +130,8 @@ export function NotificationStreamProvider({
       },
     );
 
-    return () => {
-      console.log(
-        "[SSE] Disconnecting notification stream",
-      );
-
-      disconnect();
-    };
-  }, [userId, queryClient]);
+    return () => disconnect();
+  }, [userId, queryClient, fireDesktop]);
 
   return <>{children}</>;
 }

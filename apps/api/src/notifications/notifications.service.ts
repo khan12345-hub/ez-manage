@@ -9,6 +9,7 @@ import { Queue } from 'bullmq';
 // WhatsApp hook — remove this import to disable WhatsApp notifications
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { MailService } from '../mail/mail.service';
+import { PushService } from '../push/push.service';
 
 @Injectable()
 export class NotificationsService implements OnModuleInit {
@@ -23,6 +24,8 @@ export class NotificationsService implements OnModuleInit {
     @Optional() private readonly whatsapp: WhatsappService,
 
     @Optional() private readonly mailService: MailService,
+
+    @Optional() private readonly pushService: PushService,
   ) {}
 
   onModuleInit() {
@@ -203,6 +206,20 @@ export class NotificationsService implements OnModuleInit {
       })();
     }
     // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    // ── Web Push ──────────────────────────────────────────────────────────────
+    if (this.pushService) {
+      const pushUrl = metadata?.workspaceId && metadata?.boardId
+        ? `/workspace/${metadata.workspaceId}/board/${metadata.boardId}`
+        : '/dashboard';
+      void this.pushService.sendToUser(recipientId, {
+        title,
+        body: message,
+        url: pushUrl,
+        tag: type,
+      }).catch(() => {});
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Queue email.

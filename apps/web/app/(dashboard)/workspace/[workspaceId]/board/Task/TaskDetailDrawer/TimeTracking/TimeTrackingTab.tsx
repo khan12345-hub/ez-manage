@@ -89,7 +89,8 @@ export function TimeTrackingTab({ taskId, boardId }: TimeTrackingTabProps) {
     queryKey: entriesKey,
     queryFn: () => getTimeEntries(boardId, taskId),
     enabled: !!boardId && !!taskId,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
   const activeEntry = entries.find((e) => e.endedAt === null) ?? null;
@@ -99,7 +100,7 @@ export function TimeTrackingTab({ taskId, boardId }: TimeTrackingTabProps) {
   const { data: myActiveTimer } = useQuery({
     queryKey: ["my-active-timer"],
     queryFn: getMyActiveTimer,
-    staleTime: 5_000,
+    staleTime: 30_000,
   });
   const crossBoardActive = !activeEntry && myActiveTimer?.taskId === taskId ? myActiveTimer : null;
 

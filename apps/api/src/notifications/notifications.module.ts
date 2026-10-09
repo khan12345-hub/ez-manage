@@ -9,6 +9,7 @@ import { NotificationsProcessor } from './notifications.processor';
 import { MailModule } from '../mail/mail.module';
 // WhatsApp hook — remove this import to disable WhatsApp notifications
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
+import { PushModule } from '../push/push.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { WhatsappModule } from '../whatsapp/whatsapp.module';
     }),
     MailModule,
     WhatsappModule, // WhatsApp hook — remove this line to disable
+    PushModule,
   ],
 
   controllers: [

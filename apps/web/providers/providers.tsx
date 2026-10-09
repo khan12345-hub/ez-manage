@@ -13,7 +13,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60_000, // show cached data for 60s before background refetch
+            staleTime: 60_000,
+            // Tab focus triggers a refetch burst across all active queries — disable globally
+            refetchOnWindowFocus: false,
             retry: (failureCount, error: any) => {
               // Never retry on 429 — it only makes rate limiting worse
               const status = error?.status ?? error?.response?.status;

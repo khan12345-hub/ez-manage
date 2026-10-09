@@ -82,6 +82,17 @@ export class UsersService {
     const user = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
     if (!user) throw new NotFoundException('User not found');
 
+    // Pre-validate email uniqueness to avoid an unhandled Prisma P2002 → 500
+    if (dto.email !== undefined) {
+      const emailNormalized = dto.email.toLowerCase().trim();
+      if (emailNormalized !== user.email) {
+        const taken = await this.prisma.user.findFirst({
+          where: { email: emailNormalized, id: { not: id }, deletedAt: null },
+        });
+        if (taken) throw new BadRequestException('Email is already in use by another account');
+      }
+    }
+
     const data: Prisma.UserUpdateInput = {};
     if (dto.firstName !== undefined) data.firstName = dto.firstName.trim();
     if (dto.lastName !== undefined) data.lastName = dto.lastName.trim();
@@ -89,7 +100,26 @@ export class UsersService {
     if (dto.systemRole !== undefined) data.systemRole = dto.systemRole as SystemRole;
     if (dto.newPassword) data.password = await bcrypt.hash(dto.newPassword, 10);
 
-    return this.prisma.user.update({ where: { id }, data, select: this.adminSelect });
+    try {
+      const updated = await this.prisma.user.update({ where: { id }, data, select: this.adminSelect });
+      // Transform to match findAll() response format
+      const { createdByAdmin, ...rest } = updated as any;
+      return {
+        ...rest,
+        createdBy: createdByAdmin
+          ? { id: createdByAdmin.id, name: `${createdByAdmin.firstName} ${createdByAdmin.lastName}`.trim() }
+          : null,
+      };
+    } catch (e: any) {
+      if (e?.code === 'P2002') {
+        throw new BadRequestException('Email is already in use by another account');
+      }
+      if (e?.code === 'P2025') {
+        throw new NotFoundException('User not found');
+      }
+      console.error('[UsersService.adminUpdateUser] Unexpected error for user', id, ':', e?.message ?? e);
+      throw e;
+    }
   }
 
   async deleteUser(id: number) {
