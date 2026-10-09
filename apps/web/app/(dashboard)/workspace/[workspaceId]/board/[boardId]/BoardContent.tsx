@@ -90,11 +90,7 @@ export function BoardContent({
   return (
     <>
       
-      <div
-        className={
-          isFetching ? "opacity-60 transition-opacity" : "transition-opacity"
-        }
-      >
+      <div>
         <DndContext
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}

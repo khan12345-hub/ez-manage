@@ -119,12 +119,12 @@ export function Board({
 
     retry: (failureCount, error: any) => {
       const status = error?.response?.status ?? error?.status;
-      if (status === 429) return failureCount < 6; // retry up to 6× on rate-limit
+      if (status === 429) return failureCount < 2; // max 2 retries on rate-limit
       return failureCount < 2;
     },
     retryDelay: (failureCount, error: any) => {
       const status = (error as any)?.response?.status ?? (error as any)?.status;
-      if (status === 429) return Math.min(5000 * (failureCount + 1), 30_000); // 5s→10s→15s…
+      if (status === 429) return 15_000; // wait 15s before retrying rate-limited requests
       return Math.min(1000 * 2 ** failureCount, 10_000);
     },
   });
@@ -353,8 +353,8 @@ export function Board({
   useEffect(() => {
     if (!hasNextPage || isFetchingNextPage || isTasksError) return;
     // Delay next page fetch to avoid burst requests that trigger server 429s.
-    // Each page fires 500 ms after the previous one finishes, not immediately.
-    const timer = setTimeout(() => fetchNextPage(), 500);
+    // Each page fires 1500 ms after the previous one finishes, not immediately.
+    const timer = setTimeout(() => fetchNextPage(), 1500);
     return () => clearTimeout(timer);
   }, [hasNextPage, isFetchingNextPage, isTasksError, fetchNextPage]);
 

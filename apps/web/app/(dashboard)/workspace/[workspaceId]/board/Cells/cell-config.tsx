@@ -17,8 +17,7 @@ import { LabelEditor } from "../EditableCells/LabelEditor";
 import { DateCell } from "./DateCell";
 
 import { updateTask } from "@/services/tasks.api";
-import { updateCell } from "@/services/cells.api";
-import { toast } from "sonner";
+import { updateCell, createCell } from "@/services/cells.api";
 import PersonPicker from "./Person/PersonPicker";
 import { PersonCell } from "./Person/PersonCell";
 import { StatusCell } from "./Status/StatusCell";
@@ -26,6 +25,19 @@ import { CreationLogCell } from "./CreationLog/CreationLogCell";
 import { TimeTrackingCell } from "./TimeTracking/TimeTrackingCell";
 import { EmailEditor } from "../EditableCells/EmailEditor";
 import { FormulaCell } from "./Formula/FormulaCell";
+
+// Creates the cell if it doesn't exist yet (column added after tasks were created),
+// then patches the value. Prevents silent save failures when cell.id is null.
+async function ensureAndUpdate(
+  boardId: number,
+  task: any,
+  column: any,
+  cell: any,
+  value: any,
+): Promise<any> {
+  const cellId = cell?.id ?? (await createCell(boardId, task.id, column.id)).id;
+  return updateCell(boardId, cellId, value);
+}
 
 export interface CellConfig<T = any> {
   /**
@@ -69,18 +81,9 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     save: async ({ task, cell, column, value, boardId }) => {
       if (column.isPrimary) {
-        return updateTask(boardId!, task.id, {
-          name: value,
-        });
+        return updateTask(boardId!, task.id, { name: value });
       }
-
-      if (!cell?.id) return null;
-
-      return updateCell(boardId!, cell.id, {
-        value: {
-          text: value,
-        },
-      });
+      return ensureAndUpdate(boardId!, task, column, cell, { value: { text: value } });
     },
   },
 
@@ -89,10 +92,8 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     getValue: (_, cell) => cell?.value?.text ?? "",
 
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) return Promise.resolve(null);
-      return updateCell(boardId!, cell.id, { value: { text: value } });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value: { text: value } }),
   },
 
   LINK: {
@@ -117,10 +118,8 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       );
     },
 
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) return Promise.resolve(null);
-      return updateCell(boardId!, cell.id, { value: { url: value } });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value: { url: value } }),
   },
 
   NUMBER: {
@@ -128,17 +127,8 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     getValue: (_, cell) => cell?.value?.text ?? "",
 
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) {
-        return Promise.resolve(null);
-      }
-
-      return updateCell(boardId, cell.id, {
-        value: {
-          text: value,
-        },
-      });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value: { text: value } }),
   },
 
   PRICE: {
@@ -157,41 +147,28 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       );
     },
 
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) return Promise.resolve(null);
-      return updateCell(boardId, cell.id, { value: { text: String(value ?? "") } });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value: { text: String(value ?? "") } }),
   },
 
   PERSON: {
-  component: PersonEditor,
+    component: PersonEditor,
 
-  getValue: (_, cell) => cell?.value ?? null,
+    getValue: (_, cell) => cell?.value ?? null,
 
-  renderValue: (value) => <PersonCell cell={value} />,
+    renderValue: (value) => <PersonCell cell={value} />,
 
-  save: ({ cell, value, boardId }) => {
-    if (!cell?.id) {
-      return Promise.resolve(null);
-    }
-
-    return updateCell(boardId!, cell.id, {
-      value: {
-        users: value?.users ?? [],
-      },
-    });
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value: { users: value?.users ?? [] } }),
   },
-},
 
   STATUS: {
     component: StatusEditor,
 
     getValue: (_, cell) => cell?.value ?? null,
 
-    save: async ({ cell, value, boardId, queryClient }) => {
-      if (!cell?.id) return null;
-
-      const result = await updateCell(boardId!, cell.id, {
+    save: async ({ task, cell, column, value, boardId, queryClient }) => {
+      const result = await ensureAndUpdate(boardId!, task, column, cell, {
         value: { label: value.label, color: value.color },
       });
 
@@ -212,17 +189,8 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     renderValue: (value) => <DateCell cell={value} />,
 
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) {
-        return Promise.resolve(null);
-      }
-
-      return updateCell(boardId, cell.id, {
-        value: {
-          date: value.date,
-        },
-      });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value: { date: value.date } }),
   },
 
   // Plain date — identical to DATE but never shows overdue red styling.
@@ -234,10 +202,8 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     renderValue: (value) => <DateCell cell={value} plain />,
 
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) return Promise.resolve(null);
-      return updateCell(boardId, cell.id, { value: { date: value.date } });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value: { date: value.date } }),
   },
 
   TIMELINE: {
@@ -245,18 +211,10 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     getValue: (_, cell) => cell?.value,
 
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) {
-        return Promise.resolve(null);
-      }
-
-      return updateCell(boardId, cell.id, {
-        value: {
-          startDate: new Date(value.startDate),
-          endDate: new Date(value.endDate),
-        },
-      });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, {
+        value: { startDate: new Date(value.startDate), endDate: new Date(value.endDate) },
+      }),
   },
 
   CHECKBOX: {
@@ -264,17 +222,8 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     getValue: (_, cell) => cell?.value?.checked ?? false,
 
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) {
-        return Promise.resolve(null);
-      }
-
-      return updateCell(boardId, cell.id, {
-        value: {
-          checked: value,
-        },
-      });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value: { checked: value } }),
   },
 
   FILE: {
@@ -313,19 +262,15 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   DROPDOWN: {
     component: TextEditor,
     getValue: (_, cell) => cell?.value?.text ?? "",
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) return Promise.resolve(null);
-      return updateCell(boardId!, cell.id, { value: { text: value } });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value: { text: value } }),
   },
 
   LABEL: {
     component: LabelEditor,
     getValue: (_, cell) => cell?.value ?? { text: "", color: "" },
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) return Promise.resolve(null);
-      return updateCell(boardId!, cell.id, { value: { text: value?.text ?? "", color: value?.color ?? "" } });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value: { text: value?.text ?? "", color: value?.color ?? "" } }),
   },
 
   EMAIL: {
@@ -349,10 +294,8 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       );
     },
 
-    save: ({ cell, value, boardId }) => {
-      if (!cell?.id) return Promise.resolve(null);
-      return updateCell(boardId!, cell.id, { value });
-    },
+    save: ({ task, cell, column, value, boardId }) =>
+      ensureAndUpdate(boardId!, task, column, cell, { value }),
   },
 
   FORMULA: {
