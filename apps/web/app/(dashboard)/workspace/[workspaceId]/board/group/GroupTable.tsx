@@ -93,12 +93,16 @@ export function GroupTable({
     if (!shouldVirtualize || !tbodyRef.current) return;
     const main = document.querySelector("main");
     if (!main) return;
-    setScrollMargin(
-      tbodyRef.current.getBoundingClientRect().top -
-        main.getBoundingClientRect().top +
-        main.scrollTop,
-    );
-  }, [shouldVirtualize, rootTasks.length]);
+    // Walk up offsetParent chain to get the absolute offset from <main>'s
+    // scrollable origin — scroll-independent and layout-stable.
+    let offset = 0;
+    let el: HTMLElement | null = tbodyRef.current;
+    while (el && el !== main) {
+      offset += el.offsetTop;
+      el = el.offsetParent as HTMLElement | null;
+    }
+    setScrollMargin(offset);
+  }, [shouldVirtualize, rootTasks.length, isFetchingNextPage]);
 
   // The app's scroll container is <main> (overflow-auto in AppShell), not the window.
   const rowVirtualizer = useVirtualizer({
