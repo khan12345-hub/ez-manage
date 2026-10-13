@@ -178,7 +178,29 @@ export class BoardSearchService {
       return this.timelineCellMatchesSearch(cell, search);
     }
 
-    return false;
+    /*
+     * Generic text fallback — covers TEXT, LONG_TEXT, EMAIL, LINK,
+     * DROPDOWN, LABEL (array), NUMBER, PRICE, and any future column types.
+     */
+    return this.extractCellText(cell.value).toLowerCase().includes(search);
+  }
+
+  /**
+   * Extract a plain-text representation from any cell value shape.
+   */
+  private extractCellText(value: any): string {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    // LABEL column: [{ text, color }]
+    if (Array.isArray(value)) {
+      return value.map((v: any) => v?.text ?? String(v ?? '')).join(' ');
+    }
+    // { text: string } — TEXT, LONG_TEXT, EMAIL, LINK, NUMBER, PRICE, DROPDOWN
+    if (value.text !== undefined) return String(value.text);
+    // { url: string } — LINK fallback
+    if (value.url !== undefined) return String(value.url);
+    return '';
   }
 
   /**
@@ -448,22 +470,30 @@ export class BoardSearchService {
   /**
    * Apply all board filters.
    *
-   * Search and person filters
-   * are combined using AND.
+   * Search and person filters are combined using AND.
+   * commentMatchedTaskIds — task IDs whose comments contain the search term
+   * (pre-queried by the caller so comments don't need to be included in the
+   * main task select).
    */
   filterTasks(
     tasks: any[],
     options: {
       search?: string;
       person?: string;
+      commentMatchedTaskIds?: Set<number>;
     },
   ): any[] {
     const search = options.search?.trim().toLowerCase() ?? '';
 
     const person = options.person?.trim().toLowerCase() ?? '';
 
+    const commentIds = options.commentMatchedTaskIds ?? new Set<number>();
+
     return tasks.filter((task) => {
-      const matchesSearch = !search || this.taskMatchesSearch(task, search);
+      const matchesSearch =
+        !search ||
+        commentIds.has(task.id) ||
+        this.taskMatchesSearch(task, search);
 
       const matchesPerson = !person || this.taskMatchesPerson(task, person);
 

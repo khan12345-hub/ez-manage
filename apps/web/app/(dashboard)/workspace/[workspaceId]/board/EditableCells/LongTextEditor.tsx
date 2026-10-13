@@ -38,7 +38,7 @@ export function LongTextEditor({
   if (!editing) {
     return (
       <div
-        className="absolute inset-0 flex w-full cursor-text items-start overflow-hidden px-2 py-1 text-[13px] leading-snug"
+        className="absolute inset-0 flex w-full cursor-text items-start overflow-hidden px-2 py-1 text-[13px] leading-snug hover:bg-muted/60 hover:ring-1 hover:ring-inset hover:ring-border/60"
         title={value || ""}
       >
         <span className="line-clamp-2 whitespace-pre-wrap break-words">

@@ -40,7 +40,7 @@ export function ReplyItem({ reply, taskId, onEdit, onDelete }: ReplyItemProps) {
 
   const [content, setContent] = useState(reply.content);
   const formattedDate = reply.createdAt
-    ? format(reply.createdAt, "do MMMM, yyyy EEEE 'at' h:mm a")
+    ? format(reply.createdAt, "d MMMM, yyyy EEEE 'at' h:mm a")
     : "";
   return (
     <div className="flex gap-3 py-3">

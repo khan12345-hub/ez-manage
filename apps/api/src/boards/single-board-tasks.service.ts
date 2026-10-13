@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { BoardSearchService } from './board-search.service';
 
@@ -27,19 +27,6 @@ export class GetBoardTasksService {
     person,
   }: GetBoardTasksParams) {
     const take = Math.min(limit, 1000);
-
-    const board = await this.prisma.board.findUnique({
-      where: {
-        id: boardId,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!board) {
-      throw new NotFoundException(`Board with ID ${boardId} not found.`);
-    }
 
     /*
      * When search/person filters are active, we need to fetch enough
@@ -108,28 +95,8 @@ export class GetBoardTasksService {
             column: {
               select: {
                 id: true,
-                name: true,
                 type: true,
-                order: true,
                 isPrimary: true,
-
-                statusOptions: {
-                  where: {
-                    isArchived: false,
-                  },
-
-                  orderBy: {
-                    order: 'asc',
-                  },
-                },
-
-                permissions: {
-                  select: {
-                    userId: true,
-                    canEdit: true,
-                    columnId: true,
-                  },
-                },
               },
             },
 
@@ -168,20 +135,8 @@ export class GetBoardTasksService {
                 column: {
                   select: {
                     id: true,
-                    name: true,
                     type: true,
-                    order: true,
                     isPrimary: true,
-
-                    statusOptions: {
-                      where: {
-                        isArchived: false,
-                      },
-
-                      orderBy: {
-                        order: 'asc',
-                      },
-                    },
                   },
                 },
 
@@ -226,8 +181,27 @@ export class GetBoardTasksService {
     /*
      * Filters active:
      * Use the original search implementation.
+     *
+     * Additionally query TaskComment so that tasks whose comments
+     * match the search term are included even if no cell matches.
      */
-    const filteredTasks = this.boardSearchService.filterTasks(tasks, { search, person });
+    let commentMatchedTaskIds = new Set<number>();
+    if (search?.trim()) {
+      const matchingComments = await this.prisma.taskComment.findMany({
+        where: {
+          task: { group: { boardId } },
+          content: { contains: search.trim(), mode: 'insensitive' },
+        },
+        select: { taskId: true },
+      });
+      commentMatchedTaskIds = new Set(matchingComments.map((c) => c.taskId));
+    }
+
+    const filteredTasks = this.boardSearchService.filterTasks(tasks, {
+      search,
+      person,
+      commentMatchedTaskIds,
+    });
     const result = filteredTasks.slice(0, take);
     const hasMore = filteredTasks.length > take;
     const nextCursor = hasMore ? (result[result.length - 1]?.id ?? null) : null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 
@@ -38,21 +39,24 @@ export function FormDatePicker({
   fromDate,
   toDate,
 }: FormDatePickerProps) {
+  const [open, setOpen] = useState(false);
   const selected = value ? new Date(`${value}T00:00:00`) : undefined;
 
   function handleSelect(date: Date | undefined) {
     if (!date) {
       onChange("");
+      setOpen(false);
       return;
     }
 
     // Format as YYYY-MM-DD to stay timezone-safe
     const iso = format(date, "yyyy-MM-dd");
     onChange(iso);
+    setOpen(false);
   }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -65,7 +69,7 @@ export function FormDatePicker({
         >
           <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
 
-          {selected ? format(selected, "PPP") : <span>{placeholder}</span>}
+          {selected ? format(selected, "MMMM d, yyyy") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
 

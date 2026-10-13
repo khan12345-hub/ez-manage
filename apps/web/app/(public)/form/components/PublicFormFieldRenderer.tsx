@@ -301,7 +301,7 @@ export function PublicFormFieldRenderer({
           boardId={boardId}
           fieldId={fieldId}
           disabled={disabled}
-          value={value as UploadedFile | undefined}
+          value={(value as UploadedFile[] | undefined) ?? []}
           onChange={onChange}
           error={error}
         />
@@ -506,7 +506,7 @@ function MemberBadge({ member }: { member: PublicFormMember }) {
   );
 }
 
-/* ---------- FileUploadInput sub-component ---------- */
+/* ---------- FileUploadInput sub-component (multi-file) ---------- */
 function FileUploadInput({
   boardId,
   fieldId,
@@ -518,7 +518,7 @@ function FileUploadInput({
   boardId: string | number;
   fieldId: string;
   disabled: boolean;
-  value: UploadedFile | undefined;
+  value: UploadedFile[];
   onChange: (value: unknown) => void;
   error?: string;
 }) {
@@ -526,88 +526,135 @@ function FileUploadInput({
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function uploadFiles(files: FileList | File[]) {
+    const list = Array.from(files);
+    if (!list.length || disabled || uploading) return;
     setUploading(true);
     try {
-      const result = await uploadPublicFormFile(boardId, file);
-      onChange({
-        url: result.url,
-        originalName: result.originalName,
-        size: result.size,
-        storageKey: result.storageKey,
-        mimeType: result.mimeType,
-      });
+      const results = await Promise.all(
+        list.map((file) => uploadPublicFormFile(boardId, file)),
+      );
+      const newFiles: UploadedFile[] = results.map((r) => ({
+        url: r.url,
+        originalName: r.originalName,
+        size: r.size,
+        storageKey: r.storageKey,
+        mimeType: r.mimeType,
+      }));
+      onChange([...value, ...newFiles]);
     } catch {
       // ignore — user can retry
     } finally {
       setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
-  function handleRemove() {
-    onChange(undefined);
-    if (inputRef.current) inputRef.current.value = "";
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files?.length) uploadFiles(e.target.files);
   }
 
-  if (value) {
-    return (
-      <div className="flex items-center gap-2 rounded-md border px-4 py-3 text-base">
-        <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate">{value.originalName}</span>
-        {!disabled && (
-          <button type="button" onClick={handleRemove} className="shrink-0 text-muted-foreground hover:text-destructive">
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-    );
+  function handleRemove(idx: number) {
+    onChange(value.filter((_, i) => i !== idx));
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (!file || disabled || uploading) return;
-    const syntheticEvent = { target: { files: e.dataTransfer.files } } as unknown as React.ChangeEvent<HTMLInputElement>;
-    handleFileChange(syntheticEvent);
+    if (e.dataTransfer.files?.length && !disabled && !uploading) {
+      uploadFiles(e.dataTransfer.files);
+    }
+  }
+
+  function formatSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   return (
-    <label
-      htmlFor={fieldId}
-      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={handleDrop}
-      className={cn(
-        "flex cursor-pointer items-center gap-3 rounded-lg border border-dashed px-4 py-5 transition-colors",
-        isDragging ? "border-primary/60 bg-primary/5" : "border-muted-foreground/25 hover:border-primary/40 hover:bg-muted/20",
-        error && "border-destructive/50",
-        (disabled || uploading) && "cursor-not-allowed opacity-60",
+    <div className="space-y-2">
+      {/* Uploaded files list */}
+      {value.length > 0 && (
+        <div className="space-y-1.5">
+          {value.map((file, idx) => (
+            <div
+              key={idx}
+              className="flex items-center gap-2.5 rounded-md border bg-muted/30 px-3 py-2.5"
+            >
+              <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium leading-none">
+                  {file.originalName}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {formatSize(file.size)}
+                </p>
+              </div>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => handleRemove(idx)}
+                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       )}
-    >
-      <input
-        ref={inputRef}
-        id={fieldId}
-        type="file"
-        className="hidden"
-        disabled={disabled || uploading}
-        onChange={handleFileChange}
-      />
-      {uploading ? (
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-      ) : (
-        <UploadCloud className="h-4 w-4 shrink-0 text-muted-foreground" />
-      )}
-      <div className="min-w-0">
-        <span className="text-base text-primary">
-          {uploading ? "Uploading…" : "Choose a file to upload"}
-        </span>
-        {!uploading && (
-          <span className="text-base text-muted-foreground"> or drag and drop here</span>
+
+      {/* Drop zone — always visible so user can keep adding files */}
+      <label
+        htmlFor={fieldId}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!disabled && !uploading) setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={cn(
+          "flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed px-4 py-6 text-center transition-colors",
+          isDragging
+            ? "border-primary/60 bg-primary/5"
+            : "border-muted-foreground/25 hover:border-primary/40 hover:bg-muted/20",
+          error && value.length === 0 && "border-destructive/50",
+          (disabled || uploading) && "cursor-not-allowed opacity-60",
         )}
-      </div>
-    </label>
+      >
+        <input
+          ref={inputRef}
+          id={fieldId}
+          type="file"
+          multiple
+          className="hidden"
+          disabled={disabled || uploading}
+          onChange={handleFileChange}
+        />
+        {uploading ? (
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        ) : (
+          <UploadCloud className="h-6 w-6 text-muted-foreground/50" />
+        )}
+        <div className="text-sm">
+          <span className="font-medium text-primary">
+            {uploading
+              ? "Uploading…"
+              : value.length > 0
+              ? "Add more files"
+              : "Choose files to upload"}
+          </span>
+          {!uploading && (
+            <span className="text-muted-foreground"> or drag and drop here</span>
+          )}
+        </div>
+        {!uploading && (
+          <p className="text-xs text-muted-foreground/50">
+            Multiple files supported
+          </p>
+        )}
+      </label>
+    </div>
   );
 }

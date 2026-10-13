@@ -37,7 +37,7 @@ export function CommentItem({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const formattedDate = comment.createdAt
-    ? format(comment.createdAt, "do MMMM, yyyy EEEE 'at' h:mm a")
+    ? format(comment.createdAt, "d MMMM, yyyy EEEE 'at' h:mm a")
     : "";
 
   return (

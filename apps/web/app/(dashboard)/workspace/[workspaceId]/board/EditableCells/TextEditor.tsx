@@ -94,7 +94,7 @@ export function TextEditor({
    */
   if (isPrimary) {
     return (
-      <div className="group/primarycell relative flex h-full w-full items-center">
+      <div className="relative flex w-full items-center">
         <TooltipProvider delayDuration={500}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -104,7 +104,7 @@ export function TextEditor({
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 onBlur={handleSave}
-                className="h-full w-full truncate rounded-none border-none bg-transparent pr-7 text-[16px]! shadow-none focus-visible:ring-0"
+                className="h-8 w-full truncate rounded-sm border-none bg-transparent pr-7 text-[16px]! shadow-none focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-inset"
               />
             </TooltipTrigger>
 
@@ -131,7 +131,7 @@ export function TextEditor({
                     e.stopPropagation();
                     save("");
                   }}
-                  className="absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover/primarycell:flex"
+                  className="absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover/cell:flex"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -159,7 +159,7 @@ export function TextEditor({
     return (
       <div
         onClick={() => setOpen(true)}
-        className="absolute inset-0 flex w-full cursor-text items-center overflow-hidden truncate whitespace-nowrap px-2 text-[16px]"
+        className="absolute inset-0 flex w-full cursor-text items-center overflow-hidden truncate whitespace-nowrap px-2 text-[16px] hover:bg-muted/60 hover:ring-1 hover:ring-inset hover:ring-border/60"
         title={value || ""}
       >
         {value || <span className="text-muted-foreground/40 text-sm">—</span>}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -327,12 +328,26 @@ export function GroupHeader({
       </div>
 
       {!activeGroup.isNew && (
-        <GroupActions
-          group={activeGroup}
-          isCollapsed={isCollapsed}
-          onToggleCollapse={onToggleCollapse ?? (() => {})}
-          onAddGroup={onAddGroup ?? (() => {})}
-        />
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onToggleCollapse ?? (() => {})}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title={isCollapsed ? "Expand group" : "Collapse group"}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+          <GroupActions
+            group={activeGroup}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={onToggleCollapse ?? (() => {})}
+            onAddGroup={onAddGroup ?? (() => {})}
+          />
+        </div>
       )}
     </div>
 

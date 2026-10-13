@@ -78,6 +78,7 @@ export function TimelineEditor({
 
     setValue(newValue);
     save(newValue);
+    setOpen(false);
   };
 
   return (

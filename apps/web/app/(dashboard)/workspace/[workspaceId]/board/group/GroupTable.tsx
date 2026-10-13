@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   SortableContext,
   horizontalListSortingStrategy,
@@ -84,33 +84,32 @@ export function GroupTable({
 
   const shouldVirtualize = rootTasks.length > VIRTUALIZE_THRESHOLD;
 
+  // scrollMargin must be calculated AFTER the tbody is in the DOM.
+  // The IIFE approach always returned 0 on first render (ref not attached yet).
+  // We update it via useLayoutEffect whenever tasks first appear or count changes.
+  const [scrollMargin, setScrollMargin] = useState(0);
+
+  useLayoutEffect(() => {
+    if (!shouldVirtualize || !tbodyRef.current) return;
+    const main = document.querySelector("main");
+    if (!main) return;
+    setScrollMargin(
+      tbodyRef.current.getBoundingClientRect().top -
+        main.getBoundingClientRect().top +
+        main.scrollTop,
+    );
+  }, [shouldVirtualize, rootTasks.length]);
+
   // The app's scroll container is <main> (overflow-auto in AppShell), not the window.
-  // useWindowVirtualizer uses window.scrollY which is always 0 here, so only the
-  // first ~14 rows ever render. useVirtualizer with the correct scroll element fixes this.
   const rowVirtualizer = useVirtualizer({
     count: rootTasks.length,
     estimateSize: () => 41,
-    overscan: 10,
+    overscan: 15,
     getScrollElement: () => {
       if (typeof document === "undefined") return null;
       return document.querySelector("main");
     },
-    // Distance from main's content top to tbody's position in that content.
-    // This stays constant as the user scrolls because scrollTop compensates for
-    // the changing getBoundingClientRect values.
-    scrollMargin: (() => {
-      const tbody = tbodyRef.current;
-      const main =
-        typeof document !== "undefined"
-          ? document.querySelector("main")
-          : null;
-      if (!tbody || !main) return 0;
-      return (
-        tbody.getBoundingClientRect().top -
-        main.getBoundingClientRect().top +
-        main.scrollTop
-      );
-    })(),
+    scrollMargin,
   });
 
   const virtualItems = rowVirtualizer.getVirtualItems();

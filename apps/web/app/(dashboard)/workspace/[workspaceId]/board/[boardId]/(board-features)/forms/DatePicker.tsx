@@ -34,7 +34,7 @@ export function DatePicker({
           <CalendarIcon className="mr-2 h-4 w-4" />
 
           {value ? (
-            format(value, "PPP")
+            format(value, "MMMM d, yyyy")
           ) : (
             <span className="text-muted-foreground">
               Pick a date

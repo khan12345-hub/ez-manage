@@ -103,7 +103,7 @@ export function Board({
     queryFn: ({ pageParam }) =>
       getBoardTasks(board.id, {
         cursor: pageParam ?? undefined,
-        limit: 500,
+        limit: 100,
         search: debouncedSearch.trim() || undefined,
         person: personFilter?.users?.length
           ? personFilter.users.map((u) => u.id).join(",")
@@ -354,9 +354,7 @@ export function Board({
    */
   useEffect(() => {
     if (!hasNextPage || isFetchingNextPage || isTasksError) return;
-    // Delay next page fetch to avoid burst requests that trigger server 429s.
-    // Each page fires 1500 ms after the previous one finishes, not immediately.
-    const timer = setTimeout(() => fetchNextPage(), 1500);
+    const timer = setTimeout(() => fetchNextPage(), 200);
     return () => clearTimeout(timer);
   }, [hasNextPage, isFetchingNextPage, isTasksError, fetchNextPage]);
 

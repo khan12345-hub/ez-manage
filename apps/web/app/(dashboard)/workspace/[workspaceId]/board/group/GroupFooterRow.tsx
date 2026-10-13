@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 // ── Aggregation types ─────────────────────────────────────────────────────────
 type AggType =
@@ -119,7 +124,7 @@ function computeAgg(tasks: any[], column: any, aggType: AggType): AggResult | nu
       }
       const unique = Array.from(new Set(vals));
       if (!unique.length) return null;
-      return { display: unique[0], label: "unique", extra: unique.length - 1 };
+      return { display: unique[0], label: "unique", extra: unique.length - 1, extraItems: unique.slice(1) };
     }
 
     case "checked": case "unchecked": {
@@ -216,9 +221,22 @@ function FooterCell({ column, tasks, allTasksLoaded, totalTaskCount }: { column:
               )}
               <span className="truncate text-[13px] font-semibold text-foreground">{result.display}</span>
               {result.extra != null && result.extra > 0 && (
-                <span className="shrink-0 rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground/70">
-                  +{result.extra}
-                </span>
+                <HoverCard openDelay={150} closeDelay={50}>
+                  <HoverCardTrigger asChild>
+                    <span className="shrink-0 cursor-default rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground/70 hover:bg-foreground/20">
+                      +{result.extra}
+                    </span>
+                  </HoverCardTrigger>
+                  <HoverCardContent side="top" align="start" sideOffset={6} className="w-auto min-w-[120px] p-2">
+                    <div className="flex flex-col gap-1">
+                      {(result.extraItems ?? []).map((item: string, i: number) => (
+                        <span key={i} className="truncate text-[12px] text-foreground">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
               )}
             </div>
             <span className="text-[10px] text-muted-foreground/50">{result.label}</span>
