@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 
 import { FormBuilderState, FormField, FormFieldType, FormPage } from "./board-feature-form.types";
 import { SYSTEM_COLUMN_TYPES } from "./board-form.utils";
+import { FormDesign } from "./FormPreview";
 import { StatusOptionEditor } from "../../StatusOptionEditor";
 import { AddContentModal } from "./AddContentModal";
 import { useColumnRename } from "../../../../../group/columns/useColumnRename.hooks";
@@ -59,6 +60,7 @@ interface FormEditorPanelProps {
   selectedFieldId: string | null;
   boardId: number;
   board: any;
+  design?: FormDesign;
   onSelectField: (id: string | null) => void;
   onUpdateField: (field: FormField) => void;
   onToggleVisible: (id: string) => void;
@@ -79,6 +81,7 @@ export function FormEditorPanel({
   selectedFieldId,
   boardId,
   board,
+  design,
   onSelectField,
   onUpdateField,
   onToggleVisible,
@@ -93,6 +96,9 @@ export function FormEditorPanel({
   onUpdatePage,
   onThankyouChange,
 }: FormEditorPanelProps) {
+  const cardBg = design?.cardBg ?? "#ffffff";
+  const accentColor = design?.accentColor ?? "#0070f3";
+
   const [deleteDialog, setDeleteDialog] = useState<{ field: FormField; deleteColumn: boolean } | null>(null);
   const [addModal, setAddModal] = useState<{ pageIndex: number; allowPage: boolean } | null>(null);
   const [editingThankyou, setEditingThankyou] = useState(false);
@@ -132,7 +138,8 @@ export function FormEditorPanel({
     <div className="w-full max-w-2xl">
       {/* ── Form header ─────────────────────────────────────── */}
       <div
-        className="mb-3 cursor-text rounded-xl bg-white px-6 py-4 shadow-sm dark:bg-[#2b2c30]"
+        className="mb-3 cursor-text rounded-xl px-6 py-4 shadow-sm"
+        style={{ backgroundColor: cardBg }}
         onClick={() => onSelectField(null)}
       >
         <input
@@ -159,6 +166,7 @@ export function FormEditorPanel({
               /* Page divider for pages 2+ with title + delete */
               <PageDivider
                 page={page}
+                pageNumber={pageIndex + 1}
                 canDelete={pages.length > 1}
                 onRemove={() => onRemovePage(page.id)}
                 onTitleChange={(t) => onUpdatePage(page.id, { title: t })}
@@ -177,7 +185,7 @@ export function FormEditorPanel({
 
               {/* Fields */}
               {pageFields.length === 0 ? (
-                <div className="rounded-xl bg-white px-7 py-8 text-center text-sm text-muted-foreground/60 shadow-sm dark:bg-[#2b2c30]">
+                <div className="rounded-xl px-7 py-8 text-center text-sm text-muted-foreground/60 shadow-sm" style={{ backgroundColor: cardBg }}>
                   No questions on this page — click <strong>+</strong> to add
                 </div>
               ) : (
@@ -187,6 +195,8 @@ export function FormEditorPanel({
                       field={field}
                       isSelected={selectedFieldId === field.id}
                       boardId={boardId}
+                      cardBg={cardBg}
+                      accentColor={accentColor}
                       onSelect={() => onSelectField(field.id)}
                       onUpdate={onUpdateField}
                       onHide={() => onToggleVisible(field.id)}
@@ -209,11 +219,12 @@ export function FormEditorPanel({
       />
 
       {/* ── Submit button ───────────────────────────────────── */}
-      <div className="rounded-xl bg-white px-6 py-3 shadow-sm dark:bg-[#2b2c30]">
+      <div className="rounded-xl px-6 py-3 shadow-sm" style={{ backgroundColor: cardBg }}>
         <button
           type="button"
           disabled
-          className="w-full cursor-default rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground"
+          className="w-full cursor-default rounded-lg py-2.5 text-sm font-semibold text-white"
+          style={{ backgroundColor: accentColor }}
         >
           {form.submitLabel || "Submit"}
         </button>
@@ -221,12 +232,10 @@ export function FormEditorPanel({
 
       {/* ── Thank you page ──────────────────────────────────── */}
       <div
-        className={cn(
-          "mt-2 rounded-xl shadow-sm transition-colors",
-          editingThankyou
-            ? "bg-white px-7 py-5 dark:bg-[#2b2c30]"
-            : "cursor-pointer bg-white/70 px-5 py-3 hover:bg-white dark:bg-[#2b2c30]/70 dark:hover:bg-[#2b2c30]",
-        )}
+        className={cn("mt-2 rounded-xl shadow-sm transition-colors", editingThankyou ? "px-7 py-5" : "cursor-pointer px-5 py-3")}
+        style={{ backgroundColor: editingThankyou ? cardBg : `${cardBg}b3` }}
+        onMouseEnter={(e) => { if (!editingThankyou) (e.currentTarget as HTMLDivElement).style.backgroundColor = cardBg; }}
+        onMouseLeave={(e) => { if (!editingThankyou) (e.currentTarget as HTMLDivElement).style.backgroundColor = `${cardBg}b3`; }}
       >
         {editingThankyou ? (
           <div className="space-y-3">
@@ -339,58 +348,71 @@ export function FormEditorPanel({
 /* ── Page divider between pages ──────────────────────────────────── */
 function PageDivider({
   page,
+  pageNumber,
   canDelete,
   onRemove,
   onTitleChange,
 }: {
   page: FormPage;
+  pageNumber: number;
   canDelete: boolean;
   onRemove: () => void;
   onTitleChange: (title: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(page.title ?? "Page");
+  const isEmpty = !page.title?.trim();
+  const [editing, setEditing] = useState(isEmpty);
+  const [title, setTitle] = useState(page.title ?? "");
 
   function save() {
-    onTitleChange(title || page.title || "Page");
+    const saved = title.trim() || `Page ${pageNumber}`;
+    onTitleChange(saved);
+    setTitle(saved);
     setEditing(false);
   }
 
   return (
-    <div className="relative mb-2 mt-4 rounded-xl bg-muted/30 px-5 py-3 dark:bg-muted/10">
-      <div className="flex items-center gap-2">
-        {editing ? (
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={save}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") save();
-              if (e.key === "Escape") setEditing(false);
-            }}
-            autoFocus
-            className="flex-1 rounded-md border bg-background px-2 py-0.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/30"
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="flex-1 text-left text-sm font-semibold text-foreground hover:text-primary"
-          >
-            {page.title ?? "Page"}
-          </button>
-        )}
-        {canDelete && (
-          <button
-            type="button"
-            onClick={onRemove}
-            title="Delete this page"
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
-      </div>
+    <div className="relative mb-2 mt-5 flex items-center gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 px-4 py-2.5">
+      {/* Page number badge */}
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+        {pageNumber}
+      </span>
+
+      {editing ? (
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") { setTitle(page.title || ""); setEditing(false); }
+          }}
+          autoFocus
+          placeholder={`Page ${pageNumber} title…`}
+          className="flex-1 rounded-md border bg-background px-2 py-0.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/30"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="flex flex-1 items-center gap-1.5 text-left text-sm font-semibold text-foreground hover:text-primary"
+        >
+          <span className={isEmpty ? "italic text-muted-foreground/60" : ""}>
+            {isEmpty ? `Page ${pageNumber} — click to name` : title}
+          </span>
+          <Pencil className="h-3 w-3 shrink-0 opacity-40" />
+        </button>
+      )}
+
+      {canDelete && (
+        <button
+          type="button"
+          onClick={onRemove}
+          title="Delete this page"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }
@@ -420,6 +442,8 @@ interface FieldEditorCardProps {
   field: FormField;
   isSelected: boolean;
   boardId: number;
+  cardBg?: string;
+  accentColor?: string;
   onSelect: () => void;
   onUpdate: (field: FormField) => void;
   onHide: () => void;
@@ -431,6 +455,8 @@ function FieldEditorCard({
   field,
   isSelected,
   boardId,
+  cardBg = "#ffffff",
+  accentColor = "#0070f3",
   onSelect,
   onUpdate,
   onHide,
@@ -445,11 +471,12 @@ function FieldEditorCard({
 
   return (
     <div
-      onClick={onSelect}
+      onClick={(e) => { e.stopPropagation(); onSelect(); }}
       className={cn(
-        "relative cursor-pointer overflow-hidden rounded-xl bg-white transition-all shadow-sm dark:bg-[#2b2c30]",
+        "relative cursor-pointer overflow-hidden rounded-xl transition-all shadow-sm",
         isSelected ? "ring-2 ring-primary" : "hover:shadow-md",
       )}
+      style={{ backgroundColor: cardBg }}
     >
       {isSelected && (
         <div className="absolute inset-y-0 left-0 w-1 bg-primary" />
@@ -493,20 +520,39 @@ function FieldEditorCard({
             <FieldTypeEditor field={field} boardId={boardId} onUpdate={onUpdate} />
 
             <div className="flex items-center justify-between border-t pt-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={onToggleRequired}
                   className={cn(
                     "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                     field.required
-                      ? "bg-primary/10 text-primary"
+                      ? "text-white"
                       : "bg-muted text-muted-foreground hover:text-foreground",
                   )}
+                  style={field.required ? { backgroundColor: accentColor } : undefined}
                 >
                   {field.required && <Check className="h-3 w-3" />}
                   Required
                 </button>
+
+                {/* Multi-select toggle — only for choice fields */}
+                {(field.type === "STATUS") && (
+                  <button
+                    type="button"
+                    onClick={() => onUpdate({ ...field, multiSelect: !field.multiSelect })}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      field.multiSelect
+                        ? "text-white"
+                        : "bg-muted text-muted-foreground hover:text-foreground",
+                    )}
+                    style={field.multiSelect ? { backgroundColor: accentColor } : undefined}
+                  >
+                    {field.multiSelect && <Check className="h-3 w-3" />}
+                    Multi-select
+                  </button>
+                )}
               </div>
               <button
                 type="button"
@@ -583,17 +629,23 @@ function FieldTypeEditor({
         </div>
       );
 
-    case "STATUS":
+    case "STATUS": {
+      const optionLabel =
+        field.columnType === "LABEL" ? "Label options"
+        : field.columnType === "DROPDOWN" ? "Dropdown options"
+        : "Status options";
       return field.columnId ? (
         <div className="rounded-lg border bg-muted/20 p-2">
           <StatusOptionEditor
             boardId={boardId}
             columnId={field.columnId}
             options={field.options ?? []}
+            label={optionLabel}
             onChange={(options) => onUpdate({ ...field, options })}
           />
         </div>
       ) : null;
+    }
 
     case "FILE":
       return (

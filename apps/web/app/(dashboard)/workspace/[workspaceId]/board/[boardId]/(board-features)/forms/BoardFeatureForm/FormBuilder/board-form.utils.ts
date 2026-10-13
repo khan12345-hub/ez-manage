@@ -154,6 +154,7 @@ export function mapExistingFormToState(form: BoardForm): FormBuilderState {
       columnType: field.column?.type,
       required: field.required,
       hidden: field.hidden,
+      multiSelect: (field as any).multiSelect ?? false,
       placeholder: "",
       columnId: field.columnId,
       description: field.description ?? "",
@@ -214,6 +215,7 @@ export function buildFormPayload(form: FormBuilderState) {
           position: encodePosition(pi, Math.max(0, localIdx)),
           required: field.required,
           hidden: field.hidden ?? false,
+          multiSelect: field.multiSelect ?? false,
         };
       }),
   };

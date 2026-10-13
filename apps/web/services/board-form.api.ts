@@ -115,6 +115,7 @@ export interface PublicBoardFormField {
   position: number;
   required: boolean;
   hidden: boolean;
+  multiSelect?: boolean;
 
   column: {
     id: number;

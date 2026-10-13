@@ -367,7 +367,7 @@ export function Board({
    */
   return (
     <>
-      <div className="sticky top-[41px] z-10 -mx-3 sm:-mx-6 bg-background border-b px-3 sm:px-6 py-2">
+      <div className="sticky top-[41px] z-30 -mx-3 sm:-mx-6 bg-background border-b px-3 sm:px-6 py-2">
         <BoardHeader
           boardId={board?.id}
           boardName={board?.name}

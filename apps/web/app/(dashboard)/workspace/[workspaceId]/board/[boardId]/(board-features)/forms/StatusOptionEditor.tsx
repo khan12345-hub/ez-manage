@@ -22,6 +22,7 @@ interface StatusOptionEditorProps {
   columnId: number;
   options: StatusOption[];
   disabled?: boolean;
+  label?: string;
   onChange: (options: StatusOption[]) => void;
 }
 
@@ -30,6 +31,7 @@ export function StatusOptionEditor({
   columnId,
   options,
   disabled = false,
+  label = "Options",
   onChange,
 }: StatusOptionEditorProps) {
   const [statuses, setStatuses] =
@@ -332,7 +334,7 @@ export function StatusOptionEditor({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium">
-              Status options
+              {label}
             </h3>
 
             {disabled && (
@@ -369,7 +371,7 @@ export function StatusOptionEditor({
       <div className="space-y-2">
         {statuses.length === 0 ? (
           <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-            No status options.
+            No options yet. Click "Add option" to create one.
           </div>
         ) : (
           statuses.map((status) => {

@@ -20,7 +20,6 @@ import { updateTask } from "@/services/tasks.api";
 import { updateCell, createCell } from "@/services/cells.api";
 import PersonPicker from "./Person/PersonPicker";
 import { PersonCell } from "./Person/PersonCell";
-import { StatusCell } from "./Status/StatusCell";
 import { CreationLogCell } from "./CreationLog/CreationLogCell";
 import { TimeTrackingCell } from "./TimeTracking/TimeTrackingCell";
 import { EmailEditor } from "../EditableCells/EmailEditor";
@@ -268,9 +267,20 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
   LABEL: {
     component: LabelEditor,
-    getValue: (_, cell) => cell?.value ?? { text: "", color: "" },
-    save: ({ task, cell, column, value, boardId }) =>
-      ensureAndUpdate(boardId!, task, column, cell, { value: { text: value?.text ?? "", color: value?.color ?? "" } }),
+    // Backend may return a single {text, color} OR an array [{text, color}]
+    getValue: (_, cell) => {
+      const v = cell?.value;
+      if (!v) return [];
+      if (Array.isArray(v)) return v;
+      // Legacy single-value — wrap in array for uniform rendering
+      if (v.text) return [{ text: v.text, color: v.color ?? "" }];
+      return [];
+    },
+    save: ({ task, cell, column, value, boardId }) => {
+      // value is LabelValue[] from the editor
+      const labels = Array.isArray(value) ? value : (value ? [value] : []);
+      return ensureAndUpdate(boardId!, task, column, cell, { value: labels.length === 1 ? labels[0] : labels });
+    },
   },
 
   EMAIL: {

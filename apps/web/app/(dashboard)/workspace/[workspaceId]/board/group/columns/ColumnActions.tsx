@@ -15,9 +15,10 @@ import {
   ShieldCheck,
   ShieldOff,
   Users,
+  FunctionSquare,
+  Layers,
   DollarSign,
   Hash,
-  FunctionSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/error-message";
@@ -27,6 +28,7 @@ import { deleteColumn, updateColumnAccess, updateColumnType } from "@/services/c
 
 import { ColumnAccessDialog } from "./ColumnAccessModal";
 import { FormulaEditorDialog } from "./FormulaEditorDialog";
+import { ColumnTypeModal, ColumnType } from "./AddColumnModal";
 import { useAuth } from "@/providers/AuthProvider";
 
 interface BoardMember {
@@ -67,9 +69,10 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
 
   const [accessOpen, setAccessOpen] = useState(false);
   const [formulaOpen, setFormulaOpen] = useState(false);
+  const [changeTypeOpen, setChangeTypeOpen] = useState(false);
 
   const changeTypeMutation = useMutation({
-    mutationFn: (type: "NUMBER" | "PRICE") => updateColumnType(column.id, type),
+    mutationFn: (type: ColumnType) => updateColumnType(column.id, type),
     onSuccess: () => {
       toast.success("Column type updated");
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
@@ -142,8 +145,8 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
    */
   const canShowDelete = canDeleteColumn && !column.isPrimary;
 
-  const canChangeType =
-    !column.isPrimary && (column.type === "NUMBER" || column.type === "PRICE");
+  // Any non-primary, non-system column can have its type changed
+  const canChangeType = !column.isPrimary && column.type !== "CREATION_LOG" && column.type !== "TIME_TRACKING";
 
   const isFormulaColumn = column.type === "FORMULA" && !column.isPrimary;
 
@@ -178,7 +181,7 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
             </DropdownMenuItem>
           )}
 
-          {/* Change type: NUMBER ↔ PRICE */}
+          {/* Quick NUMBER ↔ PRICE switch */}
           {canChangeType && column.type === "NUMBER" && (
             <DropdownMenuItem
               disabled={changeTypeMutation.isPending}
@@ -197,6 +200,17 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
             >
               <Hash className="mr-2 h-4 w-4" />
               Change to Number (#)
+            </DropdownMenuItem>
+          )}
+
+          {/* General type picker */}
+          {canChangeType && (
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onSelect={(e) => { e.preventDefault(); setChangeTypeOpen(true); }}
+            >
+              <Layers className="mr-2 h-4 w-4 text-blue-500" />
+              Change type…
             </DropdownMenuItem>
           )}
 
@@ -276,6 +290,18 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
             formula: column.formula,
           }}
           boardColumns={boardColumns}
+        />
+      )}
+
+      {/* Column type picker dialog */}
+      {canChangeType && (
+        <ColumnTypeModal
+          open={changeTypeOpen}
+          onOpenChange={setChangeTypeOpen}
+          onSelect={(type) => {
+            changeTypeMutation.mutate(type);
+            setChangeTypeOpen(false);
+          }}
         />
       )}
     </div>

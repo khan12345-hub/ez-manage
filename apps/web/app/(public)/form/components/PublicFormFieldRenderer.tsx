@@ -190,6 +190,26 @@ export function PublicFormFieldRenderer({
 
   /* ---------- STATUS / DROPDOWN / LABEL ---------- */
   if (type === "STATUS" || type === "DROPDOWN" || type === "LABEL") {
+    if (field.multiSelect) {
+      return (
+        <FormFieldWrapper
+          id={fieldId}
+          label={label}
+          description={field.description}
+          required={field.required}
+          error={error}
+        >
+          <FormStatusPicker
+            id={fieldId}
+            options={field.column.statusOptions ?? []}
+            value={value as string[] | undefined}
+            multiSelect
+            onChange={(v) => onChange(v)}
+            disabled={disabled}
+          />
+        </FormFieldWrapper>
+      );
+    }
     return (
       <FormFieldWrapper
         id={fieldId}
@@ -248,6 +268,7 @@ export function PublicFormFieldRenderer({
           disabled={disabled}
           value={value as UploadedFile | undefined}
           onChange={onChange}
+          error={error}
         />
       </FormFieldWrapper>
     );
@@ -457,12 +478,14 @@ function FileUploadInput({
   disabled,
   value,
   onChange,
+  error,
 }: {
   boardId: string | number;
   fieldId: string;
   disabled: boolean;
   value: UploadedFile | undefined;
   onChange: (value: unknown) => void;
+  error?: string;
 }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -519,7 +542,7 @@ function FileUploadInput({
       <Button
         type="button"
         variant="outline"
-        className="w-full justify-start gap-2"
+        className={cn("w-full justify-start gap-2", error && "border-destructive text-destructive hover:border-destructive")}
         disabled={disabled || uploading}
         onClick={() => inputRef.current?.click()}
       >

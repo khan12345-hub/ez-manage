@@ -39,7 +39,7 @@ export function BoardViewsTabs({
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 z-20 -mx-3 sm:-mx-6 bg-background border-b overflow-x-auto">
+      <div className="sticky top-0 z-40 -mx-3 sm:-mx-6 bg-background border-b overflow-x-auto">
         <div className="flex min-w-max items-center px-3 sm:px-6">
           {TABS.map(({ id, label, shortLabel, icon: Icon }) => (
             <button

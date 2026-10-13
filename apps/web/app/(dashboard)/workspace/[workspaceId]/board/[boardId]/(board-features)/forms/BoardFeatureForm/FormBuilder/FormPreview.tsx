@@ -25,7 +25,7 @@ export interface FormDesign {
 
 export const DEFAULT_DESIGN: FormDesign = {
   position: "center",
-  bgColor: "#f5f6f8",
+  bgColor: "#eef1f8",
   accentColor: "#0070f3",
   cardBg: "#ffffff",
   textColor: "#111827",
@@ -258,6 +258,23 @@ function FieldInput({ type, field }: { type: FormFieldType; field: FormField }) 
       );
 
     case "STATUS":
+      if (field.multiSelect) {
+        return (
+          <div className="flex flex-wrap gap-1.5">
+            {field.options?.slice(0, 3).map((opt) => (
+              <span
+                key={opt.id}
+                className="rounded-full border-2 px-3 py-0.5 text-xs font-medium"
+                style={{ borderColor: opt.color, color: opt.color }}
+              >
+                {opt.label}
+              </span>
+            )) ?? (
+              <span className="text-sm text-muted-foreground/50">Select options…</span>
+            )}
+          </div>
+        );
+      }
       return (
         <div className={`${inputBase} flex items-center justify-between`}>
           <span>{field.options?.[0]?.label ? `${field.options[0].label}…` : "Select…"}</span>

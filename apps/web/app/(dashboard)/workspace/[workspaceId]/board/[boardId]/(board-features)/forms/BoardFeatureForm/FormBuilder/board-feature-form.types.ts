@@ -37,6 +37,7 @@ export interface FormField {
 
   required: boolean;
   hidden?: boolean;
+  multiSelect?: boolean;
 
   position?: number;
   /** Which page this field belongs to (0-indexed) */

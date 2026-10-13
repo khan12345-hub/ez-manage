@@ -283,6 +283,7 @@ export function FormBuilder({ board }: FormBuilderProps) {
                   selectedFieldId={selectedFieldId}
                   boardId={boardId}
                   board={board}
+                  design={design}
                   onSelectField={setSelectedFieldId}
                   onUpdateField={updateField}
                   onToggleVisible={toggleFieldHidden}

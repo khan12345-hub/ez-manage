@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StatusOption {
@@ -9,43 +10,50 @@ interface StatusOption {
   color: string;
 }
 
-interface FormStatusPickerProps {
+/* ── Single-select ── */
+interface SingleProps {
   id?: string;
   options: StatusOption[];
   value: string | undefined;
+  multiSelect?: false;
   onChange: (value: string) => void;
   disabled?: boolean;
 }
 
-/**
- * Native <select> for STATUS column type.
- *
- * We use a native select (not Radix) because only native <option> elements
- * reliably support per-option background colors across all browsers.
- * The trigger is styled to match the shadcn input look-and-feel, and the
- * selected option's color is reflected on the trigger via an inline style.
- */
-export function FormStatusPicker({
-  id,
-  options,
-  value,
-  onChange,
-  disabled = false,
-}: FormStatusPickerProps) {
-  // Match by label — the value the backend stores and returns
-  const selected = options.find((o) => o.label === value);
+/* ── Multi-select ── */
+interface MultiProps {
+  id?: string;
+  options: StatusOption[];
+  value: string[] | undefined;
+  multiSelect: true;
+  onChange: (value: string[]) => void;
+  disabled?: boolean;
+}
 
-  if (!options.length) {
+type FormStatusPickerProps = SingleProps | MultiProps;
+
+export function FormStatusPicker(props: FormStatusPickerProps) {
+  if (!props.options.length) {
     return (
       <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-        No status options available.
+        No options available.
       </div>
     );
   }
 
+  if (props.multiSelect) {
+    return <MultiPicker {...props} />;
+  }
+
+  return <SinglePicker {...(props as SingleProps)} />;
+}
+
+/* ── Single select (native <select>) ── */
+function SinglePicker({ id, options, value, onChange, disabled = false }: SingleProps) {
+  const selected = options.find((o) => o.label === value);
+
   return (
     <div className="relative">
-      {/* Color swatch shown inside the trigger when an option is selected */}
       {selected && (
         <span
           className="pointer-events-none absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full"
@@ -60,20 +68,14 @@ export function FormStatusPicker({
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          // Base layout — match shadcn Input height + border
           "h-9 w-full appearance-none rounded-md border border-input bg-transparent",
           "py-1 pr-8 text-sm outline-none transition-colors",
           "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          // Shift text right when the color swatch is visible
           selected ? "pl-8" : "pl-3",
         )}
       >
-        {/* Placeholder option */}
-        <option value="" disabled>
-          Select a status…
-        </option>
-
+        <option value="" disabled>Select an option…</option>
         {options.map((option) => (
           <option
             key={option.id}
@@ -85,20 +87,58 @@ export function FormStatusPicker({
         ))}
       </select>
 
-      {/* Custom chevron icon (replaces the browser default arrow) */}
       <svg
         className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
         xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round"
         aria-hidden="true"
       >
         <path d="m6 9 6 6 6-6" />
       </svg>
+    </div>
+  );
+}
+
+/* ── Multi-select (colored badge toggles) ── */
+function MultiPicker({ id, options, value = [], onChange, disabled = false }: MultiProps) {
+  const selected = new Set(value);
+
+  function toggle(label: string) {
+    if (disabled) return;
+    const next = new Set(selected);
+    if (next.has(label)) next.delete(label);
+    else next.add(label);
+    onChange([...next]);
+  }
+
+  return (
+    <div id={id} className="flex flex-wrap gap-2">
+      {options.map((option) => {
+        const isOn = selected.has(option.label);
+        return (
+          <button
+            key={option.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => toggle(option.label)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-all",
+              "border-2 disabled:cursor-not-allowed disabled:opacity-50",
+              isOn ? "text-white shadow-sm" : "bg-white text-gray-700",
+            )}
+            style={
+              isOn
+                ? { backgroundColor: option.color, borderColor: option.color }
+                : { borderColor: option.color, color: option.color }
+            }
+          >
+            {isOn && <Check className="h-3 w-3 shrink-0" />}
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

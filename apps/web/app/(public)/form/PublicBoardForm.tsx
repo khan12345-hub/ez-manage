@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,15 +31,11 @@ function PageShell({
   d,
   user,
   formTitle,
-  formDescription,
-  formLogoUrl,
   children,
 }: {
   d: FormDesign;
   user?: { firstName?: string; lastName?: string; avatarUrl?: string | null } | null;
   formTitle?: string | null;
-  formDescription?: string | null;
-  formLogoUrl?: string | null;
   children: React.ReactNode;
 }) {
   const initials = user
@@ -77,34 +73,18 @@ function PageShell({
         )}
       </header>
 
-      {/* Sticky form identity bar — sits just below the EzManage nav */}
+      {/* Sticky form identity bar — title only */}
       {formTitle && (
-        <div
-          className="sticky top-12 z-40 border-b border-black/10 bg-white/95 px-6 py-3 shadow-sm backdrop-blur-sm"
-          style={{ color: d.textColor }}
-        >
-          <div
-            className="mx-auto flex max-w-2xl items-center gap-3"
-            style={{
-              justifyContent:
-                d.position === "left" ? "flex-start"
-                : d.position === "right" ? "flex-end"
-                : "flex-start",
-            }}
-          >
-            {formLogoUrl && (
-              <img
-                src={formLogoUrl}
-                alt="Form logo"
-                className="h-9 max-w-[120px] flex-shrink-0 rounded object-contain"
-              />
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold leading-tight">{formTitle}</p>
-              {formDescription && (
-                <p className="truncate text-xs text-muted-foreground">{formDescription}</p>
-              )}
-            </div>
+        <div className="sticky top-12 z-40 border-b border-black/10 bg-white/95 px-6 py-2.5 shadow-sm backdrop-blur-sm">
+          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
+            <p className="truncate text-sm font-semibold text-gray-800">{formTitle}</p>
+            <button
+              type="button"
+              title="Form info"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-300 text-xs font-bold text-gray-500 hover:bg-gray-50"
+            >
+              ?
+            </button>
           </div>
         </div>
       )}
@@ -143,6 +123,8 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
   const [values, setValues] = useState<FormValues>({});
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [currentPage, setCurrentPage] = useState(0);
+  const [validationBanner, setValidationBanner] = useState<string[] | null>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
   /* ── Logged-in user (optional) ── */
   const { data: user } = useQuery({
@@ -210,10 +192,17 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
       delete next[fieldId];
       return next;
     });
+    setValidationBanner((b) => {
+      if (!b) return null;
+      // Remove dismissed banner when the user starts fixing errors
+      return b.length <= 1 ? null : b;
+    });
   }
 
   function validatePage(fields: typeof pageFields): boolean {
     const nextErrors: Record<number, string> = {};
+    const missingLabels: string[] = [];
+
     fields.forEach((field) => {
       if (!field.required) return;
       const value = values[field.id];
@@ -222,27 +211,46 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
         value === undefined ||
         value === null ||
         value === "" ||
-        (Array.isArray(value) && value.length === 0);
+        (Array.isArray(value) && value.length === 0) ||
+        (field.multiSelect && (!Array.isArray(value) || value.length === 0));
       if (type === "TIMELINE" && !isEmpty) {
         const tv = value as { startDate?: string; endDate?: string };
         if (!tv.startDate || !tv.endDate) {
           nextErrors[field.id] = "Both start and end dates are required";
+          missingLabels.push(field.label ?? field.column.name);
           return;
         }
       }
-      if (isEmpty) nextErrors[field.id] = "This field is required";
+      if (isEmpty) {
+        nextErrors[field.id] = "This field is required";
+        missingLabels.push(field.label ?? field.column.name);
+      }
     });
+
     setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+
+    if (missingLabels.length > 0) {
+      setValidationBanner(missingLabels);
+      // Scroll banner into view
+      setTimeout(() => {
+        bannerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
+      return false;
+    }
+
+    setValidationBanner(null);
+    return true;
   }
 
   function handleNext() {
     if (!validatePage(pageFields)) return;
+    setValidationBanner(null);
     setCurrentPage((p) => Math.min(p + 1, totalPages - 1));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function handleBack() {
+    setValidationBanner(null);
     setCurrentPage((p) => Math.max(p - 1, 0));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -261,7 +269,18 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
       values: visibleFields
         .filter((f) => values[f.id] !== undefined && values[f.id] !== "")
         .map((f) => {
-          const val = values[f.id];
+          let val = values[f.id];
+          const colType = f.column.type.toUpperCase();
+
+          // For multi-select LABEL/STATUS fields, convert string[] → [{text,color}]
+          if (f.multiSelect && Array.isArray(val) && (colType === "LABEL" || colType === "STATUS" || colType === "DROPDOWN")) {
+            const opts = f.column.statusOptions ?? [];
+            val = (val as string[]).map((label) => {
+              const opt = opts.find((o) => o.label === label);
+              return { text: label, color: opt?.color ?? "#e2e8f0" };
+            });
+          }
+
           return { columnId: f.columnId, value: val };
         }),
     };
@@ -312,8 +331,6 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
       d={d}
       user={user}
       formTitle={form.title || "Submit Form"}
-      formDescription={form.description}
-      formLogoUrl={d.logoUrl}
     >
       <div className="w-full max-w-2xl">
         {/* Progress bar — only shown for multi-page forms */}
@@ -362,6 +379,25 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
                 <h2 className="text-lg font-semibold" style={{ color: d.textColor }}>
                   Page {currentPage + 1}
                 </h2>
+              </div>
+            )}
+
+            {/* Inline validation banner */}
+            {validationBanner && validationBanner.length > 0 && (
+              <div
+                ref={bannerRef}
+                role="alert"
+                className="mb-5 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-semibold">Please fill in all required fields:</p>
+                  <ul className="mt-1 list-disc pl-4 text-xs leading-relaxed">
+                    {validationBanner.map((label) => (
+                      <li key={label}>{label}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             )}
 
