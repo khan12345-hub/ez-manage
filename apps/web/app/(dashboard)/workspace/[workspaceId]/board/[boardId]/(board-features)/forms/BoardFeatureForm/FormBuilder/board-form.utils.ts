@@ -47,6 +47,12 @@ export function mapColumnTypeToFormType(type: string): FormFieldType {
       return "LINK";
     case "FILE":
       return "FILE";
+    case "PRICE":
+      return "NUMBER";
+    case "PLAIN_DATE":
+      return "DATE";
+    case "EMAIL":
+      return "TEXT";
     default:
       return "TEXT";
   }

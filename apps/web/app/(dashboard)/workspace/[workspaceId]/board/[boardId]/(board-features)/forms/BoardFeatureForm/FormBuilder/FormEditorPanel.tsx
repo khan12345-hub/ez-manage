@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Plus, Trash2,
   Type, Hash, Calendar, CalendarRange, Tag, CheckSquare, Link2, Paperclip,
@@ -695,7 +695,7 @@ function FieldTypeEditor({
             columnId={field.columnId}
             options={field.options ?? []}
             label={optionLabel}
-            showHideToggle
+            readOnly={field.columnType === "LABEL"}
             onChange={(options) => onUpdate({ ...field, options })}
           />
         </div>
@@ -784,6 +784,9 @@ function DescriptionEditor({
   value: string;
   onChange: (html: string) => void;
 }) {
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -793,7 +796,7 @@ function DescriptionEditor({
     content: value || "",
     onUpdate: ({ editor: e }) => {
       const html = e.isEmpty ? "" : e.getHTML();
-      onChange(html);
+      onChangeRef.current(html);
     },
     editorProps: {
       attributes: {

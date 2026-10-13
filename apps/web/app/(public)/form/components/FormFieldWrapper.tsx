@@ -19,12 +19,12 @@ function Description({ text }: { text: string }) {
   if (HTML_TAG_RE.test(text)) {
     return (
       <div
-        className="text-xs text-muted-foreground [&_p]:my-0 [&_ul]:my-0.5 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-semibold [&_em]:italic"
+        className="text-sm text-muted-foreground [&_p]:my-0 [&_ul]:my-0.5 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-semibold [&_em]:italic"
         dangerouslySetInnerHTML={{ __html: text }}
       />
     );
   }
-  return <p className="text-xs text-muted-foreground">{text}</p>;
+  return <p className="text-sm text-muted-foreground">{text}</p>;
 }
 
 export function FormFieldWrapper({
@@ -42,7 +42,7 @@ export function FormFieldWrapper({
         <div className="flex items-center gap-3">
           {children}
           <div className="space-y-0.5">
-            <label htmlFor={id} className="cursor-pointer text-sm font-medium text-foreground">
+            <label htmlFor={id} className="cursor-pointer text-base font-medium text-foreground">
               {label}
               {required && (
                 <span className="ml-1 text-destructive" aria-hidden="true">*</span>
@@ -65,7 +65,7 @@ export function FormFieldWrapper({
       <label
         htmlFor={id}
         className={cn(
-          "block text-sm font-medium text-foreground",
+          "block text-base font-medium text-foreground",
           error && "text-destructive",
         )}
       >

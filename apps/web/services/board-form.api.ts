@@ -9,11 +9,13 @@ export interface BoardFormStatusOption {
 export interface BoardFormField {
   id?: number;
   columnId: number;
-  label: string;
+  label?: string;
   description?: string;
   position: number;
   required: boolean;
   hidden: boolean;
+  multiSelect?: boolean;
+  hiddenOptionIds?: (number | string)[];
   statusOptions?: BoardFormStatusOption[];
 
   column?: any;

@@ -56,10 +56,15 @@ export function useFormBuilderMutations(
 
             const baseField = {
               columnId: field.columnId!,
-              label: field.name,
+              label: field.name || undefined,
+              description: field.description?.trim() || undefined,
               position: encodePosition(pi, localIdx),
               required: field.required,
               hidden: field.hidden ?? false,
+              multiSelect: field.multiSelect ?? false,
+              hiddenOptionIds: (field.options ?? [])
+                .filter((o) => (o as any).hiddenInForm)
+                .map((o) => o.id),
             };
 
             if (field.type === "STATUS") {

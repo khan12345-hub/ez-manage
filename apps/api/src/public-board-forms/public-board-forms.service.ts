@@ -47,6 +47,12 @@ function normalizeCellValue(
   }[],
   userMap?: Map<number, ResolvedUser>,
 ): unknown {
+  // PRICE is stored as { text: string } (same storage as a text-based number)
+  if ((type as string) === 'PRICE') {
+    const priceStr = String(raw ?? '').trim();
+    return priceStr ? { text: priceStr } : {};
+  }
+
   switch (type) {
     case BoardColumnType.TEXT:
       return {

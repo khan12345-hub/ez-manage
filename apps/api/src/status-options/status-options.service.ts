@@ -51,9 +51,10 @@ export class StatusOptionsService {
       throw new NotFoundException('Board column not found.');
     }
 
-    if (column.type !== 'STATUS') {
+    const OPTION_COLUMN_TYPES = ['STATUS', 'DROPDOWN', 'LABEL'];
+    if (!OPTION_COLUMN_TYPES.includes(column.type)) {
       throw new ConflictException(
-        'Status options can only be created for status columns.',
+        'Status options can only be created for status, dropdown, or label columns.',
       );
     }
 

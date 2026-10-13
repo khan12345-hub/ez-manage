@@ -124,8 +124,8 @@ export function PublicFormFieldRenderer({
     );
   }
 
-  /* ---------- NUMBER ---------- */
-  if (type === "NUMBER") {
+  /* ---------- NUMBER / PRICE ---------- */
+  if (type === "NUMBER" || type === "PRICE") {
     return (
       <FormFieldWrapper
         id={fieldId}
@@ -149,8 +149,8 @@ export function PublicFormFieldRenderer({
     );
   }
 
-  /* ---------- DATE ---------- */
-  if (type === "DATE") {
+  /* ---------- DATE / PLAIN_DATE ---------- */
+  if (type === "DATE" || type === "PLAIN_DATE") {
     return (
       <FormFieldWrapper
         id={fieldId}
