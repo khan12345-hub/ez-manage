@@ -1946,17 +1946,30 @@ export class BoardImportService {
    */
 
   private normalizeDate(value: unknown): string {
+    const toNoonUTC = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}T12:00:00.000Z`;
+    };
+
     if (value instanceof Date) {
-      return value.toISOString();
+      return toNoonUTC(value);
     }
 
-    const date = new Date(String(value));
+    const str = String(value).trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return `${str}T12:00:00.000Z`;
+    }
+
+    const date = new Date(str);
 
     if (!Number.isNaN(date.getTime())) {
-      return date.toISOString();
+      return toNoonUTC(date);
     }
 
-    return String(value).trim();
+    return str;
   }
 
   /*

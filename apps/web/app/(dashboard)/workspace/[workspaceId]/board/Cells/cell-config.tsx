@@ -184,7 +184,13 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   DATE: {
     component: DateEditor,
 
-    getValue: (_, cell) => cell?.value,
+    getValue: (_, cell) => {
+      const v = cell?.value;
+      if (!v) return undefined;
+      // Migrate legacy LABEL cells where date was stored as { text: "YYYY-MM-DD" }
+      if (!v.date && v.text) return { date: v.text };
+      return v;
+    },
 
     renderValue: (value) => <DateCell cell={value} />,
 
@@ -197,7 +203,13 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   PLAIN_DATE: {
     component: DateEditor,
 
-    getValue: (_, cell) => cell?.value,
+    getValue: (_, cell) => {
+      const v = cell?.value;
+      if (!v) return undefined;
+      // Migrate legacy LABEL cells where date was stored as { text: "YYYY-MM-DD" }
+      if (!v.date && v.text) return { date: v.text };
+      return v;
+    },
 
     renderValue: (value) => <DateCell cell={value} plain />,
 

@@ -3,6 +3,7 @@ import { DateRange } from "react-day-picker";
 export type FormFieldType =
   | "TEXT"
   | "LONG_TEXT"
+  | "COMMENT"
   | "NUMBER"
   | "DATE"
   | "STATUS"

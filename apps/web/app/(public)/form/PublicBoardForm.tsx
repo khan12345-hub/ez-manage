@@ -29,23 +29,15 @@ import { PublicFormFieldRenderer } from "./components/PublicFormFieldRenderer";
 
 function PageShell({
   d,
-  user,
-  formTitle,
   children,
 }: {
   d: FormDesign;
-  user?: { firstName?: string; lastName?: string; avatarUrl?: string | null } | null;
-  formTitle?: string | null;
   children: React.ReactNode;
 }) {
-  const initials = user
-    ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase()
-    : null;
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: d.bgColor, color: d.textColor }}>
       {/* EzManage top nav */}
-      <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b border-black/10 bg-white/90 px-6 backdrop-blur">
+      <header className="sticky top-0 z-50 flex h-12 items-center border-b border-black/10 bg-white/90 px-6 backdrop-blur">
         <div className="flex items-center gap-2.5">
           <div className="grid h-6 w-6 grid-cols-2 gap-[2px] rotate-45">
             <div className="rounded-[2px] bg-[#FF3D57]" />
@@ -55,39 +47,7 @@ function PageShell({
           </div>
           <span className="text-sm font-bold tracking-tight">EzManage</span>
         </div>
-        {user && (
-          <div className="flex items-center gap-2">
-            {user.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={`${user.firstName} ${user.lastName}`}
-                className="h-7 w-7 rounded-full object-cover"
-              />
-            ) : (
-              <div className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ backgroundColor: d.accentColor }}>
-                {initials}
-              </div>
-            )}
-            <span className="text-sm font-medium">{user.firstName} {user.lastName}</span>
-          </div>
-        )}
       </header>
-
-      {/* Sticky form identity bar — title only */}
-      {formTitle && (
-        <div className="sticky top-12 z-40 border-b border-black/10 bg-white/95 px-6 py-2.5 shadow-sm backdrop-blur-sm">
-          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-            <p className="truncate text-sm font-semibold text-gray-800">{formTitle}</p>
-            <button
-              type="button"
-              title="Form info"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-300 text-xs font-bold text-gray-500 hover:bg-gray-50"
-            >
-              ?
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Scrollable form content */}
       <div
@@ -295,7 +255,7 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
 
   if (isLoading) {
     return (
-      <PageShell d={d} user={user}>
+      <PageShell d={d}>
         <div className="w-full max-w-2xl rounded-2xl bg-white p-10 text-center shadow-lg dark:bg-[#2b2c30]">
           <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
           <p className="mt-3 text-sm text-muted-foreground">Loading form…</p>
@@ -306,7 +266,7 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
 
   if (isError || !form) {
     return (
-      <PageShell d={d} user={user}>
+      <PageShell d={d}>
         <div className="w-full max-w-2xl rounded-2xl bg-white p-10 text-center shadow-lg dark:bg-[#2b2c30]">
           <h1 className="text-lg font-semibold">Form not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">This form does not exist or is unavailable.</p>
@@ -317,7 +277,7 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
 
   if (!form.isActive) {
     return (
-      <PageShell d={d} user={user}>
+      <PageShell d={d}>
         <div className="w-full max-w-2xl rounded-2xl bg-white p-10 text-center shadow-lg dark:bg-[#2b2c30]">
           <h1 className="text-lg font-semibold">Form unavailable</h1>
           <p className="mt-2 text-sm text-muted-foreground">This form is currently inactive.</p>
@@ -326,12 +286,12 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
     );
   }
 
+  const userInitials = user
+    ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase()
+    : null;
+
   return (
-    <PageShell
-      d={d}
-      user={user}
-      formTitle={form.title || "Submit Form"}
-    >
+    <PageShell d={d}>
       <div className="w-full max-w-2xl">
         {/* Progress bar — only shown for multi-page forms */}
         {totalPages > 1 && (
@@ -354,21 +314,61 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
           <div className="h-2 rounded-t-2xl" style={{ backgroundColor: d.accentColor }} />
 
           <div className="px-8 pb-8 pt-7">
-            {/* Logo + Title + description on first page */}
+            {/* Logo + User + Title + Description — first page only */}
             {currentPage === 0 && (
-              <div className="mb-7 space-y-1.5">
-                {d.logoUrl && (
-                  <img
-                    src={d.logoUrl}
-                    alt="Form logo"
-                    className="mb-3 max-h-16 max-w-[180px] object-contain"
-                  />
-                )}
+              <div className="mb-7">
+                {/* Top row: logo (left) + user + ? (right) */}
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  {d.logoUrl ? (
+                    <img
+                      src={d.logoUrl}
+                      alt="Form logo"
+                      className="max-h-14 max-w-[160px] object-contain"
+                    />
+                  ) : (
+                    <div />
+                  )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {user && (
+                      <>
+                        {user.avatarUrl ? (
+                          <img
+                            src={user.avatarUrl}
+                            alt={`${user.firstName} ${user.lastName}`}
+                            className="h-7 w-7 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+                            style={{ backgroundColor: d.accentColor }}
+                          >
+                            {userInitials}
+                          </div>
+                        )}
+                        <span className="text-sm font-medium" style={{ color: d.textColor }}>
+                          {user.firstName} {user.lastName}
+                        </span>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      title="Form info"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-xs font-bold hover:bg-black/5"
+                      style={{ borderColor: `${d.textColor}30`, color: d.textColor }}
+                    >
+                      ?
+                    </button>
+                  </div>
+                </div>
+
+                {/* Title + description */}
                 <h1 className="text-2xl font-bold tracking-tight" style={{ color: d.textColor }}>
                   {form.title || "Submit Form"}
                 </h1>
                 {form.description && (
-                  <p className="text-sm" style={{ color: d.textColor, opacity: 0.65 }}>{form.description}</p>
+                  <p className="mt-1 text-sm font-medium" style={{ color: d.accentColor }}>
+                    {form.description}
+                  </p>
                 )}
               </div>
             )}

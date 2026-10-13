@@ -28,8 +28,9 @@ const ACCENT_PRESETS = [
 ];
 
 const BG_PRESETS = [
-  { label: "Light gray", value: "#f5f6f8" },
+  { label: "Default",    value: "#eef1f8" },
   { label: "White",      value: "#ffffff" },
+  { label: "Light gray", value: "#f5f6f8" },
   { label: "Warm gray",  value: "#f3f4f0" },
   { label: "Soft blue",  value: "#eff6ff" },
   { label: "Soft green", value: "#f0fdf4" },
@@ -37,7 +38,6 @@ const BG_PRESETS = [
   { label: "Peach",      value: "#fff7ed" },
   { label: "Dark",       value: "#1a1b1e" },
   { label: "Deep navy",  value: "#0f172a" },
-  { label: "Charcoal",   value: "#1e1e2e" },
 ];
 
 const CARD_PRESETS = [

@@ -168,6 +168,7 @@ export function FormEditorPanel({
                 page={page}
                 pageNumber={pageIndex + 1}
                 canDelete={pages.length > 1}
+                accentColor={accentColor}
                 onRemove={() => onRemovePage(page.id)}
                 onTitleChange={(t) => onUpdatePage(page.id, { title: t })}
               />
@@ -350,12 +351,14 @@ function PageDivider({
   page,
   pageNumber,
   canDelete,
+  accentColor,
   onRemove,
   onTitleChange,
 }: {
   page: FormPage;
   pageNumber: number;
   canDelete: boolean;
+  accentColor: string;
   onRemove: () => void;
   onTitleChange: (title: string) => void;
 }) {
@@ -371,9 +374,15 @@ function PageDivider({
   }
 
   return (
-    <div className="relative mb-2 mt-5 flex items-center gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 px-4 py-2.5">
+    <div
+      className="relative mb-2 mt-5 flex items-center gap-3 rounded-xl border border-dashed px-4 py-2.5"
+      style={{ borderColor: `${accentColor}50`, backgroundColor: `${accentColor}0d` }}
+    >
       {/* Page number badge */}
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+      <span
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+        style={{ backgroundColor: accentColor }}
+      >
         {pageNumber}
       </span>
 

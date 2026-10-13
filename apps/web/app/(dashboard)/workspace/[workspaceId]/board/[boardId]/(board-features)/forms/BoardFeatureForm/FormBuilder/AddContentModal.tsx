@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   X, Search, Type, Hash, Calendar, CalendarRange, Tag, CheckSquare, Link2,
-  Paperclip, AlignLeft, FileText, Plus, User,
+  Paperclip, AlignLeft, FileText, Plus, User, MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FormField, FormFieldType } from "./board-feature-form.types";
@@ -20,6 +20,7 @@ const QUESTION_TYPES: {
 }[] = [
   { type: "TEXT",      boardColumnType: "TEXT",      label: "Short text",  icon: Type,          bg: "#fff4e0", color: "#e08d00", category: "data" },
   { type: "LONG_TEXT", boardColumnType: "LONG_TEXT",  label: "Long text",   icon: AlignLeft,     bg: "#fff4e0", color: "#e08d00", category: "data" },
+  { type: "COMMENT",   boardColumnType: "LONG_TEXT",  label: "Comment",     icon: MessageSquare, bg: "#e8f4ff", color: "#0070f3", category: "data" },
   { type: "NUMBER",    boardColumnType: "NUMBER",     label: "Number",      icon: Hash,          bg: "#fff4e0", color: "#e08d00", category: "data" },
   { type: "LINK",      boardColumnType: "LINK",       label: "Link",        icon: Link2,         bg: "#e0f5ff", color: "#0086c9", category: "other" },
   { type: "STATUS",    boardColumnType: "STATUS",     label: "Dropdown",    icon: Tag,           bg: "#e0f9ed", color: "#00a65e", category: "selection" },

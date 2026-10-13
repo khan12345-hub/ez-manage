@@ -220,9 +220,10 @@ function FieldInput({ type, field }: { type: FormFieldType; field: FormField }) 
   switch (type) {
     case "TEXT":
     case "LONG_TEXT":
+    case "COMMENT":
     case "LINK":
       return (
-        <div className={cn(inputBase, type === "LONG_TEXT" && "min-h-[72px]")}>
+        <div className={cn(inputBase, (type === "LONG_TEXT" || type === "COMMENT") && "min-h-[72px]")}>
           {type === "LINK" ? (
             <span className="flex items-center gap-1.5">
               <Link className="h-3.5 w-3.5 text-muted-foreground/40" />

@@ -325,20 +325,40 @@ export function normalizeNumber(value: unknown): string {
 }
 
 /**
+ * Build a noon-UTC ISO string from local year/month/day so the date
+ * displays correctly in every timezone (UTC-12 to UTC+14).
+ * toISOString() would shift a local midnight date back one day for
+ * users east of UTC, which is the import "one day off" bug.
+ */
+function localDateToNoonUTC(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}T12:00:00.000Z`;
+}
+
+/**
  * Normalize date values.
  */
 export function normalizeDate(value: unknown): string {
   if (value instanceof Date) {
-    return value.toISOString();
+    return localDateToNoonUTC(value);
   }
 
-  const date = new Date(String(value));
+  const str = String(value).trim();
+
+  // Already a date-only string (YYYY-MM-DD) — pin to noon UTC directly
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return `${str}T12:00:00.000Z`;
+  }
+
+  const date = new Date(str);
 
   if (!Number.isNaN(date.getTime())) {
-    return date.toISOString();
+    return localDateToNoonUTC(date);
   }
 
-  return String(value).trim();
+  return str;
 }
 
 /**

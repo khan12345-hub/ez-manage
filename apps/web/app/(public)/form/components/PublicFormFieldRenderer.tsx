@@ -101,8 +101,8 @@ export function PublicFormFieldRenderer({
     );
   }
 
-  /* ---------- LONG_TEXT ---------- */
-  if (type === "LONG_TEXT" || type === "LONG TEXT") {
+  /* ---------- LONG_TEXT / COMMENT ---------- */
+  if (type === "LONG_TEXT" || type === "LONG TEXT" || type === "COMMENT") {
     return (
       <FormFieldWrapper
         id={fieldId}

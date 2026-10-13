@@ -23,6 +23,8 @@ export function mapColumnTypeToFormType(type: string): FormFieldType {
       return "TEXT";
     case "LONG_TEXT":
       return "LONG_TEXT";
+    case "COMMENT":
+      return "COMMENT" as FormFieldType;
     case "NUMBER":
       return "NUMBER";
     case "DATE":
@@ -48,6 +50,7 @@ export function getDefaultLabel(type: FormFieldType): string {
   switch (type) {
     case "TEXT": return "Text";
     case "LONG_TEXT": return "Long Text";
+    case "COMMENT": return "Comment";
     case "NUMBER": return "Number";
     case "DATE": return "Date";
     case "CHECKBOX": return "Checkbox";
