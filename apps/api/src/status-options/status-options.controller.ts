@@ -19,6 +19,13 @@ export class StatusOptionsController {
     private readonly statusOptionsService: StatusOptionsService,
   ) {}
 
+  @Get('board-columns/:columnId/label-values')
+  getUniqueLabelValues(
+    @Param('columnId', ParseIntPipe) columnId: number,
+  ) {
+    return this.statusOptionsService.getUniqueLabelValues(columnId);
+  }
+
   @Get('board-columns/:columnId/status-options')
   findAll(
     @Param('columnId', ParseIntPipe) columnId: number,

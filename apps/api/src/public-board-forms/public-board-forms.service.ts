@@ -53,6 +53,30 @@ function normalizeCellValue(
     return priceStr ? { text: priceStr } : {};
   }
 
+  // DROPDOWN stores as { text: string }
+  if ((type as string) === 'DROPDOWN') {
+    if (Array.isArray(raw)) {
+      const texts = raw.map((r) => String(r ?? '').trim()).filter(Boolean);
+      return texts.length > 0 ? texts.map((t) => ({ text: t })) : {};
+    }
+    const text = String(raw ?? '').trim();
+    return text ? { text } : {};
+  }
+
+  // LABEL stores as { text, color } or array thereof
+  if ((type as string) === 'LABEL') {
+    const items = Array.isArray(raw) ? raw : [raw];
+    const resolved = items
+      .map((r) => String(r ?? '').trim())
+      .filter(Boolean)
+      .map((text) => {
+        const opt = statusOptions.find((s) => s.label === text);
+        return { text, color: opt?.color ?? '' };
+      });
+    if (!resolved.length) return {};
+    return resolved.length === 1 ? resolved[0] : resolved;
+  }
+
   switch (type) {
     case BoardColumnType.TEXT:
       return {

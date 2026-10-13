@@ -59,7 +59,7 @@ export function FormDatePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full justify-start text-left font-normal",
+            "h-12 w-full justify-start px-4 text-left text-base font-normal",
             !selected && "text-muted-foreground",
           )}
         >

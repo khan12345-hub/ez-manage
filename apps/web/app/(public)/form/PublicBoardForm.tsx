@@ -372,7 +372,10 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
           </div>
 
           {/* Scrollable fields area */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-6 pt-5">
+          <div
+            className="min-h-0 flex-1 overflow-y-auto px-8 pb-6 pt-5"
+            style={{ "--form-accent": d.accentColor } as React.CSSProperties}
+          >
 
             {/* Inline validation banner */}
             {validationBanner && validationBanner.length > 0 && (
@@ -394,7 +397,7 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
             )}
 
             {/* Fields */}
-            <form id="public-board-form" onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <form id="public-board-form" onSubmit={handleSubmit} className="space-y-7" noValidate>
               {pageFields.map((field) => (
                 <PublicFormFieldRenderer
                   key={field.id}

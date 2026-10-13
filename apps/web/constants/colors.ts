@@ -1,5 +1,13 @@
 
 export const STATUS_COLORS = [
+  "#00c875",
+  "#e2445c",
+  "#fdab3d",
+  "#ffcb00",
+  "#00d4d9",
+  "#9d50dd",
+  "#ff5ac4",
+  "#ff7575",
   "#0086c9",
   "#94cf2d",
   "#d0b73b",

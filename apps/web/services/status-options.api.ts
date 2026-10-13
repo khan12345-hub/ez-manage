@@ -47,3 +47,10 @@ export async function deleteStatusOption(
 
   return data;
 }
+
+export async function getLabelValues(columnId: number): Promise<string[]> {
+  const { data } = await api.get<string[]>(
+    `/board-columns/${columnId}/label-values`,
+  );
+  return data;
+}

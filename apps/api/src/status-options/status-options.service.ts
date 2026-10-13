@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 
 import { CreateStatusOptionDto } from './dto/create-status-option.dto';
@@ -180,6 +181,35 @@ export class StatusOptionsService {
 
       return updatedStatus;
     });
+  }
+
+  async getUniqueLabelValues(columnId: number): Promise<string[]> {
+    const column = await this.prisma.boardColumn.findUnique({
+      where: { id: columnId },
+      select: { id: true, type: true },
+    });
+
+    if (!column) throw new NotFoundException('Column not found');
+    if (column.type !== 'LABEL') {
+      throw new BadRequestException('Column must be of type LABEL');
+    }
+
+    const cells = await this.prisma.taskCell.findMany({
+      where: { columnId },
+      select: { value: true },
+    });
+
+    const seen = new Set<string>();
+    for (const cell of cells) {
+      const v = cell.value as any;
+      const items = Array.isArray(v) ? v : v ? [v] : [];
+      for (const item of items) {
+        const text = item?.text?.trim();
+        if (text) seen.add(text);
+      }
+    }
+
+    return Array.from(seen).sort();
   }
 
   async remove(columnId: number, statusId: number) {

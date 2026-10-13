@@ -6,6 +6,7 @@ import {
   Type, Hash, Calendar, CalendarRange, Tag, CheckSquare, Link2, Paperclip,
   Upload, Check, AlignLeft, Pencil,
   Bold, Italic, Underline, List, ListOrdered,
+  Download, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,9 @@ import { SYSTEM_COLUMN_TYPES, UNMAPPABLE_COLUMN_TYPES } from "./board-form.utils
 import { FormDesign } from "./FormPreview";
 import { StatusOptionEditor } from "../../StatusOptionEditor";
 import { AddContentModal } from "./AddContentModal";
+import { getLabelValues, createStatusOption } from "@/services/status-options.api";
+import { STATUS_COLORS } from "@/constants/colors";
+import { toast } from "sonner";
 
 /* ── Type → icon + color config ───────────────────────────────────── */
 interface TypeConfig {
@@ -689,13 +693,19 @@ function FieldTypeEditor({
         : field.columnType === "DROPDOWN" ? "Dropdown options"
         : "Status options";
       return field.columnId ? (
-        <div className="rounded-lg border bg-muted/20 p-2">
+        <div className="rounded-lg border bg-muted/20 p-2 space-y-2">
+          {field.columnType === "LABEL" && (
+            <LoadLabelValuesButton
+              columnId={field.columnId}
+              existingOptions={field.options ?? []}
+              onLoaded={(options) => onUpdate({ ...field, options })}
+            />
+          )}
           <StatusOptionEditor
             boardId={boardId}
             columnId={field.columnId}
             options={field.options ?? []}
             label={optionLabel}
-            readOnly={field.columnType === "LABEL"}
             onChange={(options) => onUpdate({ ...field, options })}
           />
         </div>
@@ -773,6 +783,67 @@ function ColumnMappingSelect({
         ))}
       </select>
     </div>
+  );
+}
+
+/* ── Load unique LABEL values from board cells as status options ─── */
+function LoadLabelValuesButton({
+  columnId,
+  existingOptions,
+  onLoaded,
+}: {
+  columnId: number;
+  existingOptions: { id: string; label: string; color: string; hiddenInForm?: boolean }[];
+  onLoaded: (options: { id: string; label: string; color: string; hiddenInForm?: boolean }[]) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleLoad() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const values = await getLabelValues(columnId);
+      const existingLabels = new Set(existingOptions.map((o) => o.label.toLowerCase()));
+      const newValues = values.filter((v) => !existingLabels.has(v.toLowerCase()));
+
+      if (newValues.length === 0) {
+        toast.info("No new values found in the board");
+        return;
+      }
+
+      const newOptions = await Promise.all(
+        newValues.map(async (value, i) => {
+          const color = STATUS_COLORS[i % STATUS_COLORS.length] ?? "#6366f1";
+          const saved = await createStatusOption(columnId, { label: value, color });
+          return { id: String(saved.id), label: saved.label as string, color: saved.color as string };
+        }),
+      );
+
+      onLoaded([...existingOptions, ...newOptions]);
+      toast.success(`Loaded ${newOptions.length} value${newOptions.length !== 1 ? "s" : ""} from board`);
+    } catch {
+      toast.error("Failed to load values from board");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={handleLoad}
+      disabled={loading}
+      className="w-full text-xs text-muted-foreground"
+    >
+      {loading ? (
+        <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+      ) : (
+        <Download className="mr-1.5 h-3 w-3" />
+      )}
+      Load values from board
+    </Button>
   );
 }
 

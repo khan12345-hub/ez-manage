@@ -55,7 +55,7 @@ export function FormTimelinePicker({
   return (
     <div className="grid grid-cols-2 gap-3">
       <div className="space-y-1.5">
-        <p className="text-xs font-medium text-muted-foreground">
+        <p className="text-sm font-medium text-muted-foreground">
           Start date
         </p>
 
@@ -69,7 +69,7 @@ export function FormTimelinePicker({
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-xs font-medium text-muted-foreground">
+        <p className="text-sm font-medium text-muted-foreground">
           End date
         </p>
 

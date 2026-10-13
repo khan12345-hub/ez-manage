@@ -56,7 +56,7 @@ function SinglePicker({ id, options, value, onChange, disabled = false }: Single
     <div className="relative">
       {selected && (
         <span
-          className="pointer-events-none absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full"
+          className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full"
           style={{ backgroundColor: selected.color }}
           aria-hidden="true"
         />
@@ -68,11 +68,11 @@ function SinglePicker({ id, options, value, onChange, disabled = false }: Single
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "h-9 w-full appearance-none rounded-md border border-input bg-transparent",
-          "py-1 pr-8 text-sm outline-none transition-colors",
+          "h-12 w-full appearance-none rounded-md border border-input bg-transparent",
+          "py-2 pr-8 text-base outline-none transition-colors",
           "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          selected ? "pl-8" : "pl-3",
+          selected ? "pl-8" : "pl-4",
         )}
       >
         <option value="" disabled>Select an option…</option>
@@ -124,7 +124,7 @@ function MultiPicker({ id, options, value = [], onChange, disabled = false }: Mu
             disabled={disabled}
             onClick={() => toggle(option.label)}
             className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-all",
+              "flex items-center gap-1.5 rounded-full px-4 py-2 text-base font-medium transition-all",
               "border-2 disabled:cursor-not-allowed disabled:opacity-50",
               isOn ? "text-white shadow-sm" : "bg-white text-gray-700",
             )}

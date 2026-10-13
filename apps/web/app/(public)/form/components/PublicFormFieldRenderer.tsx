@@ -80,6 +80,8 @@ export function PublicFormFieldRenderer({
 
   /* ---------- TEXT ---------- */
   if (type === "TEXT") {
+    const TEXT_MAX = 255;
+    const textLen = String(value ?? "").length;
     return (
       <FormFieldWrapper
         id={fieldId}
@@ -88,15 +90,22 @@ export function PublicFormFieldRenderer({
         required={field.required}
         error={error}
       >
-        <Input
-          id={fieldId}
-          type="text"
-          value={String(value ?? "")}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          placeholder={field.column.name ?? "Enter text"}
-          aria-invalid={Boolean(error)}
-        />
+        <div className="relative">
+          <Input
+            id={fieldId}
+            type="text"
+            value={String(value ?? "")}
+            onChange={(e) => onChange(e.target.value.slice(0, TEXT_MAX))}
+            disabled={disabled}
+            placeholder={field.column.name ?? "Enter text"}
+            maxLength={TEXT_MAX}
+            aria-invalid={Boolean(error)}
+            className="h-12 text-base px-4"
+          />
+          <span className="pointer-events-none absolute bottom-2 right-3 text-xs text-muted-foreground/60">
+            {textLen}/{TEXT_MAX}
+          </span>
+        </div>
       </FormFieldWrapper>
     );
   }
@@ -118,7 +127,7 @@ export function PublicFormFieldRenderer({
           disabled={disabled}
           placeholder={field.column.name ?? "Enter text"}
           aria-invalid={Boolean(error)}
-          className="min-h-[90px] resize-none"
+          className="min-h-[120px] resize-none text-base px-4 py-3"
         />
       </FormFieldWrapper>
     );
@@ -144,6 +153,7 @@ export function PublicFormFieldRenderer({
           disabled={disabled}
           placeholder="Enter number"
           aria-invalid={Boolean(error)}
+          className="h-12 text-base px-4"
         />
       </FormFieldWrapper>
     );
@@ -247,6 +257,7 @@ export function PublicFormFieldRenderer({
           disabled={disabled}
           placeholder="https://"
           aria-invalid={Boolean(error)}
+          className="h-12 text-base px-4"
         />
       </FormFieldWrapper>
     );
@@ -517,7 +528,7 @@ function FileUploadInput({
 
   if (value) {
     return (
-      <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+      <div className="flex items-center gap-2 rounded-md border px-4 py-3 text-base">
         <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate">{value.originalName}</span>
         {!disabled && (
@@ -547,7 +558,7 @@ function FileUploadInput({
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
       className={cn(
-        "flex cursor-pointer items-center gap-3 rounded-lg border border-dashed px-4 py-3 transition-colors",
+        "flex cursor-pointer items-center gap-3 rounded-lg border border-dashed px-4 py-5 transition-colors",
         isDragging ? "border-primary/60 bg-primary/5" : "border-muted-foreground/25 hover:border-primary/40 hover:bg-muted/20",
         error && "border-destructive/50",
         (disabled || uploading) && "cursor-not-allowed opacity-60",
@@ -567,11 +578,11 @@ function FileUploadInput({
         <UploadCloud className="h-4 w-4 shrink-0 text-muted-foreground" />
       )}
       <div className="min-w-0">
-        <span className="text-sm text-primary">
+        <span className="text-base text-primary">
           {uploading ? "Uploading…" : "Choose a file to upload"}
         </span>
         {!uploading && (
-          <span className="text-sm text-muted-foreground"> or drag and drop here</span>
+          <span className="text-base text-muted-foreground"> or drag and drop here</span>
         )}
       </div>
     </label>
