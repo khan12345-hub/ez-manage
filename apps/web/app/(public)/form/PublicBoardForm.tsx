@@ -37,7 +37,7 @@ function PageShell({
   return (
     <div className="h-screen overflow-hidden" style={{ backgroundColor: d.bgColor, color: d.textColor }}>
       <div
-        className="flex h-full items-start px-4 py-8"
+        className="flex h-full items-center px-4 py-8"
         style={{
           justifyContent:
             d.position === "left" ? "flex-start"
@@ -278,7 +278,7 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
 
   return (
     <PageShell d={d}>
-      <div className="flex h-full w-full max-w-2xl flex-col">
+      <div className="flex w-full max-w-2xl flex-col">
         {/* Progress bar — only shown for multi-page forms */}
         {totalPages > 1 && (
           <div className="mb-4">
@@ -296,7 +296,14 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
         )}
 
         {/* Form card */}
-        <div className="flex h-full flex-col overflow-hidden rounded-2xl shadow-lg" style={{ backgroundColor: d.cardBg, color: d.textColor }}>
+        <div
+          className="flex flex-col overflow-hidden rounded-2xl shadow-lg"
+          style={{
+            backgroundColor: d.cardBg,
+            color: d.textColor,
+            maxHeight: totalPages > 1 ? 'calc(100vh - 7rem)' : 'calc(100vh - 4rem)',
+          }}
+        >
           {/* Accent bar */}
           <div className="h-2 shrink-0 rounded-t-2xl" style={{ backgroundColor: d.accentColor }} />
 
@@ -365,7 +372,7 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
           </div>
 
           {/* Scrollable fields area */}
-          <div className="flex-1 overflow-y-auto px-8 pb-6 pt-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-6 pt-5">
 
             {/* Inline validation banner */}
             {validationBanner && validationBanner.length > 0 && (

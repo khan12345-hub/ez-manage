@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ export interface StatusOption {
   id: string;
   label: string;
   color: string;
+  hiddenInForm?: boolean;
 }
 
 interface StatusOptionEditorProps {
@@ -23,6 +24,8 @@ interface StatusOptionEditorProps {
   options: StatusOption[];
   disabled?: boolean;
   label?: string;
+  /** Show an eye/eye-off toggle per option to hide it from the form */
+  showHideToggle?: boolean;
   onChange: (options: StatusOption[]) => void;
 }
 
@@ -32,6 +35,7 @@ export function StatusOptionEditor({
   options,
   disabled = false,
   label = "Options",
+  showHideToggle = false,
   onChange,
 }: StatusOptionEditorProps) {
   const [statuses, setStatuses] =
@@ -434,6 +438,31 @@ export function StatusOptionEditor({
 
                 {isLoading && (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+
+                {showHideToggle && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={status.hiddenInForm ? "text-muted-foreground/40" : "text-muted-foreground hover:text-foreground"}
+                    onClick={() =>
+                      updateStatuses(
+                        statuses.map((s) =>
+                          s.id === status.id
+                            ? { ...s, hiddenInForm: !s.hiddenInForm }
+                            : s,
+                        ),
+                      )
+                    }
+                    title={status.hiddenInForm ? "Show in form" : "Hide from form"}
+                    aria-label={status.hiddenInForm ? `Show ${status.label}` : `Hide ${status.label}`}
+                  >
+                    {status.hiddenInForm
+                      ? <EyeOff className="h-4 w-4" />
+                      : <Eye className="h-4 w-4" />
+                    }
+                  </Button>
                 )}
 
                 {!disabled && (

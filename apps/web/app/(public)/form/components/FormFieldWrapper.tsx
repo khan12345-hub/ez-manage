@@ -13,6 +13,20 @@ interface FormFieldWrapperProps {
   children: React.ReactNode;
 }
 
+const HTML_TAG_RE = /<[a-z][\s\S]*?>/i;
+
+function Description({ text }: { text: string }) {
+  if (HTML_TAG_RE.test(text)) {
+    return (
+      <div
+        className="text-xs text-muted-foreground [&_p]:my-0 [&_ul]:my-0.5 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-semibold [&_em]:italic"
+        dangerouslySetInnerHTML={{ __html: text }}
+      />
+    );
+  }
+  return <p className="text-xs text-muted-foreground">{text}</p>;
+}
+
 export function FormFieldWrapper({
   id,
   label,
@@ -35,7 +49,7 @@ export function FormFieldWrapper({
               )}
             </label>
             {description && (
-              <p className="text-xs text-muted-foreground">{description}</p>
+              <Description text={description} />
             )}
           </div>
         </div>
@@ -62,7 +76,7 @@ export function FormFieldWrapper({
       </label>
 
       {description && (
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <Description text={description} />
       )}
 
       {children}

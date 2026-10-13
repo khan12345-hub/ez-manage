@@ -16,7 +16,7 @@ import {
 import { CellEditorProps } from "./EditableCell";
 
 export interface DateValue {
-  date?: Date;
+  date?: Date | string;
 }
 
 export function DateEditor({
@@ -29,7 +29,16 @@ export function DateEditor({
   column,
 }: CellEditorProps<DateValue>) {
   const raw = value?.date;
-  const date = raw ? (raw instanceof Date ? raw : new Date(raw as any)) : undefined;
+  // Parse "YYYY-MM-DD" as LOCAL midnight so the displayed date is never
+  // shifted by the UTC-offset (new Date("YYYY-MM-DD") parses as UTC midnight
+  // which rolls back one day in positive-offset timezones like PKT UTC+5).
+  const date = raw
+    ? raw instanceof Date
+      ? raw
+      : /^\d{4}-\d{2}-\d{2}$/.test(String(raw))
+        ? (() => { const [ys, ms, ds] = String(raw).split('-'); return new Date(Number(ys), Number(ms) - 1, Number(ds)); })()
+        : new Date(raw as any)
+    : undefined;
   const validDate = date && isValid(date) ? date : undefined;
 
   const [open, setOpen] = useState(false);
@@ -99,9 +108,12 @@ export function DateEditor({
           onSelect={(selected) => {
             if (!selected) return;
 
-            const newValue = {
-              date: selected,
-            };
+            // Store as "YYYY-MM-DD" — no time, no timezone — so the date
+            // never shifts when crossing midnight UTC boundaries.
+            const y = selected.getFullYear();
+            const mo = String(selected.getMonth() + 1).padStart(2, '0');
+            const d = String(selected.getDate()).padStart(2, '0');
+            const newValue = { date: `${y}-${mo}-${d}` };
 
             setValue(newValue);
             save(newValue);

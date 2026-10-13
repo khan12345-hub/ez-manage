@@ -1946,27 +1946,37 @@ export class BoardImportService {
    */
 
   private normalizeDate(value: unknown): string {
-    const toNoonUTC = (d: Date) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}T12:00:00.000Z`;
+    // Always return a plain "YYYY-MM-DD" string so there is zero timezone
+    // ambiguity when the frontend parses it back.  SheetJS cellDates:true
+    // produces UTC-midnight Date objects, so we must use UTC accessors here
+    // (getFullYear/Month/Date use LOCAL time and shift the day in UTC- zones).
+    const toDateStr = (d: Date) => {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
     };
 
     if (value instanceof Date) {
-      return toNoonUTC(value);
+      return toDateStr(value);
     }
 
     const str = String(value).trim();
 
+    // Already a bare date string — return as-is.
     if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-      return `${str}T12:00:00.000Z`;
+      return str;
     }
 
+    // Try parsing common formats (e.g. "Oct 18, 2023", "10/18/2023").
+    // new Date(str) with no timezone token is treated as LOCAL by V8, so
+    // getUTC* would give the wrong day; use getLocal* parts here instead.
     const date = new Date(str);
-
     if (!Number.isNaN(date.getTime())) {
-      return toNoonUTC(date);
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
     }
 
     return str;

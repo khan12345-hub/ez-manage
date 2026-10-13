@@ -1,20 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus, Trash2,
   Type, Hash, Calendar, CalendarRange, Tag, CheckSquare, Link2, Paperclip,
   Upload, Check, AlignLeft, Pencil,
+  Bold, Italic, Underline, List, ListOrdered,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import UnderlineExtension from "@tiptap/extension-underline";
+import Placeholder from "@tiptap/extension-placeholder";
 
 import { FormBuilderState, FormField, FormFieldType, FormPage } from "./board-feature-form.types";
 import { SYSTEM_COLUMN_TYPES, UNMAPPABLE_COLUMN_TYPES } from "./board-form.utils";
 import { FormDesign } from "./FormPreview";
 import { StatusOptionEditor } from "../../StatusOptionEditor";
 import { AddContentModal } from "./AddContentModal";
-import { useColumnRename } from "../../../../../group/columns/useColumnRename.hooks";
 
 /* ── Type → icon + color config ───────────────────────────────────── */
 interface TypeConfig {
@@ -478,11 +482,25 @@ function FieldEditorCard({
   onToggleRequired,
   onDelete,
 }: FieldEditorCardProps) {
-  const { name, setName, save, handleKeyDown, isSaving } = useColumnRename({
-    columnId: field.columnId,
-    columnName: field.name,
-    onRenamed: (newName: string) => onUpdate({ ...field, name: newName }),
-  });
+  const [name, setName] = useState(field.name);
+
+  // Sync when a different field is selected or externally updated
+  useEffect(() => { setName(field.name); }, [field.id, field.name]);
+
+  const save = () => {
+    const trimmed = name.trim();
+    if (!trimmed) { setName(field.name); return; }
+    if (trimmed !== field.name) onUpdate({ ...field, name: trimmed });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") { e.currentTarget.blur(); return; }
+    if (e.key === "Escape") { setName(field.name); e.currentTarget.blur(); }
+  };
+
+  const isSaving = false;
+
+  const currentColumn = boardColumns.find((c) => c.id === field.columnId);
 
   return (
     <div
@@ -513,9 +531,16 @@ function FieldEditorCard({
               placeholder="Field label"
             />
           ) : (
-            <span className="flex-1 text-base font-semibold text-foreground">
-              {field.name || getConfig(field.type).label}
-            </span>
+            <div className="flex flex-1 items-baseline gap-2 min-w-0">
+              <span className="text-base font-semibold text-foreground truncate">
+                {field.name || getConfig(field.type).label}
+              </span>
+              {currentColumn && !currentColumn.isPrimary && (
+                <span className="shrink-0 text-[10px] text-muted-foreground/60 font-normal">
+                  → {currentColumn.name}
+                </span>
+              )}
+            </div>
           )}
           {field.required && !isSelected && (
             <span className="text-sm text-destructive">*</span>
@@ -525,11 +550,10 @@ function FieldEditorCard({
         {/* Expanded section */}
         {isSelected && (
           <div onClick={(e) => e.stopPropagation()} className="mt-2 space-y-2.5 pb-3">
-            <input
+            <DescriptionEditor
+              key={field.id}
               value={field.description ?? ""}
-              onChange={(e) => onUpdate({ ...field, description: e.target.value })}
-              placeholder="Add a description…"
-              className="w-full bg-transparent text-sm italic text-muted-foreground outline-none placeholder:text-muted-foreground/40"
+              onChange={(html) => onUpdate({ ...field, description: html })}
             />
 
             <FieldTypeEditor field={field} boardId={boardId} onUpdate={onUpdate} />
@@ -671,6 +695,7 @@ function FieldTypeEditor({
             columnId={field.columnId}
             options={field.options ?? []}
             label={optionLabel}
+            showHideToggle
             onChange={(options) => onUpdate({ ...field, options })}
           />
         </div>
@@ -747,6 +772,85 @@ function ColumnMappingSelect({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+/* ── Mini Tiptap description editor ───────────────────────────────── */
+function DescriptionEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (html: string) => void;
+}) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      UnderlineExtension,
+      Placeholder.configure({ placeholder: "Add a description…" }),
+    ],
+    content: value || "",
+    onUpdate: ({ editor: e }) => {
+      const html = e.isEmpty ? "" : e.getHTML();
+      onChange(html);
+    },
+    editorProps: {
+      attributes: {
+        class: "min-h-[48px] text-sm italic text-muted-foreground outline-none focus:not-italic focus:text-foreground",
+      },
+    },
+  });
+
+  if (!editor) return null;
+
+  return (
+    <div className="rounded-md border border-transparent focus-within:border-border">
+      {/* Toolbar */}
+      <div className="flex items-center gap-0.5 border-b px-1 py-0.5 opacity-0 focus-within:opacity-100 transition-opacity">
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }}
+          className={cn("rounded p-1 text-muted-foreground hover:text-foreground", editor.isActive("bold") && "bg-muted text-foreground")}
+          title="Bold"
+        >
+          <Bold className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run(); }}
+          className={cn("rounded p-1 text-muted-foreground hover:text-foreground", editor.isActive("italic") && "bg-muted text-foreground")}
+          title="Italic"
+        >
+          <Italic className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleUnderline().run(); }}
+          className={cn("rounded p-1 text-muted-foreground hover:text-foreground", editor.isActive("underline") && "bg-muted text-foreground")}
+          title="Underline"
+        >
+          <Underline className="h-3 w-3" />
+        </button>
+        <div className="mx-1 h-3 w-px bg-border" />
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBulletList().run(); }}
+          className={cn("rounded p-1 text-muted-foreground hover:text-foreground", editor.isActive("bulletList") && "bg-muted text-foreground")}
+          title="Bullet list"
+        >
+          <List className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleOrderedList().run(); }}
+          className={cn("rounded p-1 text-muted-foreground hover:text-foreground", editor.isActive("orderedList") && "bg-muted text-foreground")}
+          title="Numbered list"
+        >
+          <ListOrdered className="h-3 w-3" />
+        </button>
+      </div>
+      <EditorContent editor={editor} className="px-1 py-1" />
     </div>
   );
 }

@@ -17,6 +17,7 @@ export interface FormFieldOption {
   label: string;
   color: string;
   isNew?: boolean;
+  hiddenInForm?: boolean;
 }
 
 export interface FormPage {
@@ -91,6 +92,8 @@ export interface BoardFormField {
   position: number;
   required: boolean;
   hidden: boolean;
+  multiSelect?: boolean;
+  hiddenOptionIds?: (number | string)[];
   statusOptions?: BoardFormStatusOption[];
   column?: {
     id: number;

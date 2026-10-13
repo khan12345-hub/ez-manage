@@ -169,12 +169,16 @@ export function mapExistingFormToState(form: BoardForm): FormBuilderState {
       description: field.description ?? "",
       position: field.position,
       pageIndex,
-      options: field.column?.statusOptions?.map((option) => ({
-        id: String(option.id),
-        label: option.label,
-        color: (option as any).color ?? "#6366f1",
-        isNew: false,
-      })),
+      options: field.column?.statusOptions?.map((option) => {
+        const hiddenIds = ((field.hiddenOptionIds ?? []) as (number | string)[]).map(String);
+        return {
+          id: String(option.id),
+          label: option.label,
+          color: (option as any).color ?? "#6366f1",
+          isNew: false,
+          hiddenInForm: hiddenIds.includes(String(option.id)),
+        };
+      }),
     };
   });
 
@@ -225,6 +229,9 @@ export function buildFormPayload(form: FormBuilderState) {
           required: field.required,
           hidden: field.hidden ?? false,
           multiSelect: field.multiSelect ?? false,
+          hiddenOptionIds: (field.options ?? [])
+            .filter((o) => o.hiddenInForm)
+            .map((o) => o.id),
         };
       }),
   };

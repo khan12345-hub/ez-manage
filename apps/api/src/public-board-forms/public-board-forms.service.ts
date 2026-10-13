@@ -284,7 +284,25 @@ export class PublicBoardFormsService {
     // Lazily generate shareToken for forms created before the column existed
     const shareToken = await this.ensureShareToken(form.id, form.shareToken);
 
-    return { ...form, shareToken };
+    // Filter out hidden status options from each field
+    const fields = form.fields.map((field) => {
+      const hiddenIds = new Set(
+        ((field.hiddenOptionIds as (number | string)[]) ?? []).map(String),
+      );
+      return {
+        ...field,
+        column: {
+          ...field.column,
+          statusOptions: hiddenIds.size > 0
+            ? (field.column.statusOptions ?? []).filter(
+                (o) => !hiddenIds.has(String(o.id)),
+              )
+            : field.column.statusOptions,
+        },
+      };
+    });
+
+    return { ...form, fields, shareToken };
   }
 
   /**

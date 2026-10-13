@@ -10,7 +10,13 @@ export function DateCell({ cell, plain = false }: Props) {
   if (!cell) return <>—</>;
   const raw = cell.date;
   if (!raw) return <>—</>;
-  const date = raw instanceof Date ? raw : new Date(raw);
+  // Parse "YYYY-MM-DD" as LOCAL midnight — avoids UTC-offset day shift.
+  const date =
+    raw instanceof Date
+      ? raw
+      : /^\d{4}-\d{2}-\d{2}$/.test(String(raw))
+        ? (() => { const [ys, ms, ds] = String(raw).split('-'); return new Date(Number(ys), Number(ms) - 1, Number(ds)); })()
+        : new Date(raw);
   if (!isValid(date)) return <>—</>;
 
   const today = new Date();

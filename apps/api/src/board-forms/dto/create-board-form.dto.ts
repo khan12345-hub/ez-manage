@@ -42,6 +42,14 @@ export class CreateBoardFormFieldDto {
   hidden?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  multiSelect?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  hiddenOptionIds?: (number | string)[];
+
+  @IsOptional()
   statusOptions?: CreateBoardFormStatusOptionDto[];
 
 }

@@ -183,6 +183,10 @@ export class BoardFormsService {
               required: field.required ?? false,
 
               hidden: field.hidden ?? false,
+
+              multiSelect: field.multiSelect ?? false,
+
+              hiddenOptionIds: (field.hiddenOptionIds ?? []) as Prisma.InputJsonValue,
             })),
           },
         },
@@ -321,6 +325,10 @@ export class BoardFormsService {
               required: field.required ?? false,
 
               hidden: field.hidden ?? false,
+
+              multiSelect: field.multiSelect ?? false,
+
+              hiddenOptionIds: (field.hiddenOptionIds ?? []) as Prisma.InputJsonValue,
             })),
           });
         }
