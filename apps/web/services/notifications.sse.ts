@@ -29,6 +29,7 @@ export function connectNotificationStream(
   onBoardsUpdated?: (data: { workspaceId: number }) => void,
   onChatUnread?: (data: ChatUnreadEvent) => void,
   onChatCall?: (data: ChatCallEvent) => void,
+  onBoardTasksUpdate?: (data: { boardId: number }) => void,
 ) {
   const url = `${process.env.NEXT_PUBLIC_API_URL}/notifications/stream`;
 
@@ -60,6 +61,11 @@ export function connectNotificationStream(
   // A call was started in a channel.
   eventSource.addEventListener("chat_call", (event) => {
     try { onChatCall?.(JSON.parse(event.data)); } catch {}
+  });
+
+  // A new task was added to a board (form submission, etc.) — refresh task list.
+  eventSource.addEventListener("board_tasks_update", (event) => {
+    try { onBoardTasksUpdate?.(JSON.parse(event.data)); } catch {}
   });
 
   eventSource.onmessage = (event) => {

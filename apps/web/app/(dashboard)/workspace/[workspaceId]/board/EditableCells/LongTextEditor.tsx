@@ -8,6 +8,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { CellEditorProps } from "./EditableCell";
+import { useSearchHighlight } from "../context/SearchHighlightContext";
+import { Highlight } from "@/components/ui/highlight";
 
 export function LongTextEditor({
   editing,
@@ -17,6 +19,7 @@ export function LongTextEditor({
   cancel,
 }: CellEditorProps<string>) {
   const [open, setOpen] = useState(false);
+  const searchHighlight = useSearchHighlight();
 
   useEffect(() => {
     if (editing) setOpen(true);
@@ -42,7 +45,9 @@ export function LongTextEditor({
         title={value || ""}
       >
         <span className="line-clamp-2 whitespace-pre-wrap break-words">
-          {value || <span className="text-muted-foreground/40">—</span>}
+          {value
+            ? <Highlight text={value} search={searchHighlight} />
+            : <span className="text-muted-foreground/40">—</span>}
         </span>
       </div>
     );

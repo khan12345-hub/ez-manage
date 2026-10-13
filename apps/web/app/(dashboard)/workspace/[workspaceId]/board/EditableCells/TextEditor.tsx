@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/tooltip";
 
 import { CellEditorProps } from "./EditableCell";
+import { useSearchHighlight } from "../context/SearchHighlightContext";
+import { Highlight } from "@/components/ui/highlight";
 
 interface Props extends CellEditorProps<string> {
   isPrimary?: boolean;
@@ -35,6 +37,7 @@ export function TextEditor({
   isPrimary,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const searchHighlight = useSearchHighlight();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -162,7 +165,9 @@ export function TextEditor({
         className="absolute inset-0 flex w-full cursor-text items-center overflow-hidden truncate whitespace-nowrap px-2 text-[16px] hover:bg-muted/60 hover:ring-1 hover:ring-inset hover:ring-border/60"
         title={value || ""}
       >
-        {value || <span className="text-muted-foreground/40 text-sm">—</span>}
+        {value
+          ? <Highlight text={value} search={searchHighlight} />
+          : <span className="text-muted-foreground/40 text-sm">—</span>}
       </div>
     );
   }

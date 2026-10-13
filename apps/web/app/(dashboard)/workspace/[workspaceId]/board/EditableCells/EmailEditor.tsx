@@ -10,6 +10,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { CellEditorProps } from "./EditableCell";
+import { useSearchHighlight } from "../context/SearchHighlightContext";
+import { Highlight } from "@/components/ui/highlight";
 
 export interface EmailValue {
   email: string;
@@ -25,6 +27,7 @@ export function EmailEditor({
 }: CellEditorProps<EmailValue>) {
   const [open, setOpen] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
+  const searchHighlight = useSearchHighlight();
 
   const email = value?.email ?? "";
   const label = value?.label ?? "";
@@ -72,7 +75,7 @@ export function EmailEditor({
           className="flex min-w-0 items-center gap-1.5 truncate rounded-full bg-blue-50 px-2 py-0.5 text-[12px] font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
         >
           <Mail className="h-3 w-3 shrink-0" />
-          <span className="truncate">{display}</span>
+          <span className="truncate"><Highlight text={display} search={searchHighlight} /></span>
         </a>
       </div>
     );

@@ -3,6 +3,8 @@
 import { ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { CellEditorProps } from "./EditableCell";
+import { useSearchHighlight } from "../context/SearchHighlightContext";
+import { Highlight } from "@/components/ui/highlight";
 
 export function LinkEditor({
   editing,
@@ -12,6 +14,7 @@ export function LinkEditor({
   save,
   cancel,
 }: CellEditorProps<string>) {
+  const searchHighlight = useSearchHighlight();
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -45,7 +48,7 @@ export function LinkEditor({
           title={value}
         >
           <ExternalLink className="h-3 w-3 shrink-0" />
-          <span className="truncate">{value}</span>
+          <span className="truncate"><Highlight text={value} search={searchHighlight} /></span>
         </a>
       </div>
     );

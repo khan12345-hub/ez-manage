@@ -27,6 +27,7 @@ import { useTaskBulkActions } from "./useTaskBulkActions";
 
 import { GroupSortOption, sortGroups } from "./BoardHeader/Filters/GroupSort";
 import { BulkActionToolbar } from "./BulkActionsToolbar/BulkActionsToolbar";
+import { SearchHighlightProvider } from "../context/SearchHighlightContext";
 
 export function Board({
   board,
@@ -364,7 +365,7 @@ export function Board({
    * ---------------------------------------------------------
    */
   return (
-    <>
+    <SearchHighlightProvider search={debouncedSearch}>
       <div className="sticky top-[41px] z-30 -mx-3 sm:-mx-6 bg-background border-b px-3 sm:px-6 py-2">
         <BoardHeader
           boardId={board?.id}
@@ -436,6 +437,6 @@ export function Board({
         isMoving={isMoving}
         isDuplicating={isDuplicating}
       />
-    </>
+    </SearchHighlightProvider>
   );
 }

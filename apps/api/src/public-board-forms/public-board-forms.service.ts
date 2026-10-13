@@ -474,13 +474,25 @@ export class PublicBoardFormsService {
     );
 
     /* ── Collect FILE submissions for post-transaction processing ── */
-    const fileSubmissions = dto.values.filter((v) => {
-      const field = fieldByColumnId.get(v.columnId);
-      return (
-        field?.column.type === BoardColumnType.FILE &&
-        (v.value as any)?.storageKey
-      );
-    });
+    // Value may be a single UploadedFile object OR an UploadedFile[] array
+    // (multi-file upload). Flatten everything into a flat list of
+    // { columnId, fileValue } entries.
+    const fileSubmissions: { columnId: number; fileValue: any }[] = dto.values
+      .filter((v) => {
+        const field = fieldByColumnId.get(v.columnId);
+        return field?.column.type === BoardColumnType.FILE;
+      })
+      .flatMap((v) => {
+        const raw = v.value as any;
+        const files: any[] = Array.isArray(raw)
+          ? raw
+          : raw?.storageKey
+            ? [raw]
+            : [];
+        return files
+          .filter((f) => f?.storageKey)
+          .map((f) => ({ columnId: v.columnId, fileValue: f }));
+      });
 
     const { taskId, taskName, createdCells } = await this.prisma.$transaction(async (tx) => {
       /**
@@ -634,9 +646,8 @@ export class PublicBoardFormsService {
     });
 
     /* ── Create File + TaskCellFile records for FILE submissions ── */
-    for (const sub of fileSubmissions) {
-      const fileValue = sub.value as any;
-      const cell = createdCells.find((c) => c.columnId === sub.columnId);
+    for (const { columnId, fileValue } of fileSubmissions) {
+      const cell = createdCells.find((c) => c.columnId === columnId);
       if (!cell) continue;
       try {
         const file = await this.prisma.file.create({
@@ -694,6 +705,24 @@ export class PublicBoardFormsService {
       }
     } catch {
       // Notification failure must not break the form submission response
+    }
+
+    // Emit board_tasks_update to ALL board members (not just admins) so every
+    // open board view refreshes its task list immediately without a page reload.
+    try {
+      const allMemberIds = await this.prisma.boardMember.findMany({
+        where: { boardId },
+        select: { userId: true },
+      });
+      const memberIdSet = new Set<number>([
+        board.createdById,
+        ...allMemberIds.map((m) => m.userId),
+      ]);
+      for (const uid of memberIdSet) {
+        this.notificationStreamService.emitRaw(uid, 'board_tasks_update', { boardId });
+      }
+    } catch {
+      // Non-critical
     }
 
     return {

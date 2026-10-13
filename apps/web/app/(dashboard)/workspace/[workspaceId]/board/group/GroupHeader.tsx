@@ -280,6 +280,21 @@ export function GroupHeader({
     <div className="border-b">
     <div className="flex items-center justify-between p-3">
       <div className="flex items-center gap-3">
+        {!activeGroup.isNew && (
+          <button
+            type="button"
+            onClick={onToggleCollapse ?? (() => {})}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title={isCollapsed ? "Expand group" : "Collapse group"}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+        )}
+
         <ColorPicker
           value={activeGroup.color ?? undefined}
           colors={STATUS_COLORS}
@@ -328,26 +343,12 @@ export function GroupHeader({
       </div>
 
       {!activeGroup.isNew && (
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onToggleCollapse ?? (() => {})}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title={isCollapsed ? "Expand group" : "Collapse group"}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-          <GroupActions
-            group={activeGroup}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={onToggleCollapse ?? (() => {})}
-            onAddGroup={onAddGroup ?? (() => {})}
-          />
-        </div>
+        <GroupActions
+          group={activeGroup}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={onToggleCollapse ?? (() => {})}
+          onAddGroup={onAddGroup ?? (() => {})}
+        />
       )}
     </div>
 

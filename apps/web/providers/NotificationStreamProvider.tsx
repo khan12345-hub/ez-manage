@@ -90,11 +90,6 @@ export function NotificationStreamProvider({
           : undefined;
         fireDesktop(notification.title, notification.message, url);
 
-        // Form submission → new task in board — refresh tasks list in real-time
-        if (notification.type === "FORM_SUBMITTED" && meta?.boardId) {
-          queryClient.invalidateQueries({ queryKey: ["board-tasks", meta.boardId] });
-        }
-
         queryClient.setQueryData<{ count: number }>(
           ["notifications", "unread-count"],
           (oldData) => ({ count: (oldData?.count ?? 0) + 1 }),
@@ -132,6 +127,11 @@ export function NotificationStreamProvider({
       // chat_call: someone started a call in a channel
       (data: ChatCallEvent) => {
         setIncomingCall(data);
+      },
+      // board_tasks_update: new task added to a board (form submission, etc.)
+      // Sent to ALL board members so every open board view refreshes immediately.
+      ({ boardId }: { boardId: number }) => {
+        queryClient.invalidateQueries({ queryKey: ["board-tasks", Number(boardId)] });
       },
     );
 
