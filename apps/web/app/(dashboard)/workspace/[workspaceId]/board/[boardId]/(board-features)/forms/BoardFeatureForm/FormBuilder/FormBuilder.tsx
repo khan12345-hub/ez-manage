@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Save, Pencil, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Save, Pencil, ChevronDown, ChevronRight, Palette } from "lucide-react";
 
 import {
   closestCenter,
@@ -270,6 +270,7 @@ export function FormBuilder({ board }: FormBuilderProps) {
               onDragEnd={handleDragEnd}
               onGroupChange={setGroupId}
               onOpenAddContent={() => setSidebarModalOpen(true)}
+              onSwitchToDesign={() => setMode("design")}
             />
 
             <main
@@ -354,6 +355,7 @@ function EditSidebar({
   onDragEnd,
   onGroupChange,
   onOpenAddContent,
+  onSwitchToDesign,
 }: {
   form: any;
   board: any;
@@ -366,6 +368,7 @@ function EditSidebar({
   onDragEnd: (event: DragEndEvent) => void;
   onGroupChange: (groupId: number | null) => void;
   onOpenAddContent: () => void;
+  onSwitchToDesign: () => void;
 }) {
   const pages = form.pages?.length > 0
     ? form.pages
@@ -386,6 +389,15 @@ function EditSidebar({
     <aside className="flex w-64 shrink-0 flex-col border-r bg-background">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <span className="text-sm font-semibold">Content</span>
+        <button
+          type="button"
+          onClick={onSwitchToDesign}
+          title="Logo, colors & branding"
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <Palette className="h-3 w-3" />
+          Logo
+        </button>
       </div>
 
       <div className="flex flex-1 flex-col overflow-y-auto py-2">

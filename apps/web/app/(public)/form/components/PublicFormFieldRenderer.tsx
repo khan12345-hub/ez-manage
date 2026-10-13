@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Paperclip, X, Loader2, ChevronDown, Check } from "lucide-react";
+import { Paperclip, X, Loader2, ChevronDown, Check, UploadCloud } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -529,8 +529,30 @@ function FileUploadInput({
     );
   }
 
+  const [isDragging, setIsDragging] = useState(false);
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file || disabled || uploading) return;
+    const syntheticEvent = { target: { files: e.dataTransfer.files } } as unknown as React.ChangeEvent<HTMLInputElement>;
+    handleFileChange(syntheticEvent);
+  }
+
   return (
-    <>
+    <label
+      htmlFor={fieldId}
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+      className={cn(
+        "flex cursor-pointer items-center gap-3 rounded-lg border border-dashed px-4 py-3 transition-colors",
+        isDragging ? "border-primary/60 bg-primary/5" : "border-muted-foreground/25 hover:border-primary/40 hover:bg-muted/20",
+        error && "border-destructive/50",
+        (disabled || uploading) && "cursor-not-allowed opacity-60",
+      )}
+    >
       <input
         ref={inputRef}
         id={fieldId}
@@ -539,20 +561,19 @@ function FileUploadInput({
         disabled={disabled || uploading}
         onChange={handleFileChange}
       />
-      <Button
-        type="button"
-        variant="outline"
-        className={cn("w-full justify-start gap-2", error && "border-destructive text-destructive hover:border-destructive")}
-        disabled={disabled || uploading}
-        onClick={() => inputRef.current?.click()}
-      >
-        {uploading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Paperclip className="h-4 w-4" />
+      {uploading ? (
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+      ) : (
+        <UploadCloud className="h-4 w-4 shrink-0 text-muted-foreground" />
+      )}
+      <div className="min-w-0">
+        <span className="text-sm text-primary">
+          {uploading ? "Uploading…" : "Choose a file to upload"}
+        </span>
+        {!uploading && (
+          <span className="text-sm text-muted-foreground"> or drag and drop here</span>
         )}
-        {uploading ? "Uploading…" : "Choose file"}
-      </Button>
-    </>
+      </div>
+    </label>
   );
 }

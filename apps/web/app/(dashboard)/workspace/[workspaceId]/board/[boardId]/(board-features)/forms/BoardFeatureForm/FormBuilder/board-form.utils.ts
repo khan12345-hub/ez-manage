@@ -6,8 +6,14 @@ import {
   BoardForm,
 } from "./board-feature-form.types";
 
-/** Never included in the public form sidebar — system/internal columns */
+/** Hidden from the form sidebar and editor panel entirely (no hide/show toggle) */
 export const SYSTEM_COLUMN_TYPES = new Set([
+  "FILE_FEEDBACK",
+  "CREATION_LOG",
+]);
+
+/** Excluded from the column-mapping dropdown (can't remap a field to these) */
+export const UNMAPPABLE_COLUMN_TYPES = new Set([
   "PERSON",
   "FILE_FEEDBACK",
   "CREATION_LOG",

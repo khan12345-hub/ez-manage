@@ -35,23 +35,9 @@ function PageShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: d.bgColor, color: d.textColor }}>
-      {/* EzManage top nav */}
-      <header className="sticky top-0 z-50 flex h-12 items-center border-b border-black/10 bg-white/90 px-6 backdrop-blur">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-6 w-6 grid-cols-2 gap-[2px] rotate-45">
-            <div className="rounded-[2px] bg-[#FF3D57]" />
-            <div className="rounded-[2px] bg-[#00CFF4]" />
-            <div className="rounded-[2px] bg-[#FFCB00]" />
-            <div className="rounded-[2px] bg-[#00C875]" />
-          </div>
-          <span className="text-sm font-bold tracking-tight">EzManage</span>
-        </div>
-      </header>
-
-      {/* Scrollable form content */}
+    <div className="h-screen overflow-hidden" style={{ backgroundColor: d.bgColor, color: d.textColor }}>
       <div
-        className="flex min-h-[calc(100vh-48px)] items-start px-4 pb-24 pt-8"
+        className="flex h-full items-start px-4 py-8"
         style={{
           justifyContent:
             d.position === "left" ? "flex-start"
@@ -292,7 +278,7 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
 
   return (
     <PageShell d={d}>
-      <div className="w-full max-w-2xl">
+      <div className="flex h-full w-full max-w-2xl flex-col">
         {/* Progress bar — only shown for multi-page forms */}
         {totalPages > 1 && (
           <div className="mb-4">
@@ -310,77 +296,76 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
         )}
 
         {/* Form card */}
-        <div className="rounded-2xl shadow-lg" style={{ backgroundColor: d.cardBg, color: d.textColor }}>
-          <div className="h-2 rounded-t-2xl" style={{ backgroundColor: d.accentColor }} />
+        <div className="flex h-full flex-col overflow-hidden rounded-2xl shadow-lg" style={{ backgroundColor: d.cardBg, color: d.textColor }}>
+          {/* Accent bar */}
+          <div className="h-2 shrink-0 rounded-t-2xl" style={{ backgroundColor: d.accentColor }} />
 
-          <div className="px-8 pb-8 pt-7">
-            {/* Logo + User + Title + Description — first page only */}
-            {currentPage === 0 && (
-              <div className="mb-7">
-                {/* Top row: logo (left) + user + ? (right) */}
-                <div className="mb-4 flex items-start justify-between gap-4">
-                  {d.logoUrl ? (
-                    <img
-                      src={d.logoUrl}
-                      alt="Form logo"
-                      className="max-h-14 max-w-[160px] object-contain"
-                    />
-                  ) : (
-                    <div />
-                  )}
-                  <div className="flex shrink-0 items-center gap-2">
-                    {user && (
-                      <>
-                        {user.avatarUrl ? (
-                          <img
-                            src={user.avatarUrl}
-                            alt={`${user.firstName} ${user.lastName}`}
-                            className="h-7 w-7 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div
-                            className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-                            style={{ backgroundColor: d.accentColor }}
-                          >
-                            {userInitials}
-                          </div>
-                        )}
-                        <span className="text-sm font-medium" style={{ color: d.textColor }}>
-                          {user.firstName} {user.lastName}
-                        </span>
-                      </>
+          {/* Sticky header — logo, user, title, description */}
+          <div className="shrink-0 border-b px-8 pb-5 pt-6" style={{ borderColor: `${d.textColor}12` }}>
+            {/* Top row: logo (left) + user + ? (right) */}
+            <div className="mb-3 flex items-start justify-between gap-4">
+              {d.logoUrl ? (
+                <img
+                  src={d.logoUrl}
+                  alt="Form logo"
+                  className="max-h-12 max-w-[140px] object-contain"
+                />
+              ) : (
+                <div />
+              )}
+              <div className="flex shrink-0 items-center gap-2">
+                {user && (
+                  <>
+                    {user.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={`${user.firstName} ${user.lastName}`}
+                        className="h-7 w-7 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+                        style={{ backgroundColor: d.accentColor }}
+                      >
+                        {userInitials}
+                      </div>
                     )}
-                    <button
-                      type="button"
-                      title="Form info"
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-xs font-bold hover:bg-black/5"
-                      style={{ borderColor: `${d.textColor}30`, color: d.textColor }}
-                    >
-                      ?
-                    </button>
-                  </div>
-                </div>
-
-                {/* Title + description */}
-                <h1 className="text-2xl font-bold tracking-tight" style={{ color: d.textColor }}>
-                  {form.title || "Submit Form"}
-                </h1>
-                {form.description && (
-                  <p className="mt-1 text-sm font-medium" style={{ color: d.accentColor }}>
-                    {form.description}
-                  </p>
+                    <span className="text-sm font-medium" style={{ color: d.textColor }}>
+                      {user.firstName} {user.lastName}
+                    </span>
+                  </>
                 )}
+                <button
+                  type="button"
+                  title="Form info"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-xs font-bold hover:bg-black/5"
+                  style={{ borderColor: `${d.textColor}30`, color: d.textColor }}
+                >
+                  ?
+                </button>
               </div>
+            </div>
+
+            {/* Title + description */}
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: d.textColor }}>
+              {form.title || "Submit Form"}
+            </h1>
+            {form.description && (
+              <p className="mt-0.5 text-sm font-medium" style={{ color: d.accentColor }}>
+                {form.description}
+              </p>
             )}
 
-            {/* Multi-page: show page label if > 1 page and not page 0 */}
+            {/* Multi-page label */}
             {totalPages > 1 && currentPage > 0 && (
-              <div className="mb-5">
-                <h2 className="text-lg font-semibold" style={{ color: d.textColor }}>
-                  Page {currentPage + 1}
-                </h2>
-              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Page {currentPage + 1} of {totalPages}
+              </p>
             )}
+          </div>
+
+          {/* Scrollable fields area */}
+          <div className="flex-1 overflow-y-auto px-8 pb-6 pt-5">
 
             {/* Inline validation banner */}
             {validationBanner && validationBanner.length > 0 && (
@@ -401,7 +386,7 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
               </div>
             )}
 
-            {/* Fields — form id used by the fixed submit bar below */}
+            {/* Fields */}
             <form id="public-board-form" onSubmit={handleSubmit} className="space-y-5" noValidate>
               {pageFields.map((field) => (
                 <PublicFormFieldRenderer
@@ -416,70 +401,65 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
               ))}
             </form>
           </div>
-        </div>
 
-        {/* Footer branding */}
-        <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-          <div className="grid h-4 w-4 grid-cols-2 gap-[1.5px] rotate-45">
-            <div className="rounded-[1px] bg-[#FF3D57]" />
-            <div className="rounded-[1px] bg-[#00CFF4]" />
-            <div className="rounded-[1px] bg-[#FFCB00]" />
-            <div className="rounded-[1px] bg-[#00C875]" />
+          {/* Sticky card footer — Back / Next / Submit */}
+          <div
+            className="shrink-0 flex items-center justify-between gap-3 border-t px-8 py-4"
+            style={{ borderColor: `${d.textColor}12`, backgroundColor: d.cardBg }}
+          >
+            <div>
+              {currentPage > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={isSubmitting}
+                  className="gap-1.5"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Back
+                </Button>
+              )}
+            </div>
+            <div>
+              {isLastPage ? (
+                <button
+                  type="submit"
+                  form="public-board-form"
+                  disabled={isSubmitting}
+                  className="flex items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                  style={{ backgroundColor: d.accentColor }}
+                >
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {form.submitLabel || "Submit"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="flex items-center justify-center gap-1.5 rounded-lg px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: d.accentColor }}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
-          <span>Powered by <strong>EzManage</strong></span>
         </div>
       </div>
 
-      {/* ── Fixed bottom bar: Back / Next / Submit ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-black/10 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm">
-        <div
-          className="mx-auto flex max-w-2xl items-center gap-3"
-          style={{
-            justifyContent:
-              d.position === "left" ? "flex-start"
-              : d.position === "right" ? "flex-end"
-              : "center",
-          }}
-        >
-          {currentPage > 0 ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleBack}
-              disabled={isSubmitting}
-              className="gap-1.5"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Back
-            </Button>
-          ) : (
-            <div />
-          )}
-
-          {isLastPage ? (
-            <button
-              type="submit"
-              form="public-board-form"
-              disabled={isSubmitting}
-              className="flex flex-1 items-center justify-center rounded-lg py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-              style={{ backgroundColor: d.accentColor }}
-            >
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {form.submitLabel || "Submit"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleNext}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-3 text-base font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ backgroundColor: d.accentColor }}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          )}
+      {/* Floating branding badge — bottom right */}
+      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 py-2 shadow-md text-xs text-muted-foreground">
+        <div className="grid h-3.5 w-3.5 grid-cols-2 gap-[1.5px] rotate-45">
+          <div className="rounded-[1px] bg-[#FF3D57]" />
+          <div className="rounded-[1px] bg-[#00CFF4]" />
+          <div className="rounded-[1px] bg-[#FFCB00]" />
+          <div className="rounded-[1px] bg-[#00C875]" />
         </div>
+        <span><strong>EzManage</strong> forms</span>
       </div>
+
     </PageShell>
   );
 }

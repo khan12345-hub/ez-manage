@@ -98,7 +98,11 @@ export function EditableCell<T>({
   }, [editing]);
 
   const save = (nextValue = localValue) => {
-    onSave(nextValue);
+    // Only persist when the value actually changed — avoids spurious API calls
+    // (e.g. clicking an empty cell and immediately clicking away).
+    if (JSON.stringify(nextValue) !== JSON.stringify(value)) {
+      onSave(nextValue);
+    }
     setEditing(false);
   };
 

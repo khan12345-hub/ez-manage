@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 import { FormBuilderState, FormField, FormFieldType, FormPage } from "./board-feature-form.types";
-import { SYSTEM_COLUMN_TYPES } from "./board-form.utils";
+import { SYSTEM_COLUMN_TYPES, UNMAPPABLE_COLUMN_TYPES } from "./board-form.utils";
 import { FormDesign } from "./FormPreview";
 import { StatusOptionEditor } from "../../StatusOptionEditor";
 import { AddContentModal } from "./AddContentModal";
@@ -196,6 +196,8 @@ export function FormEditorPanel({
                       field={field}
                       isSelected={selectedFieldId === field.id}
                       boardId={boardId}
+                      boardColumns={board?.columns ?? []}
+                      formFields={form.fields}
                       cardBg={cardBg}
                       accentColor={accentColor}
                       onSelect={() => onSelectField(field.id)}
@@ -451,6 +453,8 @@ interface FieldEditorCardProps {
   field: FormField;
   isSelected: boolean;
   boardId: number;
+  boardColumns: any[];
+  formFields: FormField[];
   cardBg?: string;
   accentColor?: string;
   onSelect: () => void;
@@ -464,6 +468,8 @@ function FieldEditorCard({
   field,
   isSelected,
   boardId,
+  boardColumns,
+  formFields,
   cardBg = "#ffffff",
   accentColor = "#0070f3",
   onSelect,
@@ -527,6 +533,14 @@ function FieldEditorCard({
             />
 
             <FieldTypeEditor field={field} boardId={boardId} onUpdate={onUpdate} />
+
+            {/* Column mapping */}
+            <ColumnMappingSelect
+              field={field}
+              boardColumns={boardColumns}
+              formFields={formFields}
+              onUpdate={onUpdate}
+            />
 
             <div className="flex items-center justify-between border-t pt-3">
               <div className="flex items-center gap-2">
@@ -593,6 +607,13 @@ function FieldTypeEditor({
     "w-full rounded-md border border-input bg-muted/30 px-3 py-2 text-sm text-muted-foreground/50 pointer-events-none select-none";
 
   switch (field.type) {
+    case "PERSON":
+      return (
+        <div className={`${previewInput} flex items-center justify-between`}>
+          <span>Auto-filled with logged-in user</span>
+        </div>
+      );
+
     case "TEXT":
       return <div className={previewInput}>Type your answer…</div>;
 
@@ -667,4 +688,65 @@ function FieldTypeEditor({
     default:
       return null;
   }
+}
+
+/* ── Column mapping select ─────────────────────────────────────────── */
+function ColumnMappingSelect({
+  field,
+  boardColumns,
+  formFields,
+  onUpdate,
+}: {
+  field: FormField;
+  boardColumns: any[];
+  formFields: FormField[];
+  onUpdate: (field: FormField) => void;
+}) {
+  const currentCol = boardColumns.find((c) => c.id === field.columnId);
+
+  // Primary-column fields (task name) always map to the task name — no remapping needed.
+  if (currentCol?.isPrimary) return null;
+
+  // Columns already claimed by other visible fields
+  const takenColumnIds = new Set(
+    formFields
+      .filter((f) => f.id !== field.id && !f.hidden && f.columnId != null)
+      .map((f) => f.columnId!),
+  );
+
+  // Build the option list: mappable, non-primary columns that are free,
+  // PLUS always include the field's own current column even if it would
+  // otherwise be filtered (so the select always shows the correct value).
+  const available = boardColumns.filter((col) => {
+    if (col.id === field.columnId) return true; // always keep current
+    if (col.isPrimary) return false;
+    if (UNMAPPABLE_COLUMN_TYPES.has(col.type)) return false;
+    if (takenColumnIds.has(col.id)) return false;
+    return true;
+  });
+
+  return (
+    <div className="rounded-md border bg-muted/20 px-3 py-2.5">
+      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Maps to column
+      </label>
+      <select
+        value={field.columnId ?? ""}
+        onChange={(e) => {
+          const col = boardColumns.find((c) => c.id === Number(e.target.value));
+          if (!col) return;
+          onUpdate({ ...field, columnId: col.id, columnType: col.type });
+        }}
+        className="w-full rounded-md border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+      >
+        {field.columnId == null && <option value="">— unassigned —</option>}
+        {available.map((col) => (
+          <option key={col.id} value={col.id}>
+            {col.name}
+            {col.type ? ` (${col.type.toLowerCase().replace(/_/g, " ")})` : ""}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }

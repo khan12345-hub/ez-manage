@@ -28,7 +28,7 @@ export function useColumnRename({
   }, [columnName]);
 
   const mutation = useMutation({
-    mutationFn: (newName: string) => {
+    mutationFn: ({ newName }: { newName: string; originalName: string }) => {
       if (!columnId) {
         throw new Error("Column ID is required");
       }
@@ -36,20 +36,17 @@ export function useColumnRename({
       return updateColumn(columnId, newName);
     },
 
-    onSuccess: (_, newName) => {
-      // toast.success("Column updated");
-
-      // Keep FormField in sync
-      onRenamed?.(newName);
-
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
       });
     },
 
-    onError: (error: unknown) => {
+    onError: (error: unknown, { originalName }) => {
       toast.error(getErrorMessage(error, "Failed to update column"));
-      setName(columnName);
+      setName(originalName);
+      // Revert the optimistic form-field name update using the captured original
+      onRenamed?.(originalName);
     },
   });
 
@@ -65,7 +62,10 @@ export function useColumnRename({
       return;
     }
 
-    mutation.mutate(trimmedName);
+    // Optimistically update form state so saves that happen before the
+    // column-rename API responds still capture the new label.
+    onRenamed?.(trimmedName);
+    mutation.mutate({ newName: trimmedName, originalName: columnName });
   };
 
   const handleKeyDown = (

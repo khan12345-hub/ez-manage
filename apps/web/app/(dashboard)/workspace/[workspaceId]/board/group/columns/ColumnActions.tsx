@@ -19,12 +19,13 @@ import {
   Layers,
   DollarSign,
   Hash,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/error-message";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { deleteColumn, updateColumnAccess, updateColumnType } from "@/services/columns.api";
+import { deleteColumn, updateColumn, updateColumnAccess, updateColumnType } from "@/services/columns.api";
 
 import { ColumnAccessDialog } from "./ColumnAccessModal";
 import { FormulaEditorDialog } from "./FormulaEditorDialog";
@@ -70,6 +71,21 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
   const [accessOpen, setAccessOpen] = useState(false);
   const [formulaOpen, setFormulaOpen] = useState(false);
   const [changeTypeOpen, setChangeTypeOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState(column.name ?? "");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  const renameMutation = useMutation({
+    mutationFn: (name: string) => updateColumn(column.id, name),
+    onSuccess: () => {
+      toast.success("Column renamed");
+      setRenameOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Failed to rename column"));
+    },
+  });
 
   const changeTypeMutation = useMutation({
     mutationFn: (type: ColumnType) => updateColumnType(column.id, type),
@@ -117,6 +133,13 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
     },
   });
 
+  useEffect(() => {
+    if (renameOpen) {
+      setRenameValue(column.name ?? "");
+      setTimeout(() => renameInputRef.current?.focus(), 50);
+    }
+  }, [renameOpen, column.name]);
+
   /**
    * SUPER_ADMIN can manage column protection.
    */
@@ -150,7 +173,8 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
 
   const isFormulaColumn = column.type === "FORMULA" && !column.isPrimary;
 
-  const hasActions = canManageColumnProtection || canShowDelete || canChangeType || isFormulaColumn;
+  const canRename = !column.isPrimary;
+  const hasActions = canManageColumnProtection || canShowDelete || canChangeType || isFormulaColumn || canRename;
 
   if (!hasActions) {
     return null;
@@ -170,6 +194,17 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-52">
+          {/* Rename */}
+          {canRename && (
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onSelect={(e) => { e.preventDefault(); setRenameOpen(true); }}
+            >
+              <Pencil className="mr-2 h-4 w-4 text-muted-foreground" />
+              Rename
+            </DropdownMenuItem>
+          )}
+
           {/* Edit formula */}
           {isFormulaColumn && (
             <DropdownMenuItem
@@ -303,6 +338,54 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
             setChangeTypeOpen(false);
           }}
         />
+      )}
+
+      {/* Rename dialog */}
+      {renameOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={(e) => { if (e.target === e.currentTarget) setRenameOpen(false); }}
+        >
+          <div className="w-80 rounded-xl bg-background p-5 shadow-2xl">
+            <h3 className="mb-3 text-sm font-semibold">Rename column</h3>
+            <input
+              ref={renameInputRef}
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const trimmed = renameValue.trim();
+                  if (trimmed && trimmed !== column.name) renameMutation.mutate(trimmed);
+                  else setRenameOpen(false);
+                }
+                if (e.key === "Escape") setRenameOpen(false);
+              }}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="Column name…"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRenameOpen(false)}
+                className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!renameValue.trim() || renameMutation.isPending}
+                onClick={() => {
+                  const trimmed = renameValue.trim();
+                  if (trimmed && trimmed !== column.name) renameMutation.mutate(trimmed);
+                  else setRenameOpen(false);
+                }}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {renameMutation.isPending ? "Saving…" : "Rename"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

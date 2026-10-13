@@ -38,7 +38,6 @@ async function main() {
         type: { in: ['DATE', 'PLAIN_DATE', 'LABEL'] },
         ...(boardId ? { boardId } : {}),
       },
-      value: { not: null },
     },
     select: { id: true, value: true, column: { select: { type: true } } },
   });

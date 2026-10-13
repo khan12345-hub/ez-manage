@@ -1,6 +1,6 @@
-import { IsObject } from "class-validator";
+import { IsDefined } from "class-validator";
 
 export class UpdateCellDto {
-  @IsObject()
+  @IsDefined()
   value!: any;
 }
