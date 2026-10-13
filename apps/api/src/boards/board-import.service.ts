@@ -845,14 +845,10 @@ export class BoardImportService {
 
               if (isEmpty) {
                 if (column.type === BoardColumnType.TEXT) {
-                  const emptyValue = JSON.stringify({
-                    text: '',
-                  });
-
                   taskCells.push({
                     taskId: task.id,
                     columnId: column.id,
-                    value: emptyValue,
+                    value: { text: '' } as any,
                   });
 
                   

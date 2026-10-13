@@ -125,7 +125,7 @@ export function EditableCell<T>({
   if (canEdit) {
     return (
       <div
-        className="flex h-full w-full items-center px-2 hover:bg-muted/50"
+        className="flex h-full w-full items-center px-2 hover:bg-muted/60 hover:ring-1 hover:ring-inset hover:ring-border/60"
         onClick={handleClick}
       >
         <Component

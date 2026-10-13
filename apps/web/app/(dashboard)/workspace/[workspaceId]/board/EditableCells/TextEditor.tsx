@@ -135,10 +135,10 @@ export function TextEditor({
     return (
       <div
         onClick={() => setOpen(true)}
-        className="absolute inset-0 flex w-full items-center overflow-hidden truncate whitespace-nowrap px-2 text-[16px]"
+        className="absolute inset-0 flex w-full cursor-text items-center overflow-hidden truncate whitespace-nowrap px-2 text-[16px]"
         title={value || ""}
       >
-        {value || ""}
+        {value || <span className="text-muted-foreground/40 text-sm">—</span>}
       </div>
     );
   }

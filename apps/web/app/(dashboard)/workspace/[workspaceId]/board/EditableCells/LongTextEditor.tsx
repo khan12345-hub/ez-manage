@@ -38,11 +38,11 @@ export function LongTextEditor({
   if (!editing) {
     return (
       <div
-        className="absolute inset-0 flex w-full items-start overflow-hidden px-2 py-1 text-[13px] leading-snug"
+        className="absolute inset-0 flex w-full cursor-text items-start overflow-hidden px-2 py-1 text-[13px] leading-snug"
         title={value || ""}
       >
         <span className="line-clamp-2 whitespace-pre-wrap break-words">
-          {value || ""}
+          {value || <span className="text-muted-foreground/40">—</span>}
         </span>
       </div>
     );

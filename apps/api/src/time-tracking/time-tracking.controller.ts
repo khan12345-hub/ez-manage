@@ -12,12 +12,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { SkipThrottle } from '@nestjs/throttler';
 import { TimeTrackingService } from './time-tracking.service';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SessionUser } from 'src/auth/types/session-user.type';
 import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 
 // Board-level route for time report export
+@SkipThrottle()
 @Controller('boards/:boardId/time-entries')
 @UseGuards(SessionAuthGuard)
 export class TimeTrackingBoardController {
@@ -45,6 +47,7 @@ export class TimeTrackingBoardController {
 }
 
 // Global route — returns current user's active timer across all boards
+@SkipThrottle()
 @Controller('time-entries')
 @UseGuards(SessionAuthGuard)
 export class TimeTrackingGlobalController {
@@ -56,6 +59,7 @@ export class TimeTrackingGlobalController {
   }
 }
 
+@SkipThrottle()
 @Controller('boards/:boardId/tasks/:taskId/time-entries')
 @UseGuards(SessionAuthGuard)
 export class TimeTrackingController {
