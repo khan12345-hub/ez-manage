@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -93,30 +94,53 @@ export function TextEditor({
    */
   if (isPrimary) {
     return (
-      <TooltipProvider delayDuration={500}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Input
-              ref={inputRef as React.RefObject<HTMLInputElement>}
-              value={value ?? ""}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              onBlur={handleSave}
-              className="h-full w-full truncate rounded-none border-none bg-transparent text-[16px]! shadow-none focus-visible:ring-0"
-            />
-          </TooltipTrigger>
+      <div className="group/primarycell relative flex h-full w-full items-center">
+        <TooltipProvider delayDuration={500}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Input
+                ref={inputRef as React.RefObject<HTMLInputElement>}
+                value={value ?? ""}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                onBlur={handleSave}
+                className="h-full w-full truncate rounded-none border-none bg-transparent pr-7 text-[16px]! shadow-none focus-visible:ring-0"
+              />
+            </TooltipTrigger>
 
-          {value && (
-            <TooltipContent
-              side="top"
-              align="start"
-              className="max-w-md whitespace-pre-wrap wrap-break-word"
-            >
-              {value}
-            </TooltipContent>
-          )}
-        </Tooltip>
-      </TooltipProvider>
+            {value && (
+              <TooltipContent
+                side="top"
+                align="start"
+                className="max-w-md whitespace-pre-wrap wrap-break-word"
+              >
+                {value}
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
+
+        {value && (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    save("");
+                  }}
+                  className="absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover/primarycell:flex"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Clear cell value</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
     );
   }
 
