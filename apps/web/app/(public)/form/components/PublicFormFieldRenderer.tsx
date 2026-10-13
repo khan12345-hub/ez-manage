@@ -239,6 +239,30 @@ export function PublicFormFieldRenderer({
     );
   }
 
+  /* ---------- EMAIL ---------- */
+  if (type === "EMAIL") {
+    return (
+      <FormFieldWrapper
+        id={fieldId}
+        label={label}
+        description={field.description}
+        required={field.required}
+        error={error}
+      >
+        <Input
+          id={fieldId}
+          type="email"
+          value={String(value ?? "")}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          placeholder="email@example.com"
+          aria-invalid={Boolean(error)}
+          className="h-12 text-base px-4"
+        />
+      </FormFieldWrapper>
+    );
+  }
+
   /* ---------- LINK ---------- */
   if (type === "LINK") {
     return (
@@ -499,6 +523,7 @@ function FileUploadInput({
   error?: string;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -539,8 +564,6 @@ function FileUploadInput({
       </div>
     );
   }
-
-  const [isDragging, setIsDragging] = useState(false);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();

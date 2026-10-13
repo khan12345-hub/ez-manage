@@ -67,12 +67,21 @@ function normalizeCellValue(
   if ((type as string) === 'LABEL') {
     const items = Array.isArray(raw) ? raw : [raw];
     const resolved = items
-      .map((r) => String(r ?? '').trim())
-      .filter(Boolean)
-      .map((text) => {
+      .map((r): { text: string; color: string } | null => {
+        if (!r) return null;
+        // Already pre-formatted by the frontend: { text, color }
+        if (typeof r === 'object' && 'text' in (r as object)) {
+          const o = r as { text?: string; color?: string };
+          const text = (o.text ?? '').trim();
+          return text ? { text, color: o.color ?? '' } : null;
+        }
+        // Raw string label — resolve color from statusOptions
+        const text = String(r).trim();
+        if (!text) return null;
         const opt = statusOptions.find((s) => s.label === text);
         return { text, color: opt?.color ?? '' };
-      });
+      })
+      .filter((x): x is { text: string; color: string } => x !== null);
     if (!resolved.length) return {};
     return resolved.length === 1 ? resolved[0] : resolved;
   }
@@ -170,6 +179,17 @@ function normalizeCellValue(
 
     case BoardColumnType.LONG_TEXT:
       return { text: String(raw ?? "") };
+
+    case 'EMAIL' as BoardColumnType: {
+      const email = String(raw ?? '').trim();
+      if (!email) return {};
+      return { email };
+    }
+
+    case 'PLAIN_DATE' as BoardColumnType: {
+      const iso = normalizeDateValue(raw);
+      return iso ? { date: iso } : {};
+    }
 
     default:
       return {};

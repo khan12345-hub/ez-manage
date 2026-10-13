@@ -1,6 +1,7 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Check, X, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StatusOption {
@@ -101,9 +102,22 @@ function SinglePicker({ id, options, value, onChange, disabled = false }: Single
   );
 }
 
-/* ── Multi-select (colored badge toggles) ── */
+/* ── Multi-select (dropdown with chip trigger) ── */
 function MultiPicker({ id, options, value = [], onChange, disabled = false }: MultiProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const selected = new Set(value);
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
 
   function toggle(label: string) {
     if (disabled) return;
@@ -113,32 +127,109 @@ function MultiPicker({ id, options, value = [], onChange, disabled = false }: Mu
     onChange([...next]);
   }
 
+  function removeChip(label: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (disabled) return;
+    onChange(value.filter((v) => v !== label));
+  }
+
+  function clearAll(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (disabled) return;
+    onChange([]);
+  }
+
   return (
-    <div id={id} className="flex flex-wrap gap-2">
-      {options.map((option) => {
-        const isOn = selected.has(option.label);
-        return (
-          <button
-            key={option.id}
-            type="button"
-            disabled={disabled}
-            onClick={() => toggle(option.label)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-4 py-2 text-base font-medium transition-all",
-              "border-2 disabled:cursor-not-allowed disabled:opacity-50",
-              isOn ? "text-white shadow-sm" : "bg-white text-gray-700",
-            )}
-            style={
-              isOn
-                ? { backgroundColor: option.color, borderColor: option.color }
-                : { borderColor: option.color, color: option.color }
-            }
-          >
-            {isOn && <Check className="h-3 w-3 shrink-0" />}
-            {option.label}
-          </button>
-        );
-      })}
+    <div ref={containerRef} className="relative" id={id}>
+      {/* Trigger */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex min-h-12 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-left transition-colors",
+          "hover:border-primary/60 focus:outline-none",
+          open && "border-primary ring-1 ring-primary/30",
+          disabled && "cursor-not-allowed opacity-50",
+        )}
+      >
+        {value.length === 0 ? (
+          <span className="flex-1 text-base text-muted-foreground">Select options…</span>
+        ) : (
+          <div className="flex flex-1 flex-wrap gap-1.5">
+            {value.map((label) => {
+              const opt = options.find((o) => o.label === label);
+              return (
+                <span
+                  key={label}
+                  className="flex items-center gap-1 rounded px-2 py-0.5 text-sm font-medium text-white"
+                  style={{ backgroundColor: opt?.color ?? "#6366f1" }}
+                >
+                  {label}
+                  <button
+                    type="button"
+                    onClick={(e) => removeChip(label, e)}
+                    className="ml-0.5 rounded-full hover:bg-black/20"
+                    tabIndex={-1}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+        <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+          {value.length > 0 && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+              tabIndex={-1}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+          {open ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+      </button>
+
+      {/* Dropdown list */}
+      {open && (
+        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover shadow-lg">
+          <ul className="max-h-56 overflow-y-auto py-1">
+            {options.map((option) => {
+              const isOn = selected.has(option.label);
+              return (
+                <li key={option.id}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center gap-3 px-3 py-2.5 text-base transition-colors",
+                      isOn ? "bg-primary/8 font-medium" : "hover:bg-muted",
+                    )}
+                    onClick={() => toggle(option.label)}
+                  >
+                    {/* Color dot */}
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: option.color }}
+                    />
+                    <span className="flex-1 text-left">{option.label}</span>
+                    {isOn && (
+                      <Check className="h-4 w-4 shrink-0 text-primary" />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

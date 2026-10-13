@@ -2,7 +2,6 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 
 import { CreateStatusOptionDto } from './dto/create-status-option.dto';
@@ -186,13 +185,10 @@ export class StatusOptionsService {
   async getUniqueLabelValues(columnId: number): Promise<string[]> {
     const column = await this.prisma.boardColumn.findUnique({
       where: { id: columnId },
-      select: { id: true, type: true },
+      select: { id: true },
     });
 
     if (!column) throw new NotFoundException('Column not found');
-    if (column.type !== 'LABEL') {
-      throw new BadRequestException('Column must be of type LABEL');
-    }
 
     const cells = await this.prisma.taskCell.findMany({
       where: { columnId },
@@ -205,7 +201,10 @@ export class StatusOptionsService {
       const items = Array.isArray(v) ? v : v ? [v] : [];
       for (const item of items) {
         const text = item?.text?.trim();
-        if (text) seen.add(text);
+        // Skip empty, excessively long values, or values with too many commas
+        // (these are likely concatenated lists, not valid single labels)
+        if (!text || text.length > 120 || (text.match(/,/g) ?? []).length > 3) continue;
+        seen.add(text);
       }
     }
 
