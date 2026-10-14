@@ -4,7 +4,7 @@ import { Figtree, Poppins } from "next/font/google";
 import { cn } from "@/lib/utils";
 import Providers from "@/providers/providers";
 
-// Body / UI font — matches monday.com's primary typeface
+// Body / UI font everywhere
 const figtree = Figtree({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800", "900"],
@@ -12,10 +12,10 @@ const figtree = Figtree({
   display: "swap",
 });
 
-// Headings-only font
+// Board name, group name, workspace name titles only
 const poppins = Poppins({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["500", "600", "700"],
   variable: "--font-poppins",
   display: "swap",
 });

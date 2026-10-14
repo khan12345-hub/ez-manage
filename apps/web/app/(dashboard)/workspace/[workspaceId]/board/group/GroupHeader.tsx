@@ -315,7 +315,7 @@ export function GroupHeader({
           value={activeGroup.name ?? ""}
           onChange={handleNameChange}
           onBlur={handleNameBlur}
-          className="w-64 border-none p-0 text-lg font-semibold shadow-none focus-visible:ring-0"
+          className="font-title w-64 border-none p-0 text-lg shadow-none focus-visible:ring-0"
           style={{
             color: activeGroup.color ?? undefined,
           }}

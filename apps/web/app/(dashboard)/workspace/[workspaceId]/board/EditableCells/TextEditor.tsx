@@ -184,13 +184,11 @@ export function TextEditor({
         setOpen(next);
         if (!next) {
           save();
-          // cancel();
         }
       }}
     >
       <PopoverTrigger asChild>
         <Input
-          ref={inputRef as React.RefObject<HTMLInputElement>}
           value={value ?? ""}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
@@ -205,10 +203,10 @@ export function TextEditor({
         className="w-[400px] p-0"
       >
         <Textarea
+          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
           value={value ?? ""}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onBlur={() => { setOpen(false); save(); }}
           placeholder="Write something..."
           rows={6}
           autoFocus

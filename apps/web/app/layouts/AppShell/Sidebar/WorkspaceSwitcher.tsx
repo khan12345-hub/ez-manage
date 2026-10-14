@@ -223,7 +223,7 @@ export function WorkspaceSwitcher({
         ) : (
           <span className="inline-flex h-5 w-5 shrink-0 rounded bg-muted" />
         )}
-        <span className="flex-1 truncate text-left">
+        <span className="font-title flex-1 truncate text-left">
           {workspace?.name ?? "Select workspace"}
         </span>
         {isOpen ? (

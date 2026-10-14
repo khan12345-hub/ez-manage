@@ -21,7 +21,7 @@ export function BoardTitle({ board }: Props) {
     <>
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-medium tracking-tight">{board.name}</h1>
+          <h1 className="font-title text-2xl tracking-tight">{board.name}</h1>
 
           <Button variant="ghost" size="icon">
             <ChevronDown className="h-5 w-5" />
