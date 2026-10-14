@@ -35,8 +35,10 @@ body {
 }
 
 body {
-  font-family: var(--font-poppins), sans-serif;
-
+  font-family: var(--font-figtree), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  -webkit-font-smoothing: subpixel-antialiased;
 }
 
 a {
@@ -62,8 +64,8 @@ a {
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans);
+  --font-heading: var(--font-poppins), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
+  --font-sans: var(--font-figtree), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -181,9 +183,13 @@ a {
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-figtree), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-figtree), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-poppins), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
   }
 }
 

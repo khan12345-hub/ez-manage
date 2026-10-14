@@ -53,7 +53,6 @@ export function Board({
 
   const [groupSort, setGroupSort] = useState<GroupSortOption>("default");
 
-  const [sortedGroups, setSortedGroups] = useState<any[]>([]);
 
   /**
    * ---------------------------------------------------------
@@ -195,12 +194,14 @@ export function Board({
 
   /**
    * ---------------------------------------------------------
-   * SORT GROUPS
+   * SORT GROUPS — derived synchronously so the board never
+   * renders a blank first frame while waiting for an effect.
    * ---------------------------------------------------------
    */
-  useEffect(() => {
-    setSortedGroups(sortGroups(dragGroups ?? [], groupSort));
-  }, [dragGroups, groupSort]);
+  const sortedGroups = useMemo(
+    () => sortGroups(dragGroups ?? [], groupSort),
+    [dragGroups, groupSort],
+  );
 
   /**
    * ---------------------------------------------------------
@@ -271,8 +272,6 @@ export function Board({
    */
   const handleGroupSortChange = (value: GroupSortOption) => {
     setGroupSort(value);
-
-    setSortedGroups(sortGroups(dragGroups ?? [], value));
   };
 
   /**
