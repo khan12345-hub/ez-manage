@@ -100,6 +100,12 @@ export function Cell({
             editable={column.type !== "CREATION_LOG" && column.type !== "TIME_TRACKING" && column.type !== "FORMULA"}
             onSave={(value) => {
               const promise = config.save({ task, cell, column, value, boardId, queryClient });
+              promise?.then?.(() => {
+                queryClient.invalidateQueries({
+                  queryKey: ["board-tasks", boardId],
+                  exact: false,
+                });
+              });
               promise?.catch?.((err: any) => {
                 const status = err?.response?.status ?? err?.status;
                 if (status !== 429) {
