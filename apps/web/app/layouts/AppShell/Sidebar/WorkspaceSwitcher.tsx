@@ -194,7 +194,7 @@ export function WorkspaceSwitcher({
     onWorkspaceChange?.(selected);
     setIsOpen(false);
     setSearch("");
-    router.push(`/workspace/${selected.id}`);
+    router.push(`/workspace/${selected.uid ?? selected.id}`);
   };
 
   const q = search.trim().toLowerCase();

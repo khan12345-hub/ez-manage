@@ -37,6 +37,7 @@ import { GuestAccessModule } from './guest-access/guest-access.module';
 import { ChatModule } from './chat/chat.module';
 import { WorkspaceDocsModule } from './workspace-docs/workspace-docs.module';
 import { PushModule } from './push/push.module';
+import { CeoAssistantModule } from './ceo-assistant/ceo-assistant.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { PushModule } from './push/push.module';
     ChatModule,
     WorkspaceDocsModule,
     PushModule,
+    CeoAssistantModule,
     ],
   controllers: [AppController],
   providers: [

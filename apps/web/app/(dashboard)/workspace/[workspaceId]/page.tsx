@@ -226,8 +226,8 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 export default function WorkspacePage() {
   const params = useParams<{ workspaceId: string }>();
   const router = useRouter();
-  const workspaceId = Number(params.workspaceId);
-  const canFetchWorkspace = Number.isInteger(workspaceId) && workspaceId > 0;
+  const workspaceId = params.workspaceId as string;
+  const canFetchWorkspace = !!workspaceId;
 
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -292,17 +292,17 @@ export default function WorkspacePage() {
   // Load emails only when Team tab is open
   const { data: chatUsers = [] } = useQuery({
     queryKey: ["workspace-chat-users", workspaceId],
-    queryFn: () => getAllChatUsers(workspaceId),
-    enabled: canFetchWorkspace && activeTab === "team",
+    queryFn: () => getAllChatUsers(workspaceDetail!.id),
+    enabled: canFetchWorkspace && activeTab === "team" && !!workspaceDetail,
     staleTime: 120_000,
   });
 
   // ── effects ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!canFetchWorkspace) return;
-    setWorkspace(workspaceId);
-  }, [workspaceId, canFetchWorkspace, setWorkspace]);
+    if (!workspaceDetail?.id) return;
+    setWorkspace(workspaceDetail.id);
+  }, [workspaceDetail?.id, setWorkspace]);
 
   useEffect(() => {
     if (!workspaceDetail || !user?.id) { setWorkspaceRole(""); return; }
@@ -435,7 +435,7 @@ export default function WorkspacePage() {
               onGoToContent={() => setActiveTab("content")}
               recentBoardHref={
                 recentBoards[0]
-                  ? `/workspace/${workspaceId}/board/${recentBoards[0].id}`
+                  ? `/workspace/${workspaceId}/board/${(recentBoards[0] as any).uid ?? recentBoards[0].id}`
                   : undefined
               }
             />
@@ -450,7 +450,7 @@ export default function WorkspacePage() {
                   {recentBoards.map((b) => (
                     <Link
                       key={b.id}
-                      href={`/workspace/${workspaceId}/board/${b.id}`}
+                      href={`/workspace/${workspaceId}/board/${(b as any).uid ?? b.id}`}
                       className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm transition-all hover:bg-muted hover:shadow-md"
                     >
                       <span className="font-medium text-foreground">{b.name}</span>
@@ -462,7 +462,7 @@ export default function WorkspacePage() {
             )}
 
             <div className="mt-6">
-              <WorkspaceChannelsCard workspaceId={workspaceId} />
+              <WorkspaceChannelsCard workspaceId={workspaceDetail.id} />
             </div>
           </>
         )}
@@ -608,7 +608,7 @@ export default function WorkspacePage() {
                             <div className="flex items-center justify-end gap-2">
                               {!isCurrentUser && (
                                 <MessageButton
-                                  workspaceId={workspaceId}
+                                  workspaceId={workspaceDetail.id}
                                   userId={member.userId}
                                   onSuccess={(dmId) => {
                                     setActiveChannel(dmId);
@@ -777,12 +777,12 @@ export default function WorkspacePage() {
                 }}
                 isOnline={isOnline}
                 isCurrentUser={isCurrentUser}
-                workspaceId={workspaceId}
+                workspaceId={workspaceDetail.id}
                 statusEmoji={liveStatus?.emoji ?? m.user.chatStatusEmoji ?? null}
                 statusText={liveStatus?.text ?? m.user.chatStatusText ?? null}
                 onClose={() => setSelectedMember(null)}
                 onSendMessage={!isCurrentUser ? async () => {
-                  const dm = await getOrCreateDM(workspaceId, m.userId);
+                  const dm = await getOrCreateDM(workspaceDetail.id, m.userId);
                   setActiveChannel(dm.id);
                   router.push(`/workspace/${workspaceId}/chat`);
                   setSelectedMember(null);

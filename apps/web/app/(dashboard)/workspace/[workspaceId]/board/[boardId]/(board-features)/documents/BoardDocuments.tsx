@@ -20,6 +20,7 @@ import {
   updateBoardDocument,
   deleteBoardDocument,
 } from "@/services/documents.api";
+import { useInviteModalStore } from "@/store/invite-modal";
 
 export interface BoardDocument {
   id: number;
@@ -36,7 +37,8 @@ const EMPTY_CONTENT = {
 
 export function BoardDocuments() {
   const params = useParams();
-  const boardId = Number(params.boardId);
+  const boardUid = params.boardId as string;          // URL slug (UUID) — for query keys only
+  const { boardId } = useInviteModalStore();           // numeric ID — required by the API
   const queryClient = useQueryClient();
 
   const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
@@ -46,9 +48,9 @@ export function BoardDocuments() {
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const { data: documents = [] } = useQuery({
-    queryKey: ["board-documents", boardId],
-    queryFn: () => getBoardDocuments(boardId),
-    enabled: Number.isFinite(boardId) && boardId > 0,
+    queryKey: ["board-documents", boardUid],
+    queryFn: () => getBoardDocuments(boardId!),
+    enabled: !!boardId,
     select: (data) =>
       data.map((d) => ({
         id: d.id,
@@ -62,12 +64,12 @@ export function BoardDocuments() {
   // ── Create ─────────────────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: () =>
-      createBoardDocument(boardId, {
+      createBoardDocument(boardId!, {
         title: "Untitled document",
         content: EMPTY_CONTENT,
       }),
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["board-documents", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-documents", boardUid] });
       setSelectedDocumentId(created.id);
     },
   });
@@ -80,17 +82,17 @@ export function BoardDocuments() {
     }: {
       id: number;
       updates: Partial<BoardDocument>;
-    }) => updateBoardDocument(boardId, id, updates),
+    }) => updateBoardDocument(boardId!, id, updates),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["board-documents", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-documents", boardUid] });
     },
   });
 
   // ── Delete ─────────────────────────────────────────────────────────────────
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteBoardDocument(boardId, id),
+    mutationFn: (id: number) => deleteBoardDocument(boardId!, id),
     onSuccess: (_, deletedId) => {
-      queryClient.invalidateQueries({ queryKey: ["board-documents", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-documents", boardUid] });
       if (selectedDocumentId === deletedId) {
         const remaining = documents.filter((d) => d.id !== deletedId);
         setSelectedDocumentId(remaining[0]?.id ?? null);
@@ -116,8 +118,8 @@ export function BoardDocuments() {
         {/* Header */}
         <div className="flex items-center justify-between border-b px-3 py-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold">Documents</h2>
-            <p className="text-xs text-muted-foreground">
+            <h2 className="text-xl font-semibold">Documents</h2>
+            <p className="text-[15px] text-muted-foreground">
               {documents.length}{" "}
               {documents.length === 1 ? "document" : "documents"}
             </p>
@@ -155,12 +157,12 @@ export function BoardDocuments() {
                     onClick={() => setSelectedDocumentId(document.id)}
                   >
                     <FileText
-                      className={`h-4 w-4 shrink-0 ${
+                      className={`h-5 w-5 shrink-0 ${
                         isActive ? "text-primary" : "text-muted-foreground"
                       }`}
                     />
 
-                    <span className="min-w-0 flex-1 truncate text-sm">
+                    <span className="min-w-0 flex-1 truncate text-[17px]">
                       {document.title || "Untitled document"}
                     </span>
 
@@ -188,7 +190,7 @@ export function BoardDocuments() {
               type="button"
               variant="ghost"
               size="sm"
-              className="w-full justify-start text-muted-foreground"
+              className="w-full justify-start text-[15px] text-muted-foreground"
               onClick={() => createMutation.mutate()}
               disabled={createMutation.isPending}
             >
@@ -222,9 +224,9 @@ function EmptyDocuments({ onCreate }: { onCreate: () => void }) {
         <Files className="h-5 w-5 text-muted-foreground" />
       </div>
 
-      <p className="text-sm font-medium">No documents</p>
+      <p className="text-base font-medium">No documents</p>
 
-      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">
         Create a document to start writing.
       </p>
 
@@ -244,9 +246,9 @@ function EmptyEditor({ onCreate }: { onCreate: () => void }) {
           <FileText className="h-6 w-6 text-muted-foreground" />
         </div>
 
-        <h3 className="text-sm font-semibold">Create your first document</h3>
+        <h3 className="text-base font-semibold">Create your first document</h3>
 
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-2 text-[15px] leading-6 text-muted-foreground">
           Write project notes, requirements, meeting notes, and other board
           documentation.
         </p>

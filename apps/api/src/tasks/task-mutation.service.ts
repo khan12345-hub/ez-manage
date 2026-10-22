@@ -1,5 +1,6 @@
 import { PrismaService } from "prisma/prisma.service";
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,20 +16,44 @@ export class TaskMutationService {
   ) {}
 
   async update(taskId: number, dto: UpdateTaskDto, userId: number, boardId: number) {
+    const { updatedAt: clientUpdatedAt, ...updateData } = dto;
+
     const task = await this.prisma.task.findUnique({
       where: { id: taskId },
-      select: { id: true, name: true, groupId: true },
+      select: { id: true, name: true, groupId: true, updatedAt: true },
     });
 
     if (!task) {
       throw new NotFoundException('Task not found.');
     }
 
-    const updated = await this.prisma.task.update({
-      where: { id: taskId },
-      data: dto,
-    });
+    let updated: Awaited<ReturnType<typeof this.prisma.task.findUniqueOrThrow>>;
 
+    if (clientUpdatedAt !== undefined) {
+      // Conditional update: only succeeds if updatedAt matches (no concurrent write)
+      const clientDate = new Date(clientUpdatedAt);
+      const result = await this.prisma.task.updateMany({
+        where: { id: taskId, updatedAt: clientDate },
+        data: updateData,
+      });
+
+      if (result.count === 0) {
+        throw new ConflictException(
+          'Task was modified by another user. Please refresh and try again.',
+        );
+      }
+
+      updated = (await this.prisma.task.findUniqueOrThrow({ where: { id: taskId } }));
+    } else {
+      updated = await this.prisma.task.update({
+        where: { id: taskId },
+        data: updateData,
+      });
+    }
+
+    // Activity log uses the pre-update snapshot read above.
+    // If clientUpdatedAt was set and the conditional update succeeded, that snapshot
+    // is guaranteed to reflect the actual prior committed state.
     await this.activityLogsService.log({
       boardId,
       taskId,

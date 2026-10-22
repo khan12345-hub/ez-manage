@@ -29,8 +29,8 @@ export function GlobalSearchModal({
 
   const params = useParams();
 
-  const workspaceId = Number(params.workspaceId);
-  const hasWorkspace = Number.isFinite(workspaceId) && workspaceId > 0;
+  const workspaceId = params.workspaceId as string;
+  const hasWorkspace = !!workspaceId;
 
   const { data, isFetching } = useQuery({
     queryKey: ["global-search", workspaceId, debounced],

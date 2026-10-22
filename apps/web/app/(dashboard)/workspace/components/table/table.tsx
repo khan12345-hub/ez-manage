@@ -23,7 +23,7 @@ export function BoardTable({ boards, workspaceId }: Props) {
   const columns = useMemo(
     () =>
       createColumns(
-        (board) => router.push(`/workspace/${workspaceId}/board/${board.id}`),
+        (board) => router.push(`/workspace/${workspaceId}/board/${(board as any).uid ?? board.id}`),
         setEditingBoard,
       ),
     [workspaceId, router],

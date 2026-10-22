@@ -2,6 +2,8 @@ import { api } from "@/lib/api";
 
 export interface UpdateCellDto {
   value: any;
+  /** ISO-8601 timestamp; triggers optimistic-concurrency check on the server (HTTP 409 on mismatch). */
+  updatedAt?: string;
 }
 
 export const updateCell = async (

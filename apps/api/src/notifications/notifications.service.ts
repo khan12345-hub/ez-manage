@@ -13,6 +13,8 @@ import { PushService } from '../push/push.service';
 
 @Injectable()
 export class NotificationsService implements OnModuleInit {
+  private readonly loggedQueueErrors = new Set<string>();
+
   constructor(
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
@@ -32,7 +34,11 @@ export class NotificationsService implements OnModuleInit {
     // BullMQ forwards IORedis connection errors to queue.on('error').
     // Without a listener, Node.js treats them as uncaught exceptions and crashes the process.
     this.notificationsQueue.on('error', (err: Error) => {
-      console.warn('[NotificationsQueue] Redis error (non-fatal):', err.message);
+      const key = err.message.slice(0, 80);
+      if (!this.loggedQueueErrors.has(key)) {
+        this.loggedQueueErrors.add(key);
+        console.warn('[NotificationsQueue] Redis error (suppressing repeats):', err.message);
+      }
     });
   }
 

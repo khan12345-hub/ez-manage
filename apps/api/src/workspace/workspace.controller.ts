@@ -6,10 +6,10 @@ import {
   Patch,
   Param,
   Delete,
-  ParseIntPipe,
   UseGuards,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 
 import { WorkspaceService } from './workspace.service';
@@ -51,77 +51,105 @@ export class WorkspaceController {
   }
 
   @Get(':workspaceId/boards')
-
   @RequireWorkspacePermission(WorkspacePermission.VIEW)
-  findAllBoards(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async findAllBoards(
+    @Param('workspaceId') workspaceId: string,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.boardsService.findAll(workspaceId, user.id);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.boardsService.findAll(id, user.id);
   }
 
   @Get(':workspaceId')
   @RequireWorkspacePermission(WorkspacePermission.VIEW)
-  findOne(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async findOne(
+    @Param('workspaceId') workspaceId: string,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.workspaceService.findOne(workspaceId);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.workspaceService.findOne(id);
   }
 
   @Patch(':workspaceId')
   @RequireWorkspacePermission(WorkspacePermission.UPDATE)
-  update(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async update(
+    @Param('workspaceId') workspaceId: string,
     @Body() updateWorkspaceDto: UpdateWorkspaceDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.workspaceService.update(workspaceId, updateWorkspaceDto, user.id);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.workspaceService.update(id, updateWorkspaceDto, user.id);
   }
 
   @Delete(':workspaceId')
   @RequireWorkspacePermission(WorkspacePermission.DELETE)
-  remove(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async remove(
+    @Param('workspaceId') workspaceId: string,
   ) {
-    return this.workspaceService.remove(workspaceId);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.workspaceService.remove(id);
   }
 
   @Patch(':workspaceId/members/:memberId')
   @RequireWorkspacePermission(WorkspacePermission.CHANGE_MEMBER_ROLE)
-  updateMemberRole(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
-    @Param('memberId', ParseIntPipe) memberId: number,
+  async updateMemberRole(
+    @Param('workspaceId') workspaceId: string,
+    @Param('memberId') memberId: string,
     @Body('role') role: WorkspaceMemberRole,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.workspaceService.updateMemberRole(workspaceId, memberId, role, user.id);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.workspaceService.updateMemberRole(id, Number(memberId), role, user.id);
   }
 
   @Delete(':workspaceId/members/:memberId')
   @RequireWorkspacePermission(WorkspacePermission.REMOVE_MEMBERS)
   @HttpCode(HttpStatus.NO_CONTENT)
-  removeMember(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
-    @Param('memberId', ParseIntPipe) memberId: number,
+  async removeMember(
+    @Param('workspaceId') workspaceId: string,
+    @Param('memberId') memberId: string,
+    @Query('force') force: string,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.workspaceService.removeMember(workspaceId, memberId, user.id);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.workspaceService.removeMember(id, Number(memberId), user.id, force === 'true');
   }
 
   @Get(':workspaceId/members/:userId/tasks')
-  getMemberTasks(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
-    @Param('userId', ParseIntPipe) userId: number,
+  async getMemberTasks(
+    @Param('workspaceId') workspaceId: string,
+    @Param('userId') userId: string,
   ) {
-    return this.workspaceService.getMemberTasks(workspaceId, userId);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.workspaceService.getMemberTasks(id, Number(userId));
   }
 
   @Get(':workspaceId/members/:userId/activity')
-  getMemberActivity(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
-    @Param('userId', ParseIntPipe) userId: number,
+  async getMemberActivity(
+    @Param('workspaceId') workspaceId: string,
+    @Param('userId') userId: string,
   ) {
-    return this.workspaceService.getMemberActivity(workspaceId, userId);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.workspaceService.getMemberActivity(id, Number(userId));
+  }
+
+  @Get(':workspaceId/capacity')
+  async getCapacity(@Param('workspaceId') workspaceId: string) {
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.workspaceService.getCapacity(id);
+  }
+
+  @Get(':workspaceId/calendar-tasks')
+  async getCalendarTasks(
+    @Param('workspaceId') workspaceId: string,
+    @Query('month') month: string,
+    @Query('year') year: string,
+  ) {
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.workspaceService.getCalendarTasks(
+      id,
+      parseInt(month, 10),
+      parseInt(year, 10),
+    );
   }
 }

@@ -55,7 +55,7 @@ export interface CreateTaskPayload {
 
 export async function createTask(
   payload: CreateTaskPayload,
-  boardId: number | undefined,
+  boardId: string | number | undefined,
   parentId?: number | null,
 ) {
   const { data } = await api.post(
@@ -66,7 +66,7 @@ export async function createTask(
   return data;
 }
 
-export async function getTask(taskId: number, boardId: number) {
+export async function getTask(taskId: number, boardId: string | number) {
   const response = await api.get<TaskResponse>(
     `/boards/${boardId}/tasks/${taskId}`,
   );
@@ -83,10 +83,12 @@ export interface UpdateTaskDto {
   recurrenceType?: RecurrenceType;
   recurrenceInterval?: number;
   recurrenceEndDate?: string | null;
+  /** ISO-8601 timestamp; triggers optimistic-concurrency check (HTTP 409 on mismatch). */
+  updatedAt?: string;
 }
 
 export const updateTask = async (
-  boardId: number | undefined,
+  boardId: string | number | undefined,
   taskId: number,
   dto: UpdateTaskDto,
 ) => {
@@ -95,7 +97,7 @@ export const updateTask = async (
   return data;
 };
 
-export async function deleteTask(taskId: number, boardId: number) {
+export async function deleteTask(taskId: number, boardId: string | number) {
   const { data } = await api.delete(`/boards/${boardId}/tasks/${taskId}`);
 
   return data;
@@ -107,14 +109,14 @@ export interface ReorderTaskDto {
   nextTaskId?: number | null;
 }
 
-export async function reorderTask(boardId: number, dto: ReorderTaskDto) {
+export async function reorderTask(boardId: string | number, dto: ReorderTaskDto) {
   const { data } = await api.patch(`/boards/${boardId}/tasks/reorder`, dto);
 
   return data;
 }
 
 export async function uploadTaskCellFiles(
-  boardId: number | undefined,
+  boardId: string | number | undefined,
   cellId: number,
   files: File[],
 ) {
@@ -132,7 +134,7 @@ export async function uploadTaskCellFiles(
   return response.data;
 }
 export const deleteTaskCellFile = async (
-  boardId: number | undefined,
+  boardId: string | number | undefined,
   cellId: number,
   fileId: number,
 ) => {
@@ -159,7 +161,7 @@ export interface ReorderSubtaskDto {
 }
 
 export async function reorderSubtask(
-  boardId: number | undefined,
+  boardId: string | number | undefined,
   taskId: number,
   data: ReorderSubtaskDto,
 ) {
@@ -172,7 +174,7 @@ export async function reorderSubtask(
 }
 
 export async function bulkDeleteTasks(
-  boardId: number,
+  boardId: string | number,
   taskIds: number[],
 ) {
   const { data } = await api.post(
@@ -192,7 +194,7 @@ export interface BulkUpdateTaskPayload {
 }
 
 export async function bulkUpdateTasks(
-  boardId: number,
+  boardId: string | number,
   payload: BulkUpdateTaskPayload,
 ) {
   const { data } = await api.post(
@@ -204,7 +206,7 @@ export async function bulkUpdateTasks(
 }
 
 export async function bulkMoveTasks(
-  boardId: number,
+  boardId: string | number,
   taskIds: number[],
   targetGroupId: number,
 ) {
@@ -216,7 +218,7 @@ export async function bulkMoveTasks(
 }
 
 export async function bulkDuplicateTasks(
-  boardId: number,
+  boardId: string | number,
   taskIds: number[],
   withUpdates: boolean,
 ) {
@@ -241,6 +243,7 @@ export interface AssignedTask {
   createdAt: string;
   createdBy: { id: number; firstName: string; lastName: string; avatarUrl: string | null };
   boardId: number;
+  boardUid?: string;
   boardName: string;
   groupName: string;
 }
@@ -286,7 +289,7 @@ export async function getMemberActivity(
 }
 
 export async function updateTaskCell(
-  boardId: number,
+  boardId: string | number,
   cellId: number,
   value: any,
 ) {
@@ -295,7 +298,7 @@ export async function updateTaskCell(
 }
 
 export async function getGroupTasks(
-  boardId: number,
+  boardId: string | number,
   groupId: number,
   search?: string,
   person?: string,

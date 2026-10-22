@@ -27,7 +27,7 @@ export function AddSubtaskRow({ groupId, parentId, columns, color }: Props) {
 
   const params = useParams();
 
-  const boardId = Number(params.boardId);
+  const boardId = params.boardId as string;
 
   const createSubtaskMutation = useMutation({
     mutationFn: () =>

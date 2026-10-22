@@ -57,8 +57,11 @@ export class UsersController {
   // Delete user — SUPER_ADMIN only
   @Delete(':id')
   @UseGuards(SessionAuthGuard, AdminGuard)
-  async deleteUser(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.deleteUser(id);
+  async deleteUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('force') force: string,
+  ) {
+    return this.usersService.deleteUser(id, force === 'true');
   }
 
   @Get('by-email')

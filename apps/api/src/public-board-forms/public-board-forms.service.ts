@@ -271,9 +271,9 @@ export class PublicBoardFormsService {
   /**
    * Submit a public form by URL identifier (boardId or shareToken).
    */
-  async submitByIdentifier(identifier: string, dto: SubmitBoardFormDto) {
+  async submitByIdentifier(identifier: string, dto: SubmitBoardFormDto, submitterId: number) {
     const boardId = await this.resolveBoardId(identifier);
-    return this.submit(boardId, dto);
+    return this.submit(boardId, dto, submitterId);
   }
 
   /**
@@ -363,7 +363,7 @@ export class PublicBoardFormsService {
    * Cell values are normalized before creation, so we don't need
    * to create empty cells and then update them individually.
    */
-  async submit(boardId: number, dto: SubmitBoardFormDto) {
+  async submit(boardId: number, dto: SubmitBoardFormDto, submitterId: number) {
     /**
      * Load the form and board creator before opening the transaction.
      *
@@ -628,7 +628,7 @@ export class PublicBoardFormsService {
       const task = await tx.task.create({
         data: {
           groupId: form.groupId,
-          createdById: board.createdById,
+          createdById: submitterId,
           name: taskName,
           order: lastTask ? lastTask.order + ORDER_GAP : ORDER_GAP,
           isFormSubmission: true,
@@ -657,7 +657,7 @@ export class PublicBoardFormsService {
             fileSize: fileValue.size ?? 0,
             storageKey: fileValue.storageKey,
             url: fileValue.url,
-            uploadedById: board.createdById,
+            uploadedById: submitterId,
           },
         });
         await this.prisma.taskCellFile.create({

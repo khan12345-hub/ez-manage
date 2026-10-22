@@ -31,33 +31,16 @@ export default function BoardPage() {
 
   const params = useParams();
 
-  const boardId = Number(params.boardId);
+  const boardUid = params.boardId as string;
 
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [personFilter, setPersonFilter] = useState<PersonValue | null>(null);
 
-  const selectedPersonSearch = personFilter?.users?.[0]
-    ? `${personFilter.users[0].firstName ?? ""} ${
-        personFilter.users[0].lastName ?? ""
-      }`.trim()
-    : "";
-
   /**
-   * Debounce normal search.
-   */
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setDebouncedSearch(search.trim());
-    }, 300);
-
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [search]);
-
-  /**
-   * Board API
+   * Board API — structure only (columns, groups, members, settings).
+   * Search/person are intentionally omitted: the board detail endpoint
+   * does not use them, so including them caused a wasted refetch on every
+   * keystroke.
    */
   const {
     data: board,
@@ -66,14 +49,9 @@ export default function BoardPage() {
     isPlaceholderData,
     isError,
   } = useQuery({
-    queryKey: ["board", boardId, debouncedSearch, selectedPersonSearch],
-    queryFn: () =>
-      getBoardDetail(
-        boardId,
-        debouncedSearch || undefined,
-        selectedPersonSearch || undefined,
-      ),
-    enabled: Number.isFinite(boardId),
+    queryKey: ["board", boardUid],
+    queryFn: () => getBoardDetail(boardUid),
+    enabled: !!boardUid,
     retry: 0,
     placeholderData: keepPreviousData,
     staleTime: 15 * 60_000,
@@ -127,7 +105,7 @@ export default function BoardPage() {
     }
 
     const open = (gId?: number) => {
-      openTaskDrawer({ taskId, boardId, groupId: gId });
+      openTaskDrawer({ taskId, boardId: board!.id, groupId: gId });
       // Remove ?taskId from URL without triggering a navigation
       const url = new URL(window.location.href);
       url.searchParams.delete("taskId");
@@ -138,11 +116,11 @@ export default function BoardPage() {
       open(groupId);
     } else {
       // Task not in current board view (filters active) — fetch directly
-      getTask(taskId, boardId)
+      getTask(taskId, board!.id)
         .then((task: any) => open(task?.groupId))
         .catch(() => open(undefined));
     }
-  }, [board, searchParams, boardId, openTaskDrawer, router]);
+  }, [board, searchParams, boardUid, openTaskDrawer, router]);
 
   /**
    * Initial board load.
@@ -206,7 +184,7 @@ export default function BoardPage() {
         <div>
           <BoardHeader board={board} />
 
-          <ImportProgressBanner boardId={boardId} />
+          <ImportProgressBanner boardId={board.id} />
 
           <BoardViewsTabs
             board={board}

@@ -17,3 +17,13 @@ export async function logout() {
 export async function setUpAccount(data: SetupAccountDto) {
   await api.post(`/auth/setup-account`, data);
 }
+
+export async function forgotPassword(data: { email: string }) {
+  const response = await api.post("/auth/forgot-password", data);
+  return response.data;
+}
+
+export async function resetPassword(data: { token: string; password: string }) {
+  const response = await api.post("/auth/reset-password", data);
+  return response.data;
+}

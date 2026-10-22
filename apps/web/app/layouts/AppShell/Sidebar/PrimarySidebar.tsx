@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useAuth } from "@/providers/AuthProvider";
 import { usePathname } from "next/navigation";
 
 interface PrimarySidebarProps {
@@ -20,21 +19,23 @@ export function PrimarySidebar({
   onTabChange,
 }: PrimarySidebarProps) {
   const menuItems = [{ id: "Workspace", label: "Workspace", icon: LayoutGrid }];
-  const { user } = useAuth();
   const pathname = usePathname();
   const isHelp = pathname === "/help";
   return (
     <div className="flex h-full w-[80px] flex-col items-center justify-between border-r border-border bg-background py-5 shadow-sm">
       {/* Top Logo and Main Menu Items */}
       <div className="flex w-full flex-col items-center gap-8">
-        {/* Custom Monday-like Logo */}
-        <div className="flex h-9 w-9 items-center justify-center relative cursor-pointer group">
-          <div className="grid grid-cols-2 gap-1.5 w-7 h-7 rotate-45 transition-transform duration-300 group-hover:rotate-90">
-            <div className="bg-[#FF3D57] rounded-sm"></div>
-            <div className="bg-[#00CFF4] rounded-sm"></div>
-            <div className="bg-[#FFCB00] rounded-sm"></div>
-            <div className="bg-[#00C875] rounded-sm"></div>
-          </div>
+        {/* EzManage brand mark — three task bars on indigo gradient */}
+        <div
+          className="flex h-9 w-9 items-center justify-center rounded-[8px] cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95"
+          style={{ background: "linear-gradient(135deg, #6361F0 0%, #4845E4 100%)" }}
+          aria-label="EzManage"
+        >
+          <svg width="20" height="16" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0"   width="18" height="2.5" rx="1.25" fill="white" fillOpacity="0.92" />
+            <rect x="0" y="6.5" width="13" height="2.5" rx="1.25" fill="white" fillOpacity="0.70" />
+            <rect x="0" y="13"  width="8"  height="2.5" rx="1.25" fill="white" fillOpacity="0.48" />
+          </svg>
         </div>
 
         {/* Menu Items */}
@@ -49,19 +50,19 @@ export function PrimarySidebar({
                 className={cn(
                   "group relative flex w-full flex-col items-center justify-center py-2.5 transition-all duration-200 hover:bg-muted",
                   isActive &&
-                    "bg-blue-50/70 text-blue-600 border-l-[3px] border-blue-600",
+                    "bg-primary/10 text-primary border-l-[3px] border-primary",
                 )}
               >
                 <Icon
                   className={cn(
                     "h-6 w-6 text-muted-foreground transition-colors duration-200 group-hover:text-foreground",
-                    isActive && "text-blue-600 group-hover:text-blue-700",
+                    isActive && "text-primary group-hover:text-primary",
                   )}
                 />
                 <span
                   className={cn(
                     "mt-1.5 text-[10px] font-medium tracking-tight text-muted-foreground transition-colors duration-200 group-hover:text-foreground",
-                    isActive && "text-blue-600 font-semibold",
+                    isActive && "text-primary font-semibold",
                   )}
                 >
                   {item.label}
@@ -82,19 +83,19 @@ export function PrimarySidebar({
           href="/help"
           className={cn(
             "group relative flex w-full flex-col items-center justify-center py-2.5 transition-all duration-200 hover:bg-muted",
-            isHelp && "bg-blue-50/70 text-blue-600 border-l-[3px] border-blue-600",
+            isHelp && "bg-primary/10 text-primary border-l-[3px] border-primary",
           )}
         >
           <HelpCircle
             className={cn(
               "h-6 w-6 text-muted-foreground transition-colors duration-200 group-hover:text-foreground",
-              isHelp && "text-blue-600",
+              isHelp && "text-primary",
             )}
           />
           <span
             className={cn(
               "mt-1.5 text-[10px] font-medium tracking-tight text-muted-foreground transition-colors duration-200 group-hover:text-foreground",
-              isHelp && "text-blue-600 font-semibold",
+              isHelp && "text-primary font-semibold",
             )}
           >
             Help
@@ -107,3 +108,4 @@ export function PrimarySidebar({
     </div>
   );
 }
+

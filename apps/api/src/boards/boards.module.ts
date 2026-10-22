@@ -31,5 +31,6 @@ import { MailModule } from 'src/mail/mail.module';
     BoardExportService,
     ActivityLogsService,
   ],
+  exports: [BoardsService],
 })
 export class BoardsModule {}

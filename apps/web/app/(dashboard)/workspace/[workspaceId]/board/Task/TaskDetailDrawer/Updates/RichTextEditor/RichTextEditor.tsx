@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { useEditor, EditorContent } from "@tiptap/react";
 
@@ -16,7 +16,7 @@ import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 
 import { RichTextToolbar } from "./RichTextEditorToolbar";
-import { FileAttachmentPicker } from "./FileAttachmentPicker";
+import { FileAttachmentPicker, FileAttachmentPickerHandle } from "./FileAttachmentPicker";
 import { createMentionSuggestion } from "./mention-suggestion";
 
 import { useInviteModalStore } from "@/store/invite-modal";
@@ -53,6 +53,17 @@ export function RichTextEditor({
   autoFocus = false,
 }: RichTextEditorProps) {
   const { boardId } = useInviteModalStore();
+  const filePickerRef = useRef<FileAttachmentPickerHandle>(null);
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const images = Array.from(e.clipboardData.items)
+      .filter((item) => item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (!images.length) return;
+    e.preventDefault();
+    filePickerRef.current?.addFiles(images);
+  }
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -191,10 +202,10 @@ export function RichTextEditor({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border">
+    <div onPaste={handlePaste} className="overflow-hidden rounded-lg border">
       <EditorContent editor={editor} placeholder="Add Comment" />
 
-      <FileAttachmentPicker onFilesChange={onFilesChange} />
+      <FileAttachmentPicker ref={filePickerRef} onFilesChange={onFilesChange} />
 
       <div className="flex items-center border-t bg-muted/30 px-2 py-1">
         <RichTextToolbar editor={editor} />

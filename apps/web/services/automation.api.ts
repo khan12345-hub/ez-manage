@@ -44,22 +44,22 @@ export type AutomationRule = {
   updatedAt: string;
 };
 
-export async function createAutomation(boardId: number, payload: CreateAutomationPayload) {
+export async function createAutomation(boardId: string | number, payload: CreateAutomationPayload) {
   const response = await api.post<AutomationRule>(`/boards/${boardId}/automations`, payload);
   return response.data;
 }
 
-export async function getBoardAutomations(boardId: number) {
+export async function getBoardAutomations(boardId: string | number) {
   const response = await api.get<AutomationRule[]>(`/boards/${boardId}/automations`);
   return response.data;
 }
 
-export async function deleteAutomation(boardId: number, automationId: number) {
+export async function deleteAutomation(boardId: string | number, automationId: number) {
   const response = await api.delete(`/boards/${boardId}/automations/${automationId}`);
   return response.data;
 }
 
-export async function toggleAutomation(boardId: number, automationId: number) {
+export async function toggleAutomation(boardId: string | number, automationId: number) {
   const response = await api.patch<AutomationRule>(
     `/boards/${boardId}/automations/${automationId}/toggle`,
   );
@@ -67,7 +67,7 @@ export async function toggleAutomation(boardId: number, automationId: number) {
 }
 
 export async function updateAutomation(
-  boardId: number,
+  boardId: string | number,
   automationId: number,
   data: CreateAutomationPayload,
 ) {

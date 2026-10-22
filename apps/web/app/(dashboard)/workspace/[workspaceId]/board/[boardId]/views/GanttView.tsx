@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { getBoardTasks } from "@/services/boards.api";
 import { updateCell } from "@/services/cells.api";
+import { toast } from "sonner";
 import { useTaskDetailsStore } from "@/store/task-details-store";
 import {
   AlignLeft, ChevronDown, ChevronLeft, ChevronRight,
@@ -336,6 +337,7 @@ export function GanttView({ board }: GanttViewProps) {
 
   const dragRef = useRef<{
     taskId: number; cellId: number;
+    cellUpdatedAt: string | null;
     type: "TIMELINE" | "DATE";
     origStart: Date; origEnd: Date;
     startX: number; deltaDays: number;
@@ -501,11 +503,11 @@ export function GanttView({ board }: GanttViewProps) {
 
   // Drag handler
   const handleBarMouseDown = useCallback(
-    (e: React.MouseEvent, taskId: number, cellId: number|null, cellType: "TIMELINE"|"DATE", start: Date|null, end: Date|null) => {
+    (e: React.MouseEvent, taskId: number, cellId: number|null, cellUpdatedAt: string|null, cellType: "TIMELINE"|"DATE", start: Date|null, end: Date|null) => {
       if (!cellId || (!start && !end)) return;
       e.preventDefault(); e.stopPropagation();
       setPopup(null);
-      dragRef.current = { taskId, cellId, type: cellType, origStart: start ?? end!, origEnd: end ?? start!, startX: e.clientX, deltaDays: 0 };
+      dragRef.current = { taskId, cellId, cellUpdatedAt, type: cellType, origStart: start ?? end!, origEnd: end ?? start!, startX: e.clientX, deltaDays: 0 };
       setDragInfo({ taskId, deltaDays: 0 });
 
       const onMove = (me: MouseEvent) => {
@@ -517,14 +519,23 @@ export function GanttView({ board }: GanttViewProps) {
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onUp);
         if (!dragRef.current) return;
-        const { cellId: cId, type, origStart, origEnd, deltaDays } = dragRef.current;
+        const { cellId: cId, cellUpdatedAt: cUpdatedAt, type, origStart, origEnd, deltaDays } = dragRef.current;
         dragRef.current = null; setDragInfo(null);
         if (deltaDays === 0) return;
         const ns = addDays(origStart, deltaDays);
         const ne = addDays(origEnd, deltaDays);
         const value = type === "TIMELINE" ? { startDate: ns.toISOString(), endDate: ne.toISOString() } : { date: ns.toISOString() };
-        await updateCell(board.id, cId, { value });
-        queryClient.invalidateQueries({ queryKey: ["board-tasks", board.id] });
+        const dto = cUpdatedAt ? { value, updatedAt: cUpdatedAt } : { value };
+        try {
+          await updateCell(board.id, cId, dto);
+          queryClient.invalidateQueries({ queryKey: ["board-tasks", board.id] });
+        } catch (err: any) {
+          const status = err?.response?.status ?? err?.status;
+          if (status === 409) {
+            toast.error('This bar was already moved by someone else. Refreshing…');
+          }
+          queryClient.invalidateQueries({ queryKey: ["board-tasks", board.id] });
+        }
       };
       document.addEventListener("mousemove", onMove);
       document.addEventListener("mouseup", onUp);
@@ -738,7 +749,7 @@ export function GanttView({ board }: GanttViewProps) {
                             isDragging ? "opacity-80 cursor-grabbing" : "cursor-grab hover:brightness-95 transition-all"
                           }`}
                           style={{ left: layout.left, width: layout.width, height: 24, backgroundColor: color, userSelect: "none" }}
-                          onMouseDown={(e) => handleBarMouseDown(e, task.id, cellId, cellType, start, end)}
+                          onMouseDown={(e) => handleBarMouseDown(e, task.id, cellId, task.cells?.find((c: any) => c.id === cellId)?.updatedAt ?? null, cellType, start, end)}
                           onMouseEnter={(e) => {
                             if (!dragRef.current) {
                               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();

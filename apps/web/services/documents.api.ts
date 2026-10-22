@@ -12,13 +12,13 @@ export interface BoardDocumentDto {
   updatedAt: string;
 }
 
-export async function getBoardDocuments(boardId: number): Promise<BoardDocumentDto[]> {
+export async function getBoardDocuments(boardId: string | number): Promise<BoardDocumentDto[]> {
   const response = await api.get(`/boards/${boardId}/documents`);
   return response.data;
 }
 
 export async function createBoardDocument(
-  boardId: number,
+  boardId: string | number,
   data: { title: string; content: any },
 ): Promise<BoardDocumentDto> {
   const response = await api.post(`/boards/${boardId}/documents`, data);
@@ -26,7 +26,7 @@ export async function createBoardDocument(
 }
 
 export async function updateBoardDocument(
-  boardId: number,
+  boardId: string | number,
   id: number,
   data: { title?: string; content?: any },
 ): Promise<BoardDocumentDto> {
@@ -34,6 +34,6 @@ export async function updateBoardDocument(
   return response.data;
 }
 
-export async function deleteBoardDocument(boardId: number, id: number): Promise<void> {
+export async function deleteBoardDocument(boardId: string | number, id: number): Promise<void> {
   await api.delete(`/boards/${boardId}/documents/${id}`);
 }

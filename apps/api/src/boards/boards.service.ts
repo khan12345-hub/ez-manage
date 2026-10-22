@@ -6,8 +6,13 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 
 import { PrismaService } from 'prisma/prisma.service';
+
+function generateUid(): string {
+  return randomBytes(9).toString('base64url').substring(0, 12);
+}
 
 import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
@@ -60,6 +65,7 @@ export class BoardsService {
       const board = await tx.board.create({
         data: {
           name: createBoardDto.name.trim(),
+          uid: generateUid(),
           workspaceId: createBoardDto.workspaceId,
           visibility: createBoardDto.visibility ?? 'PUBLIC',
           createdById: userId,
@@ -367,6 +373,7 @@ export class BoardsService {
 
     return boards.map((board) => ({
       id: board.id,
+      uid: board.uid,
       name: board.name,
       visibility: board.visibility,
       createdAt: board.createdAt,
@@ -375,16 +382,29 @@ export class BoardsService {
     }));
   }
 
+  async resolveId(idOrUid: string): Promise<number> {
+    const num = parseInt(idOrUid, 10);
+    if (Number.isInteger(num) && num > 0 && String(num) === idOrUid) return num;
+    const board = await this.prisma.board.findUnique({
+      where: { uid: idOrUid },
+      select: { id: true },
+    });
+    if (!board) throw new NotFoundException('Board not found.');
+    return board.id;
+  }
+
   async findOne(id: number, userId?: number) {
     const board = await this.prisma.board.findUnique({
       where: { id },
       select: {
         id: true,
+        uid: true,
         name: true,
         workspaceId: true,
         visibility: true,
         createdAt: true,
         updatedAt: true,
+        budgetHours: true,
 
         form: true,
 
@@ -533,10 +553,10 @@ export class BoardsService {
       orderBy: { viewedAt: 'desc' },
       take: limit,
       include: {
-        board: { select: { id: true, name: true } },
+        board: { select: { id: true, uid: true, name: true } },
       },
     });
-    return views.map((v) => ({ id: v.board.id, name: v.board.name, viewedAt: v.viewedAt }));
+    return views.map((v) => ({ id: v.board.id, uid: v.board.uid, name: v.board.name, viewedAt: v.viewedAt }));
   }
 
   async getBoardViews(boardId: number) {
@@ -608,6 +628,10 @@ export class BoardsService {
 
           ...(updateBoardDto.visibility !== undefined && {
             visibility: updateBoardDto.visibility,
+          }),
+
+          ...(updateBoardDto.budgetHours !== undefined && {
+            budgetHours: updateBoardDto.budgetHours,
           }),
 
           updatedById: userId,

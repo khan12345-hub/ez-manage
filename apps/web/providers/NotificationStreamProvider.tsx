@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 
@@ -49,6 +49,18 @@ export function NotificationStreamProvider({
   const setIncomingCall = useChatStore((s) => s.setIncomingCall);
   const { fire: fireDesktop } = useDesktopNotifications();
 
+  // Keep latest callback refs so the SSE effect never needs to re-run when
+  // these functions get new references (e.g. fireDesktop recreates on
+  // permission change, Zustand selectors on store update). Without refs the
+  // effect teardown+reconnect would fire on every render, causing the
+  // rapid open/close cycles visible in server logs.
+  const fireDesktopRef = useRef(fireDesktop);
+  fireDesktopRef.current = fireDesktop;
+  const incrementUnreadRef = useRef(incrementUnread);
+  incrementUnreadRef.current = incrementUnread;
+  const setIncomingCallRef = useRef(setIncomingCall);
+  setIncomingCallRef.current = setIncomingCall;
+
   // ── Tab title badge: (N) Board Name ───────────────────────────────────────
   const { data: unreadData } = useQuery({
     queryKey: ["notifications", "unread-count"],
@@ -77,18 +89,15 @@ export function NotificationStreamProvider({
   }, []);
 
   useEffect(() => {
-    if (!userId) {
-      return;
-    }
+    if (!userId) return;
 
     const disconnect = connectNotificationStream(
       (notification: Notification) => {
-        // Desktop notification when tab is not focused
         const meta = notification.metadata as Record<string, any> | null | undefined;
         const url = meta?.workspaceId && meta?.boardId
           ? `/workspace/${meta.workspaceId}/board/${meta.boardId}`
           : undefined;
-        fireDesktop(notification.title, notification.message, url);
+        fireDesktopRef.current(notification.title, notification.message, url);
 
         queryClient.setQueryData<{ count: number }>(
           ["notifications", "unread-count"],
@@ -109,34 +118,26 @@ export function NotificationStreamProvider({
           },
         );
       },
-      undefined, // onFileImportProgress handled by ImportJobContext
-      // board_update: automation moved a task — refetch the affected board
+      undefined,
       ({ boardId }) => {
         queryClient.invalidateQueries({ queryKey: ["board", boardId] });
       },
-      // boards_updated: a board was created/deleted — refetch boards list
-      // and all open board detail queries so a deleted board shows 404 immediately
       () => {
         queryClient.invalidateQueries({ queryKey: ["boards"] });
-        queryClient.invalidateQueries({ queryKey: ["board"] });
       },
-      // chat_unread: new message in a channel the user isn't currently viewing
       (data: ChatUnreadEvent) => {
-        incrementUnread(data.channelId);
+        incrementUnreadRef.current(data.channelId);
       },
-      // chat_call: someone started a call in a channel
       (data: ChatCallEvent) => {
-        setIncomingCall(data);
+        setIncomingCallRef.current(data);
       },
-      // board_tasks_update: new task added to a board (form submission, etc.)
-      // Sent to ALL board members so every open board view refreshes immediately.
       ({ boardId }: { boardId: number }) => {
         queryClient.invalidateQueries({ queryKey: ["board-tasks", Number(boardId)] });
       },
     );
 
     return () => disconnect();
-  }, [userId, queryClient, fireDesktop]);
+  }, [userId, queryClient]); // queryClient is stable; userId changes only on login/logout
 
   return <>{children}</>;
 }

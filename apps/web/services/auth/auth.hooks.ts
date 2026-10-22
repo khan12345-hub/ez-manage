@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe, login, logout } from "./auth.api";
+import { getAllWorkspaces } from "@/services/workspace.api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useChatStore } from "@/store/chat-store";
@@ -14,15 +15,31 @@ export function useLogin() {
   return useMutation({
     mutationFn: login,
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["me"],
-      });
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ["me"] });
       const redirect = searchParams.get("redirect");
       const isSafe = redirect && redirect.startsWith("/") && !redirect.startsWith("//");
-      router.push(isSafe ? redirect : "/workspace/1");
+      if (isSafe) { router.push(redirect!); return; }
+      try {
+        const workspaces = await queryClient.fetchQuery({
+          queryKey: ["workspaces"],
+          queryFn: getAllWorkspaces,
+          staleTime: 0,
+        });
+        const first = workspaces?.[0];
+        const uid = (first as any)?.uid ?? first?.id;
+        router.push(uid ? `/workspace/${uid}` : "/dashboard");
+      } catch {
+        router.push("/dashboard");
+      }
     },
     onError: (error: any) => {
+      if (error?.response?.status === 429) {
+        const retryAfter = error?.response?.headers?.["retry-after"];
+        const wait = retryAfter ? ` Please wait ${retryAfter} seconds.` : " Please wait a minute.";
+        toast.error(`Too many login attempts.${wait}`);
+        return;
+      }
       const errorMsg =
         error?.response?.data?.message ||
         "Login Failed. Please try again.";
@@ -38,10 +55,8 @@ export function useMe() {
     queryFn: getMe,
     retry: false,
     retryOnMount: false,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    staleTime: 5 * 60_000,
+    refetchOnMount: true,
+    staleTime: 30_000,
   });
 }
 

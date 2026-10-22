@@ -70,7 +70,7 @@ export interface UpdateBoardFormPayload {
 }
 
 export const createBoardForm = async (
-  boardId: number,
+  boardId: string | number,
   payload: CreateBoardFormPayload,
 ) => {
   const { data } = await api.post<BoardForm>(
@@ -81,7 +81,7 @@ export const createBoardForm = async (
   return data;
 };
 
-export const getBoardForm = async (boardId: number) => {
+export const getBoardForm = async (boardId: string | number) => {
   const { data } = await api.get<BoardForm>(
     `/boards/${boardId}/form`,
   );
@@ -90,7 +90,7 @@ export const getBoardForm = async (boardId: number) => {
 };
 
 export const updateBoardForm = async (
-  boardId: number,
+  boardId: string | number,
   payload: UpdateBoardFormPayload,
 ) => {
   const { data } = await api.patch<BoardForm>(
@@ -101,7 +101,7 @@ export const updateBoardForm = async (
   return data;
 };
 
-export const deleteBoardForm = async (boardId: number) => {
+export const deleteBoardForm = async (boardId: string | number) => {
   const { data } = await api.delete(
     `/boards/${boardId}/form`,
   );

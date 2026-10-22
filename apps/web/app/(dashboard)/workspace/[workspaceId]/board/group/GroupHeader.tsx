@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ColorPicker } from "@/components/ui/color-picker";
 
+import { useParams } from "next/navigation";
 import { useGroupStore } from "@/store/create-group-store";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { STATUS_COLORS } from "@/constants/colors";
@@ -101,6 +102,7 @@ export function GroupHeader({
   const updateGroup = useGroupStore((state) => state.updateGroup);
   const removeGroup = useGroupStore((state) => state.removeGroup);
 
+  const { boardId: boardUid } = useParams<{ boardId: string }>();
   const { boardId } = useInviteModalStore();
   const queryClient = useQueryClient();
 
@@ -152,9 +154,8 @@ export function GroupHeader({
 
     onSuccess: () => {
       removeGroup(activeGroup.id);
-
-      if (boardId) {
-        queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      if (boardUid) {
+        queryClient.invalidateQueries({ queryKey: ["board", boardUid] });
       }
     },
   });

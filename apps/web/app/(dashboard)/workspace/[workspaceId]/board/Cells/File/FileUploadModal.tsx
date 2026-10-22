@@ -1,7 +1,7 @@
 "use client";
 
 import { File as FileIcon, Trash2, Upload } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { uploadTaskCellFiles } from "@/services/tasks.api";
 import { createCell } from "@/services/cells.api";
@@ -37,6 +37,21 @@ export function FileUploadModal({
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
+  useEffect(() => {
+    if (!open) return;
+    function onPaste(e: ClipboardEvent) {
+      const images = Array.from(e.clipboardData?.items ?? [])
+        .filter((item) => item.type.startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter((f): f is File => f !== null);
+      if (!images.length) return;
+      e.preventDefault();
+      setSelectedFiles((prev) => [...prev, ...images]);
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [open]);
+
   const uploadMutation = useMutation({
     mutationFn: async (files: File[]) => {
       let resolvedCellId = cellId;
@@ -45,17 +60,19 @@ export function FileUploadModal({
         if (taskId == null || columnId == null) {
           throw new Error("Cannot determine cell — missing taskId or columnId.");
         }
-        const cell = await createCell(boardId, taskId, columnId);
+        const cell = await createCell(boardId!, taskId!, columnId!);
         resolvedCellId = cell.id;
       }
 
-      return uploadTaskCellFiles(boardId, resolvedCellId, files);
+      return uploadTaskCellFiles(boardId, resolvedCellId!, files);
     },
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
       queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
-
+      // Also refresh the Files tab in the task detail drawer
+      if (taskId) {
+        queryClient.invalidateQueries({ queryKey: ["task-files", taskId] });
+      }
       setSelectedFiles([]);
       onOpenChange(false);
       onUploadSuccess();

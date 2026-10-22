@@ -4,7 +4,9 @@ import { Bot, ChevronDown, MoreHorizontal, Users } from "lucide-react";
 import { useState } from "react";
 import { resolveUrl } from "@/lib/resolveUrl";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getBoardTimeSummary } from "@/services/time-tracking.api";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -53,12 +55,12 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
     onMutate: async (newVisibility) => {
       await queryClient.cancelQueries({
-        queryKey: ["board", board.id],
+        queryKey: ["board", board.uid],
       });
 
-      const previousBoard = queryClient.getQueryData(["board", board.id]);
+      const previousBoard = queryClient.getQueryData(["board", board.uid]);
 
-      queryClient.setQueryData(["board", board.id], (old: any) => {
+      queryClient.setQueryData(["board", board.uid], (old: any) => {
         if (!old) return old;
 
         return {
@@ -72,13 +74,13 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
     onError: (_error, _newVisibility, context) => {
       if (context?.previousBoard) {
-        queryClient.setQueryData(["board", board.id], context.previousBoard);
+        queryClient.setQueryData(["board", board.uid], context.previousBoard);
       }
     },
 
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: ["board", board.id],
+        queryKey: ["board", board.uid],
       });
     },
   });
@@ -97,16 +99,12 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
     onMutate: async ({ memberId, role }) => {
       await queryClient.cancelQueries({
-        queryKey: ["board", board.id],
+        queryKey: ["board", board.uid],
       });
 
-      const previousBoard = queryClient.getQueryData(["board", board.id]);
+      const previousBoard = queryClient.getQueryData(["board", board.uid]);
 
-      /**
-       * Optimistically update the exact cache
-       * that BoardHeader uses to render members.
-       */
-      queryClient.setQueryData(["board", board.id], (old: any) => {
+      queryClient.setQueryData(["board", board.uid], (old: any) => {
         if (!old) return old;
 
         return {
@@ -128,13 +126,13 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
     onError: (_error, _variables, context) => {
       if (context?.previousBoard) {
-        queryClient.setQueryData(["board", board.id], context.previousBoard);
+        queryClient.setQueryData(["board", board.uid], context.previousBoard);
       }
     },
 
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: ["board", board.id],
+        queryKey: ["board", board.uid],
       });
     },
   });
@@ -147,15 +145,12 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
     onMutate: async (memberId) => {
       await queryClient.cancelQueries({
-        queryKey: ["board", board.id],
+        queryKey: ["board", board.uid],
       });
 
-      const previousBoard = queryClient.getQueryData(["board", board.id]);
+      const previousBoard = queryClient.getQueryData(["board", board.uid]);
 
-      /**
-       * Remove member immediately from the UI.
-       */
-      queryClient.setQueryData(["board", board.id], (old: any) => {
+      queryClient.setQueryData(["board", board.uid], (old: any) => {
         if (!old) return old;
 
         return {
@@ -172,13 +167,13 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
     onError: (_error, _memberId, context) => {
       if (context?.previousBoard) {
-        queryClient.setQueryData(["board", board.id], context.previousBoard);
+        queryClient.setQueryData(["board", board.uid], context.previousBoard);
       }
     },
 
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: ["board", board.id],
+        queryKey: ["board", board.uid],
       });
     },
   });
@@ -198,22 +193,56 @@ export function BoardHeader({ board }: BoardHeaderProps) {
     }) => updateMemberGroupAccess(board.id, memberId, accessAllGroups, groupIds),
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["board", board.id] });
+      queryClient.invalidateQueries({ queryKey: ["board", board.uid] });
     },
   });
 
   const { canManageBoard } = usePermissions();
 
+  const { data: timeSummary } = useQuery({
+    queryKey: ["board-time-summary", board.id],
+    queryFn: () => getBoardTimeSummary(board.id),
+    enabled: !!board.budgetHours,
+    refetchInterval: 60_000,
+  });
+
+  const budgetPct = timeSummary?.percentage ?? 0;
+  const budgetColor =
+    budgetPct >= 100 ? "bg-destructive" :
+    budgetPct >= 80  ? "bg-orange-500" :
+    "bg-emerald-500";
+
   return (
     <>
       <header className="flex h-16 w-full items-center justify-between gap-2 bg-background">
-        {/* Board name */}
-        <button type="button" className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
-          <span className="truncate text-xl font-semibold capitalize tracking-[-0.02em] sm:text-2xl">
-            {board.name}
-          </span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-        </button>
+        {/* Board name + budget */}
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+          <button type="button" className="flex min-w-0 items-center gap-1.5 text-left">
+            <span className="truncate text-xl font-semibold capitalize tracking-[-0.02em] sm:text-2xl">
+              {board.name}
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+
+          {board.budgetHours && timeSummary && (
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-28 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn("h-full rounded-full transition-all", budgetColor)}
+                  style={{ width: `${Math.min(budgetPct, 100)}%` }}
+                />
+              </div>
+              <span className={cn(
+                "text-[10px] font-medium tabular-nums",
+                budgetPct >= 100 ? "text-destructive" :
+                budgetPct >= 80  ? "text-orange-500" :
+                "text-muted-foreground",
+              )}>
+                {timeSummary.totalHours.toFixed(1)}h / {board.budgetHours}h
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-1">

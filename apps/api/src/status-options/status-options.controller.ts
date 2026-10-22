@@ -12,6 +12,8 @@ import {
 import { StatusOptionsService } from './status-options.service';
 import { CreateStatusOptionDto } from './dto/create-status-option.dto';
 import { UpdateStatusOptionDto } from './dto/update-status-option.dto';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { SessionUser } from 'src/auth/types/session-user.type';
 
 @Controller()
 export class StatusOptionsController {
@@ -22,23 +24,26 @@ export class StatusOptionsController {
   @Get('board-columns/:columnId/label-values')
   getUniqueLabelValues(
     @Param('columnId', ParseIntPipe) columnId: number,
+    @CurrentUser() user: SessionUser,
   ) {
-    return this.statusOptionsService.getUniqueLabelValues(columnId);
+    return this.statusOptionsService.getUniqueLabelValues(columnId, user.id);
   }
 
   @Get('board-columns/:columnId/status-options')
   findAll(
     @Param('columnId', ParseIntPipe) columnId: number,
+    @CurrentUser() user: SessionUser,
   ) {
-    return this.statusOptionsService.findAll(columnId);
+    return this.statusOptionsService.findAll(columnId, user.id);
   }
 
   @Post('board-columns/:columnId/status-options')
   create(
     @Param('columnId', ParseIntPipe) columnId: number,
     @Body() dto: CreateStatusOptionDto,
+    @CurrentUser() user: SessionUser,
   ) {
-    return this.statusOptionsService.create(columnId, dto);
+    return this.statusOptionsService.create(columnId, dto, user.id);
   }
 
   @Patch('board-columns/:columnId/status-options/:statusId')
@@ -46,10 +51,12 @@ export class StatusOptionsController {
     @Param('columnId', ParseIntPipe) columnId: number,
     @Param('statusId', ParseIntPipe) statusId: number,
     @Body() dto: UpdateStatusOptionDto,
+    @CurrentUser() user: SessionUser,
   ) {
     return this.statusOptionsService.update(
       columnId,
       statusId,
+      user.id,
       dto,
     );
   }
@@ -58,11 +65,12 @@ export class StatusOptionsController {
   remove(
     @Param('columnId', ParseIntPipe) columnId: number,
     @Param('statusId', ParseIntPipe) statusId: number,
+    @CurrentUser() user: SessionUser,
   ) {
     return this.statusOptionsService.remove(
       columnId,
       statusId,
+      user.id,
     );
   }
 }
-

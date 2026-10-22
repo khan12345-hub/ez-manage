@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Figtree, Poppins } from "next/font/google";
+import { Figtree, Poppins, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 import Providers from "@/providers/providers";
 
@@ -20,6 +20,14 @@ const poppins = Poppins({
   display: "swap",
 });
 
+// CEO dashboard KPI numbers — data-terminal feel
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["700", "800"],
+  variable: "--font-mono-display",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "EzManage",
   description: "Task Management Platform",
@@ -33,7 +41,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn(figtree.variable, poppins.variable)}
+      className={cn(figtree.variable, poppins.variable, jetbrainsMono.variable)}
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>

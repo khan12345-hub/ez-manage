@@ -13,6 +13,8 @@ import { memoryStorage } from 'multer';
 
 import { PublicBoardFormsService } from './public-board-forms.service';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { SessionUser } from 'src/auth/types/session-user.type';
 import { SubmitBoardFormDto } from 'src/board-forms/dto/submit-board-form.dto';
 import { STORAGE_SERVICE } from 'src/storage/storage.module';
 import { StorageProvider } from 'src/storage/storage.types';
@@ -61,13 +63,13 @@ export class PublicBoardFormsController {
     };
   }
 
-  /** POST /public/form/:identifier/submit — submit the public form (no auth) */
-  @Public()
+  /** POST /public/form/:identifier/submit — requires login; task is attributed to the submitter */
   @Post('form/:identifier/submit')
   async submitPublicForm(
     @Param('identifier') identifier: string,
     @Body() dto: SubmitBoardFormDto,
+    @CurrentUser() user: SessionUser,
   ) {
-    return this.publicBoardFormsService.submitByIdentifier(identifier, dto);
+    return this.publicBoardFormsService.submitByIdentifier(identifier, dto, user.id);
   }
 }

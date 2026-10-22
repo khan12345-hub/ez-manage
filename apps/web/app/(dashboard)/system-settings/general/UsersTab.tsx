@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Plus, Loader2, Clock, UserCheck } from "lucide-react";
+import { Search, Plus, Loader2, Clock, UserCheck, AlertTriangle, ShieldOff, UserX, X } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-import { DeleteDialog } from "./DeleteDialog";
+import { createPortal } from "react-dom";
 import { RowActions } from "./RowActions";
 import { UserFormDialog } from "./UserFormDialog";
 import { User } from "./types";
@@ -97,9 +97,9 @@ export function UsersTab() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteUser(id),
-    onSuccess: () => {
-      toast.success("User deleted successfully");
+    mutationFn: ({ id, force }: { id: number; force: boolean }) => deleteUser(id, force),
+    onSuccess: (_, { force }) => {
+      toast.success(force ? "User permanently deleted." : "User disabled. Their assignments show as Deleted User.");
       setDeletingUser(null);
       invalidate();
     },
@@ -287,14 +287,87 @@ export function UsersTab() {
         loading={isFormLoading}
       />
 
-      <DeleteDialog
-        open={!!deletingUser}
-        onOpenChange={(open) => !open && setDeletingUser(null)}
-        title="Delete user?"
-        description={`This will permanently delete ${deletingUser?.name}. This action cannot be undone.`}
-        onConfirm={() => deletingUser && deleteMutation.mutate(deletingUser.id)}
-        loading={deleteMutation.isPending}
-      />
+      {/* Two-option delete modal */}
+      {deletingUser && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => !deleteMutation.isPending && setDeletingUser(null)}
+        >
+          <div
+            className="w-[440px] rounded-xl border border-border bg-background shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 dark:bg-red-950/40">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Delete user</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {deletingUser.name} · {deletingUser.email}
+                </p>
+              </div>
+              <button
+                onClick={() => setDeletingUser(null)}
+                disabled={deleteMutation.isPending}
+                className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Options */}
+            <div className="flex flex-col gap-3 p-5">
+              {/* Soft delete */}
+              <button
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate({ id: deletingUser.id, force: false })}
+                className="flex items-start gap-3.5 rounded-xl border border-border bg-muted/40 p-4 text-left transition-all hover:border-amber-300 hover:bg-amber-50/50 disabled:opacity-50 dark:hover:border-amber-700 dark:hover:bg-amber-950/20"
+              >
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950/50">
+                  <ShieldOff className="h-4 w-4 text-amber-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">Disable Account</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    Revokes login access across all workspaces. Their existing task assignments remain intact and display as <span className="font-medium text-foreground">Deleted User</span> — all data is preserved.
+                  </p>
+                </div>
+              </button>
+
+              {/* Force delete */}
+              <button
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate({ id: deletingUser.id, force: true })}
+                className="flex items-start gap-3.5 rounded-xl border border-border bg-muted/40 p-4 text-left transition-all hover:border-red-300 hover:bg-red-50/50 disabled:opacity-50 dark:hover:border-red-800 dark:hover:bg-red-950/20"
+              >
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-100 dark:bg-red-950/50">
+                  <UserX className="h-4 w-4 text-red-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-red-600">Force Delete</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    Permanently removes the user and all their data — task assignments, time entries, and board access across <span className="font-medium text-foreground">all workspaces</span>. <span className="font-medium text-red-500">Cannot be undone.</span>
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            {/* Cancel */}
+            <div className="flex justify-end border-t border-border px-5 py-3">
+              <button
+                onClick={() => setDeletingUser(null)}
+                disabled={deleteMutation.isPending}
+                className="rounded-lg px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-40"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

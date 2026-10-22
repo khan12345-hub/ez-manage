@@ -7,6 +7,7 @@ export type CreateWorkspaceDto = {
 
 export type WorkspaceDetail = {
   id: number;
+  uid: string;
   name: string;
   description: string | null;
   visibility: "PUBLIC" | "PRIVATE";
@@ -48,6 +49,7 @@ export type WorkspaceDetail = {
   }>;
   boards: Array<{
     id: number;
+    uid: string;
     name: string;
     visibility: "PUBLIC" | "PRIVATE";
     updatedAt: string;
@@ -74,7 +76,7 @@ export async function getAllWorkspaces() {
   return response.data;
 }
 
-export async function getWorkspaceDetail(workspaceId: number) {
+export async function getWorkspaceDetail(workspaceId: string | number) {
   const response = await api.get<WorkspaceDetail>(`/workspaces/${workspaceId}`);
   return response.data;
 }
@@ -85,7 +87,7 @@ export async function createWorkspace(data: CreateWorkspaceDto) {
 }
 
 export async function updateWorkspace(
-  workspaceId: number,
+  workspaceId: string | number,
   data: Partial<CreateWorkspaceDto>
 ) {
   const response = await api.patch<WorkspaceDetail>(
@@ -95,13 +97,13 @@ export async function updateWorkspace(
   return response.data;
 }
 
-export async function deleteWorkspace(workspaceId: number) {
+export async function deleteWorkspace(workspaceId: string | number) {
   const response = await api.delete(`/workspaces/${workspaceId}`);
   return response.data;
 }
 
 export async function updateWorkspaceMemberRole(
-  workspaceId: number,
+  workspaceId: string | number,
   memberId: number,
   role: string,
 ) {
@@ -113,8 +115,66 @@ export async function updateWorkspaceMemberRole(
 }
 
 export async function removeWorkspaceMember(
-  workspaceId: number,
+  workspaceId: string | number,
   memberId: number,
+  force = false,
 ) {
-  await api.delete(`/workspaces/${workspaceId}/members/${memberId}`);
+  await api.delete(`/workspaces/${workspaceId}/members/${memberId}`, {
+    params: force ? { force: "true" } : undefined,
+  });
+}
+
+export interface CapacityTask {
+  id: number;
+  name: string;
+  boardId: number;
+  boardName: string;
+  groupId: number;
+  groupName: string;
+  dueDate: string | null;
+  statusLabel: string | null;
+  statusColor: string | null;
+}
+
+export interface CapacityMember {
+  user: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string | null;
+  };
+  totalTasks: number;
+  overdueTasks: number;
+  dueSoonTasks: number;
+  onTrackTasks: number;
+  noDueDateTasks: number;
+  tasks: CapacityTask[];
+}
+
+export async function getWorkspaceCapacity(workspaceId: string | number): Promise<CapacityMember[]> {
+  const { data } = await api.get<CapacityMember[]>(`/workspaces/${workspaceId}/capacity`);
+  return data;
+}
+
+export interface WorkspaceCalendarTask {
+  id: number;
+  name: string;
+  date: string;
+  groupId: number;
+  groupName: string;
+  groupColor: string | null;
+  boardId: number;
+  boardName: string;
+}
+
+export async function getWorkspaceCalendarTasks(
+  workspaceId: string | number,
+  month: number,
+  year: number,
+): Promise<WorkspaceCalendarTask[]> {
+  const { data } = await api.get<WorkspaceCalendarTask[]>(
+    `/workspaces/${workspaceId}/calendar-tasks`,
+    { params: { month, year } },
+  );
+  return data;
 }

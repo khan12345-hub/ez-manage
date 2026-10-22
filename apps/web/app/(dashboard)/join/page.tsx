@@ -73,7 +73,7 @@ export default function JoinWorkspacePage() {
                 Welcome to "{workspace.name}"!
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">You've successfully joined the workspace.</p>
-              <Button className="mt-6 w-full" onClick={() => router.push(`/workspace/${workspace.id}`)}>
+              <Button className="mt-6 w-full" onClick={() => router.push(`/workspace/${(workspace as any).uid ?? workspace.id}`)}>
                 Go to workspace
               </Button>
             </>

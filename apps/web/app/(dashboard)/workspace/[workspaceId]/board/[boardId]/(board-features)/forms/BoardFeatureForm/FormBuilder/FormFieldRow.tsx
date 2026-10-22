@@ -16,6 +16,8 @@ import {
   Paperclip,
   ChevronDown,
   ChevronRight,
+  AlignLeft,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FormField, FormFieldType } from "./board-feature-form.types";
@@ -28,14 +30,16 @@ interface TypeConfig {
 }
 
 const TYPE_CONFIG: Record<FormFieldType, TypeConfig> = {
-  TEXT:     { icon: Type,          bg: "#fff4e0", color: "#e08d00", label: "Text" },
-  NUMBER:   { icon: Hash,          bg: "#fff4e0", color: "#e08d00", label: "Number" },
-  DATE:     { icon: Calendar,      bg: "#f3e8ff", color: "#9854cb", label: "Date" },
-  TIMELINE: { icon: CalendarRange, bg: "#f3e8ff", color: "#9854cb", label: "Timeline" },
-  STATUS:   { icon: Tag,           bg: "#e0f9ed", color: "#00a65e", label: "Status" },
-  CHECKBOX: { icon: CheckSquare,   bg: "#e0f5ff", color: "#0086c9", label: "Checkbox" },
-  LINK:     { icon: Link,          bg: "#e0f5ff", color: "#0086c9", label: "Link" },
-  FILE:     { icon: Paperclip,     bg: "#ffe6e9", color: "#d62a40", label: "File" },
+  TEXT:      { icon: Type,          bg: "#fff4e0", color: "#e08d00", label: "Text" },
+  LONG_TEXT: { icon: AlignLeft,     bg: "#fff4e0", color: "#e08d00", label: "Long Text" },
+  COMMENT:   { icon: MessageSquare, bg: "#f0f4ff", color: "#3b6bda", label: "Comment" },
+  NUMBER:    { icon: Hash,          bg: "#fff4e0", color: "#e08d00", label: "Number" },
+  DATE:      { icon: Calendar,      bg: "#f3e8ff", color: "#9854cb", label: "Date" },
+  TIMELINE:  { icon: CalendarRange, bg: "#f3e8ff", color: "#9854cb", label: "Timeline" },
+  STATUS:    { icon: Tag,           bg: "#e0f9ed", color: "#00a65e", label: "Status" },
+  CHECKBOX:  { icon: CheckSquare,   bg: "#e0f5ff", color: "#0086c9", label: "Checkbox" },
+  LINK:      { icon: Link,          bg: "#e0f5ff", color: "#0086c9", label: "Link" },
+  FILE:      { icon: Paperclip,     bg: "#ffe6e9", color: "#d62a40", label: "File" },
 };
 
 interface FormFieldRowProps {

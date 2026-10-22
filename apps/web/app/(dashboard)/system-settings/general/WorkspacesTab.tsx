@@ -162,7 +162,7 @@ export function WorkspacesTab() {
                   <Button
                     variant="ghost"
                     className="mt-4 w-full justify-between"
-                    onClick={() => router.push(`/workspace/${workspace.id}`)}
+                    onClick={() => router.push(`/workspace/${(workspace as any).uid ?? workspace.id}`)}
                   >
                     View workspace
                     <ArrowRight className="h-4 w-4" />

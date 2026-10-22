@@ -65,7 +65,7 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
       if (props.onSuccess) {
         props.onSuccess(workspace);
       } else {
-        router.push(`/workspace/${workspace.id}`);
+        router.push(`/workspace/${workspace.uid ?? workspace.id}`);
       }
       onClose();
     },

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { resolveUrl } from "@/lib/resolveUrl";
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
@@ -12,6 +12,7 @@ import {
   Mail, UserX, ChevronLeft, Pencil, SmilePlus,
   Pin, ArrowDown, BookmarkCheck,
   Bell, BellOff, BellMinus, Smile, Clock, CalendarClock,
+  Share2, ListTodo, ChevronRight,
 } from "lucide-react";
 
 const EmojiPicker = dynamic(() => import("@/components/Chat/EmojiPicker"), { ssr: false });
@@ -41,6 +42,9 @@ import type { ScheduledMessage } from "@/services/chat.api";
 import type { ChatChannel, ChatMessage, ChatNotifPref, LinkPreview } from "@/services/chat.api";
 import { getBoards, getBoardGroups } from "@/services/boards.api";
 import { createTask } from "@/services/tasks.api";
+import { useTaskDetailsStore } from "@/store/task-details-store";
+import { ForwardMessageModal } from "./ForwardMessageModal";
+import { CreateTaskFromChatModal } from "./CreateTaskFromChatModal";
 import { UserProfilePanel } from "@/components/UserProfilePanel";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -71,7 +75,7 @@ function parseMentionNodes(
   const re = /@([A-Za-z]+(?:\s[A-Za-z]+)?)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    const name = m[1].toLowerCase();
+    const name = (m[1] ?? "").toLowerCase();
     const found = users.find((u) => {
       const full = `${u.user.firstName} ${u.user.lastName}`.toLowerCase();
       return full === name || u.user.firstName.toLowerCase() === name;
@@ -197,6 +201,34 @@ function LinkPreviewCard({ preview }: { preview: LinkPreview }) {
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
+function TaskMessageCard({
+  data,
+  onOpen,
+}: {
+  data: { taskName: string; creatorName: string };
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      onClick={onOpen}
+      className="mt-1 flex max-w-sm items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-500/5 px-3 py-2.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-500/10"
+    >
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-600">
+        <ListTodo className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-medium text-indigo-600">
+          {data.creatorName} created a task
+        </p>
+        <p className="truncate text-sm font-semibold text-foreground">
+          {data.taskName}
+        </p>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+    </button>
+  );
+}
+
 function formatDate(iso: string) {
   const d = new Date(iso);
   const diff = Math.floor((Date.now() - d.getTime()) / 86400000);
@@ -216,8 +248,17 @@ const av = (url?: string | null) => resolveUrl(url) || undefined;
 
 export default function ChatPage() {
   const params = useParams();
-  const workspaceId = Number(Array.isArray(params.workspaceId) ? params.workspaceId[0] : params.workspaceId);
+  const workspaceUid = Array.isArray(params.workspaceId) ? params.workspaceId[0] : params.workspaceId as string;
   const { user } = useAuth();
+  const workspaceId = useMemo(() => {
+    if (!workspaceUid) return 0;
+    const membership = user?.workspaceMemberships?.find(
+      (m: any) => (m.workspace as any)?.uid === workspaceUid,
+    );
+    if (membership?.workspace?.id) return membership.workspace.id as number;
+    const parsed = Number(workspaceUid);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }, [workspaceUid, user?.workspaceMemberships]);
   const { setWorkspace } = useInviteModalStore();
 
   const {
@@ -227,6 +268,7 @@ export default function ChatPage() {
     clearUnread, setActiveCall, clearWorkspaceUnread,
     isSocketConnected,
   } = useChatStore();
+  const openTaskDrawer = useTaskDetailsStore((s) => s.open);
 
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -274,6 +316,10 @@ export default function ChatPage() {
   const replyFileRef = useRef<HTMLInputElement>(null);
   const threadMsgRef = useRef<ChatMessage | null>(null);
 
+
+  // Forward + Create task from message
+  const [forwardingMsg, setForwardingMsg] = useState<ChatMessage | null>(null);
+  const [creatingTaskFromMsg, setCreatingTaskFromMsg] = useState<ChatMessage | null>(null);
 
   // Message scheduling
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
@@ -353,7 +399,7 @@ export default function ChatPage() {
   useEffect(() => {
     setWorkspace(workspaceId);
     // User opened this workspace's chat — clear the workspace badge in the FAB
-    if (workspaceId) clearWorkspaceUnread(Number(workspaceId));
+    if (workspaceId) clearWorkspaceUnread(workspaceId);
   }, [workspaceId]);
   useEffect(() => { activeChannelRef.current = activeChannelId; }, [activeChannelId]);
 
@@ -841,6 +887,33 @@ export default function ChatPage() {
     }
   };
 
+  const handleReplyPaste = async (e: React.ClipboardEvent) => {
+    const images = Array.from(e.clipboardData.items)
+      .filter((item) => item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (!images.length || !threadMsg || !activeChannelId) return;
+    e.preventDefault();
+    setReplyUploading(true);
+    try {
+      for (const file of images) {
+        const result = await uploadChatFile(workspaceId, activeChannelId, file);
+        const socket = getSocket();
+        socket?.emit("message:send", {
+          channelId: activeChannelId,
+          content: result.originalName,
+          attachmentUrl: result.url,
+          attachmentType: result.type,
+          parentId: threadMsg.id,
+        });
+      }
+    } catch {
+      alert("Image upload failed.");
+    } finally {
+      setReplyUploading(false);
+    }
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!files.length || !activeChannelId) return;
@@ -852,6 +925,24 @@ export default function ChatPage() {
         previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
         name: file.name,
         fileType: (file.type.startsWith("image/") ? "image" : "file") as "image" | "file",
+      })),
+    ]);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const images = Array.from(e.clipboardData.items)
+      .filter((item) => item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (!images.length) return;
+    e.preventDefault();
+    setPendingFiles((prev) => [
+      ...prev,
+      ...images.map((file) => ({
+        file,
+        previewUrl: URL.createObjectURL(file),
+        name: file.name || `image-${Date.now()}.png`,
+        fileType: "image" as const,
       })),
     ]);
   };
@@ -1696,7 +1787,19 @@ export default function ChatPage() {
                               </div>
                             ) : (
                               <div className="flex-1 break-words">
-                                <RichContent content={msg.content} className="text-foreground" allUsers={allUsers} onMentionClick={setMentionProfileUserId} />
+                                {msg.content?.startsWith("__TASK__:") ? (() => {
+                                  try {
+                                    const t = JSON.parse(msg.content!.slice("__TASK__:".length));
+                                    return (
+                                      <TaskMessageCard
+                                        data={t}
+                                        onOpen={() => openTaskDrawer({ taskId: t.taskId, boardId: t.boardId, groupId: t.groupId })}
+                                      />
+                                    );
+                                  } catch { return null; }
+                                })() : (
+                                  <RichContent content={msg.content} className="text-foreground" allUsers={allUsers} onMentionClick={setMentionProfileUserId} />
+                                )}
                                 {msg.editedAt && <span className="ml-1 text-[10px] text-muted-foreground">(edited)</span>}
                                 {msg.isPinned && (
                                   <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] text-amber-500">
@@ -1793,6 +1896,25 @@ export default function ChatPage() {
                               >
                                 <Pin className="h-3.5 w-3.5" />
                               </button>
+                            )}
+                            {/* Forward + Create Task */}
+                            {!msg.isSystemMessage && (
+                              <>
+                                <button
+                                  onClick={() => setForwardingMsg(msg)}
+                                  className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-indigo-600"
+                                  title="Forward message"
+                                >
+                                  <Share2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setCreatingTaskFromMsg(msg)}
+                                  className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-indigo-600"
+                                  title="Create task from message"
+                                >
+                                  <ListTodo className="h-3.5 w-3.5" />
+                                </button>
+                              </>
                             )}
                             {/* Edit + Delete (own messages only) */}
                             {msg.userId === user?.id && !msg.isSystemMessage && (
@@ -1988,7 +2110,7 @@ export default function ChatPage() {
                   ))}
                 </div>
               )}
-              <div className="relative flex items-end gap-3 rounded-xl border border-border bg-muted/30 px-4 py-2.5 focus-within:border-indigo-300 focus-within:bg-background focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+              <div onPaste={handlePaste} className="relative flex items-end gap-3 rounded-xl border border-border bg-muted/30 px-4 py-2.5 focus-within:border-indigo-300 focus-within:bg-background focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
                 {/* File attachment button */}
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -2188,7 +2310,7 @@ export default function ChatPage() {
 
               {/* Reply input */}
               <div className="border-t border-border p-3">
-                <div className="flex items-end gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-200">
+                <div onPaste={handleReplyPaste} className="flex items-end gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-200">
                   <input
                     type="file"
                     ref={replyFileRef}
@@ -2460,6 +2582,24 @@ export default function ChatPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Forward message modal */}
+      {forwardingMsg && (
+        <ForwardMessageModal
+          message={forwardingMsg}
+          onClose={() => setForwardingMsg(null)}
+        />
+      )}
+
+      {/* Create task from message modal */}
+      {creatingTaskFromMsg && activeChannelId && (
+        <CreateTaskFromChatModal
+          message={creatingTaskFromMsg}
+          workspaceId={workspaceId}
+          channelId={activeChannelId}
+          onClose={() => setCreatingTaskFromMsg(null)}
+        />
       )}
     </div>
   );

@@ -70,7 +70,7 @@ async function getNotificationUrl(
 
     if (entityType === "BOARD" && entityId) {
       const board = await getBoardDetail(entityId);
-      const baseUrl = `/workspace/${board.workspaceId}/board/${entityId}`;
+      const baseUrl = `/workspace/${board.workspaceId}/board/${board.uid ?? entityId}`;
       const taskId = meta.taskId ? Number(meta.taskId) : null;
       return taskId ? `${baseUrl}?taskId=${taskId}` : baseUrl;
     }
@@ -81,7 +81,7 @@ async function getNotificationUrl(
     ) {
       const boardId = Number(meta.boardId);
       const board = await getBoardDetail(boardId);
-      const baseUrl = `/workspace/${board.workspaceId}/board/${boardId}`;
+      const baseUrl = `/workspace/${board.workspaceId}/board/${board.uid ?? boardId}`;
       const taskId =
         entityType === "TASK" && entityId
           ? entityId

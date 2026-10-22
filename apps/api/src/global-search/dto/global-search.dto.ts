@@ -22,9 +22,9 @@ export class SearchDto {
   @Transform(({ value }) => value?.trim())
   q!: string;
 
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  workspaceId!: number;
+  @IsOptional()
+  @IsString()
+  workspaceId?: string;
 
   @IsOptional()
   @IsEnum(SearchType)

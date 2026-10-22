@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   ParseIntPipe,
   Post,
@@ -17,6 +18,7 @@ import { TimeTrackingService } from './time-tracking.service';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SessionUser } from 'src/auth/types/session-user.type';
 import { SessionAuthGuard } from 'src/auth/guards/session.guard';
+import { PrismaService } from 'prisma/prisma.service';
 
 // Board-level route for time report export
 @SkipThrottle()
@@ -25,15 +27,24 @@ import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 export class TimeTrackingBoardController {
   constructor(private readonly timeTrackingService: TimeTrackingService) {}
 
+  @Get('summary')
+  getBoardTimeSummary(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.timeTrackingService.getBoardTimeSummary(boardId, user.id);
+  }
+
   @Get('export')
   async exportTimeReport(
     @Param('boardId', ParseIntPipe) boardId: number,
+    @CurrentUser() user: SessionUser,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('userId') userId?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
-    const { csv, filename } = await this.timeTrackingService.exportTimeReport(boardId, {
+    const { csv, filename } = await this.timeTrackingService.exportTimeReport(boardId, user.id, {
       startDate,
       endDate,
       userId: userId ? Number(userId) : undefined,
@@ -51,11 +62,29 @@ export class TimeTrackingBoardController {
 @Controller('time-entries')
 @UseGuards(SessionAuthGuard)
 export class TimeTrackingGlobalController {
-  constructor(private readonly timeTrackingService: TimeTrackingService) {}
+  constructor(
+    private readonly timeTrackingService: TimeTrackingService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get('my-active')
   getMyActiveTimer(@CurrentUser() user: SessionUser) {
     return this.timeTrackingService.getMyActiveTimer(user.id);
+  }
+
+  @Get('my-timesheet')
+  async getPersonalTimesheet(
+    @CurrentUser() user: SessionUser,
+    @Query('workspaceId') workspaceId: string,
+    @Query('weekStart') weekStart: string,
+  ) {
+    let numId = parseInt(workspaceId, 10);
+    if (!Number.isInteger(numId) || numId <= 0 || String(numId) !== workspaceId) {
+      const ws = await this.prisma.workspace.findUnique({ where: { uid: workspaceId }, select: { id: true } });
+      if (!ws) throw new NotFoundException('Workspace not found.');
+      numId = ws.id;
+    }
+    return this.timeTrackingService.getPersonalTimesheet(user.id, numId, weekStart);
   }
 }
 
@@ -69,8 +98,9 @@ export class TimeTrackingController {
   getEntries(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Param('taskId', ParseIntPipe) taskId: number,
+    @CurrentUser() user: SessionUser,
   ) {
-    return this.timeTrackingService.getEntries(boardId, taskId);
+    return this.timeTrackingService.getEntries(boardId, taskId, user.id);
   }
 
   @Post('start')
@@ -121,9 +151,10 @@ export class TimeTrackingController {
 
   @Get('active')
   getActiveTimer(
+    @Param('boardId', ParseIntPipe) boardId: number,
     @Param('taskId', ParseIntPipe) taskId: number,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.timeTrackingService.getActiveTimer(taskId, user.id);
+    return this.timeTrackingService.getActiveTimer(taskId, user.id, boardId);
   }
 }

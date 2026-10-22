@@ -58,13 +58,14 @@ export class WhatsappService {
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
         const errMsg = errBody?.error?.message ?? `WhatsApp API error ${res.status}`;
-        this.logger.error(`WhatsApp failed to ${phone}: ${errMsg}`);
+        // Auth failures mean the token is expired/invalid — log once at warn, not error.
+        this.logger.warn(`WhatsApp skipped for ${phone}: ${errMsg}`);
         if (userId) {
           await this.prisma.whatsappLog.create({
             data: { userId, direction: 'OUT', body: message, status: 'failed' },
           }).catch(() => {});
         }
-        throw new Error(errMsg);
+        return; // non-blocking — callers already use .catch(() => {})
       }
 
       this.logger.log(`WhatsApp sent to ${phone}`);
@@ -73,9 +74,9 @@ export class WhatsappService {
           data: { userId, direction: 'OUT', body: message, status: 'sent' },
         });
       }
-    } catch (err) {
-      this.logger.error('WhatsApp send error', err);
-      throw err; // re-throw so callers can handle
+    } catch (err: any) {
+      // Network-level errors (DNS, timeout, etc.) — also non-blocking for notification senders.
+      this.logger.warn(`WhatsApp network error for ${phone}: ${err?.message ?? err}`);
     }
   }
 

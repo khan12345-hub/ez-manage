@@ -5,6 +5,7 @@ import { AuthRepository } from './auth.repository';
 import { SessionAuthGuard } from './guards/session.guard';
 import { BoardAccessService } from 'src/boards/board-access.service';
 import { WorkspaceAccessService } from 'src/workspace/workspace-access.service';
+import { WorkspaceService } from 'src/workspace/workspace.service';
 import { BoardPermissionGuard } from './guards/board-permission.guard';
 import { WorkspacePermissionGuard } from './guards/workspace-permission.guard';
 import { MailModule } from 'src/mail/mail.module';
@@ -19,6 +20,7 @@ import { ChatModule } from 'src/chat/chat.module';
     SessionAuthGuard,
     BoardAccessService,
     WorkspaceAccessService,
+    WorkspaceService,
     BoardPermissionGuard,
     WorkspacePermissionGuard,
   ],
@@ -26,6 +28,7 @@ import { ChatModule } from 'src/chat/chat.module';
     SessionAuthGuard,
     BoardAccessService,
     WorkspaceAccessService,
+    WorkspaceService,
     BoardPermissionGuard,
     WorkspacePermissionGuard,
   ],

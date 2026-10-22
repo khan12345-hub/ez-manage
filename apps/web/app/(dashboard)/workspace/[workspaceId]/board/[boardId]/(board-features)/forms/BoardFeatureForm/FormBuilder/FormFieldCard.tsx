@@ -35,7 +35,7 @@ export function FormFieldCard({
 
   const params = useParams();
 
-  const boardId = Number(params.boardId);
+  const boardId = params.boardId as string;
 
   const { name, setName, save, handleKeyDown, isSaving } = useColumnRename({
     columnId: field.columnId,

@@ -44,7 +44,7 @@ export default function AutomationBuilder({
   const action  = steps.find((s) => s.type === "action");
   const hasTrigger = Boolean(trigger?.field);
   const params  = useParams();
-  const boardId = Number(params.boardId);
+  const boardId = params.boardId as string;
 
   return (
     <div className="flex h-full flex-col bg-background">

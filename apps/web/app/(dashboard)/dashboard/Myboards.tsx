@@ -78,7 +78,7 @@ export function MyBoards() {
             return (
               <Link
                 key={board.id}
-                href={`/workspace/${workspace.id}/board/${board.id}`}
+                href={`/workspace/${(workspace as any).uid ?? workspace.id}/board/${(board as any).uid ?? board.id}`}
                 className="group flex w-full items-center gap-4 border-b px-5 py-3.5 text-left transition last:border-0 hover:bg-muted/40"
               >
                 {/* Workspace color dot + board icon */}

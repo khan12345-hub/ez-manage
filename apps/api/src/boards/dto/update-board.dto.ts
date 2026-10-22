@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { BoardVisibility } from '../../../generated/prisma/client';
 
 export class UpdateBoardDto {
@@ -11,4 +11,10 @@ export class UpdateBoardDto {
   @IsOptional()
   @IsEnum(BoardVisibility)
   visibility?: BoardVisibility;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1_000_000)
+  budgetHours?: number | null;
 }

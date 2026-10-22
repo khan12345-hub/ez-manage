@@ -3,12 +3,14 @@ import { BoardColumnType } from "./columns.api";
 
 export type BoardDetail = {
   id: number;
+  uid: string;
   name: string;
   workspaceId: number;
   createdAt: string;
   updatedAt: string;
   visibility: "PUBLIC" | "PRIVATE";
   createdById: number;
+  budgetHours: number | null;
   columns: Array<{
     id: number;
     name: string;
@@ -16,13 +18,13 @@ export type BoardDetail = {
     order: number;
     width: number;
     settings: unknown;
-    boardId: number;
+    boardId: string | number;
     createdAt: string;
     updatedAt: string;
   }>;
   members: Array<{
     id: number;
-    boardId: number;
+    boardId: string | number;
     userId: number;
     createdAt: string;
     user: {
@@ -37,7 +39,7 @@ export type BoardDetail = {
     name: string;
     color: string;
     order: number;
-    boardId: number;
+    boardId: string | number;
     createdAt: string;
     updatedAt: string;
     createdById: number;
@@ -64,18 +66,19 @@ export type BoardDetail = {
   }>;
 };
 
-export async function getBoards(workspaceId: number | undefined) {
+export async function getBoards(workspaceId: string | number | undefined) {
   const response = await api.get(`/workspaces/${workspaceId}/boards`);
   return response.data;
 }
 
 export interface RecentBoard {
   id: number;
+  uid: string;
   name: string;
   viewedAt: string;
 }
 
-export async function getRecentlyViewedBoards(workspaceId: number): Promise<RecentBoard[]> {
+export async function getRecentlyViewedBoards(workspaceId: string | number): Promise<RecentBoard[]> {
   const { data } = await api.get<RecentBoard[]>('/boards/recently-viewed', {
     params: { workspaceId },
   });
@@ -88,13 +91,13 @@ export interface BoardGroup {
   color: string;
 }
 
-export async function getBoardGroups(boardId: number): Promise<BoardGroup[]> {
+export async function getBoardGroups(boardId: string | number): Promise<BoardGroup[]> {
   const response = await api.get<BoardGroup[]>(`/boards/${boardId}/group-list`);
   return response.data;
 }
 
 export async function getBoardDetail(
-  boardId: number,
+  boardId: string | number,
   search?: string,
   person?: string,
 ) {
@@ -125,20 +128,19 @@ export async function createBoard(data: CreateBoardDto) {
   return response.data;
 }
 
-export async function updateBoard(
-  boardId: number,
-  data: Partial<CreateBoardDto>
-) {
+export type UpdateBoardDto = Partial<CreateBoardDto> & { budgetHours?: number | null };
+
+export async function updateBoard(boardId: string | number, data: UpdateBoardDto) {
   const response = await api.patch(`/boards/${boardId}`, data);
   return response.data;
 }
 
-export async function deleteBoard(boardId: number) {
+export async function deleteBoard(boardId: string | number) {
   const response = await api.delete(`/boards/${boardId}`);
   return response.data;
 }
 
-export async function exportBoard(boardId: number, boardName: string) {
+export async function exportBoard(boardId: string | number, boardName: string) {
   const response = await api.get(`/boards/${boardId}/export`, {
     responseType: 'blob',
   });
@@ -161,7 +163,7 @@ export interface BoardMember {
 }
 
 export async function getBoardMembers(
-  boardId: number | undefined,
+  boardId: string | number | undefined,
   search = ""
 ): Promise<BoardMember[]> {
   const { data } = await api.get(`/boards/${boardId}/members`, {
@@ -177,7 +179,7 @@ export const searchBoardTasks = async ({
   boardId,
   query,
 }: {
-  boardId: number;
+  boardId: string | number;
   query: string;
 }) => {
   const { data } = await api.get(
@@ -276,13 +278,13 @@ export interface Group {
   id: number;
   name: string;
   order: number;
-  boardId: number;
+  boardId: string | number;
   createdAt: string;
   updatedAt: string;
   color?:string;
 }
 
-export async function getGroups(boardId: number): Promise<Group[]> {
+export async function getGroups(boardId: string | number): Promise<Group[]> {
   const { data } = await api.get<Group[]>(
     `/boards/${boardId}/groups`,
   );
@@ -298,7 +300,7 @@ export interface BoardTasksResponse {
 }
 
 export const getBoardTasks = async (
-  boardId: number,
+  boardId: string | number,
   params?: {
     groupId?: number;
     cursor?: number | null;
@@ -343,7 +345,7 @@ export interface BoardFilesResponse {
 }
 
 export async function getBoardFiles(
-  boardId: number,
+  boardId: string | number,
   params?: { type?: string; search?: string; page?: number; limit?: number },
 ): Promise<BoardFilesResponse> {
   const { data } = await api.get<BoardFilesResponse>(`/boards/${boardId}/files`, { params });
@@ -351,7 +353,7 @@ export async function getBoardFiles(
 }
 
 export async function deleteBoardFile(
-  boardId: number,
+  boardId: string | number,
   fileId: number,
 ): Promise<void> {
   await api.delete(`/boards/${boardId}/files/${fileId}`);
@@ -365,15 +367,15 @@ export interface ImportProgress {
   isPaused: boolean;
 }
 
-export async function getImportProgress(boardId: number): Promise<ImportProgress> {
+export async function getImportProgress(boardId: string | number): Promise<ImportProgress> {
   const { data } = await api.get<ImportProgress>(`/boards/${boardId}/import-progress`);
   return data;
 }
 
-export async function pauseImport(boardId: number): Promise<void> {
+export async function pauseImport(boardId: string | number): Promise<void> {
   await api.delete(`/boards/${boardId}/import`);
 }
 
-export async function resumeImport(boardId: number): Promise<void> {
+export async function resumeImport(boardId: string | number): Promise<void> {
   await api.post(`/boards/${boardId}/import/resume`);
 }

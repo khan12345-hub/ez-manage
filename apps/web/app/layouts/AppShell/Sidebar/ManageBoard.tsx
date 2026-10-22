@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FolderPen, MoreHorizontal, Trash2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Clock, FolderPen, MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { updateBoard, deleteBoard } from "@/services/boards.api";
+import { updateBoard, deleteBoard, getBoardDetail } from "@/services/boards.api";
 import { useRouter } from "next/navigation";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 
@@ -43,9 +43,29 @@ export function ManageBoardDropdown({
   const [newName, setNewName] = useState(boardName);
   const [errors, setErrors] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
+  const [budgetInput, setBudgetInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const budgetInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const router = useRouter();
+
+  const { data: boardDetail } = useQuery({
+    queryKey: ["board", boardId, "", ""],
+    queryFn: () => getBoardDetail(boardId),
+    enabled: isBudgetDialogOpen,
+  });
+
+  const { mutate: budgetMutation, isPending: isBudgetSaving } = useMutation({
+    mutationFn: (hours: number | null) => updateBoard(boardId, { budgetHours: hours }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-time-summary", boardId] });
+      setIsBudgetDialogOpen(false);
+      toast.success("Budget updated");
+    },
+    onError: () => toast.error("Failed to update budget"),
+  });
   const { mutate: renameMutation, isPending: isRenaming_ } = useMutation({
     mutationFn: () => updateBoard(boardId, { name: newName.trim() }),
     onSuccess: () => {
@@ -202,6 +222,16 @@ export function ManageBoardDropdown({
             <FolderPen strokeWidth={1} />
             Rename Board
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              setBudgetInput(String(boardDetail?.budgetHours ?? ""));
+              setIsBudgetDialogOpen(true);
+            }}
+            className="cursor-pointer"
+          >
+            <Clock className="h-4 w-4" />
+            Set Budget Hours
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={handleDeleteClick}
@@ -212,6 +242,52 @@ export function ManageBoardDropdown({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Budget Hours Dialog */}
+      <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set Budget Hours</DialogTitle>
+            <DialogDescription>
+              Set a time budget for this board. You'll get notified at 80% and 100%.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Input
+              ref={budgetInputRef}
+              type="number"
+              min={0}
+              step={0.5}
+              placeholder="e.g. 40"
+              value={budgetInput}
+              onChange={(e) => setBudgetInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const h = parseFloat(budgetInput);
+                  budgetMutation(isNaN(h) || budgetInput === "" ? null : h);
+                }
+              }}
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Leave empty to remove the budget.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBudgetDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={isBudgetSaving}
+              onClick={() => {
+                const h = parseFloat(budgetInput);
+                budgetMutation(isNaN(h) || budgetInput === "" ? null : h);
+              }}
+            >
+              {isBudgetSaving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <DeleteConfirmationDialog
         open={isDeleteDialogOpen}

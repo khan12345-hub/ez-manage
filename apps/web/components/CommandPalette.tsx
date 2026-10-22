@@ -103,7 +103,7 @@ export function CommandPalette() {
                 <CommandItem
                   key={board.id}
                   value={`board-${board.id}-${board.name}`}
-                  onSelect={() => run(() => router.push(`/workspace/${workspaceId}/board/${board.id}`))}
+                  onSelect={() => run(() => router.push(`/workspace/${workspaceId}/board/${board.uid ?? board.id}`))}
                 >
                   <Layout />
                   {board.name}
@@ -122,7 +122,7 @@ export function CommandPalette() {
                 <CommandItem
                   key={ws.id}
                   value={`ws-${ws.id}-${ws.name}`}
-                  onSelect={() => run(() => router.push(`/workspace/${ws.id}`))}
+                  onSelect={() => run(() => router.push(`/workspace/${ws.uid ?? ws.id}`))}
                 >
                   <LayoutDashboard />
                   {ws.name}

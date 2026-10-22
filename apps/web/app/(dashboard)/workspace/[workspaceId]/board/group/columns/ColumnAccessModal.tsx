@@ -38,7 +38,7 @@ interface ColumnPermission {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  boardId: number;
+  boardId: string | number;
   columnId: number;
   permissions: ColumnPermission[];
   members: BoardMember[];

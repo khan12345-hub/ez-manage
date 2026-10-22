@@ -3,15 +3,49 @@ import { PrismaService } from 'prisma/prisma.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { NotificationEntityType, NotificationType } from 'generated/prisma/enums';
 import { CreateFileCommentDto } from './dto/create-file-comment.dto';
+import { BoardAccessService } from 'src/boards/board-access.service';
+import { BoardPermission } from '@repo/shared';
 
 @Injectable()
 export class FileCommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly boardAccess: BoardAccessService,
   ) {}
 
-  async findAll(fileId: number) {
+  // Resolves the board that owns this file via the cell → task → group chain.
+  // Throws NotFoundException (not ForbiddenException) for both "file not found"
+  // and "file has no board association" so callers cannot probe file existence.
+  private async resolveFileBoardId(fileId: number): Promise<number> {
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+      select: {
+        cells: {
+          take: 1,
+          select: {
+            cell: {
+              select: {
+                task: {
+                  select: { group: { select: { boardId: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!file) throw new NotFoundException('File not found.');
+    const boardId = file.cells?.[0]?.cell?.task?.group?.boardId ?? null;
+    // Fail closed: if no cell association the board cannot be established.
+    if (boardId === null) throw new NotFoundException('File not found.');
+    return boardId;
+  }
+
+  async findAll(fileId: number, userId: number) {
+    const boardId = await this.resolveFileBoardId(fileId);
+    await this.boardAccess.requirePermission(boardId, userId, BoardPermission.VIEW);
+
     return this.prisma.fileComment.findMany({
       where: { fileId },
       orderBy: { createdAt: 'asc' },
@@ -53,6 +87,10 @@ export class FileCommentsService {
     if (!file) throw new NotFoundException('File not found.');
 
     const boardId = file.cells?.[0]?.cell?.task?.group?.boardId ?? null;
+    // Fail closed: board must be established before any write.
+    if (boardId === null) throw new NotFoundException('File not found.');
+
+    await this.boardAccess.requirePermission(boardId, userId, BoardPermission.EDIT);
 
     const comment = await this.prisma.fileComment.create({
       data: {
@@ -109,6 +147,9 @@ export class FileCommentsService {
   }
 
   async remove(fileId: number, commentId: number, userId: number) {
+    const boardId = await this.resolveFileBoardId(fileId);
+    await this.boardAccess.requirePermission(boardId, userId, BoardPermission.EDIT);
+
     const comment = await this.prisma.fileComment.findUnique({
       where: { id: commentId },
     });

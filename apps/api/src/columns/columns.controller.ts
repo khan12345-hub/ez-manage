@@ -6,12 +6,9 @@ import {
   Patch,
   Param,
   Delete,
-  Put,
-  Req,
   ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
 
 import { ColumnsService } from './columns.service';
 
@@ -25,10 +22,7 @@ import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 @UseGuards(SessionAuthGuard)
 @Controller('columns')
 export class ColumnsController {
-  constructor(
-    private readonly columnsService: ColumnsService,
-
-  ) {}
+  constructor(private readonly columnsService: ColumnsService) {}
 
   @Post()
   create(@Body() createColumnDto: CreateColumnDto, @CurrentUser() user: SessionUser) {
@@ -46,12 +40,16 @@ export class ColumnsController {
   }
 
   @Patch('reorder')
-  reorder(@Body() dto: ReorderColumnDto) {
-    return this.columnsService.reorder(dto);
+  reorder(@Body() dto: ReorderColumnDto, @CurrentUser() user: SessionUser) {
+    return this.columnsService.reorder(dto, user.id);
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateColumnDto, @CurrentUser() user: SessionUser) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateColumnDto,
+    @CurrentUser() user: SessionUser,
+  ) {
     return this.columnsService.update(id, dto, user.id);
   }
 
@@ -59,6 +57,4 @@ export class ColumnsController {
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: SessionUser) {
     return this.columnsService.remove(id, user.id);
   }
-
-
 }

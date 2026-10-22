@@ -12,7 +12,7 @@
     "dev": "nest start --watch",
     "postinstall": "node scripts/patch-bullmq.js",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/src/main",
+    "start:prod": "node dist/apps/api/src/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -45,10 +45,13 @@
     "connect-pg-simple": "^10.0.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
+    "express": "^5.3.0",
     "express-session": "^1.19.0",
+    "groq-sdk": "^1.6.0",
     "helmet": "^8.3.0",
     "ioredis": "^6.0.0",
     "livekit-server-sdk": "^2.19.1",
+    "multer": "^2.4.0",
     "nodemailer": "^9.0.3",
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
@@ -87,14 +90,20 @@
   },
   "jest": {
     "moduleFileExtensions": [
+      "ts",
       "js",
-      "json",
-      "ts"
+      "json"
     ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^@repo/shared$": "<rootDir>/__test-utils__/shared.ts",
+      "^prisma/(.*)$": "<rootDir>/../prisma/$1",
+      "^generated/(.*)$": "<rootDir>/../generated/$1",
+      "^src/(.*)$": "<rootDir>/$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

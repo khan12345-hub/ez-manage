@@ -60,7 +60,7 @@ export default function DocEditorPage() {
   const params = useParams<{ workspaceId: string; docId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const workspaceId = Number(params.workspaceId);
+  const workspaceId = params.workspaceId as string;
   const docId = Number(params.docId);
 
   const [docName, setDocName] = useState("");

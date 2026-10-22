@@ -16,6 +16,7 @@ export function QuickActions() {
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
 
   const firstWorkspaceId = user?.workspaceMemberships?.[0]?.workspace?.id;
+  const firstWorkspaceUid = (user?.workspaceMemberships?.[0]?.workspace as any)?.uid ?? firstWorkspaceId;
 
   return (
     <>
@@ -81,7 +82,7 @@ export function QuickActions() {
             />
             {user?.workspaceMemberships?.[0] && (
               <LinkAction
-                href={`/workspace/${firstWorkspaceId}/chat`}
+                href={`/workspace/${firstWorkspaceUid}/chat`}
                 icon={<MessageSquare className="h-4 w-4 text-fuchsia-600" />}
                 iconBg="bg-fuchsia-100"
                 label="Team Chat"

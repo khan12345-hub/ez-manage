@@ -17,6 +17,7 @@ import { getBoardTasks } from "@/services/boards.api";
 import { createCell, updateCell } from "@/services/cells.api";
 import { useTaskDetailsStore } from "@/store/task-details-store";
 import { resolveUrl } from "@/lib/resolveUrl";
+import { toast } from "sonner";
 
 interface KanbanViewProps {
   board: any;
@@ -29,6 +30,7 @@ interface DragItem {
   statusCellId: number | null;
   statusColumnId: number | null;
   sourceLabel: string;
+  statusCellUpdatedAt: string | null;
 }
 
 /* ─── Helpers ──────────────────────────────────────────────── */
@@ -224,6 +226,7 @@ function TaskCard({
       statusCellId: statusCell?.id ?? null,
       statusColumnId,
       sourceLabel: statusCell?.value?.label ?? "",
+      statusCellUpdatedAt: statusCell?.updatedAt ? String(statusCell.updatedAt) : null,
     });
   };
 
@@ -460,7 +463,14 @@ export function KanbanView({ board }: KanbanViewProps) {
 
       if (!cellId) return;
 
-      await updateCell(board.id, cellId, { value });
+      // Include the version stamp captured at drag-start when the cell already existed.
+      // A newly created cell (created above) has no prior version to guard.
+      const dto: { value: any; updatedAt?: string } = { value };
+      if (item.statusCellId && item.statusCellUpdatedAt) {
+        dto.updatedAt = item.statusCellUpdatedAt;
+      }
+
+      await updateCell(board.id, cellId, dto);
 
       // Optimistically update cached tasks
       queryClient.setQueriesData(
@@ -486,7 +496,11 @@ export function KanbanView({ board }: KanbanViewProps) {
           };
         },
       );
-    } catch {
+    } catch (err: any) {
+      const status = err?.response?.status ?? err?.status;
+      if (status === 409) {
+        toast.error('This card was already moved by someone else. Refreshing…');
+      }
       // refetch on error to sync state
       queryClient.invalidateQueries({ queryKey: ["board-tasks", board.id] });
     }

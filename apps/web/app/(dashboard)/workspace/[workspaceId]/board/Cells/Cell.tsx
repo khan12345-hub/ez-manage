@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { MessageCircleMore, FileInput } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -50,6 +51,27 @@ export function Cell({
 
   const isPrimary = column.isPrimary;
 
+  // Tracks the latest confirmed updatedAt for this cell.
+  // Updated from two sources:
+  //   1. The API response in .then() after a successful save (always authoritative).
+  //   2. The cell prop — BUT only when the prop carries a STRICTLY NEWER timestamp,
+  //      so a stale-cache re-render during a background refetch never overwrites
+  //      the fresh T2 that .then() set, sending stale T1 on the next edit → 409.
+  const latestCellUpdatedAt = useRef<any>(cell?.updatedAt);
+  const propUpdatedAt = cell?.updatedAt;
+  if (propUpdatedAt && (!latestCellUpdatedAt.current || propUpdatedAt > latestCellUpdatedAt.current)) {
+    latestCellUpdatedAt.current = propUpdatedAt;
+  }
+
+  // Serialises saves so two requests never race on the same cell.
+  // Root cause of 409: if save #2 fires before save #1's response returns,
+  // both carry the same stale updatedAt (T1). Save #2 arrives after DB moved
+  // to T2 → WHERE clause mismatches → 409. Fix: queue and flush sequentially.
+  const savePending = useRef<{ inFlight: boolean; next: any | null }>({
+    inFlight: false,
+    next: null,
+  });
+
   const config =
     CELL_CONFIG[
       column.type as keyof typeof CELL_CONFIG
@@ -98,20 +120,73 @@ export function Cell({
             column={column}
             isDragging={isDragging}
             editable={column.type !== "CREATION_LOG" && column.type !== "TIME_TRACKING" && column.type !== "FORMULA"}
-            onSave={(value) => {
-              const promise = config.save({ task, cell, column, value, boardId, queryClient });
-              promise?.then?.(() => {
-                queryClient.invalidateQueries({
-                  queryKey: ["board-tasks", boardId],
-                  exact: false,
+            onSave={(saveValue) => {
+              const flush = (v: any) => {
+                const effectiveCell = latestCellUpdatedAt.current !== undefined
+                  ? { ...cell, updatedAt: latestCellUpdatedAt.current }
+                  : cell;
+
+                savePending.current.inFlight = true;
+                const promise = config.save({ task, cell: effectiveCell, column, value: v, boardId, queryClient });
+
+                promise?.then?.((updatedCell: any) => {
+                  savePending.current.inFlight = false;
+
+                  if (updatedCell?.updatedAt) {
+                    latestCellUpdatedAt.current = updatedCell.updatedAt;
+                  }
+                  if (updatedCell?.id && updatedCell?.updatedAt) {
+                    queryClient.setQueriesData(
+                      { queryKey: ["board-tasks", boardId], exact: false },
+                      (old: any) => {
+                        if (!old?.pages) return old;
+                        return {
+                          ...old,
+                          pages: old.pages.map((page: any) => ({
+                            ...page,
+                            tasks: (page.tasks ?? []).map((t: any) => ({
+                              ...t,
+                              cells: (t.cells ?? []).map((c: any) =>
+                                c.id === updatedCell.id
+                                  ? { ...c, updatedAt: updatedCell.updatedAt }
+                                  : c
+                              ),
+                            })),
+                          })),
+                        };
+                      }
+                    );
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId], exact: false });
+
+                  // Flush the queued value (if another edit arrived while in-flight)
+                  if (savePending.current.next !== null) {
+                    const next = savePending.current.next;
+                    savePending.current.next = null;
+                    flush(next);
+                  }
+                })?.catch?.((err: any) => {
+                  savePending.current.inFlight = false;
+                  savePending.current.next = null;
+
+                  const status = err?.response?.status ?? err?.status;
+                  if (status === 409) {
+                    toast.error('This cell was already changed by someone else. Your edit was not saved.');
+                    queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId], exact: false });
+                  } else if (status === 429) {
+                    toast.error('Too many changes at once. Please wait a moment and try again.');
+                  } else {
+                    toast.error('Failed to save change. Please try again.');
+                  }
                 });
-              });
-              promise?.catch?.((err: any) => {
-                const status = err?.response?.status ?? err?.status;
-                if (status !== 429) {
-                  toast.error('Failed to save change. Please try again.');
-                }
-              });
+              };
+
+              if (savePending.current.inFlight) {
+                // Another save is in-flight — queue the latest value, discard any older pending
+                savePending.current.next = saveValue;
+                return;
+              }
+              flush(saveValue);
             }}
           />
         </div>

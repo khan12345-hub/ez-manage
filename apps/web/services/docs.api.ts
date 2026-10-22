@@ -15,18 +15,18 @@ export interface WorkspaceDocDetail extends WorkspaceDoc {
   content: any;
 }
 
-export async function getWorkspaceDocs(workspaceId: number): Promise<WorkspaceDoc[]> {
+export async function getWorkspaceDocs(workspaceId: string | number): Promise<WorkspaceDoc[]> {
   const res = await apiClient.get(`/workspaces/${workspaceId}/docs`);
   return res.data;
 }
 
-export async function getWorkspaceDoc(workspaceId: number, docId: number): Promise<WorkspaceDocDetail> {
+export async function getWorkspaceDoc(workspaceId: string | number, docId: number): Promise<WorkspaceDocDetail> {
   const res = await apiClient.get(`/workspaces/${workspaceId}/docs/${docId}`);
   return res.data;
 }
 
 export async function createWorkspaceDoc(
-  workspaceId: number,
+  workspaceId: string | number,
   data: { name: string; privacy?: string; emoji?: string },
 ): Promise<WorkspaceDoc> {
   const res = await apiClient.post(`/workspaces/${workspaceId}/docs`, data);
@@ -34,7 +34,7 @@ export async function createWorkspaceDoc(
 }
 
 export async function updateWorkspaceDoc(
-  workspaceId: number,
+  workspaceId: string | number,
   docId: number,
   data: { name?: string; content?: any; privacy?: string; emoji?: string },
 ): Promise<WorkspaceDocDetail> {
@@ -42,6 +42,6 @@ export async function updateWorkspaceDoc(
   return res.data;
 }
 
-export async function deleteWorkspaceDoc(workspaceId: number, docId: number): Promise<void> {
+export async function deleteWorkspaceDoc(workspaceId: string | number, docId: number): Promise<void> {
   await apiClient.delete(`/workspaces/${workspaceId}/docs/${docId}`);
 }

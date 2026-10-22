@@ -214,8 +214,10 @@ export function CalendarView({ board }: CalendarViewProps) {
         );
         if (dateCell) {
           const clickedDate = new Date(year, month, day);
-          // DATE cell value format is { date: ISO string }
-          await updateCell(board.id, dateCell.id, { value: { date: clickedDate.toISOString() } });
+          await updateCell(board.id, dateCell.id, {
+            value: { date: clickedDate.toISOString() },
+            ...(dateCell.updatedAt ? { updatedAt: String(dateCell.updatedAt) } : {}),
+          });
         }
       }
 

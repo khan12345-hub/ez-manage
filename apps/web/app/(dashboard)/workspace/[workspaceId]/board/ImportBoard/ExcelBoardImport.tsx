@@ -78,7 +78,7 @@ export function ExcelBoardImport({
       });
 
       toast.success(`Board "${board.name}" created.`);
-      router.push(`/workspace/${workspaceId}/board/${board.id}`);
+      router.push(`/workspace/${workspaceId}/board/${(board as any).uid ?? board.id}`);
       onClose();
     },
 

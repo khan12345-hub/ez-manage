@@ -7,24 +7,41 @@ import {
 import { CreateStatusOptionDto } from './dto/create-status-option.dto';
 import { UpdateStatusOptionDto } from './dto/update-status-option.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { BoardAccessService } from 'src/boards/board-access.service';
+import { BoardPermission } from '@repo/shared';
 
 @Injectable()
 export class StatusOptionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly boardAccess: BoardAccessService,
+  ) {}
 
-  async findAll(columnId: number) {
+  private async resolveColumnBoard(columnId: number): Promise<number> {
+    const col = await this.prisma.boardColumn.findUnique({
+      where: { id: columnId },
+      select: { boardId: true },
+    });
+    if (!col) throw new NotFoundException('Board column not found.');
+    return col.boardId;
+  }
+
+  async findAll(columnId: number, userId: number) {
     const column = await this.prisma.boardColumn.findUnique({
       where: {
         id: columnId,
       },
       select: {
         id: true,
+        boardId: true,
       },
     });
 
     if (!column) {
       throw new NotFoundException('Board column not found.');
     }
+
+    await this.boardAccess.requirePermission(column.boardId, userId, BoardPermission.VIEW);
 
     return this.prisma.statusOption.findMany({
       where: {
@@ -36,7 +53,7 @@ export class StatusOptionsService {
     });
   }
 
-  async create(columnId: number, dto: CreateStatusOptionDto) {
+  async create(columnId: number, dto: CreateStatusOptionDto, userId: number) {
     const column = await this.prisma.boardColumn.findUnique({
       where: {
         id: columnId,
@@ -44,12 +61,15 @@ export class StatusOptionsService {
       select: {
         id: true,
         type: true,
+        boardId: true,
       },
     });
 
     if (!column) {
       throw new NotFoundException('Board column not found.');
     }
+
+    await this.boardAccess.requirePermission(column.boardId, userId, BoardPermission.EDIT);
 
     const OPTION_COLUMN_TYPES = ['STATUS', 'DROPDOWN', 'LABEL'];
     if (!OPTION_COLUMN_TYPES.includes(column.type)) {
@@ -84,7 +104,10 @@ export class StatusOptionsService {
     });
   }
 
-  async update(columnId: number, statusId: number, dto: UpdateStatusOptionDto) {
+  async update(columnId: number, statusId: number, userId: number, dto: UpdateStatusOptionDto) {
+    const boardId = await this.resolveColumnBoard(columnId);
+    await this.boardAccess.requirePermission(boardId, userId, BoardPermission.EDIT);
+
     const statusOption = await this.prisma.statusOption.findFirst({
       where: {
         id: statusId,
@@ -182,13 +205,15 @@ export class StatusOptionsService {
     });
   }
 
-  async getUniqueLabelValues(columnId: number): Promise<string[]> {
+  async getUniqueLabelValues(columnId: number, userId: number): Promise<string[]> {
     const column = await this.prisma.boardColumn.findUnique({
       where: { id: columnId },
-      select: { id: true },
+      select: { id: true, boardId: true },
     });
 
     if (!column) throw new NotFoundException('Column not found');
+
+    await this.boardAccess.requirePermission(column.boardId, userId, BoardPermission.VIEW);
 
     const cells = await this.prisma.taskCell.findMany({
       where: { columnId },
@@ -211,7 +236,10 @@ export class StatusOptionsService {
     return Array.from(seen).sort();
   }
 
-  async remove(columnId: number, statusId: number) {
+  async remove(columnId: number, statusId: number, userId: number) {
+    const boardId = await this.resolveColumnBoard(columnId);
+    await this.boardAccess.requirePermission(boardId, userId, BoardPermission.EDIT);
+
     const statusOption = await this.prisma.statusOption.findFirst({
       where: {
         id: statusId,

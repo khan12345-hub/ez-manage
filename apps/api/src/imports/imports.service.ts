@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 // import { Prisma } from 'src/generated/prisma/client';
 // import { PrismaService } from 'src/prisma/prisma.service';
 import * as XLSX from 'xlsx';
@@ -227,6 +228,7 @@ export class ImportsService {
          */
         const board = await tx.board.create({
           data: {
+            uid: randomBytes(9).toString('base64url').substring(0, 12),
             name: boardName,
             workspaceId,
             visibility,

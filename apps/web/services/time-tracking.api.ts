@@ -103,3 +103,59 @@ export async function downloadTimeReport(
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+export interface TimesheetRow {
+  task: {
+    id: number;
+    name: string;
+    boardId: number;
+    boardName: string;
+    groupId: number;
+    groupName: string;
+    statusLabel: string | null;
+    statusColor: string | null;
+  };
+  days: Record<string, number>;
+  totalMs: number;
+}
+
+export interface TimesheetDayEntry {
+  id: number;
+  taskId: number;
+  taskName: string;
+  boardId: number;
+  boardName: string;
+  groupId: number;
+  groupName: string;
+  startedAt: string;
+  endedAt: string;
+  durationMs: number;
+  note: string | null;
+}
+
+export interface TimesheetData {
+  weekDates: string[];
+  rows: TimesheetRow[];
+  dayTotals: Record<string, number>;
+  weekTotalMs: number;
+  entries: { date: string; dayTotalMs: number; items: TimesheetDayEntry[] }[];
+}
+
+export async function getMyTimesheet(workspaceId: string | number, weekStart: string): Promise<TimesheetData> {
+  const { data } = await api.get<TimesheetData>("/time-entries/my-timesheet", {
+    params: { workspaceId, weekStart },
+  });
+  return data;
+}
+
+export interface BoardTimeSummary {
+  totalMs: number;
+  totalHours: number;
+  budgetHours: number | null;
+  percentage: number | null;
+}
+
+export async function getBoardTimeSummary(boardId: number): Promise<BoardTimeSummary> {
+  const { data } = await api.get<BoardTimeSummary>(`/boards/${boardId}/time-entries/summary`);
+  return data;
+}

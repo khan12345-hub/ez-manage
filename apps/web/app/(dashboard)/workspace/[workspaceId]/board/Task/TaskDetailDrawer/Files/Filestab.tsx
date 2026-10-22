@@ -36,7 +36,7 @@ async function fetchTaskFiles(taskId: number): Promise<TaskFile[]> {
 
 export function FilesTab({ taskId }: FilesTabProps) {
   const params = useParams();
-  const boardId = Number(params.boardId);
+  const boardId = params.boardId as string;
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");

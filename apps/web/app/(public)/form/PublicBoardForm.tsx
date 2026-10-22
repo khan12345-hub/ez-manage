@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
@@ -72,13 +72,19 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
   const [validationBanner, setValidationBanner] = useState<string[] | null>(null);
   const bannerRef = useRef<HTMLDivElement>(null);
 
-  /* ── Logged-in user (optional) ── */
-  const { data: user } = useQuery({
+  /* ── Auth guard — form requires login ── */
+  const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ["me"],
     queryFn: getMe,
     retry: false,
     staleTime: 60_000,
   });
+
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.replace(`/login?redirect=${encodeURIComponent(`/form/${identifier}`)}`);
+    }
+  }, [userLoading, user, router, identifier]);
 
   /* ── Fetch form definition ── */
   const {
@@ -238,6 +244,17 @@ export function PublicBoardForm({ identifier }: PublicBoardFormProps) {
   const d: FormDesign = form?.design
     ? { ...DEFAULT_DESIGN, ...(form.design as Partial<FormDesign>) }
     : DEFAULT_DESIGN;
+
+  if (userLoading || (!userLoading && !user)) {
+    return (
+      <PageShell d={d}>
+        <div className="w-full max-w-2xl rounded-2xl bg-white p-10 text-center shadow-lg dark:bg-[#2b2c30]">
+          <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+          <p className="mt-3 text-sm text-muted-foreground">Please wait…</p>
+        </div>
+      </PageShell>
+    );
+  }
 
   if (isLoading) {
     return (

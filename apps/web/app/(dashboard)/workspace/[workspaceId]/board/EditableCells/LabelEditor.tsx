@@ -90,6 +90,7 @@ export function LabelEditor({
   save,
   cancel,
   column,
+  boardId,
 }: CellEditorProps<LabelValue[]>) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -153,7 +154,7 @@ export function LabelEditor({
         label: text,
         color: DEFAULT_COLOR,
       });
-      await qc.invalidateQueries({ queryKey: ["board"] });
+      await qc.invalidateQueries({ queryKey: ["board", boardId], exact: true });
       const next = [...latestRef.current, { text: created.label, color: created.color }];
       setValue(next);
       latestRef.current = next;
@@ -183,7 +184,7 @@ export function LabelEditor({
               }),
         ),
       );
-      await qc.invalidateQueries({ queryKey: ["board"] });
+      await qc.invalidateQueries({ queryKey: ["board", boardId], exact: true });
       setEditOptions(saved.map((s) => ({ ...s, isNew: false })));
       setMode("picker");
     } catch (err) {
@@ -200,7 +201,7 @@ export function LabelEditor({
     }
     try {
       await deleteStatusOption(columnId, opt.id);
-      await qc.invalidateQueries({ queryKey: ["board"] });
+      await qc.invalidateQueries({ queryKey: ["board", boardId], exact: true });
       setEditOptions((prev) => prev.filter((o) => o.id !== opt.id));
     } catch (err) {
       console.error("Failed to delete label", err);

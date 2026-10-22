@@ -105,6 +105,18 @@ model User {
 
   inviteLinksCreated     WorkspaceInviteLink[] @relation("InviteLinkCreator")
 
+  ceoTemplatesCreated    CeoEmailTemplate[]    @relation("CeoTemplateCreator")
+  ceoEmailDraftsCreated  CeoEmailDraft[]       @relation("CeoEmailDraftCreator")
+  ceoEmailDraftsReceived CeoEmailDraft[]       @relation("CeoEmailDraftRecipient")
+  ceoEmailHistorySent    CeoEmailHistory[]     @relation("CeoEmailHistorySentBy")
+  ceoEmailHistoryReceived CeoEmailHistory[]    @relation("CeoEmailHistoryRecipient")
+
+  ceoManagementAsManager  CeoManagementConfig[] @relation("CeoManagementConfigs")
+  ceoManagementAsMember   CeoManagementConfig[] @relation("MemberManagementConfigs")
+
+  ceoMeetingsCreated      CeoMeeting[]          @relation("CeoMeetingCreator")
+  ceoMeetingAttendances   CeoMeetingAttendee[]  @relation("CeoMeetingAttendeeUser")
+
   @@map("users")
 }
 
@@ -220,6 +232,7 @@ model WorkspaceMember {
   userId      Int
   role        WorkspaceMemberRole
   createdAt   DateTime            @default(now())
+  deletedAt   DateTime?           @map("deleted_at") @db.Timestamptz(6)
   user        User                @relation(fields: [userId], references: [id])
   workspace   Workspace           @relation(fields: [workspaceId], references: [id])
 
@@ -276,6 +289,7 @@ enum WorkspaceVisibility {
 }
 model Board {
   id               Int               @id @default(autoincrement())
+  uid              String            @unique
   name             String
   workspaceId      Int
   createdAt        DateTime          @default(now())
@@ -306,7 +320,8 @@ model Board {
   documents BoardDocument[]
   views     BoardView[]
 
-  guestToken String? @unique
+  guestToken  String? @unique
+  budgetHours Float?  @map("budget_hours")
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
@@ -315,10 +330,12 @@ model Board {
 
 model Workspace {
   id          Int      @id @default(autoincrement())
+  uid         String   @unique
 
   name        String
   description String?
   visibility  WorkspaceVisibility @default(PRIVATE)
+  timezone    String   @default("UTC")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -514,6 +531,7 @@ model Task {
 
   @@index([groupId])
   @@index([groupId, order])
+  @@index([groupId, parentId])
 
   @@map("tasks")
 }
@@ -543,12 +561,14 @@ model TimeEntry {
   @@index([boardId])
 }
 model TaskCell {
-  id        Int @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
 
   taskId    Int
   columnId  Int
 
   value     Json?
+
+  updatedAt DateTime @updatedAt
 
   task       Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
   column     BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
@@ -829,6 +849,8 @@ enum NotificationType {
   FORM_SUBMITTED
 
   AUTOMATION
+
+  CEO_TASK_REMINDER
 }
 
 enum NotificationEntityType {
@@ -1199,4 +1221,145 @@ model ChatReaction {
 
   @@unique([messageId, userId, emoji])
   @@map("chat_reactions")
+}
+
+// ─── CEO AI Task Assistant ────────────────────────────────────────────────────
+
+model CeoEmailTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String
+  subject     String
+  body        String   @db.Text
+  tone        String   @default("professional")
+  isDefault   Boolean  @default(false) @map("is_default")
+
+  createdById Int      @map("created_by_id")
+  createdBy   User     @relation("CeoTemplateCreator", fields: [createdById], references: [id])
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([createdById])
+  @@map("ceo_email_templates")
+}
+
+enum CeoEmailDraftStatus {
+  DRAFT
+  SENT
+  DISCARDED
+}
+
+model CeoEmailDraft {
+  id           Int                 @id @default(autoincrement())
+
+  recipientId  Int                 @map("recipient_id")
+  recipient    User                @relation("CeoEmailDraftRecipient", fields: [recipientId], references: [id])
+
+  createdById  Int                 @map("created_by_id")
+  createdBy    User                @relation("CeoEmailDraftCreator", fields: [createdById], references: [id])
+
+  subject      String
+  body         String              @db.Text
+  taskSnapshot Json                @map("task_snapshot")
+  tone         String              @default("professional")
+  status       CeoEmailDraftStatus @default(DRAFT)
+
+  historyId    Int?                @map("history_id")
+  history      CeoEmailHistory?    @relation(fields: [historyId], references: [id])
+
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  @@index([recipientId])
+  @@index([createdById])
+  @@index([status])
+  @@map("ceo_email_drafts")
+}
+
+model CeoEmailHistory {
+  id             Int      @id @default(autoincrement())
+
+  sentById       Int      @map("sent_by_id")
+  sentBy         User     @relation("CeoEmailHistorySentBy", fields: [sentById], references: [id])
+
+  recipientId    Int      @map("recipient_id")
+  recipient      User     @relation("CeoEmailHistoryRecipient", fields: [recipientId], references: [id])
+
+  subject        String
+  body           String   @db.Text
+  deliveryStatus String   @default("sent") @map("delivery_status")
+
+  sentAt         DateTime @default(now()) @map("sent_at")
+
+  drafts         CeoEmailDraft[]
+
+  @@index([sentById])
+  @@index([recipientId])
+  @@index([sentAt])
+  @@map("ceo_email_history")
+}
+
+model CeoManagementConfig {
+  id            Int      @id @default(autoincrement())
+  ceoId         Int      @map("ceo_id")
+  memberId      Int      @map("member_id")
+  isHidden      Boolean  @default(false) @map("is_hidden")
+  addedManually Boolean  @default(false) @map("added_manually")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  ceo    User @relation("CeoManagementConfigs", fields: [ceoId], references: [id])
+  member User @relation("MemberManagementConfigs", fields: [memberId], references: [id])
+
+  @@unique([ceoId, memberId])
+  @@map("ceo_management_configs")
+}
+
+// ─── CEO Meetings ─────────────────────────────────────────────────────────────
+
+model CeoMeeting {
+  id          Int      @id @default(autoincrement())
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  meetingLink String?  @map("meeting_link") @db.VarChar(2048)
+  scheduledAt DateTime @map("scheduled_at") @db.Timestamptz(6)
+
+  createdById Int  @map("created_by_id")
+  createdBy   User @relation("CeoMeetingCreator", fields: [createdById], references: [id])
+
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
+
+  notifInitialSent  Boolean @default(false) @map("notif_initial_sent")
+  notif24hSent      Boolean @default(false) @map("notif_24h_sent")
+  notif1hSent       Boolean @default(false) @map("notif_1h_sent")
+  notif15mSent      Boolean @default(false) @map("notif_15m_sent")
+
+  attendees   CeoMeetingAttendee[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt      @map("updated_at") @db.Timestamptz(6)
+
+  @@index([createdById])
+  @@index([scheduledAt])
+  @@map("ceo_meetings")
+}
+
+model CeoMeetingAttendee {
+  id        Int @id @default(autoincrement())
+  meetingId Int @map("meeting_id")
+  userId    Int @map("user_id")
+
+  meeting CeoMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User       @relation("CeoMeetingAttendeeUser", fields: [userId], references: [id])
+
+  @@unique([meetingId, userId])
+  @@index([userId])
+  @@map("ceo_meeting_attendees")
+}
+
+model CeoSettings {
+  id           Int      @id @default(1)
+  dashboardKey String?  @map("dashboard_key")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("ceo_settings")
 }

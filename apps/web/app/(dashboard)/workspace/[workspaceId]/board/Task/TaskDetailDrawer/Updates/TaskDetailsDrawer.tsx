@@ -19,12 +19,13 @@ import { RecurrenceSelector } from "../RecurrenceSelector";
 
 export function TaskDetailsSheet() {
   const { isOpen, close, context } = useTaskDetailsStore();
-  const { boardId } = useInviteModalStore();
+  const { boardId: inviteBoardId } = useInviteModalStore();
+  const resolvedBoardId = context.boardId ?? inviteBoardId;
 
   const { data: task } = useQuery({
-    queryKey: ["task", context.taskId],
-    queryFn: () => getTask(context.taskId!, boardId!),
-    enabled: !!context.taskId,
+    queryKey: ["task", context.taskId, resolvedBoardId],
+    queryFn: () => getTask(context.taskId!, resolvedBoardId!),
+    enabled: !!context.taskId && !!resolvedBoardId,
   });
 
   const handleCopyLink = () => {
@@ -58,6 +59,7 @@ export function TaskDetailsSheet() {
         {task?.id && (
           <RecurrenceSelector
             taskId={task.id}
+            taskUpdatedAt={task.updatedAt}
             recurrenceType={task.recurrenceType ?? "NONE"}
             recurrenceInterval={task.recurrenceInterval ?? 1}
             recurrenceEndDate={task.recurrenceEndDate ?? null}

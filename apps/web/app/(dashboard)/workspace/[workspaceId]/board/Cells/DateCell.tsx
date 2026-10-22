@@ -21,7 +21,7 @@ export function DateCell({ cell, plain = false }: Props) {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const isOverdue = !plain && date < today;
+  const isOverdue = !plain && !cell?.isCompleted && date < today;
 
   return (
     <span className={isOverdue ? "flex items-center gap-1 text-red-500" : undefined}>

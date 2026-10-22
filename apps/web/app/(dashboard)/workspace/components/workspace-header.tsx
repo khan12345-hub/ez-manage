@@ -85,7 +85,7 @@ interface Props {
 export function WorkspaceHeader({ workspace, membersDetail = [], invitations = [], currentUserRole = "", onWorkspaceUpdate }: Props) {
   const params = useParams<{ workspaceId: string }>();
   const router = useRouter();
-  const workspaceId = Number(params.workspaceId);
+  const workspaceId = params.workspaceId as string;
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(workspace.name);
   const [isInviteOpen, setIsInviteOpen] = useState(false);

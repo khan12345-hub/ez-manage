@@ -17,11 +17,15 @@ import {
   LayoutGrid,
   Ellipsis,
   Trash2,
+  BrainCircuit,
+  CalendarDays,
+  Users,
+  Clock,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { cn } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 
 import { getAllWorkspaces } from "@/services/workspace.api";
 import type { Workspace } from "@repo/shared";
@@ -46,7 +50,7 @@ import {
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 
-function ChatNavLink({ workspaceId }: { workspaceId: number }) {
+function ChatNavLink({ workspaceId }: { workspaceId: string }) {
   const { unreadCounts } = useChatStore();
   const total = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
   return (
@@ -75,16 +79,18 @@ interface SecondarySidebarProps {
 export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMobileClose }: SecondarySidebarProps) {
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname();
 
   const workspaceIdParam = params.workspaceId;
   const boardIdParam = params.boardId;
   const docIdParam = params.docId;
 
-  const workspaceId = Number(
-    Array.isArray(workspaceIdParam) ? workspaceIdParam[0] : workspaceIdParam,
+  // workspaceId and boardId are now uid strings in the URL
+  const workspaceId = String(
+    Array.isArray(workspaceIdParam) ? workspaceIdParam[0] : workspaceIdParam ?? "",
   );
-  const boardId = Number(
-    Array.isArray(boardIdParam) ? boardIdParam[0] : boardIdParam,
+  const boardUid = String(
+    Array.isArray(boardIdParam) ? boardIdParam[0] : boardIdParam ?? "",
   );
   const activeDocId = Number(
     Array.isArray(docIdParam) ? docIdParam[0] : docIdParam,
@@ -102,7 +108,12 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
     setBoard, setBoardRole,
     setWorkspace: setWorkspaceID,
     setWorkspaceRole,
+    workspaceRole,
   } = useInviteModalStore();
+
+  const isManagerRole   = workspaceRole === "OWNER" || workspaceRole === "ADMIN";
+  const isAtLeastMember = isManagerRole || workspaceRole === "MEMBER";
+  const isGuest         = workspaceRole === "GUEST";
 
   const { data: workspaces = [] } = useQuery({
     queryKey: ["workspaces"],
@@ -114,82 +125,83 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
   const { data: boards = [], isLoading: isBoardsLoading } = useQuery({
     queryKey: ["boards", workspaceId],
     queryFn: () => getBoards(workspaceId),
-    enabled: Number.isInteger(workspaceId) && workspaceId > 0,
+    enabled: !!workspaceId,
     staleTime: 60_000,
   });
 
   const { data: docs = [] } = useQuery({
     queryKey: ["workspace-docs", workspaceId],
     queryFn: () => getWorkspaceDocs(workspaceId),
-    enabled: Number.isInteger(workspaceId) && workspaceId > 0,
+    enabled: !!workspaceId,
     staleTime: 60_000,
   });
 
   useEffect(() => {
-    if (!Number.isInteger(workspaceId) || workspaceId <= 0) return;
-    setWorkspaceID(workspaceId);
-  }, [workspaceId, setWorkspaceID]);
+    if (!boardUid || !boards.length) return;
+    const currentBoard = boards.find((board: any) => board.uid === boardUid);
+    if (currentBoard) setBoard(currentBoard.id);
+  }, [boardUid, boards, setBoard]);
 
   useEffect(() => {
-    if (!Number.isInteger(boardId) || boardId <= 0) return;
-    setBoard(boardId);
-  }, [boardId, setBoard]);
-
-  useEffect(() => {
-    if (!Number.isInteger(workspaceId) || workspaceId <= 0 || !workspaces.length) return;
-    const currentWorkspace = workspaces.find((item: Workspace) => item.id === workspaceId);
+    if (!workspaceId || !workspaces.length) return;
+    const currentWorkspace = workspaces.find((item: Workspace) => (item as any).uid === workspaceId);
     if (!currentWorkspace) return;
     setWorkspace(currentWorkspace);
+    // Use the numeric DB id — the URL param is a UID string which fails
+    // z.number().positive() validation in the invite modal form.
+    setWorkspaceID(currentWorkspace.id);
     setWorkspaceRole(
       (currentWorkspace as any).role ?? (currentWorkspace as any).member?.role ?? "",
     );
-  }, [workspaceId, workspaces, setWorkspaceRole]);
+  }, [workspaceId, workspaces, setWorkspaceRole, setWorkspaceID]);
 
   useEffect(() => {
-    if (!Number.isInteger(boardId) || boardId <= 0 || !boards.length) return;
-    const currentBoard = boards.find((board: any) => board.id === boardId);
+    if (!boardUid || !boards.length) return;
+    const currentBoard = boards.find((board: any) => board.uid === boardUid);
     if (!currentBoard) return;
     setBoardRole(currentBoard.role);
-  }, [boardId, boards, setBoardRole]);
+  }, [boardUid, boards, setBoardRole]);
 
   const queryClient = useQueryClient();
   const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
 
   const handleWorkspaceChange = async (selectedWorkspace: Workspace) => {
+    const wsUid = (selectedWorkspace as any).uid ?? selectedWorkspace.id;
     setWorkspace(selectedWorkspace);
     setWorkspaceID(selectedWorkspace.id);
     try {
       const workspaceBoards = await queryClient.ensureQueryData({
-        queryKey: ["boards", selectedWorkspace.id],
-        queryFn: () => getBoards(selectedWorkspace.id),
+        queryKey: ["boards", wsUid],
+        queryFn: () => getBoards(wsUid),
         staleTime: 60_000,
       });
       if (workspaceBoards.length > 0) {
         const firstBoard = workspaceBoards[0];
         setBoard(firstBoard.id);
         setBoardRole(firstBoard.role);
-        router.push(`/workspace/${selectedWorkspace.id}/board/${firstBoard.id}`);
+        router.push(`/workspace/${wsUid}/board/${firstBoard.uid ?? firstBoard.id}`);
         setWorkspaceSwitcherOpen(false);
         onMobileClose?.();
         return;
       }
       onMobileClose?.();
-      router.push(`/workspace/${selectedWorkspace.id}`);
+      router.push(`/workspace/${wsUid}`);
     } catch {
       onMobileClose?.();
-      router.push(`/workspace/${selectedWorkspace.id}`);
+      router.push(`/workspace/${wsUid}`);
     }
   };
 
   const handleBoardChange = (board: any) => {
-    if (board.id === boardId) { onMobileClose?.(); return; }
+    const targetUid = board.uid ?? board.id;
+    if (targetUid === boardUid) { onMobileClose?.(); return; }
     setNavigatingBoardId(board.id);
     setBoard(board.id);
     setBoardRole(board.role);
     onMobileClose?.();
     startTransition(() => {
-      router.push(`/workspace/${workspaceId}/board/${board.id}`);
+      router.push(`/workspace/${workspaceId}/board/${targetUid}`);
     });
   };
 
@@ -280,11 +292,11 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                 Create Workspace
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => { onMobileClose?.(); setIsCreateBoardOpen(true); }} disabled={!workspace} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => { onMobileClose?.(); setIsCreateBoardOpen(true); }} disabled={!workspace || !isManagerRole} className="cursor-pointer">
                 <SquareKanban className="mr-2 h-4 w-4" />
                 Create Board
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { onMobileClose?.(); setIsCreateDocOpen(true); }} disabled={!workspace} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => { onMobileClose?.(); setIsCreateDocOpen(true); }} disabled={!workspace || !isManagerRole} className="cursor-pointer">
                 <FileText className="mr-2 h-4 w-4" />
                 Create Doc
               </DropdownMenuItem>
@@ -294,25 +306,8 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
 
         {/* Scrollable nav */}
         <div className="flex-1 overflow-y-auto px-3 pb-3">
-          {/* Workspace Home */}
-          {workspaceId > 0 && (
-            <Link
-              href={`/workspace/${workspaceId}`}
-              onClick={() => onMobileClose?.()}
-              className={cn(
-                "flex items-center gap-2.5 rounded-md px-3 py-2.5 text-xs font-medium transition-colors mb-1",
-                !boardId && !activeDocId
-                  ? "bg-primary/10 text-primary font-semibold shadow-sm"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
-              )}
-            >
-              <Home className="h-3.5 w-3.5 shrink-0" />
-              Workspace home
-            </Link>
-          )}
-
-          {/* Content section */}
-          <div className="mt-2">
+          {/* Content section — boards & docs first */}
+          <div className="mt-1">
             <div className="flex items-center justify-between px-2 py-1.5">
               <button
                 onClick={() => setIsContentExpanded(!isContentExpanded)}
@@ -327,26 +322,28 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                 Content
               </button>
 
-              {/* Inline "+" for creating board or doc */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="rounded p-0.5 text-muted-foreground/40 opacity-0 transition-all hover:bg-accent hover:text-foreground group-hover:opacity-100 focus:opacity-100 [.group:hover_&]:opacity-100"
-                    style={{ opacity: 1 }}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuItem onClick={() => { onMobileClose?.(); setIsCreateBoardOpen(true); }} disabled={!workspace} className="cursor-pointer text-xs">
-                    <LayoutGrid className="mr-2 h-3.5 w-3.5" />
-                    Add board
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { onMobileClose?.(); setIsCreateDocOpen(true); }} disabled={!workspace} className="cursor-pointer text-xs">
-                    <FileText className="mr-2 h-3.5 w-3.5" />
-                    Add doc
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* Inline "+" for creating board or doc — OWNER/ADMIN only */}
+              {isManagerRole && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="rounded p-0.5 text-muted-foreground/40 opacity-0 transition-all hover:bg-accent hover:text-foreground group-hover:opacity-100 focus:opacity-100 [.group:hover_&]:opacity-100"
+                      style={{ opacity: 1 }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem onClick={() => { onMobileClose?.(); setIsCreateBoardOpen(true); }} disabled={!workspace} className="cursor-pointer text-xs">
+                      <LayoutGrid className="mr-2 h-3.5 w-3.5" />
+                      Add board
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { onMobileClose?.(); setIsCreateDocOpen(true); }} disabled={!workspace} className="cursor-pointer text-xs">
+                      <FileText className="mr-2 h-3.5 w-3.5" />
+                      Add doc
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
 
             {isContentExpanded && (
@@ -357,20 +354,21 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                   <>
                     {/* Boards */}
                     {boards.map((item: any) => {
-                      const isActive = boardId === item.id;
+                      const itemUid = item.uid ?? item.id;
+                      const isActive = boardUid === String(itemUid);
                       return (
                         <div
                           key={`board-${item.id}`}
                           className={cn(
-                            "group flex w-full items-center justify-between gap-2 rounded-md px-3.5 py-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                            "group flex w-full items-center justify-between gap-2 rounded-md px-3.5 py-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
                             isActive && "bg-primary/10 font-semibold text-primary shadow-sm hover:bg-primary/20",
                           )}
                           onMouseEnter={() => {
-                            if (item.id !== boardId) {
+                            if (!isActive) {
                               prefetchTimerRef.current = setTimeout(() => {
                                 queryClient.prefetchQuery({
-                                  queryKey: ["board", item.id, "", ""],
-                                  queryFn: () => getBoardDetail(item.id),
+                                  queryKey: ["board", itemUid, "", ""],
+                                  queryFn: () => getBoardDetail(itemUid),
                                   staleTime: 30_000,
                                 });
                               }, 200);
@@ -384,7 +382,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                             disabled={isNavigating && navigatingBoardId === item.id}
                             className="flex flex-1 cursor-pointer items-center gap-2 truncate text-left"
                           >
-                            <SquareKanban className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                            <SquareKanban className="h-4 w-4 shrink-0 opacity-50" />
                             <span className="truncate">{item.name}</span>
                             {navigatingBoardId === item.id && isNavigating && (
                               <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
@@ -409,7 +407,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                         <div
                           key={`doc-${doc.id}`}
                           className={cn(
-                            "group flex w-full items-center justify-between gap-2 rounded-md px-3.5 py-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                            "group flex w-full items-center justify-between gap-2 rounded-md px-3.5 py-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
                             isActive && "bg-primary/10 font-semibold text-primary shadow-sm hover:bg-primary/20",
                           )}
                         >
@@ -425,29 +423,31 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                             <span className="truncate">{doc.name}</span>
                           </button>
 
-                          {/* Doc action menu */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 transition-all hover:bg-accent hover:text-foreground group-hover:opacity-100">
-                                <Ellipsis className="h-3.5 w-3.5" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-36">
-                              <DropdownMenuItem
-                                className="cursor-pointer text-xs text-red-600 focus:text-red-700"
-                                onClick={() => handleDeleteDoc(doc.id)}
-                              >
-                                <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          {/* Doc action menu — OWNER/ADMIN only */}
+                          {isManagerRole && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 transition-all hover:bg-accent hover:text-foreground group-hover:opacity-100">
+                                  <Ellipsis className="h-3.5 w-3.5" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-36">
+                                <DropdownMenuItem
+                                  className="cursor-pointer text-xs text-red-600 focus:text-red-700"
+                                  onClick={() => handleDeleteDoc(doc.id)}
+                                >
+                                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </div>
                       );
                     })}
 
-                    {/* Empty state — clickable "Add content" card */}
-                    {boards.length === 0 && docs.length === 0 && (
+                    {/* Empty state — clickable "Add content" card — OWNER/ADMIN only */}
+                    {boards.length === 0 && docs.length === 0 && isManagerRole && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button className="mx-2 mt-1 flex w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none">
@@ -485,10 +485,83 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
               </div>
             )}
           </div>
+
+          {/* Workspace nav links — below content */}
+          {!!workspaceId && (
+            <div className="mt-3 border-t border-border pt-3 flex flex-col gap-0.5">
+              {/* Workspace Home — hidden from GUEST */}
+              {!isGuest && (
+                <Link
+                  href={`/workspace/${workspaceId}`}
+                  onClick={() => onMobileClose?.()}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    !boardUid && !activeDocId && !pathname?.includes("/calendar") && !pathname?.includes("/timesheet") && !pathname?.includes("/capacity")
+                      ? "bg-primary/10 text-primary font-semibold shadow-sm"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  <Home className="h-4 w-4 shrink-0" />
+                  Workspace home
+                </Link>
+              )}
+
+              {/* Workspace Calendar — hidden from GUEST */}
+              {!isGuest && (
+                <Link
+                  href={`/workspace/${workspaceId}/calendar`}
+                  onClick={() => onMobileClose?.()}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    pathname?.endsWith("/calendar")
+                      ? "bg-primary/10 text-primary font-semibold shadow-sm"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  <CalendarDays className="h-4 w-4 shrink-0" />
+                  Workspace Calendar
+                </Link>
+              )}
+
+              {/* My Timesheet — OWNER/ADMIN/MEMBER only (not VIEWER/GUEST) */}
+              {isAtLeastMember && (
+                <Link
+                  href={`/workspace/${workspaceId}/timesheet`}
+                  onClick={() => onMobileClose?.()}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    pathname?.endsWith("/timesheet")
+                      ? "bg-primary/10 text-primary font-semibold shadow-sm"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  <Clock className="h-4 w-4 shrink-0" />
+                  My Timesheet
+                </Link>
+              )}
+
+              {/* Capacity Planning — OWNER/ADMIN only */}
+              {isManagerRole && (
+                <Link
+                  href={`/workspace/${workspaceId}/capacity`}
+                  onClick={() => onMobileClose?.()}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    pathname?.endsWith("/capacity")
+                      ? "bg-primary/10 text-primary font-semibold shadow-sm"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  <Users className="h-4 w-4 shrink-0" />
+                  Capacity Planning
+                </Link>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Bottom links */}
-        {workspace?.id && <ChatNavLink workspaceId={workspace.id} />}
+        {workspace?.id && isAtLeastMember && <ChatNavLink workspaceId={workspaceId} />}
         <Link
           href="/help"
           data-tour="help-link"
@@ -497,6 +570,15 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
           <HelpCircle strokeWidth={1.5} className="h-4 w-4" />
           Help & Guide
         </Link>
+        {false && user?.systemRole === "SUPER_ADMIN" && (
+          <Link
+            href="/ceo-assistant"
+            className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <BrainCircuit strokeWidth={1.5} className="h-4 w-4" />
+            CEO AI
+          </Link>
+        )}
         {user?.systemRole === "SUPER_ADMIN" && (
           <Link
             href="/system-settings"

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -329,11 +330,13 @@ export class CellsService {
         taskId: true,
         columnId: true,
         value: true,
+        updatedAt: true,
         task: {
           select: {
             id: true,
             name: true,
             groupId: true,
+            createdById: true,
             group: {
               select: {
                 boardId: true,
@@ -407,14 +410,36 @@ export class CellsService {
         ? this.extractPersonIds(dto.value)
         : [];
 
-    const updatedCell = await this.prisma.taskCell.update({
-      where: {
-        id: cellId,
-      },
-      data: {
-        value: dto.value,
-      },
-    });
+    let updatedCell: { id: number; taskId: number; columnId: number; value: unknown; updatedAt: Date };
+
+    if (dto.updatedAt !== undefined) {
+      // Conditional update with millisecond-truncated timestamp comparison.
+      // PostgreSQL TIMESTAMPTZ has microsecond precision but JavaScript Date
+      // only has milliseconds. date_trunc('milliseconds') normalises both sides
+      // so the WHERE clause matches even after the migration backfill (DEFAULT NOW()).
+      // updatedAt is explicitly advanced here because $executeRaw bypasses @updatedAt.
+      const clientDate = new Date(dto.updatedAt);
+      const affected = await this.prisma.$executeRaw`
+        UPDATE task_cells
+        SET    value       = ${JSON.stringify(dto.value)}::jsonb,
+               "updatedAt" = date_trunc('milliseconds', NOW())
+        WHERE  id = ${cellId}
+          AND  date_trunc('milliseconds', "updatedAt") = date_trunc('milliseconds', ${clientDate}::timestamptz)
+      `;
+
+      if (affected === 0) {
+        throw new ConflictException(
+          'Cell was modified by another user. Please refresh and try again.',
+        );
+      }
+
+      updatedCell = (await this.prisma.taskCell.findUniqueOrThrow({ where: { id: cellId } })) as typeof updatedCell;
+    } else {
+      updatedCell = (await this.prisma.taskCell.update({
+        where: { id: cellId },
+        data: { value: dto.value },
+      })) as typeof updatedCell;
+    }
 
     const activityLog = await this.activityLogsService.log({
       boardId,
@@ -487,6 +512,11 @@ export class CellsService {
             }
           }
 
+          // Also notify the task creator (covers form submitters and task owners)
+          if (cell.task.createdById !== userId) {
+            assigneeIds.add(cell.task.createdById);
+          }
+
           if (!assigneeIds.size) return;
 
           const [actor, board] = await Promise.all([
@@ -554,6 +584,11 @@ export class CellsService {
                 if (id !== userId) recipientIds.add(id);
               }
             }
+          }
+
+          // Always notify the task creator (covers form submitters and task owners)
+          if (cell.task.createdById !== userId) {
+            recipientIds.add(cell.task.createdById);
           }
 
           if (!recipientIds.size) return;

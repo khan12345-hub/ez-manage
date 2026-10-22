@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   InfiniteData,
@@ -41,7 +41,7 @@ export function Board({
 }: any) {
   const queryClient = useQueryClient();
   const params = useParams();
-  const workspaceId = Number(params.workspaceId);
+  const workspaceId = params.workspaceId as string;
 
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
 
@@ -53,30 +53,6 @@ export function Board({
 
   const [groupSort, setGroupSort] = useState<GroupSortOption>("default");
 
-
-  /**
-   * ---------------------------------------------------------
-   * DEBOUNCED SEARCH
-   * ---------------------------------------------------------
-   *
-   * `search` changes immediately while the user types.
-   *
-   * `debouncedSearch` only changes after the user stops typing
-   * for 400ms.
-   *
-   * This prevents an API request for every keystroke.
-   */
-  const [debouncedSearch, setDebouncedSearch] = useState(search ?? "");
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search ?? "");
-    }, 400);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [search]);
 
   /**
    * ---------------------------------------------------------
@@ -98,15 +74,15 @@ export function Board({
     any[],
     number | null
   >({
-    queryKey: ["board-tasks", board.id, debouncedSearch, personFilter],
+    queryKey: ["board-tasks", board.id, search, personFilter],
 
     queryFn: ({ pageParam }) =>
       getBoardTasks(board.id, {
         cursor: pageParam ?? undefined,
-        limit: 100,
-        search: debouncedSearch.trim() || undefined,
+        limit: 200,
+        search: (search ?? "").trim() || undefined,
         person: personFilter?.users?.length
-          ? personFilter.users.map((u) => u.id).join(",")
+          ? personFilter.users.map((u: { id: number }) => u.id).join(",")
           : undefined,
       }),
 
@@ -121,14 +97,10 @@ export function Board({
 
     retry: (failureCount, error: any) => {
       const status = error?.response?.status ?? error?.status;
-      if (status === 429) return failureCount < 2; // max 2 retries on rate-limit
+      if (status === 429) return false;
       return failureCount < 2;
     },
-    retryDelay: (failureCount, error: any) => {
-      const status = (error as any)?.response?.status ?? (error as any)?.status;
-      if (status === 429) return 15_000; // wait 15s before retrying rate-limited requests
-      return Math.min(1000 * 2 ** failureCount, 10_000);
-    },
+    retryDelay: (failureCount) => Math.min(1000 * 2 ** failureCount, 10_000),
   });
 
 
@@ -232,7 +204,7 @@ export function Board({
       // Insert the new task immediately into the last loaded page so it's
       // visible at the bottom of its group without waiting for a full refetch.
       queryClient.setQueryData<InfiniteData<BoardTasksResponse>>(
-        ["board-tasks", board.id, debouncedSearch, personFilter],
+        ["board-tasks", board.id, search, personFilter],
         (old) => {
           if (!old?.pages.length) return old;
           const lastIdx = old.pages.length - 1;
@@ -345,17 +317,32 @@ export function Board({
 
   /**
    * ---------------------------------------------------------
-   * AUTO BACKGROUND FETCH — all pages load automatically
+   * SCROLL-TRIGGERED PAGINATION
    * ---------------------------------------------------------
-   * As soon as page N finishes, this effect fires and kicks off
-   * page N+1 without waiting for the user to scroll anywhere.
-   * The board is never "locked" waiting for scroll; all tasks
-   * arrive in the background while the user reads page 1.
+   * An IntersectionObserver watches a sentinel div placed just
+   * below the last rendered group. When the sentinel enters the
+   * viewport (with a 200px lead), the next page is fetched.
+   *
+   * The observer is only connected when there is a next page
+   * and no fetch is already in flight, so duplicate requests
+   * are impossible. On error the observer stays disconnected
+   * until the user triggers a retry.
    */
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (!hasNextPage || isFetchingNextPage || isTasksError) return;
-    const timer = setTimeout(() => fetchNextPage(), 200);
-    return () => clearTimeout(timer);
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasNextPage || isFetchingNextPage || isTasksError) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) fetchNextPage();
+      },
+      { root: document.querySelector("main"), rootMargin: "200px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, isTasksError, fetchNextPage]);
 
   /**
@@ -364,7 +351,7 @@ export function Board({
    * ---------------------------------------------------------
    */
   return (
-    <SearchHighlightProvider search={debouncedSearch}>
+    <SearchHighlightProvider search={search ?? ""}>
       <div className="sticky top-[41px] z-30 -mx-3 sm:-mx-6 bg-background border-b px-3 sm:px-6 py-2">
         <BoardHeader
           boardId={board?.id}
@@ -407,6 +394,9 @@ export function Board({
       />
 
       <BoardHorizontalScrollbar />
+
+      {/* Sentinel — IntersectionObserver triggers next-page fetch when this enters viewport */}
+      <div ref={sentinelRef} aria-hidden="true" />
 
       {isFetchingNextPage && (
         <p className="py-2 text-center text-xs text-muted-foreground animate-pulse">

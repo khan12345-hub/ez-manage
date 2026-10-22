@@ -10,52 +10,56 @@ import {
 } from '@nestjs/common';
 import { CreateAutomationDto } from './dto/create-automation.dto';
 import { AutomationsService } from './automations.service';
+import { BoardsService } from 'src/boards/boards.service';
 import { UpdateAutomationDto } from './dto/update-automation.dto';
 
 @Controller('boards/:boardId/automations')
 export class AutomationsController {
-  constructor(private readonly automationsService: AutomationsService) {}
+  constructor(
+    private readonly automationsService: AutomationsService,
+    private readonly boardsService: BoardsService,
+  ) {}
 
   @Post()
-  create(
-    @Param('boardId', ParseIntPipe) boardId: number,
+  async create(
+    @Param('boardId') boardId: string,
     @Body() dto: CreateAutomationDto,
   ) {
-    return this.automationsService.create(boardId, dto);
+    const id = await this.boardsService.resolveId(boardId);
+    return this.automationsService.create(id, dto);
   }
 
   @Get()
-  findAll(@Param('boardId', ParseIntPipe) boardId: number) {
-    return this.automationsService.findAll(boardId);
+  async findAll(@Param('boardId') boardId: string) {
+    const id = await this.boardsService.resolveId(boardId);
+    return this.automationsService.findAll(id);
   }
 
   @Patch(':id/toggle')
-  toggle(
-    @Param('boardId', ParseIntPipe) boardId: number,
+  async toggle(
+    @Param('boardId') boardId: string,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.automationsService.toggle(boardId, id);
+    const resolvedBoardId = await this.boardsService.resolveId(boardId);
+    return this.automationsService.toggle(resolvedBoardId, id);
   }
 
   @Delete(':id')
-  remove(
-    @Param('boardId', ParseIntPipe) boardId: number,
+  async remove(
+    @Param('boardId') boardId: string,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.automationsService.remove(boardId, id);
+    const resolvedBoardId = await this.boardsService.resolveId(boardId);
+    return this.automationsService.remove(resolvedBoardId, id);
   }
 
   @Patch(':automationId')
-  update(
-    @Param('boardId', ParseIntPipe)
-    boardId: number,
-
-    @Param('automationId', ParseIntPipe)
-    automationId: number,
-
-    @Body()
-    dto: UpdateAutomationDto,
+  async update(
+    @Param('boardId') boardId: string,
+    @Param('automationId', ParseIntPipe) automationId: number,
+    @Body() dto: UpdateAutomationDto,
   ) {
-    return this.automationsService.update(boardId, automationId, dto);
+    const resolvedBoardId = await this.boardsService.resolveId(boardId);
+    return this.automationsService.update(resolvedBoardId, automationId, dto);
   }
 }

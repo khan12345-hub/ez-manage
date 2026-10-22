@@ -25,17 +25,38 @@ import { TimeTrackingCell } from "./TimeTracking/TimeTrackingCell";
 import { EmailEditor } from "../EditableCells/EmailEditor";
 import { FormulaCell } from "./Formula/FormulaCell";
 
+const DONE_KEYWORDS = [
+  "done", "resolved", "completed", "complete", "closed", "fixed",
+  "shipped", "finished", "deployed", "cancelled", "canceled",
+  "approved", "paid", "verified", "accepted", "success",
+];
+
+function isTaskCompleted(task: any): boolean {
+  if (!Array.isArray(task?.cells)) return false;
+  return task.cells.some((c: any) => {
+    if (c?.column?.type !== "STATUS") return false;
+    const label: string = (c?.value?.label ?? "").toLowerCase().trim();
+    return DONE_KEYWORDS.some((kw) => label.includes(kw));
+  });
+}
+
 // Creates the cell if it doesn't exist yet (column added after tasks were created),
 // then patches the value. Prevents silent save failures when cell.id is null.
+// When the cell already exists, its updatedAt is forwarded so the server can
+// reject stale writes with HTTP 409 instead of silently overwriting newer edits.
 async function ensureAndUpdate(
   boardId: number,
   task: any,
   column: any,
   cell: any,
-  value: any,
+  dto: any,
 ): Promise<any> {
   const cellId = cell?.id ?? (await createCell(boardId, task.id, column.id)).id;
-  return updateCell(boardId, cellId, value);
+  const fullDto =
+    cell?.id && cell?.updatedAt
+      ? { ...dto, updatedAt: String(cell.updatedAt) }
+      : dto;
+  return updateCell(boardId, cellId, fullDto);
 }
 
 export interface CellConfig<T = any> {
@@ -80,7 +101,10 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     save: async ({ task, cell, column, value, boardId }) => {
       if (column.isPrimary) {
-        return updateTask(boardId!, task.id, { name: value });
+        return updateTask(boardId!, task.id, {
+          name: value,
+          ...(task.updatedAt ? { updatedAt: String(task.updatedAt) } : {}),
+        });
       }
       return ensureAndUpdate(boardId!, task, column, cell, { value: { text: value } });
     },
@@ -184,12 +208,12 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
   DATE: {
     component: DateEditor,
 
-    getValue: (_, cell) => {
+    getValue: (task, cell) => {
       const v = cell?.value;
       if (!v) return undefined;
       // Migrate legacy LABEL cells where date was stored as { text: "YYYY-MM-DD" }
-      if (!v.date && v.text) return { date: v.text };
-      return v;
+      if (!v.date && v.text) return { date: v.text, isCompleted: isTaskCompleted(task) };
+      return { ...v, isCompleted: isTaskCompleted(task) };
     },
 
     renderValue: (value) => <DateCell cell={value} />,

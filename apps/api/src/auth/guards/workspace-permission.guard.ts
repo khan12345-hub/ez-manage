@@ -6,6 +6,7 @@ import {
 import { Reflector } from '@nestjs/core';
 
 import { WorkspaceAccessService } from '../../workspace/workspace-access.service';
+import { WorkspaceService } from '../../workspace/workspace.service';
 import { WORKSPACE_PERMISSION_KEY } from '../decorators/require-workspace-permission.decorator';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class WorkspacePermissionGuard
   constructor(
     private reflector: Reflector,
     private workspaceAccess: WorkspaceAccessService,
+    private workspaceService: WorkspaceService,
   ) {}
 
   async canActivate(
@@ -36,10 +38,14 @@ export class WorkspacePermissionGuard
     const request =
       context.switchToHttp().getRequest();
 
-    const workspaceId = Number(
-      request.params.workspaceId ??
-      request.params.id,
-    );
+    const rawParam = request.params.workspaceId ?? request.params.id;
+
+    let workspaceId: number;
+    try {
+      workspaceId = await this.workspaceService.resolveId(String(rawParam));
+    } catch {
+      return false;
+    }
 
     const userId = request.session?.user?.id;
     if (!userId) {

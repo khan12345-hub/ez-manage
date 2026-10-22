@@ -634,14 +634,16 @@ function FieldTypeEditor({
   const previewInput =
     "w-full rounded-md border border-input bg-muted/30 px-3 py-2 text-sm text-muted-foreground/50 pointer-events-none select-none";
 
-  switch (field.type) {
-    case "PERSON":
-      return (
-        <div className={`${previewInput} flex items-center justify-between`}>
-          <span>Auto-filled with logged-in user</span>
-        </div>
-      );
+  // PERSON is a board column type, not a FormFieldType — handle before the switch
+  if (field.columnType === "PERSON" || (field.type as string) === "PERSON") {
+    return (
+      <div className={`${previewInput} flex items-center justify-between`}>
+        <span>Auto-filled with logged-in user</span>
+      </div>
+    );
+  }
 
+  switch (field.type) {
     case "TEXT":
       return <div className={previewInput}>Type your answer…</div>;
 

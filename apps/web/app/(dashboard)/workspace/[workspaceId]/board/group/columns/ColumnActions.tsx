@@ -66,7 +66,7 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
   const { user } = useAuth();
   const params = useParams();
 
-  const boardId = Number(params.boardId);
+  const boardId = params.boardId as string;
 
   const [accessOpen, setAccessOpen] = useState(false);
   const [formulaOpen, setFormulaOpen] = useState(false);

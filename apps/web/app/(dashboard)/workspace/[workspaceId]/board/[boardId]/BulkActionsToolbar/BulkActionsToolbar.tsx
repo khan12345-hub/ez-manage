@@ -42,7 +42,7 @@ interface BulkActionToolbarProps {
   selectedCount: number;
   columns: BulkActionColumn[];
   groups: SimpleGroup[];
-  workspaceId: number;
+  workspaceId: string | number;
   currentBoardId: number;
   groupName?: string;
 
@@ -69,7 +69,7 @@ function MoveToBoardDropdown({
   onSelectGroup,
   disabled,
 }: {
-  workspaceId: number;
+  workspaceId: string | number;
   currentBoardId: number;
   onSelectGroup: (groupId: number) => void;
   disabled: boolean;

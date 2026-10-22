@@ -5,9 +5,11 @@ import { RefreshCw, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateTask, type RecurrenceType } from "@/services/tasks.api";
 import { useInviteModalStore } from "@/store/invite-modal";
+import { toast } from "sonner";
 
 interface RecurrenceSelectorProps {
   taskId: number;
+  taskUpdatedAt?: string;
   recurrenceType: RecurrenceType;
   recurrenceInterval: number;
   recurrenceEndDate: string | null;
@@ -31,6 +33,7 @@ const INTERVAL_LABELS: Record<RecurrenceType, string> = {
 
 export function RecurrenceSelector({
   taskId,
+  taskUpdatedAt,
   recurrenceType,
   recurrenceInterval,
   recurrenceEndDate,
@@ -47,10 +50,20 @@ export function RecurrenceSelector({
       recurrenceType: RecurrenceType;
       recurrenceInterval: number;
       recurrenceEndDate: string | null;
-    }) => updateTask(boardId, taskId, data),
+    }) => updateTask(boardId, taskId, {
+      ...data,
+      ...(taskUpdatedAt ? { updatedAt: taskUpdatedAt } : {}),
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["task", taskId] });
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+    },
+    onError: (err: any) => {
+      const status = err?.response?.status ?? err?.status;
+      if (status === 409) {
+        toast.error('Recurrence was already changed by someone else. Please close and reopen this task.');
+        queryClient.invalidateQueries({ queryKey: ["task", taskId] });
+      }
     },
   });
 

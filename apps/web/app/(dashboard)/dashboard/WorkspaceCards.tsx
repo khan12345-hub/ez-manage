@@ -69,7 +69,7 @@ export function WorkspaceCards() {
           return (
             <Link
               key={ws.id}
-              href={`/workspace/${ws.id}`}
+              href={`/workspace/${(ws as any).uid ?? ws.id}`}
               className="group relative overflow-hidden rounded-2xl border bg-background shadow-sm transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
             >
               {/* Colored top accent */}

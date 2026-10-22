@@ -272,7 +272,7 @@ function TaskRow({ task, isOverdue, workspaceId, onRefetch }: TaskRowProps) {
       className="relative flex cursor-pointer items-start gap-2 px-4 py-2.5 transition-colors hover:bg-muted"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onClick={() => router.push(`/workspace/${workspaceId}/board/${task.boardId}?taskId=${task.id}`)}
+      onClick={() => router.push(`/workspace/${workspaceId}/board/${task.boardUid ?? task.boardId}?taskId=${task.id}`)}
     >
       <span
         className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full border-2"
@@ -443,7 +443,7 @@ function ActivityTaskLink({ task, workspaceId }: { task: ActivityTask; workspace
       <button
         ref={ref}
         type="button"
-        onClick={() => router.push(`/workspace/${workspaceId}/board/${task.group.board.id}?taskId=${task.id}`)}
+        onClick={() => router.push(`/workspace/${workspaceId}/board/${(task.group.board as any).uid ?? task.group.board.id}?taskId=${task.id}`)}
         onMouseEnter={showCard}
         onMouseLeave={hideCard}
         className="flex items-center gap-1.5 text-left"

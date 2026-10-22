@@ -65,7 +65,7 @@ const PAGE_SIZE = 80;
 
 export function FileGallery() {
   const params = useParams();
-  const boardId = Number(params.boardId);
+  const boardId = params.boardId as string;
   const queryClient = useQueryClient();
 
   const [selectedFile, setSelectedFile] = useState<BoardGalleryFile | null>(null);
@@ -100,7 +100,7 @@ export function FileGallery() {
         page,
         limit: PAGE_SIZE,
       }),
-    enabled: Number.isFinite(boardId) && boardId > 0,
+    enabled: !!boardId,
     placeholderData: (prev) => prev,
   });
 

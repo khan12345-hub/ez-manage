@@ -258,6 +258,7 @@ export class BoardImportService {
 
         const board = await tx.board.create({
           data: {
+            uid: randomBytes(9).toString('base64url').substring(0, 12),
             name: boardName,
             workspaceId: dto.workspaceId,
             visibility: dto.visibility ?? 'PUBLIC',

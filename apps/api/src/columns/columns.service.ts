@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,21 +10,25 @@ import { ReorderColumnDto } from './dto/reorder-column.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
 import { ActivityAction, ActivityEntityType } from 'generated/prisma/enums';
+import { BoardAccessService } from 'src/boards/board-access.service';
+import { BoardPermission } from '@repo/shared';
 
 @Injectable()
 export class ColumnsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activityLogsService: ActivityLogsService,
+    private readonly boardAccess: BoardAccessService,
   ) {}
 
   async create(dto: CreateColumnDto, userId: number) {
-    const ORDER_GAP = 1000
+    // Permission check BEFORE transaction — requirePermission also validates board existence.
+    await this.boardAccess.requirePermission(dto.boardId, userId, BoardPermission.CREATE_COLUMN);
+
+    const ORDER_GAP = 1000;
     return this.prisma.$transaction(async (tx) => {
       const board = await tx.board.findUnique({
-        where: {
-          id: dto.boardId,
-        },
+        where: { id: dto.boardId },
       });
 
       if (!board) {
@@ -31,26 +36,18 @@ export class ColumnsService {
       }
 
       const lastColumn = await tx.boardColumn.findFirst({
-        where: {
-          boardId: dto.boardId,
-        },
-        orderBy: {
-          order: 'desc',
-        },
+        where: { boardId: dto.boardId },
+        orderBy: { order: 'desc' },
       });
 
       const defaultName = dto.type.toLowerCase().replace('_', ' ');
 
-      // Make the default name unique
       let name = defaultName;
       let count = 1;
 
       while (
         await tx.boardColumn.findFirst({
-          where: {
-            boardId: dto.boardId,
-            name,
-          },
+          where: { boardId: dto.boardId, name },
         })
       ) {
         count++;
@@ -67,14 +64,8 @@ export class ColumnsService {
       });
 
       const tasks = await tx.task.findMany({
-        where: {
-          group: {
-            boardId: dto.boardId,
-          },
-        },
-        select: {
-          id: true,
-        },
+        where: { group: { boardId: dto.boardId } },
+        select: { id: true },
       });
 
       if (tasks.length) {
@@ -110,37 +101,33 @@ export class ColumnsService {
   async update(columnId: number, dto: UpdateColumnDto, userId: number) {
     return this.prisma.$transaction(async (tx) => {
       const column = await tx.boardColumn.findUnique({
-        where: {
-          id: columnId,
-        },
+        where: { id: columnId },
       });
 
       if (!column) {
         throw new NotFoundException('Column not found');
       }
 
+      // Permission check AFTER column fetch (boardId needed) but BEFORE any
+      // further resource details are disclosed (name duplicate check etc.).
+      await this.boardAccess.requirePermission(column.boardId, userId, BoardPermission.UPDATE_COLUMN);
+
       if (dto.name !== undefined) {
         const existing = await tx.boardColumn.findFirst({
           where: {
             boardId: column.boardId,
             name: dto.name,
-            NOT: {
-              id: columnId,
-            },
+            NOT: { id: columnId },
           },
         });
 
         if (existing) {
-          throw new BadRequestException(
-            'A column with this name already exists.',
-          );
+          throw new BadRequestException('A column with this name already exists.');
         }
       }
 
       const updated = await tx.boardColumn.update({
-        where: {
-          id: columnId,
-        },
+        where: { id: columnId },
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.type !== undefined && { type: dto.type }),
@@ -164,12 +151,25 @@ export class ColumnsService {
     });
   }
 
-  async reorder(dto: ReorderColumnDto) {
+  async reorder(dto: ReorderColumnDto, userId: number) {
+    // Permission check first — boardId comes from client DTO and is validated by
+    // requirePermission (NotFoundException if board doesn't exist).
+    await this.boardAccess.requirePermission(dto.boardId, userId, BoardPermission.UPDATE_COLUMN);
+
+    // Duplicate-ID guard: column cannot reference itself as a neighbour.
+    if (dto.columnId === dto.previousColumnId || dto.columnId === dto.nextColumnId) {
+      throw new BadRequestException('Column cannot reference itself in reorder.');
+    }
+    if (
+      dto.previousColumnId != null &&
+      dto.nextColumnId != null &&
+      dto.previousColumnId === dto.nextColumnId
+    ) {
+      throw new BadRequestException('Previous and next columns cannot be the same.');
+    }
+
     const column = await this.prisma.boardColumn.findFirst({
-      where: {
-        id: dto.columnId,
-        boardId: dto.boardId,
-      },
+      where: { id: dto.columnId, boardId: dto.boardId },
     });
 
     if (!column) {
@@ -181,78 +181,64 @@ export class ColumnsService {
     }
 
     const [previousColumn, nextColumn] = await Promise.all([
-      dto.previousColumnId
+      dto.previousColumnId != null
         ? this.prisma.boardColumn.findFirst({
-            where: {
-              id: dto.previousColumnId,
-              boardId: dto.boardId,
-            },
+            where: { id: dto.previousColumnId, boardId: dto.boardId },
           })
         : Promise.resolve(null),
 
-      dto.nextColumnId
+      dto.nextColumnId != null
         ? this.prisma.boardColumn.findFirst({
-            where: {
-              id: dto.nextColumnId,
-              boardId: dto.boardId,
-            },
+            where: { id: dto.nextColumnId, boardId: dto.boardId },
           })
         : Promise.resolve(null),
     ]);
 
+    // Reject cross-board or non-existent neighbour IDs when they were explicitly supplied.
+    if (dto.previousColumnId != null && !previousColumn) {
+      throw new NotFoundException('Previous column not found.');
+    }
+    if (dto.nextColumnId != null && !nextColumn) {
+      throw new NotFoundException('Next column not found.');
+    }
+
     if (previousColumn?.isPrimary || nextColumn?.isPrimary) {
-      throw new BadRequestException(
-        'Primary column cannot be used for reordering',
-      );
+      throw new BadRequestException('Primary column cannot be used for reordering');
     }
 
     let newOrder: number;
 
-    // Only movable column
     if (!previousColumn && !nextColumn) {
       newOrder = 1000;
-    }
-
-    // First movable column
-    else if (!previousColumn && nextColumn) {
+    } else if (!previousColumn && nextColumn) {
       newOrder = nextColumn.order - 1000;
-    }
-
-    // Last movable column
-    else if (previousColumn && !nextColumn) {
+    } else if (previousColumn && !nextColumn) {
       newOrder = previousColumn.order + 1000;
-    }
-
-    // Between two columns
-    else {
+    } else {
       newOrder = (previousColumn!.order + nextColumn!.order) / 2;
     }
 
     await this.prisma.boardColumn.update({
-      where: {
-        id: dto.columnId,
-      },
-      data: {
-        order: newOrder,
-      },
+      where: { id: dto.columnId },
+      data: { order: newOrder },
     });
 
-    return {
-      message: 'Columns reordered successfully',
-    };
+    return { message: 'Columns reordered successfully' };
   }
 
   async remove(columnId: number, userId: number) {
     return this.prisma.$transaction(async (tx) => {
       const column = await tx.boardColumn.findUnique({
-        where: {
-          id: columnId,
-        },
+        where: { id: columnId },
       });
 
       if (!column) {
         throw new NotFoundException('Column not found');
       }
+
+      // Permission check AFTER column fetch (boardId needed) but BEFORE disclosing
+      // column details such as isPrimary status.
+      await this.boardAccess.requirePermission(column.boardId, userId, BoardPermission.DELETE_COLUMN);
 
       if (column.isPrimary) {
         throw new BadRequestException('This column cannot be deleted.');
@@ -267,22 +253,11 @@ export class ColumnsService {
         metadata: { columnName: column.name, columnType: column.type },
       }, tx);
 
-      // Remove task cells first if cascade isn't configured
-      await tx.taskCell.deleteMany({
-        where: {
-          columnId,
-        },
-      });
+      await tx.taskCell.deleteMany({ where: { columnId } });
 
-      await tx.boardColumn.delete({
-        where: {
-          id: columnId,
-        },
-      });
+      await tx.boardColumn.delete({ where: { id: columnId } });
 
-      return {
-        message: 'Column deleted successfully.',
-      };
+      return { message: 'Column deleted successfully.' };
     });
   }
 }

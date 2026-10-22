@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
@@ -57,6 +58,7 @@ async seed() {
       existingWorkspace ??
       (await this.prisma.workspace.create({
         data: {
+          uid: randomBytes(9).toString('base64url').substring(0, 12),
           name: `${owner.firstName}'s Workspace`,
           description: 'Default workspace',
           createdById: owner.id,
@@ -93,6 +95,7 @@ async seed() {
       await this.prisma.$transaction(async (tx) => {
         const board = await tx.board.create({
           data: {
+            uid: randomBytes(9).toString('base64url').substring(0, 12),
             name: 'Basic Board',
             workspaceId: workspace.id,
             visibility: 'PUBLIC',

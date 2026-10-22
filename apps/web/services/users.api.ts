@@ -47,8 +47,8 @@ export async function updateUser(id: number, payload: UpdateUserPayload): Promis
   return data;
 }
 
-export async function deleteUser(id: number): Promise<void> {
-  await api.delete(`/users/${id}`);
+export async function deleteUser(id: number, force = false): Promise<void> {
+  await api.delete(`/users/${id}`, { params: force ? { force: "true" } : undefined });
 }
 
 export async function sendPasswordResetLink(email: string): Promise<void> {

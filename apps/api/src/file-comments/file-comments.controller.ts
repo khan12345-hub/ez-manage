@@ -9,8 +9,11 @@ export class FileCommentsController {
   constructor(private readonly service: FileCommentsService) {}
 
   @Get()
-  findAll(@Param('fileId', ParseIntPipe) fileId: number) {
-    return this.service.findAll(fileId);
+  findAll(
+    @Param('fileId', ParseIntPipe) fileId: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.service.findAll(fileId, user.id);
   }
 
   @Post()

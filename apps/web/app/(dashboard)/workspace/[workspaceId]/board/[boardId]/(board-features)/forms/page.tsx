@@ -9,7 +9,7 @@ import { FormBuilder } from "./BoardFeatureForm/FormBuilder/FormBuilder";
 export default function NewFormPage() {
   const params = useParams();
 
-  const boardId = Number(params.boardId);
+  const boardId = params.boardId as string;
 
   const {
     data: board,
@@ -18,7 +18,7 @@ export default function NewFormPage() {
   } = useQuery({
     queryKey: ["board", boardId],
     queryFn: () => getBoardDetail(boardId),
-    enabled: Number.isFinite(boardId),
+    enabled: !!boardId,
     retry: 0,
   });
 

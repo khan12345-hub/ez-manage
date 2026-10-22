@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { X, Trash2, Users, Mail, Clock, UserCheck } from "lucide-react";
+import { X, Trash2, Users, Mail, Clock, UserCheck, AlertTriangle, UserX, ShieldOff } from "lucide-react";
 
 import { Button } from "./ui/button";
 import {
@@ -85,6 +85,7 @@ export function WorkspaceMembersModal({
   const queryClient = useQueryClient();
   const canManage = currentUserRole === "OWNER" || currentUserRole === "ADMIN";
   const [activeTab, setActiveTab] = useState<"members" | "invitations">("members");
+  const [deleteTarget, setDeleteTarget] = useState<MemberDetail | null>(null);
 
   const roleMutation = useMutation({
     mutationFn: ({ memberId, role }: { memberId: number; role: string }) =>
@@ -99,11 +100,12 @@ export function WorkspaceMembersModal({
   });
 
   const removeMutation = useMutation({
-    mutationFn: (memberId: number) =>
-      removeWorkspaceMember(workspaceId, memberId),
-    onSuccess: () => {
+    mutationFn: ({ memberId, force }: { memberId: number; force: boolean }) =>
+      removeWorkspaceMember(workspaceId, memberId, force),
+    onSuccess: (_, { force }) => {
       queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId] });
-      toast.success("Member removed.");
+      setDeleteTarget(null);
+      toast.success(force ? "Member permanently deleted." : "Member removed. Their assignments show as Deleted User.");
     },
     onError: (err: any) => {
       toast.error(err?.response?.data?.message ?? "Failed to remove member.");
@@ -251,7 +253,7 @@ export function WorkspaceMembersModal({
                     {canManage && !isOwner && (
                       <button
                         disabled={isBusy}
-                        onClick={() => removeMutation.mutate(m.id)}
+                        onClick={() => setDeleteTarget(m)}
                         className="ml-1 rounded p-1 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40"
                         aria-label="Remove member"
                       >
@@ -323,6 +325,87 @@ export function WorkspaceMembersModal({
           </Button>
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => !removeMutation.isPending && setDeleteTarget(null)}
+        >
+          <div
+            className="w-[420px] rounded-xl border border-border bg-background shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 dark:bg-red-950/40">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Remove member</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {deleteTarget.user.firstName} {deleteTarget.user.lastName}
+                </p>
+              </div>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={removeMutation.isPending}
+                className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Options */}
+            <div className="flex flex-col gap-3 p-5">
+              {/* Normal delete */}
+              <button
+                disabled={removeMutation.isPending}
+                onClick={() => removeMutation.mutate({ memberId: deleteTarget.id, force: false })}
+                className="group flex items-start gap-3.5 rounded-xl border border-border bg-muted/40 p-4 text-left transition-all hover:border-amber-300 hover:bg-amber-50/50 disabled:opacity-50 dark:hover:border-amber-700 dark:hover:bg-amber-950/20"
+              >
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950/50">
+                  <ShieldOff className="h-4 w-4 text-amber-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">Remove Access</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    Revokes workspace &amp; board access immediately. Their existing task assignments remain intact and display as <span className="font-medium text-foreground">Deleted User</span> — data is preserved.
+                  </p>
+                </div>
+              </button>
+
+              {/* Force delete */}
+              <button
+                disabled={removeMutation.isPending}
+                onClick={() => removeMutation.mutate({ memberId: deleteTarget.id, force: true })}
+                className="group flex items-start gap-3.5 rounded-xl border border-border bg-muted/40 p-4 text-left transition-all hover:border-red-300 hover:bg-red-50/50 disabled:opacity-50 dark:hover:border-red-800 dark:hover:bg-red-950/20"
+              >
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-100 dark:bg-red-950/50">
+                  <UserX className="h-4 w-4 text-red-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-red-600">Force Delete</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    Permanently removes all task assignments, time entries, and board access. <span className="font-medium text-red-500">This cannot be undone.</span>
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            {/* Cancel */}
+            <div className="flex justify-end border-t border-border px-5 py-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={removeMutation.isPending}
+                className="rounded-lg px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-40"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body,
   );

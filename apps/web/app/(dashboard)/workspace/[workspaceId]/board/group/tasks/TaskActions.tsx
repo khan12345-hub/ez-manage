@@ -28,7 +28,7 @@ export function TaskActions({ task }: Props) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const params = useParams();
-  const boardId = Number(params.boardId);
+  const boardId = params.boardId as string;
   const deleteTaskMutation = useMutation({
     mutationFn: (id: number) => deleteTask(id, boardId),
     onSuccess: () => {

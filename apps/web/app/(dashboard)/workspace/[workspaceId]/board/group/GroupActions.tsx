@@ -51,6 +51,7 @@ import {
   reorderGroup,
 } from "@/services/groups.api";
 
+import { useParams } from "next/navigation";
 import { useGroupStore } from "@/store/create-group-store";
 import { useShallow } from "zustand/react/shallow";
 import { useInviteModalStore } from "@/store/invite-modal";
@@ -71,6 +72,7 @@ export function GroupActions({
   onAddGroup,
 }: Props) {
   const queryClient = useQueryClient();
+  const { boardId: boardUid } = useParams<{ boardId: string }>();
 
   const updateLocal = useGroupStore((s) => s.updateGroup);
   const removeLocal = useGroupStore((s) => s.removeGroup);
@@ -86,7 +88,7 @@ export function GroupActions({
     mutationFn: ({ id, data }: { id: number; data: any }) =>
       updateGroup(boardId, id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["board"] });
+      queryClient.invalidateQueries({ queryKey: ["board", boardUid] });
     },
   });
 
@@ -96,7 +98,7 @@ export function GroupActions({
       deleteGroup(id, boardId),
     onSuccess: (_, vars) => {
       removeLocal(vars.id);
-      queryClient.invalidateQueries({ queryKey: ["board"] });
+      queryClient.invalidateQueries({ queryKey: ["board", boardUid] });
     },
     onError: (err) => toast.error(getErrorMessage(err, "Failed to delete group")),
   });
@@ -107,8 +109,8 @@ export function GroupActions({
       duplicateGroup(boardId!, group.id, withUpdates),
     onSuccess: () => {
       toast.success("Group duplicated");
-      queryClient.invalidateQueries({ queryKey: ["board"] });
-      queryClient.invalidateQueries({ queryKey: ["board-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["board", boardUid] });
+      queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
     },
     onError: (err) => toast.error(getErrorMessage(err, "Failed to duplicate group")),
   });
@@ -119,7 +121,7 @@ export function GroupActions({
     onSuccess: () => {
       removeLocal(group.id);
       toast.success("Group archived");
-      queryClient.invalidateQueries({ queryKey: ["board"] });
+      queryClient.invalidateQueries({ queryKey: ["board", boardUid] });
     },
     onError: (err) => toast.error(getErrorMessage(err, "Failed to archive group")),
   });
@@ -132,7 +134,7 @@ export function GroupActions({
       nextGroupId?: number | null;
     }) => reorderGroup(boardId!, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["board"] });
+      queryClient.invalidateQueries({ queryKey: ["board", boardUid] });
     },
     onError: (err) => toast.error(getErrorMessage(err, "Failed to move group")),
   });

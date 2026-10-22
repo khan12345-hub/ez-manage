@@ -122,10 +122,56 @@ export class UsersService {
     }
   }
 
-  async deleteUser(id: number) {
+  async deleteUser(id: number, force = false) {
     const user = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
     if (!user) throw new NotFoundException('User not found');
-    await this.prisma.user.update({ where: { id }, data: { deletedAt: new Date() } });
+
+    if (force) {
+      // Hard delete: strip all workspace data then remove the user record.
+      const workspaces = await this.prisma.workspace.findMany({
+        where: { members: { some: { userId: id } } },
+        select: { id: true },
+      });
+      const workspaceIds = workspaces.map((w) => w.id);
+
+      const boardIds = workspaceIds.length
+        ? (
+            await this.prisma.board.findMany({
+              where: { workspaceId: { in: workspaceIds } },
+              select: { id: true },
+            })
+          ).map((b) => b.id)
+        : [];
+
+      // Remove user from all PERSON-type task cells.
+      if (boardIds.length) {
+        const personCells = await this.prisma.taskCell.findMany({
+          where: { column: { boardId: { in: boardIds }, type: 'PERSON' } },
+          select: { id: true, value: true },
+        });
+        for (const cell of personCells) {
+          const v = cell.value as any;
+          const users: any[] = Array.isArray(v?.users) ? v.users : Array.isArray(v) ? v : [];
+          const filtered = users.filter((u: any) => u.userId !== id);
+          if (filtered.length !== users.length) {
+            const newValue = Array.isArray(v) ? filtered : { ...v, users: filtered };
+            await this.prisma.taskCell.update({ where: { id: cell.id }, data: { value: newValue } });
+          }
+        }
+      }
+
+      await this.prisma.$transaction([
+        this.prisma.timeEntry.deleteMany({ where: { userId: id } }),
+        this.prisma.boardMember.deleteMany({ where: { userId: id } }),
+        this.prisma.chatMember.deleteMany({ where: { userId: id } }),
+        this.prisma.workspaceMember.deleteMany({ where: { userId: id } }),
+        this.prisma.user.delete({ where: { id } }),
+      ]);
+    } else {
+      // Soft delete: disable login, preserve all data.
+      await this.prisma.user.update({ where: { id }, data: { deletedAt: new Date() } });
+    }
+
     return { message: 'User deleted successfully' };
   }
 

@@ -38,7 +38,7 @@ export default function AutomationModal({
 }: AutomationModalProps) {
   const params = useParams();
 
-  const boardId = Number(params.boardId);
+  const boardId = params.boardId as string;
 
   /*
    * ---------------------------------------------------------

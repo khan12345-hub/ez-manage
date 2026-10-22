@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import { Bell, Phone, PhoneOff, Video, X } from "lucide-react";
 import { SecondarySidebar } from "./Sidebar/SecondarySidebar";
 import { TopNavbar } from "./TopNavbar/TopNavbar";
@@ -17,6 +18,7 @@ import { getSocket } from "@/components/Chat/ChatProvider";
 import { playRingtone } from "@/lib/sounds";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { CommandPalette } from "@/components/CommandPalette";
+import { TaskDetailsSheet } from "@/app/(dashboard)/workspace/[workspaceId]/board/Task/TaskDetailDrawer/Updates/TaskDetailsDrawer";
 
 // Lazy-load LiveKit bundle — prevents the SDK from running region-discovery
 // on every page load. The bundle only downloads when a call is actually active.
@@ -225,6 +227,9 @@ export function AppShell({ children }: AppShellProps) {
   const [isSecondaryOpen, setIsSecondaryOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { user } = useAuth();
+  const pathname = usePathname();
+  // Board pages render their own TaskDetailsSheet; all other pages need it globally
+  const isBoardPage = /\/board\/\d+/.test(pathname ?? "");
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground antialiased font-sans">
@@ -253,6 +258,7 @@ export function AppShell({ children }: AppShellProps) {
               </div>
 
               <CommandPalette />
+              {!isBoardPage && <TaskDetailsSheet />}
               <AskAiWidget />
               <CallToast />
               <CallDeclinedToast />

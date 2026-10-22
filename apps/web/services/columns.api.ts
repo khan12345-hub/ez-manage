@@ -63,7 +63,7 @@ export const reorderColumn = async (data: ReorderColumnDto) => {
 };
 
 export async function updateColumnAccess(
-  boardId: number,
+  boardId: string | number,
   columnId: number,
   enabled: boolean,
 ) {
@@ -78,7 +78,7 @@ export async function updateColumnAccess(
 }
 
 export async function updateColumnPermission(
-  boardId: number,
+  boardId: string | number,
   columnId: number,
   userId: number,
   canEdit: boolean,
@@ -95,7 +95,7 @@ export async function updateColumnPermission(
 }
 
 export async function removeColumnPermission(
-  boardId: number,
+  boardId: string | number,
   columnId: number,
   userId: number,
 ) {

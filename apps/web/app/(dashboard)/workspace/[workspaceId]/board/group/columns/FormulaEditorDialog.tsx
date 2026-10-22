@@ -37,7 +37,7 @@ const NUMERIC_TYPES = new Set([
 export function FormulaEditorDialog({ open, onOpenChange, column, boardColumns }: Props) {
   const queryClient = useQueryClient();
   const params = useParams();
-  const boardId = Number(params.boardId);
+  const boardId = params.boardId as string;
 
   const [formula, setFormula] = useState(column.formula ?? "");
 
