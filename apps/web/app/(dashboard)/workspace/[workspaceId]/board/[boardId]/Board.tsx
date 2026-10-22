@@ -339,9 +339,6 @@ export function Board({
     return () => clearTimeout(timer);
   }, [hasNextPage, isFetchingNextPage, isTasksError, fetchNextPage, loadedTasks.length]);
 
-  // Keep sentinel as fallback for manual scroll scenarios
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
   /**
    * ---------------------------------------------------------
    * RENDER
