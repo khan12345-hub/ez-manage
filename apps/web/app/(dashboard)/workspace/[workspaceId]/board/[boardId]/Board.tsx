@@ -330,20 +330,17 @@ export function Board({
    */
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  // Auto-fetch all pages — don't rely on scroll position.
+  // Blank groups happen when their tasks are in later pages and the sentinel
+  // never enters the viewport (because the empty rows have no height).
   useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel || !hasNextPage || isFetchingNextPage || isTasksError) return;
+    if (!hasNextPage || isFetchingNextPage || isTasksError) return;
+    const timer = setTimeout(() => fetchNextPage(), 200);
+    return () => clearTimeout(timer);
+  }, [hasNextPage, isFetchingNextPage, isTasksError, fetchNextPage, loadedTasks.length]);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) fetchNextPage();
-      },
-      { root: null, rootMargin: "800px" },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, isTasksError, fetchNextPage]);
+  // Keep sentinel as fallback for manual scroll scenarios
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   /**
    * ---------------------------------------------------------
