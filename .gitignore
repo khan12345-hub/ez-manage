@@ -36,3 +36,10 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+apps/web/services/auth/auth.hooks.ts
+apps/api/src/boards/boards.controller.ts
+apps/web/app/(dashboard)/home/page.tsx
+apps/web/app/layouts/AppShell/Sidebar/SecondarySidebar.tsx
+apps/web/services/auth/auth.hooks.ts
+apps/web/app/layouts/AppShell/Sidebar/SecondarySidebar.tsx
+apps/web/services/auth/auth.hooks.ts

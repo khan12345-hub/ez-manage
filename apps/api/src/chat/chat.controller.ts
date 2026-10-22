@@ -27,6 +27,7 @@ import { SessionUser } from 'src/auth/types/session-user.type';
 import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 import { ChatNotifPref } from 'generated/prisma/enums';
 import { LivekitService } from '../livekit/livekit.service';
+import { WorkspaceService } from 'src/workspace/workspace.service';
 
 /** Global (non-workspace-scoped) chat endpoints */
 @Controller('chat')
@@ -79,26 +80,29 @@ export class ChatController {
     private readonly chatGateway: ChatGateway,
     private readonly scheduledMessages: ScheduledMessagesService,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageProvider,
+    private readonly workspaceService: WorkspaceService,
   ) {}
 
   // ── Channels ──────────────────────────────────────────────────────────────
 
   @Get('channels')
-  getChannels(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async getChannels(
+    @Param('workspaceId') workspaceId: string,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.chatService.getChannels(workspaceId, user.id);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.chatService.getChannels(id, user.id);
   }
 
   @Post('channels')
-  createChannel(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async createChannel(
+    @Param('workspaceId') workspaceId: string,
     @CurrentUser() user: SessionUser,
     @Body() body: { name: string; description?: string; memberIds?: number[] },
   ) {
+    const id = await this.workspaceService.resolveId(workspaceId);
     return this.chatService.createChannel(
-      workspaceId,
+      id,
       user.id,
       body.name,
       body.description,
@@ -149,7 +153,7 @@ export class ChatController {
 
   @Post('channels/:channelId/members')
   async addChannelMember(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @Param('workspaceId') workspaceId: string,
     @Param('channelId', ParseIntPipe) channelId: number,
     @Body() body: { userId: number },
     @CurrentUser() caller: SessionUser,
@@ -162,7 +166,7 @@ export class ChatController {
 
   @Delete('channels/:channelId/members/:userId')
   async removeChannelMember(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @Param('workspaceId') workspaceId: string,
     @Param('channelId', ParseIntPipe) channelId: number,
     @Param('userId', ParseIntPipe) userId: number,
     @CurrentUser() caller: SessionUser,
@@ -197,7 +201,7 @@ export class ChatController {
     }),
   )
   async uploadFile(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @Param('workspaceId') workspaceId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
     const result = await this.storage.upload(file, 'chat');
@@ -213,22 +217,24 @@ export class ChatController {
   // ── Direct Messages ───────────────────────────────────────────────────────
 
   @Get('dms')
-  getDMs(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async getDMs(
+    @Param('workspaceId') workspaceId: string,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.chatService.getDMs(user.id, workspaceId);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.chatService.getDMs(user.id, id);
   }
 
   @Post('dms')
   async getOrCreateDM(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @Param('workspaceId') workspaceId: string,
     @CurrentUser() user: SessionUser,
     @Body() body: { userId: number },
   ) {
+    const id = await this.workspaceService.resolveId(workspaceId);
     const otherId = Number(body.userId);
     try {
-      const dm = await this.chatService.getOrCreateDM(user.id, otherId, workspaceId);
+      const dm = await this.chatService.getOrCreateDM(user.id, otherId, id);
       this.chatGateway.addSocketToChannel(user.id, dm.id);
       this.chatGateway.addSocketToChannel(otherId, dm.id);
       this.chatGateway.notifyNewDM(otherId, dm);
@@ -297,18 +303,20 @@ export class ChatController {
   }
 
   @Get('unread')
-  getUnreadCounts(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async getUnreadCounts(
+    @Param('workspaceId') workspaceId: string,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.chatService.getUnreadCounts(workspaceId, user.id);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.chatService.getUnreadCounts(id, user.id);
   }
 
   @Get('members')
-  getWorkspaceMembers(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async getWorkspaceMembers(
+    @Param('workspaceId') workspaceId: string,
   ) {
-    return this.chatService.getWorkspaceMembers(workspaceId);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.chatService.getWorkspaceMembers(id);
   }
 
   // ── Link Preview ─────────────────────────────────────────────────────────
@@ -327,11 +335,12 @@ export class ChatController {
 
   @Post('ensure-general')
   async ensureGeneralChannel(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+    @Param('workspaceId') workspaceId: string,
     @CurrentUser() user: SessionUser,
   ) {
-    await this.chatService.assertWorkspaceMember(workspaceId, user.id);
-    return this.chatService.ensureGeneralChannel(workspaceId, user.id);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    await this.chatService.assertWorkspaceMember(id, user.id);
+    return this.chatService.ensureGeneralChannel(id, user.id);
   }
 
   @Post('messages/:messageId/assign')

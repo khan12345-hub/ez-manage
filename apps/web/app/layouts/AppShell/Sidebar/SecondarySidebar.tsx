@@ -562,6 +562,15 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
 
         {/* Bottom links */}
         {workspace?.id && isAtLeastMember && <ChatNavLink workspaceId={workspaceId} />}
+        {false && (
+        <Link
+          href="/home"
+          className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <Home strokeWidth={1.5} className="h-4 w-4" />
+          Home
+        </Link>
+        )}
         <Link
           href="/help"
           data-tour="help-link"

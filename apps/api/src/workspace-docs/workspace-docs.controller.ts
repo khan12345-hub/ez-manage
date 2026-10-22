@@ -12,59 +12,68 @@ import { SessionUser } from 'src/auth/types/session-user.type';
 import { SessionAuthGuard } from 'src/auth/guards/session.guard';
 import { WorkspacePermissionGuard } from 'src/auth/guards/workspace-permission.guard';
 import { WorkspacePermission } from '@repo/shared';
+import { WorkspaceService } from 'src/workspace/workspace.service';
 
 @Controller('workspaces/:workspaceId/docs')
 @UseGuards(SessionAuthGuard, WorkspacePermissionGuard)
 export class WorkspaceDocsController {
-  constructor(private readonly service: WorkspaceDocsService) {}
+  constructor(
+    private readonly service: WorkspaceDocsService,
+    private readonly workspaceService: WorkspaceService,
+  ) {}
 
   @Get()
   @RequireWorkspacePermission(WorkspacePermission.VIEW)
-  findAll(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async findAll(
+    @Param('workspaceId') workspaceId: string,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.service.findAll(workspaceId, user.id);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.service.findAll(id, user.id);
   }
 
   @Get(':id')
   @RequireWorkspacePermission(WorkspacePermission.VIEW)
-  findOne(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async findOne(
+    @Param('workspaceId') workspaceId: string,
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.service.findOne(id, workspaceId, user.id);
+    const wsId = await this.workspaceService.resolveId(workspaceId);
+    return this.service.findOne(id, wsId, user.id);
   }
 
   @Post()
   @RequireWorkspacePermission(WorkspacePermission.EDIT)
-  create(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async create(
+    @Param('workspaceId') workspaceId: string,
     @Body() dto: CreateWorkspaceDocDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.service.create(workspaceId, user.id, dto);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.service.create(id, user.id, dto);
   }
 
   @Patch(':id')
   @RequireWorkspacePermission(WorkspacePermission.VIEW)
-  update(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async update(
+    @Param('workspaceId') workspaceId: string,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateWorkspaceDocDto,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.service.update(id, workspaceId, user.id, dto);
+    const wsId = await this.workspaceService.resolveId(workspaceId);
+    return this.service.update(id, wsId, user.id, dto);
   }
 
   @Delete(':id')
   @RequireWorkspacePermission(WorkspacePermission.VIEW)
-  remove(
-    @Param('workspaceId', ParseIntPipe) workspaceId: number,
+  async remove(
+    @Param('workspaceId') workspaceId: string,
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.service.remove(id, workspaceId, user.id);
+    const wsId = await this.workspaceService.resolveId(workspaceId);
+    return this.service.remove(id, wsId, user.id);
   }
 }

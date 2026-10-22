@@ -544,7 +544,13 @@ export class BoardsService {
     return { ok: true };
   }
 
-  async getRecentlyViewedBoards(workspaceId: number, userId: number, limit = 5) {
+  async getRecentlyViewedBoards(workspaceIdOrUid: string | number, userId: number, limit = 5) {
+    const num = typeof workspaceIdOrUid === 'number'
+      ? workspaceIdOrUid
+      : parseInt(workspaceIdOrUid, 10);
+    const workspaceId = Number.isFinite(num) && String(num) === String(workspaceIdOrUid)
+      ? num
+      : (await this.prisma.workspace.findUnique({ where: { uid: String(workspaceIdOrUid) }, select: { id: true } }))?.id ?? 0;
     const views = await this.prisma.boardView.findMany({
       where: {
         userId,

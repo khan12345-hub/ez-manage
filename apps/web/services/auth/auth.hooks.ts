@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe, login, logout } from "./auth.api";
-import { getAllWorkspaces } from "@/services/workspace.api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useChatStore } from "@/store/chat-store";
 import { useTaskDetailsStore } from "@/store/task-details-store";
 import { useInviteModalStore } from "@/store/invite-modal";
+import { getAllWorkspaces } from "@/services/workspace.api";
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -20,18 +20,9 @@ export function useLogin() {
       const redirect = searchParams.get("redirect");
       const isSafe = redirect && redirect.startsWith("/") && !redirect.startsWith("//");
       if (isSafe) { router.push(redirect!); return; }
-      try {
-        const workspaces = await queryClient.fetchQuery({
-          queryKey: ["workspaces"],
-          queryFn: getAllWorkspaces,
-          staleTime: 0,
-        });
-        const first = workspaces?.[0];
-        const uid = (first as any)?.uid ?? first?.id;
-        router.push(uid ? `/workspace/${uid}` : "/dashboard");
-      } catch {
-        router.push("/dashboard");
-      }
+      const workspaces = await getAllWorkspaces();
+      const first = workspaces?.[0];
+      router.push(`/workspace/${(first as any)?.uid ?? first?.id ?? ""}`);
     },
     onError: (error: any) => {
       if (error?.response?.status === 429) {

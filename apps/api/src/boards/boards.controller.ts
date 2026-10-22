@@ -70,7 +70,7 @@ export class BoardsController {
 
   @Get('recently-viewed')
   getRecentlyViewed(
-    @Query('workspaceId', ParseIntPipe) workspaceId: number,
+    @Query('workspaceId') workspaceId: string,
     @CurrentUser() user: SessionUser,
   ) {
     return this.boardsService.getRecentlyViewedBoards(workspaceId, user.id);
