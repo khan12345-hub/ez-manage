@@ -195,10 +195,12 @@ export function GroupTable({
 
               <th
                 onClick={() => setOpen(true)}
-                className="flex w-44 cursor-pointer items-center gap-2 px-4 py-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="h-[41px] w-44 cursor-pointer px-0 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                <Plus className="h-4 w-4" />
-                Add Column
+                <div className="flex h-full items-center gap-2 px-4">
+                  <Plus className="h-4 w-4" />
+                  Add Column
+                </div>
               </th>
             </tr>
           </thead>

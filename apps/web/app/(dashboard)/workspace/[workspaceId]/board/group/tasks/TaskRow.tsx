@@ -97,7 +97,7 @@ export const TaskRow = forwardRef<
       <tr
         ref={ref}
         style={style}
-        className="group border-b hover:bg-muted/30"
+        className="group h-[41px] border-b hover:bg-muted/30"
       >
         <td
           style={{
