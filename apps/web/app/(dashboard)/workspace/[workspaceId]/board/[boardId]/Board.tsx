@@ -79,7 +79,7 @@ export function Board({
     queryFn: ({ pageParam }) =>
       getBoardTasks(board.id, {
         cursor: pageParam ?? undefined,
-        limit: 200,
+        limit: 500,
         search: (search ?? "").trim() || undefined,
         person: personFilter?.users?.length
           ? personFilter.users.map((u: { id: number }) => u.id).join(",")
@@ -338,7 +338,7 @@ export function Board({
       (entries) => {
         if (entries[0]?.isIntersecting) fetchNextPage();
       },
-      { root: document.querySelector("main"), rootMargin: "200px" },
+      { root: null, rootMargin: "800px" },
     );
 
     observer.observe(sentinel);
