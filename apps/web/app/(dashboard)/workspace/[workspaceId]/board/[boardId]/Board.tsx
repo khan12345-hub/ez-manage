@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   InfiniteData,
-  useInfiniteQuery,
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -13,7 +12,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/error-message";
 
 import { createTask } from "@/services/tasks.api";
-import { BoardTasksResponse, getBoardTasks } from "@/services/boards.api";
+import { BoardTasksResponse } from "@/services/boards.api";
 
 import { useGroupStore } from "@/store/create-group-store";
 import { useTaskSelection } from "../group/tasks/sub-tasks/useTaskSelection";
@@ -53,94 +52,45 @@ export function Board({
 
   const [groupSort, setGroupSort] = useState<GroupSortOption>("default");
 
-
   /**
    * ---------------------------------------------------------
-   * PAGINATED TASKS
+   * PER-GROUP TASK MAP (for DnD)
    * ---------------------------------------------------------
+   * Each Group fetches its own tasks independently and reports
+   * them here so that useBoardDnd has the tasks it needs for
+   * drag calculations (finding task positions, source group, etc.).
    */
-  const {
-    data: tasksData,
-    isLoading: isTasksLoading,
-    isFetching: isTasksFetching,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    isError: isTasksError,
-  } = useInfiniteQuery<
-    BoardTasksResponse,
-    Error,
-    InfiniteData<BoardTasksResponse>,
-    any[],
-    number | null
-  >({
-    queryKey: ["board-tasks", board.id, search, personFilter],
+  const [groupTasksMap, setGroupTasksMap] = useState<Record<number, any[]>>({});
 
-    queryFn: ({ pageParam }) =>
-      getBoardTasks(board.id, {
-        cursor: pageParam ?? undefined,
-        limit: 500,
-        search: (search ?? "").trim() || undefined,
-        person: personFilter?.users?.length
-          ? personFilter.users.map((u: { id: number }) => u.id).join(",")
-          : undefined,
-      }),
-
-    initialPageParam: null,
-
-    getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? lastPage.nextCursor : null,
-
-    staleTime: 30 * 60_000,
-    gcTime: 120 * 60_000,
-    refetchOnMount: false,
-
-    retry: (failureCount, error: any) => {
-      const status = error?.response?.status ?? error?.status;
-      if (status === 429) return false;
-      return failureCount < 2;
+  const handleGroupTasksLoaded = useCallback(
+    (groupId: number, tasks: any[]) => {
+      setGroupTasksMap((prev) => {
+        // Bail out if the reference is already the same array
+        if (prev[groupId] === tasks) return prev;
+        return { ...prev, [groupId]: tasks };
+      });
     },
-    retryDelay: (failureCount) => Math.min(1000 * 2 ** failureCount, 10_000),
-  });
-
-
-  /**
-   * ---------------------------------------------------------
-   * FLATTEN LOADED PAGES
-   * ---------------------------------------------------------
-   * Memoized so the array reference is stable between renders —
-   * a new reference on every render would cascade through
-   * useBoard → useBoardDnd → Group → EditableCell and trigger
-   * "Maximum update depth exceeded" in EditableCell.useEffect.
-   */
-  const loadedTasks = useMemo(
-    () =>
-      Array.from(
-        new Map(
-          (tasksData?.pages.flatMap((page: any) => page.tasks) ?? []).map(
-            (task: any) => [task.id, task],
-          ),
-        ).values(),
-      ),
-    [tasksData],
+    [],
   );
 
-  const totalTaskCount = tasksData?.pages[0]?.total ?? 0;
+  const personFilterKey = personFilter?.users?.length
+    ? personFilter.users.map((u: { id: number }) => u.id).join(",")
+    : "";
+
+  const searchTrimmed = (search ?? "").trim();
 
   /**
    * ---------------------------------------------------------
-   * PUT TASKS BACK INTO GROUPS
+   * PUT TASKS BACK INTO GROUPS (for DnD)
    * ---------------------------------------------------------
-   * Also memoized — board.groups is stable (React Query cache),
-   * and loadedTasks only changes when a new page loads.
    */
   const groupsWithTasks = useMemo(
     () =>
       (board.groups ?? []).map((group: any) => ({
         ...group,
-        tasks: loadedTasks.filter((task: any) => task.groupId === group.id),
+        tasks: groupTasksMap[group.id] ?? [],
       })),
-    [board.groups, loadedTasks],
+    [board.groups, groupTasksMap],
   );
 
   /**
@@ -166,8 +116,7 @@ export function Board({
 
   /**
    * ---------------------------------------------------------
-   * SORT GROUPS — derived synchronously so the board never
-   * renders a blank first frame while waiting for an effect.
+   * SORT GROUPS
    * ---------------------------------------------------------
    */
   const sortedGroups = useMemo(
@@ -201,16 +150,16 @@ export function Board({
     onSuccess: (newTask) => {
       toast.success("Task created");
 
-      // Insert the new task immediately into the last loaded page so it's
-      // visible at the bottom of its group without waiting for a full refetch.
+      // Insert the new task immediately into the correct per-group cache
+      // so it appears at the bottom of its group without waiting for a refetch.
       queryClient.setQueryData<InfiniteData<BoardTasksResponse>>(
-        ["board-tasks", board.id, search, personFilter],
+        ["board-tasks", board.id, newTask.groupId, searchTrimmed, personFilterKey],
         (old) => {
           if (!old?.pages.length) return old;
           const lastIdx = old.pages.length - 1;
           return {
             ...old,
-            pages: old.pages.map((page, i) =>
+            pages: old.pages.map((page: any, i: number) =>
               i === lastIdx
                 ? { ...page, tasks: [...page.tasks, newTask], total: page.total + 1 }
                 : page,
@@ -317,30 +266,6 @@ export function Board({
 
   /**
    * ---------------------------------------------------------
-   * SCROLL-TRIGGERED PAGINATION
-   * ---------------------------------------------------------
-   * An IntersectionObserver watches a sentinel div placed just
-   * below the last rendered group. When the sentinel enters the
-   * viewport (with a 200px lead), the next page is fetched.
-   *
-   * The observer is only connected when there is a next page
-   * and no fetch is already in flight, so duplicate requests
-   * are impossible. On error the observer stays disconnected
-   * until the user triggers a retry.
-   */
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
-  // Auto-fetch all pages — don't rely on scroll position.
-  // Blank groups happen when their tasks are in later pages and the sentinel
-  // never enters the viewport (because the empty rows have no height).
-  useEffect(() => {
-    if (!hasNextPage || isFetchingNextPage || isTasksError) return;
-    const timer = setTimeout(() => fetchNextPage(), 200);
-    return () => clearTimeout(timer);
-  }, [hasNextPage, isFetchingNextPage, isTasksError, fetchNextPage, loadedTasks.length]);
-
-  /**
-   * ---------------------------------------------------------
    * RENDER
    * ---------------------------------------------------------
    */
@@ -368,9 +293,10 @@ export function Board({
           groups: sortedGroups,
         }}
         search={search}
+        personFilter={personFilter}
+        onTasksLoaded={handleGroupTasksLoaded}
         isLoading={isLoading}
-        isTasksLoading={isTasksLoading}
-        isFetching={isFetching || (isTasksFetching && !isFetchingNextPage)}
+        isFetching={isFetching}
         isError={isError}
         dragGroups={sortedGroups}
         filteredColumns={filteredColumns}
@@ -382,27 +308,9 @@ export function Board({
         handleDragCancel={handleDragCancel}
         selection={selection}
         newGroupFocusToken={newGroupFocusToken}
-        hasNextPage={hasNextPage}
-        isFetchingNextPage={isFetchingNextPage}
-        allTasksLoaded={!hasNextPage && !isFetchingNextPage && !isTasksLoading}
       />
 
       <BoardHorizontalScrollbar />
-
-      {/* Sentinel — IntersectionObserver triggers next-page fetch when this enters viewport */}
-      <div ref={sentinelRef} aria-hidden="true" />
-
-      {isFetchingNextPage && (
-        <p className="py-2 text-center text-xs text-muted-foreground animate-pulse">
-          Loading tasks…
-        </p>
-      )}
-
-      {!hasNextPage && totalTaskCount > 200 && (
-        <p className="py-3 text-center text-xs text-muted-foreground">
-          All {totalTaskCount.toLocaleString()} tasks loaded
-        </p>
-      )}
 
       <BulkActionToolbar
         selectedCount={selection.selectedCount}

@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useGroupStore } from "@/store/create-group-store";
 
 import { GroupTable } from "./GroupTable";
 import { GroupHeader } from "./GroupHeader";
 import { ColumnTypeModal } from "./columns/AddColumnModal";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { InfiniteData, useMutation, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { BoardColumnType, createColumn } from "@/services/columns.api";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getBoardTasks, BoardTasksResponse } from "@/services/boards.api";
 
 const NAME_WIDTHS = ["w-48", "w-36", "w-56", "w-28", "w-44", "w-40", "w-32", "w-52"];
 const CELL_WIDTHS = ["w-16", "w-20", "w-12", "w-24", "w-14", "w-18"];
@@ -62,9 +63,9 @@ export function Group({
   selection,
   newTaskFocusToken = 0,
   members,
-  isTasksLoading = false,
-  isFetchingNextPage = false,
-  allTasksLoaded = false,
+  search,
+  personFilter,
+  onTasksLoaded,
   ...props
 }: any) {
   const boardId = group?.boardId;
@@ -74,6 +75,84 @@ export function Group({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const queryClient = useQueryClient();
+
+  const personFilterKey = personFilter?.users?.length
+    ? personFilter.users.map((u: any) => u.id).join(",")
+    : "";
+  const searchTrimmed = (search ?? "").trim();
+
+  /**
+   * ---------------------------------------------------------
+   * PER-GROUP INFINITE QUERY
+   * ---------------------------------------------------------
+   * Each group independently fetches its own tasks in parallel
+   * with all other groups, using the groupId as a filter on the
+   * shared board-tasks endpoint. This means "Not Approved" (133
+   * tasks) loads immediately — it no longer waits for the 2626
+   * tasks in "Reimbursement Paid" to finish paging through first.
+   */
+  const {
+    data,
+    isLoading: isGroupTasksLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery<
+    BoardTasksResponse,
+    Error,
+    InfiniteData<BoardTasksResponse>,
+    any[],
+    number | null
+  >({
+    queryKey: ["board-tasks", boardId, group.id, searchTrimmed, personFilterKey],
+
+    queryFn: ({ pageParam }) =>
+      getBoardTasks(boardId, {
+        groupId: group.id,
+        cursor: pageParam ?? undefined,
+        limit: 500,
+        search: searchTrimmed || undefined,
+        person: personFilterKey || undefined,
+      }),
+
+    initialPageParam: null,
+
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? lastPage.nextCursor : null,
+
+    staleTime: 30 * 60_000,
+    gcTime: 120 * 60_000,
+    refetchOnMount: false,
+
+    enabled: !!boardId && !!group.id,
+  });
+
+  // Flatten all loaded pages, deduplicating by id
+  const loadedTasks = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          (data?.pages.flatMap((page: any) => page.tasks) ?? []).map(
+            (task: any) => [task.id, task],
+          ),
+        ).values(),
+      ),
+    [data],
+  );
+
+  // Auto-fetch all pages — don't rely on scroll sentinel
+  useEffect(() => {
+    if (!hasNextPage || isFetchingNextPage) return;
+    const timer = setTimeout(() => fetchNextPage(), 200);
+    return () => clearTimeout(timer);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, loadedTasks.length]);
+
+  // Report tasks up to Board so useBoardDnd can compute drag positions
+  useEffect(() => {
+    if (onTasksLoaded) {
+      onTasksLoaded(group.id, loadedTasks);
+    }
+  }, [group.id, loadedTasks, onTasksLoaded]);
 
   const createColumnMutation = useMutation({
     mutationFn: (type: BoardColumnType) => createColumn(boardId || 0, type),
@@ -93,8 +172,8 @@ export function Group({
     },
   });
 
-  const hydratedGroup = group;
-  const rootTasks = (group.tasks ?? []).filter((t: any) => !t.parentId);
+  const hydratedGroup = { ...group, tasks: loadedTasks };
+  const rootTasks = loadedTasks.filter((t: any) => !t.parentId);
   // Use the server-side total from _count so the header shows the real count
   // even when only a subset of tasks has been loaded via infinite scroll.
   const rootTaskCount = group._count?.tasks ?? rootTasks.length;
@@ -122,9 +201,8 @@ export function Group({
     return false;
   }).length;
 
-  // Only show the progress bar when all tasks for this group are loaded —
-  // otherwise completedTaskCount would be based on a partial set.
-  const allGroupTasksLoaded = rootTasks.length >= rootTaskCount;
+  // All tasks for this group are loaded when there are no more pages
+  const allGroupTasksLoaded = !hasNextPage && !isFetchingNextPage;
   const showProgress = allGroupTasksLoaded && (checkboxCol || statusCol) && rootTaskCount > 0;
 
   return (
@@ -142,7 +220,7 @@ export function Group({
         />
 
         {!isCollapsed && (
-          isTasksLoading && rootTasks.length === 0
+          isGroupTasksLoading && rootTasks.length === 0
             ? <GroupTasksSkeleton columns={columns} color={group.color} />
             : <GroupTable
                 group={hydratedGroup}

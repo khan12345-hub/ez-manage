@@ -20,8 +20,9 @@ import { ArchivedGroupsPanel } from "../group/ArchivedGroupsPanel";
 interface BoardContentProps {
   board: any;
   search: string;
+  personFilter?: any;
+  onTasksLoaded: (groupId: number, tasks: any[]) => void;
   isLoading: boolean;
-  isTasksLoading?: boolean;
   isFetching: boolean;
   isError: boolean;
   dragGroups: any[];
@@ -34,16 +35,14 @@ interface BoardContentProps {
   handleDragCancel: () => void;
   selection: any;
   newGroupFocusToken: number;
-  hasNextPage?:boolean
-  isFetchingNextPage?:boolean
-  allTasksLoaded?: boolean
 }
 
 export function BoardContent({
   board,
   search,
+  personFilter,
+  onTasksLoaded,
   isLoading,
-  isTasksLoading = false,
   isFetching,
   isError,
   dragGroups,
@@ -56,8 +55,6 @@ export function BoardContent({
   handleDragCancel,
   selection,
   newGroupFocusToken,
-  isFetchingNextPage = false,
-  allTasksLoaded = false,
 }: BoardContentProps) {
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
 
@@ -157,9 +154,9 @@ export function BoardContent({
                           group.isNew ? newGroupFocusToken : 0
                         }
                         members={board.members}
-                        isTasksLoading={isTasksLoading}
-                        isFetchingNextPage={isFetchingNextPage}
-                        allTasksLoaded={allTasksLoaded}
+                        search={search}
+                        personFilter={personFilter}
+                        onTasksLoaded={onTasksLoaded}
                       />
                     </SortableGroup>
                   )}
