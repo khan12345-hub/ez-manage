@@ -97,6 +97,7 @@ export function Group({
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
+    isError: isGroupTasksError,
   } = useInfiniteQuery<
     BoardTasksResponse,
     Error,
@@ -140,12 +141,15 @@ export function Group({
     [data],
   );
 
-  // Auto-fetch all pages — don't rely on scroll sentinel
+  // Auto-fetch all pages — don't rely on scroll sentinel.
+  // isGroupTasksError guard prevents an infinite retry loop: if a page fails
+  // after React Query exhausts its retry budget, hasNextPage stays true but we
+  // must stop firing fetchNextPage() or we hammer the API forever.
   useEffect(() => {
-    if (!hasNextPage || isFetchingNextPage) return;
+    if (!hasNextPage || isFetchingNextPage || isGroupTasksError) return;
     const timer = setTimeout(() => fetchNextPage(), 200);
     return () => clearTimeout(timer);
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage, loadedTasks.length]);
+  }, [hasNextPage, isFetchingNextPage, isGroupTasksError, fetchNextPage, loadedTasks.length]);
 
   // Report tasks up to Board so useBoardDnd can compute drag positions
   useEffect(() => {
@@ -201,8 +205,10 @@ export function Group({
     return false;
   }).length;
 
-  // All tasks for this group are loaded when there are no more pages
-  const allGroupTasksLoaded = !hasNextPage && !isFetchingNextPage;
+  // All tasks for this group are loaded when the query has settled with no further pages.
+  // isGroupTasksLoading guards against the brief window at startup where hasNextPage
+  // is still undefined, which would otherwise make this prematurely true.
+  const allGroupTasksLoaded = !isGroupTasksLoading && !hasNextPage && !isFetchingNextPage;
   const showProgress = allGroupTasksLoaded && (checkboxCol || statusCol) && rootTaskCount > 0;
 
   return (
