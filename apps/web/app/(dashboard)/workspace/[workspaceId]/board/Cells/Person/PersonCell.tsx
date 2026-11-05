@@ -2,7 +2,7 @@
 
 import { User2 } from "lucide-react";
 import { resolveUrl } from "@/lib/resolveUrl";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   HoverCard,
   HoverCardContent,
@@ -11,18 +11,41 @@ import {
 
 interface BoardMember {
   id: number;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
-  avatar?: string | null;
+  avatarUrl?: string | null;
 }
 
 interface Props {
-  cell?: BoardMember | BoardMember[] | null | any;
+  cell?: { users?: BoardMember[] } | BoardMember | BoardMember[] | null | any;
+}
+
+/**
+ * Normalise every stored shape into a flat list of users:
+ *  - { users: [...] }        (current shape)
+ *  - [ { users: [...] } ]    (wrapped)
+ *  - [ user, user ]          (legacy array)
+ *  - user                    (legacy single user)
+ */
+function toUserList(cell: Props["cell"]): BoardMember[] {
+  if (!cell) return [];
+  if (Array.isArray(cell)) {
+    return cell.flatMap((c: any) =>
+      Array.isArray(c?.users) ? c.users : c?.id != null ? [c] : [],
+    );
+  }
+  if (Array.isArray(cell.users)) return cell.users;
+  if (cell.id != null) return [cell];
+  return [];
+}
+
+function initials(u: BoardMember) {
+  return `${u.firstName?.[0] ?? ""}${u.lastName?.[0] ?? ""}`.toUpperCase() || "?";
 }
 
 export function PersonCell({ cell }: Props) {
-  const users = cell ? (Array.isArray(cell) ? cell : [cell]) : [];
+  const users = toUserList(cell);
 
   if (users.length === 0) {
     return (
@@ -38,29 +61,25 @@ export function PersonCell({ cell }: Props) {
     <HoverCard openDelay={100}>
       <HoverCardTrigger asChild>
         <div className="flex cursor-pointer -space-x-2">
-          {users &&
-            users[0].users.slice(0, 3).map((user: any) => {
-              const avatarUrl = resolveUrl(user.avatarUrl) || undefined;
-              return (
-                <Avatar
-                  key={user.id}
-                  className="h-7 w-7 border-2 border-background overflow-hidden"
-                >
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={`${user.firstName} ${user.lastName}`}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <AvatarFallback>
-                      {user.firstName?.[0]}
-                      {user.lastName?.[0]}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-              );
-            })}
+          {users.slice(0, 3).map((user) => {
+            const avatarUrl = resolveUrl(user.avatarUrl) || undefined;
+            return (
+              <Avatar
+                key={user.id}
+                className="h-7 w-7 border-2 border-background overflow-hidden"
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <AvatarFallback>{initials(user)}</AvatarFallback>
+                )}
+              </Avatar>
+            );
+          })}
 
           {users.length > 3 && (
             <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-medium">
@@ -72,31 +91,35 @@ export function PersonCell({ cell }: Props) {
 
       <HoverCardContent side="top" align="start" className="w-64 p-2">
         <div className="space-y-2">
-          {users.map((user) => (
-            <div
-              key={user.id}
-              className="flex items-center gap-3 rounded-md p-2 hover:bg-accent"
-            >
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>
-                  {/* {user.firstName?.[0]} */}
-                  {user.lastName?.[0]}
-                </AvatarFallback>
-              </Avatar>
+          {users.map((user) => {
+            const avatarUrl = resolveUrl(user.avatarUrl) || undefined;
+            return (
+              <div
+                key={user.id}
+                className="flex items-center gap-3 rounded-md p-2 hover:bg-accent"
+              >
+                <Avatar className="h-8 w-8 overflow-hidden">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <AvatarFallback>{initials(user)}</AvatarFallback>
+                  )}
+                </Avatar>
 
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
-                  {user.firstName} {user.lastName}
-                </p>
-
-                {user.email && (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {user.email}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Unknown user"}
                   </p>
-                )}
+
+                  {user.email && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {user.email}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </HoverCardContent>
     </HoverCard>

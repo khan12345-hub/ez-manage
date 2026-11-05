@@ -52,7 +52,10 @@ describe('TimeTrackingService', () => {
         { provide: NotificationsService, useValue: makeNotifications() },
         { provide: BoardAccessService, useValue: boardAccess },
       ],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     service = module.get(TimeTrackingService);
   });

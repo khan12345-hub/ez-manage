@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { useChatStore } from "@/store/chat-store";
 import { useTaskDetailsStore } from "@/store/task-details-store";
 import { useInviteModalStore } from "@/store/invite-modal";
-import { getAllWorkspaces } from "@/services/workspace.api";
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -20,9 +19,9 @@ export function useLogin() {
       const redirect = searchParams.get("redirect");
       const isSafe = redirect && redirect.startsWith("/") && !redirect.startsWith("//");
       if (isSafe) { router.push(redirect!); return; }
-      const workspaces = await getAllWorkspaces();
-      const first = workspaces?.[0];
-      router.push(`/workspace/${(first as any)?.uid ?? first?.id ?? ""}`);
+      // After login go straight to the task-management dashboard
+      // (must match LoginAuthGuard / GuestWrapper, otherwise they race).
+      router.push("/dashboard");
     },
     onError: (error: any) => {
       if (error?.response?.status === 429) {

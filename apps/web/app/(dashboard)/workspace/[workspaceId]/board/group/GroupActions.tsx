@@ -57,6 +57,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { STATUS_COLORS } from "@/constants/colors";
 import { getErrorMessage } from "@/lib/error-message";
+import { useCanManageGroups } from "../hooks/useCanManageGroups";
 
 interface Props {
   group: any;
@@ -80,6 +81,7 @@ export function GroupActions({
 
   const { boardId } = useInviteModalStore();
 
+  const canManageGroups = useCanManageGroups();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
 
@@ -212,6 +214,8 @@ export function GroupActions({
             )}
           </DropdownMenuItem>
 
+          {/* Structure changes: board/workspace OWNER & ADMIN only */}
+          {canManageGroups && (<>
           <DropdownMenuSeparator />
 
           {/* ── Rename ── */}
@@ -300,6 +304,7 @@ export function GroupActions({
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
+          </>)}
 
           <DropdownMenuSeparator />
 
@@ -309,6 +314,7 @@ export function GroupActions({
             Export to Excel
           </DropdownMenuItem>
 
+          {canManageGroups && (<>
           <DropdownMenuSeparator />
 
           {/* ── Archive ── */}
@@ -331,6 +337,7 @@ export function GroupActions({
             <Trash2 className="mr-2 h-4 w-4" />
             Delete group
           </DropdownMenuItem>
+          </>)}
         </DropdownMenuContent>
       </DropdownMenu>
 

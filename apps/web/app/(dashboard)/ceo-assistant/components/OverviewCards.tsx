@@ -53,10 +53,10 @@ const CARDS = [
     sublabel: "No recent activity",
     icon: Activity,
     bg:     "bg-gradient-to-br from-slate-50 to-slate-100/60 dark:from-slate-900/40 dark:to-slate-800/20",
-    border: "border-slate-200 dark:border-slate-700/60",
+    border: "border-border dark:border-slate-700/60",
     iconBg: "bg-slate-500",
-    numCls: "text-slate-600 dark:text-slate-400",
-    btnCls: "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400",
+    numCls: "text-muted-foreground dark:text-slate-400",
+    btnCls: "border-border text-muted-foreground hover:bg-muted dark:border-slate-700 dark:text-slate-400",
     pulse:  false,
   },
 ] as const;

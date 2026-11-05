@@ -62,7 +62,72 @@ export class InvitationsService {
     private readonly activityLogsService: ActivityLogsService,
   ) {}
 
+  /**
+   * Shared inviter check (invites AND invite links): active workspace
+   * OWNER/ADMIN or super admin; only an OWNER may hand out the OWNER role.
+   */
+  private async assertWorkspaceInviter(
+    workspaceId: number,
+    userId: number,
+    grantedRole: WorkspaceMemberRole,
+  ) {
+    const inviter = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { systemRole: true },
+    });
+    if (!inviter) {
+      throw new NotFoundException('Inviting user not found.');
+    }
+    if (inviter.systemRole === 'SUPER_ADMIN') return;
+
+    const membership = await this.prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId, deletedAt: null },
+      select: { role: true },
+    });
+    if (!membership) {
+      throw new ForbiddenException('You are not a member of this workspace.');
+    }
+    if (
+      membership.role !== WorkspaceMemberRole.OWNER &&
+      membership.role !== WorkspaceMemberRole.ADMIN
+    ) {
+      throw new ForbiddenException('You do not have permission to invite users.');
+    }
+    if (
+      grantedRole === WorkspaceMemberRole.OWNER &&
+      membership.role !== WorkspaceMemberRole.OWNER
+    ) {
+      throw new ForbiddenException('Only a workspace owner can grant the Owner role.');
+    }
+  }
+
+  /**
+   * Inviter must be an active OWNER/ADMIN of the workspace (or a super admin),
+   * only an OWNER may grant OWNER, and every board must belong to the workspace.
+   *
+   * This used to run only for NEW users — for an email that already had an
+   * account, all checks were skipped, so any logged-in user could add anyone
+   * (including themselves) to any workspace/board with any role, even OWNER.
+   */
+  private async assertCanInvite(dto: CreateInvitationDto, invitedById: number) {
+    await this.assertWorkspaceInviter(dto.workspaceId, invitedById, dto.role);
+
+    const boardCount = await this.prisma.board.count({
+      where: { id: { in: dto.boardIds }, workspaceId: dto.workspaceId },
+    });
+    if (boardCount !== new Set(dto.boardIds).size) {
+      throw new BadRequestException(
+        'One or more selected boards do not belong to the selected workspace.',
+      );
+    }
+  }
+
   async create(dto: CreateInvitationDto, invitedById: number) {
+    // ------------------------------------------------------------
+    // 0. Authorize the inviter — for BOTH existing and new users
+    // ------------------------------------------------------------
+    await this.assertCanInvite(dto, invitedById);
+
     // ------------------------------------------------------------
     // 1. Check if the invited user already exists
     // ------------------------------------------------------------
@@ -380,6 +445,9 @@ export class InvitationsService {
     createdById: number,
     expiresInDays?: number,
   ) {
+    // Anyone could previously mint a link (even with role OWNER) for any workspace.
+    await this.assertWorkspaceInviter(workspaceId, createdById, role);
+
     const token = randomUUID();
     const expiresAt = expiresInDays
       ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)

@@ -35,7 +35,7 @@ function AdminEditForm({
       <div>
         <label className="text-sm font-medium">Name</label>
         <input
-          className="mt-1.5 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+          className="mt-1.5 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={isPending}
@@ -51,7 +51,7 @@ function AdminEditForm({
         <button
           onClick={() => onSubmit(name.trim())}
           disabled={isPending || !name.trim()}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary disabled:opacity-50"
         >
           {isPending ? "Saving..." : "Save Changes"}
         </button>
@@ -187,7 +187,7 @@ export function BoardsTab() {
         createPortal(
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
             <div className="relative w-full max-w-sm rounded-xl border bg-background p-6 shadow-2xl">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-t-xl" />
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-primary to-purple-600 rounded-t-xl" />
               <button
                 onClick={() => setEditingBoard(null)}
                 className="absolute top-4 right-4 rounded-full p-1.5 text-muted-foreground hover:bg-muted"

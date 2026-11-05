@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, FolderPen, MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -59,7 +60,7 @@ export function ManageBoardDropdown({
   const { mutate: budgetMutation, isPending: isBudgetSaving } = useMutation({
     mutationFn: (hours: number | null) => updateBoard(boardId, { budgetHours: hours }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
       queryClient.invalidateQueries({ queryKey: ["board-time-summary", boardId] });
       setIsBudgetDialogOpen(false);
       toast.success("Budget updated");

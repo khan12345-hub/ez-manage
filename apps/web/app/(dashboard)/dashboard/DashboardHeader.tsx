@@ -1,9 +1,8 @@
 "use client";
 
 import { useAuth } from "@/providers/AuthProvider";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CalendarDays, Sparkles } from "lucide-react";
-import { resolveUrl } from "@/lib/resolveUrl";
+import { CalendarDays } from "lucide-react";
+import { motion } from "framer-motion";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -21,73 +20,90 @@ function getFormattedDate() {
   });
 }
 
+
 export function DashboardHeader() {
   const { user } = useAuth();
-
-  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "User";
-  const initials = [user?.firstName, user?.lastName]
-    .filter(Boolean)
-    .map((n) => n?.charAt(0).toUpperCase())
-    .join("") || "U";
-
-  const avatarUrl = resolveUrl(user?.avatarUrl) || null;
-
-  const workspaceCount = user?.workspaceMemberships?.length ?? 0;
-  const boardCount = user?.boardMemberships?.length ?? 0;
+  const firstName = user?.firstName || "there";
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 p-6 shadow-lg">
-      {/* Background decoration */}
-      <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/5" />
-      <div className="pointer-events-none absolute -bottom-8 right-24 h-32 w-32 rounded-full bg-white/5" />
-      <div className="pointer-events-none absolute bottom-0 left-1/2 h-20 w-72 -translate-x-1/2 rounded-full bg-white/5 blur-2xl" />
+    <motion.div
+      initial={{ opacity: 0, y: -16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="relative overflow-hidden rounded-2xl"
+      style={{
+        background: "linear-gradient(120deg, #eef0ff 0%, #f1edff 55%, #eae7ff 100%)",
+        border: "1px solid rgba(99,102,241,0.12)",
+        boxShadow: "0 4px 24px rgba(99,102,241,0.1)",
+      }}
+    >
+      {/* soft blobs */}
+      <div
+        className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full blur-3xl"
+        style={{ background: "rgba(139,92,246,0.18)" }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.5]"
+        style={{
+          backgroundImage: "radial-gradient(circle, rgba(99,102,241,0.08) 1px, transparent 1px)",
+          backgroundSize: "22px 22px",
+        }}
+      />
 
-      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative flex items-center justify-between gap-4 px-6 py-6">
         {/* Left — greeting */}
-        <div className="flex items-center gap-4">
-          <Avatar className="h-14 w-14 ring-2 ring-white/30">
-            {avatarUrl && <AvatarImage src={avatarUrl} alt={fullName} />}
-            <AvatarFallback className="bg-white/20 text-lg font-bold text-white">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+        <div className="min-w-0">
+          <motion.h1
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.12, duration: 0.5 }}
+            className="flex items-center gap-2 text-2xl font-bold text-slate-800"
+          >
+            <span className="text-2xl">👋</span>
+            {getGreeting()}, {firstName}
+          </motion.h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Here&apos;s what&apos;s happening in your workspace today.
+          </p>
+          <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-primary">
+            <CalendarDays className="h-4 w-4" />
+            {getFormattedDate()}
+          </p>
 
-          <div>
-            <p className="flex items-center gap-1.5 text-sm font-medium text-indigo-200">
-              <Sparkles className="h-3.5 w-3.5" />
-              {getGreeting()}
-            </p>
-            <h1 className="mt-0.5 text-2xl font-bold text-white">{fullName}</h1>
-            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-indigo-200">
-              <CalendarDays className="h-3.5 w-3.5" />
-              {getFormattedDate()}
-            </p>
+          {/* progress accent */}
+          <div className="mt-4 h-1.5 w-40 overflow-hidden rounded-full bg-primary/10">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: "70%" }}
+              transition={{ delay: 0.5, duration: 0.9, ease: "easeOut" }}
+              className="h-full rounded-full"
+              style={{ background: "linear-gradient(90deg, #6366f1, #8b5cf6)" }}
+            />
           </div>
         </div>
 
-        {/* Right — summary pills */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20">
-              <span className="text-sm font-bold text-white">{user ? workspaceCount : "—"}</span>
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-indigo-200">Workspaces</p>
-              <p className="text-xs font-semibold text-white">Active</p>
-            </div>
-          </div>
+        {/* Middle — quote (hidden on small) */}
+        <div className="hidden shrink-0 text-right lg:block">
+          <p className="max-w-[180px] text-sm italic leading-snug text-slate-400">
+            &ldquo;Great teams don&apos;t just work, they make progress.&rdquo;
+          </p>
+        </div>
 
-          <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20">
-              <span className="text-sm font-bold text-white">{user ? boardCount : "—"}</span>
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-indigo-200">Boards</p>
-              <p className="text-xs font-semibold text-white">Joined</p>
-            </div>
-          </div>
+        {/* Right — illustration */}
+        <div className="hidden shrink-0 sm:block">
+          <motion.img
+            src="/images/ezmanage/01_dashboard_illustration.png"
+            alt=""
+            aria-hidden
+            width={236}
+            height={164}
+            className="h-[150px] w-auto select-none object-contain"
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.25, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          />
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

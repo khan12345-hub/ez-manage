@@ -9,6 +9,7 @@ import { UpdateStatusOptionDto } from './dto/update-status-option.dto';
 import { PrismaService } from 'prisma/prisma.service';
 import { BoardAccessService } from 'src/boards/board-access.service';
 import { BoardPermission } from '@repo/shared';
+import { Prisma } from 'generated/prisma/client';
 
 @Injectable()
 export class StatusOptionsService {
@@ -173,36 +174,47 @@ export class StatusOptionsService {
         },
       });
 
-      const cellsToUpdate = cells.filter((cell) => {
-        const value = cell.value as {
-          label?: string;
-          color?: string;
-        } | null;
+      // Is another option using the same old label? Then match by id/color
+      // too, so we don't rewrite cells that belong to the other option.
+      const labelShared =
+        (await tx.statusOption.count({
+          where: { columnId, label: statusOption.label, NOT: { id: statusId } },
+        })) > 0;
 
-        return (
-          value?.label === statusOption.label &&
-          value?.color === statusOption.color
-        );
-      });
+      // Rewrite one stored item if it refers to this option. Handles
+      // STATUS {label,color[,id]}, DROPDOWN/LABEL {text}, and arrays of them.
+      const rewrite = (item: any): any => {
+        if (!item || typeof item !== 'object') return item;
+        if (item.id != null) {
+          return item.id === statusId
+            ? { ...item, label: newLabel, color: newColor }
+            : item;
+        }
+        if (item.label !== undefined) {
+          const matches =
+            item.label === statusOption.label &&
+            (!labelShared || item.color === statusOption.color);
+          return matches ? { ...item, label: newLabel, color: newColor } : item;
+        }
+        if (typeof item.text === 'string' && !labelShared) {
+          return item.text === statusOption.label ? { ...item, text: newLabel } : item;
+        }
+        return item;
+      };
 
-      await Promise.all(
-        cellsToUpdate.map((cell) =>
-          tx.taskCell.update({
-            where: {
-              id: cell.id,
-            },
-            data: {
-              value: {
-                label: newLabel,
-                color: newColor,
-              },
-            },
-          }),
-        ),
-      );
+      for (const cell of cells) {
+        const v = cell.value as any;
+        const next = Array.isArray(v) ? v.map(rewrite) : rewrite(v);
+        if (JSON.stringify(next) !== JSON.stringify(v)) {
+          await tx.taskCell.update({
+            where: { id: cell.id },
+            data: { value: next },
+          });
+        }
+      }
 
       return updatedStatus;
-    });
+    }, { timeout: 60_000 });
   }
 
   async getUniqueLabelValues(columnId: number, userId: number): Promise<string[]> {
@@ -247,6 +259,8 @@ export class StatusOptionsService {
       },
       select: {
         id: true,
+        label: true,
+        color: true,
       },
     });
 
@@ -254,10 +268,53 @@ export class StatusOptionsService {
       throw new NotFoundException('Status option not found for this column.');
     }
 
-    return this.prisma.statusOption.delete({
-      where: {
-        id: statusId,
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      // Clear cells that still show the deleted option (they used to keep
+      // displaying a status that no longer exists).
+      const labelShared =
+        (await tx.statusOption.count({
+          where: { columnId, label: statusOption.label, NOT: { id: statusId } },
+        })) > 0;
+
+      const refersToDeleted = (item: any) =>
+        !!item &&
+        typeof item === 'object' &&
+        (item.id != null
+          ? item.id === statusId
+          : item.label !== undefined
+            ? item.label === statusOption.label &&
+              (!labelShared || item.color === statusOption.color)
+            : !labelShared && item.text === statusOption.label);
+
+      const cells = await tx.taskCell.findMany({
+        where: { columnId },
+        select: { id: true, value: true },
+      });
+      for (const cell of cells) {
+        const v = cell.value as any;
+        if (Array.isArray(v)) {
+          const kept = v.filter((i) => !refersToDeleted(i));
+          if (kept.length !== v.length) {
+            await tx.taskCell.update({
+              where: { id: cell.id },
+              data: { value: kept.length ? kept : Prisma.DbNull },
+            });
+          }
+        } else if (refersToDeleted(v)) {
+          await tx.taskCell.update({
+            where: { id: cell.id },
+            data: { value: Prisma.DbNull },
+          });
+        }
+      }
+
+      // Note: automation rules that use this option are removed by the
+      // database cascade (AutomationRule → StatusOption onDelete: Cascade).
+      return tx.statusOption.delete({
+        where: {
+          id: statusId,
+        },
+      });
+    }, { timeout: 60_000 });
   }
 }

@@ -77,7 +77,7 @@ export function EmailDraftCard({ draft, employee }: Props) {
             </span>
           )}
           {inactiveCount > 0 && (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground dark:bg-slate-800 dark:text-slate-400">
               {inactiveCount} inactive
             </span>
           )}

@@ -293,6 +293,16 @@ export class CeoAssistantController {
 
   // ─── Meetings ───────────────────────────────────────────────────────────────
 
+  /**
+   * Any logged-in user: upcoming meetings they created or were invited to.
+   * Used by the main dashboard ("Upcoming meetings"). Read-only and scoped to
+   * the caller, so it does not need CEO-Assistant (super admin) access.
+   */
+  @Get('meetings/mine')
+  async getMyMeetings(@CurrentUser() user: SessionUser) {
+    return this.meetingService.getMyUpcomingMeetings(user.id);
+  }
+
   @Get('meetings')
   async getMeetings(
     @CurrentUser() user: SessionUser,

@@ -83,9 +83,6 @@ export const WORKSPACE_ROLE_PERMISSIONS: Record<
     BoardPermission.CREATE_TASK,
     BoardPermission.UPDATE_TASK,
     BoardPermission.DELETE_TASK,
-
-    BoardPermission.CREATE_GROUP,
-    BoardPermission.UPDATE_GROUP,
   ],
 
   [WorkspaceMemberRole.VIEWER]: [

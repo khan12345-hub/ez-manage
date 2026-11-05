@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { MoreHorizontal, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
@@ -34,7 +35,7 @@ export function TaskActions({ task }: Props) {
     onSuccess: () => {
       toast.success("Task deleted");
       setDeleteDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
       queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
     },
     onError: (error: unknown) => {

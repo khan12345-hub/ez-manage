@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { parseDateValue, toDateKey } from "@/lib/date-value";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
@@ -32,11 +33,11 @@ export function TimelineEditor({
   const [range, setRange] = useState<DateRange | undefined>(
     () => ({
       from: value?.startDate
-        ? new Date(value.startDate)
+        ? parseDateValue(value.startDate) ?? undefined
         : undefined,
 
       to: value?.endDate
-        ? new Date(value.endDate)
+        ? parseDateValue(value.endDate) ?? undefined
         : undefined,
     }),
   );
@@ -52,11 +53,11 @@ export function TimelineEditor({
   useEffect(() => {
     setRange({
       from: value?.startDate
-        ? new Date(value.startDate)
+        ? parseDateValue(value.startDate) ?? undefined
         : undefined,
 
       to: value?.endDate
-        ? new Date(value.endDate)
+        ? parseDateValue(value.endDate) ?? undefined
         : undefined,
     });
   }, [value?.startDate, value?.endDate]);
@@ -72,8 +73,9 @@ export function TimelineEditor({
     }
 
     const newValue: TimelineValue = {
-      startDate: selectedRange.from,
-      endDate: selectedRange.to,
+      // Plain "YYYY-MM-DD" — no timezone shift between users.
+      startDate: toDateKey(selectedRange.from),
+      endDate: toDateKey(selectedRange.to),
     };
 
     setValue(newValue);

@@ -91,22 +91,22 @@ export default function WorkspaceCalendar({ workspaceId }: Props) {
           <div className="flex items-center gap-1">
             <button
               onClick={prevMonth}
-              className="rounded-md p-1.5 hover:bg-muted transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <h2 className="min-w-[130px] text-center text-base font-semibold">
+            <h2 className="min-w-[140px] text-center text-base font-semibold text-foreground">
               {MONTH_NAMES[month - 1]} {year}
             </h2>
             <button
               onClick={nextMonth}
-              className="rounded-md p-1.5 hover:bg-muted transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
             <button
               onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth() + 1); }}
-              className="ml-1 rounded-md px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
+              className="ml-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
             >
               Today
             </button>
@@ -144,10 +144,12 @@ export default function WorkspaceCalendar({ workspaceId }: Props) {
           )}
         </div>
 
+        {/* Calendar card */}
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm p-2">
         {/* Day names */}
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 px-px">
           {DAY_NAMES.map((d) => (
-            <div key={d} className="py-1.5 text-center text-xs font-medium text-muted-foreground">
+            <div key={d} className="py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {d}
             </div>
           ))}
@@ -155,16 +157,16 @@ export default function WorkspaceCalendar({ workspaceId }: Props) {
 
         {/* Grid */}
         {isLoading ? (
-          <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
+          <div className="grid grid-cols-7 gap-px rounded-lg bg-border overflow-hidden">
             {Array.from({ length: 35 }).map((_, i) => (
-              <div key={i} className="h-20 bg-background animate-pulse sm:h-28" />
+              <div key={i} className="h-20 bg-card animate-pulse sm:h-28" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
+          <div className="grid grid-cols-7 gap-px rounded-lg bg-border overflow-hidden">
             {cells.map((cell, i) => {
               if (!cell.day) {
-                return <div key={i} className="h-20 bg-muted/30 sm:h-28" />;
+                return <div key={i} className="h-20 bg-muted/40 sm:h-28" />;
               }
               const key = `${year}-${String(month).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`;
               const dayTasks = tasksByDate.get(key) ?? [];
@@ -173,7 +175,10 @@ export default function WorkspaceCalendar({ workspaceId }: Props) {
               return (
                 <div
                   key={i}
-                  className="group relative h-20 bg-background p-1 flex flex-col overflow-hidden sm:h-28"
+                  className={cn(
+                    "group relative h-20 p-1.5 flex flex-col overflow-hidden transition-colors sm:h-28",
+                    isToday ? "bg-primary/[0.06]" : "bg-card hover:bg-muted/30",
+                  )}
                 >
                   <span
                     className={cn(
@@ -218,6 +223,7 @@ export default function WorkspaceCalendar({ workspaceId }: Props) {
             No tasks with dates in {MONTH_NAMES[month - 1]} {year}.
           </p>
         )}
+        </div>{/* end calendar card */}
       </div>
     </div>
   );

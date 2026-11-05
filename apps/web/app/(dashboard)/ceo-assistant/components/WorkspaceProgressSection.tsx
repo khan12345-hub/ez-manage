@@ -62,7 +62,7 @@ export function WorkspaceProgressSection({ teamProgress }: Props) {
               <div className="flex items-center gap-3 mb-3">
                 <Avatar className="h-8 w-8 ring-2 ring-border">
                   <AvatarImage src={ws.ownerAvatarUrl ?? undefined} />
-                  <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                  <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-blue-500 to-primary text-white">
                     {initials(ws.ownerName)}
                   </AvatarFallback>
                 </Avatar>

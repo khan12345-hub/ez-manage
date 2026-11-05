@@ -65,8 +65,11 @@ export class UsersController {
   }
 
   @Get('by-email')
-  async findByEmail(@Query('email') email: string) {
-    return this.usersService.findByEmailForInvite(email);
+  async findByEmail(
+    @Query('email') email: string,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.usersService.findByEmailForInvite(email, user.id);
   }
   @Get('me/notification-preferences')
   async getNotificationPreferences(@CurrentUser() user: SessionUser) {

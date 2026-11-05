@@ -264,6 +264,16 @@ export class BoardAccessManagementService {
       throw new BadRequestException('Cannot restrict access for the board owner.');
     }
 
+    // Only groups of THIS board may be granted.
+    if (!accessAllGroups && groupIds?.length) {
+      const valid = await this.prisma.group.count({
+        where: { id: { in: groupIds }, boardId },
+      });
+      if (valid !== new Set(groupIds).size) {
+        throw new BadRequestException('One or more groups do not belong to this board.');
+      }
+    }
+
     await this.prisma.$transaction(async (tx) => {
       await tx.boardMember.update({
         where: { id: memberId },

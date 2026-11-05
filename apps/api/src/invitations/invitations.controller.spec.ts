@@ -9,7 +9,10 @@ describe('InvitationsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [InvitationsController],
       providers: [InvitationsService],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get<InvitationsController>(InvitationsController);
   });

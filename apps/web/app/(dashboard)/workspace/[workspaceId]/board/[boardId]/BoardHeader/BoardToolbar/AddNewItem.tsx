@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useCanManageGroups } from "../../../hooks/useCanManageGroups";
 
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ export function AddNewItem({
   onCreateTask,
   onCreateGroup,
 }: AddNewItemProps) {
+  const canManageGroups = useCanManageGroups();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -54,10 +56,12 @@ export function AddNewItem({
           New task
         </DropdownMenuItem>
 
-        <DropdownMenuItem onClick={onCreateGroup}>
-          <FolderPlus className="mr-2 h-4 w-4" />
-          New group
-        </DropdownMenuItem>
+        {canManageGroups && (
+          <DropdownMenuItem onClick={onCreateGroup}>
+            <FolderPlus className="mr-2 h-4 w-4" />
+            New group
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

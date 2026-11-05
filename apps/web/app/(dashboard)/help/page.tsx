@@ -137,10 +137,10 @@ function Wizard({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: 
 
   if (!track) {
     return (
-      <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/60 to-background p-6 shadow-sm dark:border-indigo-900/50 dark:from-indigo-950/40">
+      <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/5 to-background p-6 shadow-sm dark:border-primary/40 dark:from-primary/10">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <p className="text-xs font-semibold text-indigo-500 uppercase tracking-widest mb-1">Interactive Guide</p>
+            <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">Interactive Guide</p>
             <h2 className="text-lg font-bold text-foreground">Where would you like to start?</h2>
             <p className="text-sm text-muted-foreground mt-1">Choose a guide and we'll walk you through it step by step.</p>
           </div>
@@ -151,30 +151,30 @@ function Wizard({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: 
         <div className={`grid gap-4 mt-5 ${isSuperAdmin ? "sm:grid-cols-2" : ""}`}>
           <button
             onClick={() => { setTrack("user"); setStep(0); }}
-            className="flex items-start gap-4 rounded-xl border-2 border-border bg-background p-4 text-left hover:border-indigo-300 hover:shadow-md transition-all duration-200 group"
+            className="flex items-start gap-4 rounded-xl border-2 border-border bg-background p-4 text-left hover:border-primary/40 hover:shadow-md transition-all duration-200 group"
           >
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-teal-500/10 text-xl">
               👤
             </div>
             <div>
-              <p className="font-semibold text-foreground text-sm group-hover:text-indigo-600">I'm a Team Member</p>
+              <p className="font-semibold text-foreground text-sm group-hover:text-primary">I'm a Team Member</p>
               <p className="text-xs text-muted-foreground mt-0.5">Learn how to use boards, create tasks, and collaborate with your team.</p>
-              <p className="text-xs text-indigo-500 font-medium mt-2">{USER_STEPS.length} steps →</p>
+              <p className="text-xs text-primary font-medium mt-2">{USER_STEPS.length} steps →</p>
             </div>
           </button>
 
           {isSuperAdmin && (
             <button
               onClick={() => { setTrack("admin"); setStep(0); }}
-              className="flex items-start gap-4 rounded-xl border-2 border-border bg-background p-4 text-left hover:border-indigo-300 hover:shadow-md transition-all duration-200 group"
+              className="flex items-start gap-4 rounded-xl border-2 border-border bg-background p-4 text-left hover:border-primary/40 hover:shadow-md transition-all duration-200 group"
             >
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-xl">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xl">
                 🛠️
               </div>
               <div>
-                <p className="font-semibold text-foreground text-sm group-hover:text-indigo-600">I'm an Admin / Owner</p>
+                <p className="font-semibold text-foreground text-sm group-hover:text-primary">I'm an Admin / Owner</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Set up workspaces, invite members, create boards, and configure automation.</p>
-                <p className="text-xs text-indigo-500 font-medium mt-2">{ADMIN_STEPS.length} steps →</p>
+                <p className="text-xs text-primary font-medium mt-2">{ADMIN_STEPS.length} steps →</p>
               </div>
             </button>
           )}
@@ -186,11 +186,11 @@ function Wizard({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: 
   const isLast = step === steps.length - 1;
 
   return (
-    <div className="rounded-2xl border border-indigo-200 bg-background dark:border-indigo-900/50 shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-primary/25 bg-background dark:border-primary/40 shadow-sm overflow-hidden">
       {/* Progress bar */}
       <div className="h-1 bg-muted">
         <div
-          className="h-full bg-indigo-500 transition-all duration-300 ease-out"
+          className="h-full bg-primary transition-all duration-300 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -205,9 +205,9 @@ function Wizard({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: 
                 onClick={() => setStep(i)}
                 className={`transition-all duration-200 rounded-full ${
                   i === step
-                    ? "w-5 h-2 bg-indigo-500"
+                    ? "w-5 h-2 bg-primary"
                     : i < step
-                    ? "w-2 h-2 bg-indigo-300"
+                    ? "w-2 h-2 bg-primary/40"
                     : "w-2 h-2 bg-muted"
                 }`}
                 aria-label={steps[i].label}
@@ -228,7 +228,7 @@ function Wizard({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: 
             {current.emoji}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-500 mb-1">{current.label}</p>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-primary mb-1">{current.label}</p>
             <h3 className="text-base font-bold text-foreground leading-tight">{current.title}</h3>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{current.body}</p>
             <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 dark:bg-amber-950/30 dark:border-amber-900/50">
@@ -251,14 +251,14 @@ function Wizard({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: 
           {isLast ? (
             <button
               onClick={onClose}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary transition-colors"
             >
               Finish 🎉
             </button>
           ) : (
             <button
               onClick={() => setStep(step + 1)}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary transition-colors"
             >
               Next
               <ChevronRight className="h-4 w-4" />
@@ -287,8 +287,8 @@ const WORKSPACE_ADMIN_SECTIONS = [
   {
     title: "Team Members",
     icon: Users,
-    color: "text-indigo-600",
-    bg: "bg-indigo-500/10",
+    color: "text-primary",
+    bg: "bg-primary/10",
     items: [
       { icon: UserPlus, text: "Invite new or existing users by email" },
       { icon: Shield,   text: "Set member roles — Owner, Admin, Member, Viewer, Guest" },
@@ -435,7 +435,7 @@ const USER_SECTIONS = [
 
 const ROLES = [
   { name: "Owner",  color: "bg-blue-100 text-blue-700",     desc: "Full control. Delete workspace, manage all members." },
-  { name: "Admin",  color: "bg-indigo-100 text-indigo-700", desc: "Invite members, change roles, manage boards." },
+  { name: "Admin",  color: "bg-primary/10 text-primary", desc: "Invite members, change roles, manage boards." },
   { name: "Member", color: "bg-green-100 text-green-700",   desc: "Create and edit tasks, upload files, comment." },
   { name: "Viewer", color: "bg-muted text-muted-foreground",     desc: "Read-only. Can see boards and tasks but not edit." },
   { name: "Guest",  color: "bg-orange-100 text-orange-700", desc: "Access to specific boards or groups only." },
@@ -511,7 +511,7 @@ export default function HelpPage() {
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold text-indigo-500 uppercase tracking-widest mb-2">EzManage Guide</p>
+            <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-2">EzManage Guide</p>
             <h1 className="text-2xl font-bold text-foreground tracking-tight sm:text-3xl">What can you do here?</h1>
             <p className="mt-2 text-muted-foreground text-sm max-w-xl">
               {isSuperAdmin
@@ -523,7 +523,7 @@ export default function HelpPage() {
             {!wizardOpen && (
               <button
                 onClick={() => setWizardOpen(true)}
-                className="flex items-center gap-2.5 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+                className="flex items-center gap-2.5 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary transition-colors"
               >
                 <Rocket className="h-4 w-4" />
                 Step-by-step guide
@@ -531,7 +531,7 @@ export default function HelpPage() {
             )}
             <button
               onClick={() => window.dispatchEvent(new CustomEvent("start-onboarding-tour"))}
-              className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-500/10 px-4 py-3 text-sm font-semibold text-indigo-600 hover:bg-indigo-500/20 transition-colors dark:border-indigo-800 dark:text-indigo-400"
+              className="flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors dark:border-primary dark:text-primary"
             >
               <BookOpen className="h-4 w-4" />
               App Tour
@@ -589,10 +589,10 @@ export default function HelpPage() {
         <SectionGroup
           title="Admin & Owner Capabilities"
           badge="Owner / Admin"
-          badgeColor="bg-indigo-500/10 border-indigo-200 text-indigo-600 dark:border-indigo-900/50 dark:text-indigo-400"
+          badgeColor="bg-primary/10 border-primary/25 text-primary dark:border-primary/40 dark:text-primary"
           icon={Shield}
-          iconBg="bg-indigo-500/10"
-          iconColor="text-indigo-600"
+          iconBg="bg-primary/10"
+          iconColor="text-primary"
           sections={WORKSPACE_ADMIN_SECTIONS}
           cols={2}
         />
@@ -643,7 +643,7 @@ export default function HelpPage() {
           <div className="mt-6 flex justify-center">
             <button
               onClick={() => { setWizardOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-              className="flex items-center gap-2 text-sm text-indigo-500 hover:text-indigo-700 transition-colors"
+              className="flex items-center gap-2 text-sm text-primary hover:text-primary transition-colors"
             >
               <BookOpen className="h-4 w-4" />
               Open step-by-step guide again

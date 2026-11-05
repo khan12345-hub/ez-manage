@@ -507,7 +507,7 @@ model Task {
 
   // Task hierarchy
   parentId    Int?
-  parent      Task?  @relation("TaskHierarchy", fields: [parentId], references: [id])
+  parent      Task?  @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   subtasks    Task[] @relation("TaskHierarchy")
 
   // Task comments

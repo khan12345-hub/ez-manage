@@ -35,7 +35,7 @@ function MemberCard({
     >
       <Avatar className="h-12 w-12 ring-2 ring-border group-hover:ring-blue-400 transition-all">
         <AvatarImage src={user.avatarUrl ?? undefined} />
-        <AvatarFallback className="text-sm font-bold bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+        <AvatarFallback className="text-sm font-bold bg-gradient-to-br from-blue-500 to-primary text-white">
           {initials(user.firstName, user.lastName)}
         </AvatarFallback>
       </Avatar>
@@ -75,7 +75,7 @@ function WorkspaceProgressCard({
         <div className="flex items-center gap-2 min-w-0">
           <Avatar className="h-7 w-7 shrink-0">
             <AvatarImage src={item.ownerAvatarUrl ?? undefined} />
-            <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+            <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-primary to-blue-600 text-white">
               {initials(item.ownerName.split(" ")[0] ?? "", item.ownerName.split(" ")[1] ?? "")}
             </AvatarFallback>
           </Avatar>

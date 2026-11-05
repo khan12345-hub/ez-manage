@@ -37,8 +37,17 @@ function makeService(overrides: Record<string, any> = {}) {
     filterTasks: jest.fn((tasks: any[]) => tasks),
   };
 
-  const service = new GetBoardTasksService(prisma as any, boardSearchService as any);
-  return { service, prisma, boardSearchService };
+  // null = user is not group-restricted (sees every group)
+  const boardAccessService = {
+    getAllowedGroupIds: jest.fn().mockResolvedValue(null),
+  };
+
+  const service = new GetBoardTasksService(
+    prisma as any,
+    boardSearchService as any,
+    boardAccessService as any,
+  );
+  return { service, prisma, boardSearchService, boardAccessService };
 }
 
 // ── execute() ──────────────────────────────────────────────────────────────
@@ -132,11 +141,12 @@ describe('GetBoardTasksService.execute', () => {
         }),
       );
 
-      // Main load only fetches candidate IDs — not ALL tasks
+      // Main load only fetches candidate IDs — not ALL tasks. It is not
+      // limited by `take`: pagination happens AFTER the JS refinement so
+      // pages are never cut short.
       expect(prisma.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ id: { in: [5] } }),
-          take: 51,
         }),
       );
 
@@ -184,19 +194,19 @@ describe('GetBoardTasksService.execute', () => {
       expect(result.tasks).toHaveLength(1);
     });
 
-    it('pagination (take) is applied even when search is active', async () => {
-      // Pre-query returns 200 candidate IDs
+    it('pagination is applied after filtering when search is active', async () => {
+      // Pre-query returns 200 candidate IDs; all 200 match after refinement
       const candidateIds = Array.from({ length: 200 }, (_, i) => ({ id: i + 1 }));
-      const loadedTasks = Array.from({ length: 51 }, (_, i) =>
+      const loadedTasks = Array.from({ length: 200 }, (_, i) =>
         makeTask({ id: i + 1, order: i + 1 }),
       );
 
-      const { service, prisma } = makeService({
+      const { service } = makeService({
         task: {
           findMany: jest
             .fn()
             .mockResolvedValueOnce(candidateIds) // name pre-query
-            .mockResolvedValueOnce(loadedTasks), // main load (take: 51)
+            .mockResolvedValueOnce(loadedTasks), // main load (all candidates)
           count: jest.fn().mockResolvedValue(200),
         },
         taskComment: { findMany: jest.fn().mockResolvedValue([]) },
@@ -205,12 +215,40 @@ describe('GetBoardTasksService.execute', () => {
 
       const result = await service.execute({ boardId: 1, search: 'bug', limit: 50 });
 
-      // Main load must have a take limit
-      expect(prisma.task.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: 51 }),
-      );
       expect(result.tasks).toHaveLength(50);
       expect(result.hasMore).toBe(true);
+      expect(result.nextCursor).toBe(50);
+      expect(result.total).toBe(200);
+    });
+
+    it('does not stop early when the JS refinement drops some rows', async () => {
+      // Regression: 51 candidates loaded, refinement removed 2 → used to
+      // return 49 rows with hasMore=false even though more matches existed.
+      const candidateIds = Array.from({ length: 120 }, (_, i) => ({ id: i + 1 }));
+      const loadedTasks = Array.from({ length: 120 }, (_, i) =>
+        makeTask({ id: i + 1, order: i + 1 }),
+      );
+
+      const { service, boardSearchService } = makeService({
+        task: {
+          findMany: jest
+            .fn()
+            .mockResolvedValueOnce(candidateIds)
+            .mockResolvedValueOnce(loadedTasks),
+          count: jest.fn().mockResolvedValue(120),
+        },
+        taskComment: { findMany: jest.fn().mockResolvedValue([]) },
+        $queryRaw: jest.fn().mockResolvedValue([]),
+      });
+      // Refinement removes ids 3 and 7
+      boardSearchService.filterTasks.mockImplementation((tasks: any[]) =>
+        tasks.filter((t) => t.id !== 3 && t.id !== 7),
+      );
+
+      const page1 = await service.execute({ boardId: 1, search: 'x', limit: 50 });
+      expect(page1.tasks).toHaveLength(50);
+      expect(page1.hasMore).toBe(true);
+      expect(page1.total).toBe(118);
     });
   });
 
@@ -304,9 +342,41 @@ describe('GetBoardTasksService.execute', () => {
 
       expect(prisma.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ group: { boardId: 42 } }),
+          where: expect.objectContaining({
+            group: expect.objectContaining({ boardId: 42, isArchived: false }),
+          }),
         }),
       );
+    });
+
+    it('limits group-restricted members to their allowed groups', async () => {
+      const { service, prisma, boardAccessService } = makeService({
+        task: {
+          findMany: jest.fn().mockResolvedValue([]),
+          count: jest.fn().mockResolvedValue(0),
+        },
+      });
+      boardAccessService.getAllowedGroupIds.mockResolvedValue([3, 4]);
+
+      await service.execute({ boardId: 42, userId: 7 });
+
+      expect(prisma.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            group: expect.objectContaining({ boardId: 42, id: { in: [3, 4] } }),
+          }),
+        }),
+      );
+    });
+
+    it('returns nothing for a group the member may not see', async () => {
+      const { service, prisma, boardAccessService } = makeService();
+      boardAccessService.getAllowedGroupIds.mockResolvedValue([3]);
+
+      const result = await service.execute({ boardId: 42, groupId: 9, userId: 7 });
+
+      expect(result.tasks).toEqual([]);
+      expect(prisma.task.findMany).not.toHaveBeenCalled();
     });
 
     it('scopes to groupId when provided', async () => {

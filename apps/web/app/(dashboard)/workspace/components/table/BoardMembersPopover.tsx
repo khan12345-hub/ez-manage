@@ -78,7 +78,7 @@ function MemberList({ boardId }: { boardId: number }) {
                 className="h-7 w-7 shrink-0 rounded-full object-cover"
               />
             ) : (
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary dark:bg-primary dark:text-primary/40">
                 {avatarInitials(m.firstName, m.lastName)}
               </div>
             )}

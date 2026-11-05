@@ -1,0 +1,294 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>EZ Manage — Module Dependency Graph</title>
+<style>
+  :root {
+    --ground: #eef3f0;
+    --panel: #ffffff;
+    --ink: #0e1a14;
+    --ink-soft: #3b4a42;
+    --ink-faint: #6b7a72;
+    --line: #d7e3db;
+    --accent: #047857;
+    --accent-deep: #065f46;
+
+    --p1: #4f46e5;  --p2: #047857;  --p3: #0284c7;  --p4: #b45309;  --p5: #7c3aed;
+
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(120% 70% at 50% -8%, rgba(4,120,87,0.07), rgba(255,255,255,0) 60%),
+      var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.011em;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 52px 24px 72px; }
+
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+  .brand .mark {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: linear-gradient(135deg, #065f46, #10b981);
+    color: #fff; display: grid; place-items: center;
+    font-family: var(--mono); font-weight: 700; font-size: 14px;
+    letter-spacing: -0.04em; box-shadow: 0 4px 14px rgba(6,95,70,0.25);
+  }
+  .brand .name { font-weight: 800; font-size: 14px; letter-spacing: -0.02em; }
+  .brand .tag {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--accent-deep);
+    background: #dcefe4; border: 1px solid #c6e4d2;
+    padding: 3px 7px; border-radius: 6px;
+  }
+
+  h1 {
+    font-size: clamp(27px, 5vw, 40px); line-height: 1.05;
+    letter-spacing: -0.035em; margin: 0 0 12px; text-wrap: balance; font-weight: 820;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lede { font-size: 15.5px; color: var(--ink-soft); max-width: 64ch; margin: 0 0 28px; }
+
+  .graph-shell {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 10px;
+    box-shadow: 0 1px 3px rgba(14,26,20,0.04);
+    overflow-x: auto;
+  }
+  svg.graph { width: 100%; min-width: 860px; height: auto; display: block; }
+
+  .graph text { font-family: var(--sans); }
+  .n-title { font-weight: 720; font-size: 18px; letter-spacing: -0.02em; }
+  .n-mod { font-size: 11.5px; fill: var(--ink-soft); }
+  .n-badge-t { font-family: var(--mono); font-weight: 700; font-size: 13px; fill: #fff; }
+
+  .edge { fill: none; stroke-width: 2.4; }
+  .e-p1 { stroke: var(--p1); } .e-p2 { stroke: var(--p2); }
+  .e-p3 { stroke: var(--p3); } .e-p4 { stroke: var(--p4); }
+
+  .e-label {
+    font-size: 11.5px; font-weight: 600; fill: var(--ink-soft);
+    paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round;
+  }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px 22px;
+    margin-top: 22px; padding: 15px 18px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  }
+  .legend .l { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ink-soft); }
+  .legend .sw { width: 26px; height: 0; border-top: 2.6px solid var(--accent); border-radius: 2px; }
+  .legend .dot { width: 13px; height: 13px; border-radius: 4px; }
+  .legend b { color: var(--ink); font-weight: 650; }
+
+  .matrix {
+    margin-top: 28px;
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    background: var(--panel);
+  }
+  .matrix h3 {
+    margin: 0; padding: 14px 18px; font-size: 13px; letter-spacing: -0.01em;
+    border-bottom: 1px solid var(--line); background: #f3f8f5;
+  }
+  .matrix .tscroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 520px; }
+  th, td { text-align: left; padding: 10px 18px; border-bottom: 1px solid #eef3f0; }
+  th { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-faint); font-weight: 600; }
+  tbody tr:last-child td { border-bottom: none; }
+  td .from { font-weight: 650; }
+  td .arrow { color: var(--accent); font-family: var(--mono); padding: 0 6px; }
+
+  .foot {
+    margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-faint);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+  .foot .mono { font-family: var(--mono); }
+
+  @media (max-width: 560px) { .wrap { padding: 34px 14px 56px; } }
+</style>
+
+<div class="wrap">
+
+  <div class="brand">
+    <div class="mark">EZ</div>
+    <div class="name">EZ MANAGE</div>
+    <div class="tag">Dependency Graph</div>
+  </div>
+
+  <h1>Module graph — <em>every module &amp; connection</em></h1>
+  <p class="lede">
+    All five phases with their full module lists, and the data that flows between them.
+    Arrows point in the direction data moves — upward, converging on the CEO Dashboard,
+    which sits on top and only reads from everything below it.
+  </p>
+
+  <div class="graph-shell">
+    <svg class="graph" viewBox="0 0 1040 1000" role="img"
+         aria-label="EZ Manage module dependency graph: five phases with full module lists and data-flow edges converging on the CEO Dashboard">
+
+      <defs>
+        <marker id="ar-p1" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4f46e5"/></marker>
+        <marker id="ar-p2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#047857"/></marker>
+        <marker id="ar-p3" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0284c7"/></marker>
+        <marker id="ar-p4" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b45309"/></marker>
+      </defs>
+
+      <!-- ========== EDGES ========== -->
+      <!-- 1. Foundation -> Task System -->
+      <path class="edge e-p1" marker-end="url(#ar-p1)" d="M450,780 C 370,760 230,730 176,684"/>
+      <text class="e-label" x="292" y="742" text-anchor="middle">users · companies</text>
+
+      <!-- 2. Foundation -> Leave & Attendance -->
+      <path class="edge e-p1" marker-end="url(#ar-p1)" d="M518,780 L518,614"/>
+      <text class="e-label" x="518" y="706" text-anchor="middle">employees · entities</text>
+
+      <!-- 3. Leave & Attendance -> Payroll -->
+      <path class="edge e-p3" marker-end="url(#ar-p3)" d="M670,520 L712,520"/>
+      <text class="e-label" x="691" y="508" text-anchor="middle">leave + late</text>
+
+      <!-- 4. Task System -> CEO Dashboard -->
+      <path class="edge e-p2" marker-end="url(#ar-p2)" d="M172,430 C 172,330 300,262 446,244"/>
+      <text class="e-label" x="214" y="326" text-anchor="middle">tasks · chat</text>
+
+      <!-- 5. Leave & Attendance -> CEO Dashboard -->
+      <path class="edge e-p3" marker-end="url(#ar-p3)" d="M512,430 C 512,352 518,300 518,246"/>
+      <text class="e-label" x="552" y="330" text-anchor="middle">attendance · leave</text>
+
+      <!-- 6. Payroll -> CEO Dashboard -->
+      <path class="edge e-p4" marker-end="url(#ar-p4)" d="M870,430 C 870,330 740,262 594,244"/>
+      <text class="e-label" x="826" y="326" text-anchor="middle">pay cycles</text>
+
+      <!-- ========== NODES ========== -->
+
+      <!-- CEO Dashboard (05) -->
+      <g>
+        <rect x="370" y="70" width="300" height="170" rx="18" fill="#f2ebfd" stroke="#7c3aed" stroke-width="2"/>
+        <rect x="370" y="70" width="300" height="5" rx="2.5" fill="#7c3aed"/>
+        <circle cx="400" cy="106" r="15" fill="#7c3aed"/>
+        <text class="n-badge-t" x="400" y="111" text-anchor="middle">05</text>
+        <text class="n-title" x="426" y="112" fill="#0e1a14">CEO Dashboard + AI</text>
+        <text class="n-mod" x="390" y="140"><tspan fill="#7c3aed" font-weight="700">E1 </tspan>Metric tiles</text>
+        <text class="n-mod" x="534" y="140"><tspan fill="#7c3aed" font-weight="700">E2 </tspan>Portfolio view</text>
+        <text class="n-mod" x="390" y="162"><tspan fill="#7c3aed" font-weight="700">E3 </tspan>Managers &amp; teams</text>
+        <text class="n-mod" x="534" y="162"><tspan fill="#7c3aed" font-weight="700">E4 </tspan>Attention needed</text>
+        <text class="n-mod" x="390" y="184"><tspan fill="#7c3aed" font-weight="700">E5 </tspan>Live pulse</text>
+        <text class="n-mod" x="534" y="184"><tspan fill="#7c3aed" font-weight="700">E6 </tspan>AI copilot</text>
+        <text class="n-mod" x="390" y="212" font-style="italic" fill="#6b7a72">reads from 01–04 · stores nothing</text>
+      </g>
+
+      <!-- Task System (02) -->
+      <g>
+        <rect x="20" y="430" width="300" height="250" rx="18" fill="#e7f3ec" stroke="#047857" stroke-width="2"/>
+        <rect x="20" y="430" width="300" height="5" rx="2.5" fill="#047857"/>
+        <circle cx="50" cy="466" r="15" fill="#047857"/>
+        <text class="n-badge-t" x="50" y="471" text-anchor="middle">02</text>
+        <text class="n-title" x="76" y="472" fill="#0e1a14">Task System</text>
+        <text class="n-mod" x="40" y="500"><tspan fill="#047857" font-weight="700">B1 </tspan>Workspaces</text>
+        <text class="n-mod" x="184" y="500"><tspan fill="#047857" font-weight="700">B2 </tspan>Boards / Lists</text>
+        <text class="n-mod" x="40" y="522"><tspan fill="#047857" font-weight="700">B3 </tspan>Groups</text>
+        <text class="n-mod" x="184" y="522"><tspan fill="#047857" font-weight="700">B4 </tspan>Tasks</text>
+        <text class="n-mod" x="40" y="544"><tspan fill="#047857" font-weight="700">B5 </tspan>Custom fields</text>
+        <text class="n-mod" x="184" y="544"><tspan fill="#047857" font-weight="700">B6 </tspan>Status options</text>
+        <text class="n-mod" x="40" y="566"><tspan fill="#047857" font-weight="700">B7 </tspan>Comments</text>
+        <text class="n-mod" x="184" y="566"><tspan fill="#047857" font-weight="700">B8 </tspan>Channel chat</text>
+        <text class="n-mod" x="40" y="588"><tspan fill="#047857" font-weight="700">B9 </tspan>@Mentions</text>
+        <text class="n-mod" x="184" y="588"><tspan fill="#047857" font-weight="700">B10 </tspan>Files + voice</text>
+        <text class="n-mod" x="40" y="610"><tspan fill="#047857" font-weight="700">B11 </tspan>Audit log</text>
+        <text class="n-mod" x="184" y="610"><tspan fill="#047857" font-weight="700">B12 </tspan>Attention radar</text>
+      </g>
+
+      <!-- Leave & Attendance (03) -->
+      <g>
+        <rect x="370" y="430" width="300" height="180" rx="18" fill="#e6f3fb" stroke="#0284c7" stroke-width="2"/>
+        <rect x="370" y="430" width="300" height="5" rx="2.5" fill="#0284c7"/>
+        <circle cx="400" cy="466" r="15" fill="#0284c7"/>
+        <text class="n-badge-t" x="400" y="471" text-anchor="middle">03</text>
+        <text class="n-title" x="426" y="472" fill="#0e1a14">Leave &amp; Attendance</text>
+        <text class="n-mod" x="390" y="500"><tspan fill="#0284c7" font-weight="700">C1 </tspan>Employee directory</text>
+        <text class="n-mod" x="534" y="500"><tspan fill="#0284c7" font-weight="700">C2 </tspan>Punch in/out</text>
+        <text class="n-mod" x="390" y="522"><tspan fill="#0284c7" font-weight="700">C3 </tspan>Late detection</text>
+        <text class="n-mod" x="534" y="522"><tspan fill="#0284c7" font-weight="700">C4 </tspan>Leave types</text>
+        <text class="n-mod" x="390" y="544"><tspan fill="#0284c7" font-weight="700">C5 </tspan>Approvals</text>
+        <text class="n-mod" x="534" y="544"><tspan fill="#0284c7" font-weight="700">C6 </tspan>Balances</text>
+        <text class="n-mod" x="390" y="566"><tspan fill="#0284c7" font-weight="700">C7 </tspan>Partial passes</text>
+      </g>
+
+      <!-- Payroll (04) -->
+      <g>
+        <rect x="720" y="430" width="300" height="180" rx="18" fill="#fcf1e1" stroke="#b45309" stroke-width="2"/>
+        <rect x="720" y="430" width="300" height="5" rx="2.5" fill="#b45309"/>
+        <circle cx="750" cy="466" r="15" fill="#b45309"/>
+        <text class="n-badge-t" x="750" y="471" text-anchor="middle">04</text>
+        <text class="n-title" x="776" y="472" fill="#0e1a14">Payroll</text>
+        <text class="n-mod" x="740" y="500"><tspan fill="#b45309" font-weight="700">D1 </tspan>Pay cycles</text>
+        <text class="n-mod" x="884" y="500"><tspan fill="#b45309" font-weight="700">D2 </tspan>Salary</text>
+        <text class="n-mod" x="740" y="522"><tspan fill="#b45309" font-weight="700">D3 </tspan>Deductions</text>
+        <text class="n-mod" x="884" y="522"><tspan fill="#b45309" font-weight="700">D4 </tspan>Overtime</text>
+        <text class="n-mod" x="740" y="544"><tspan fill="#b45309" font-weight="700">D5 </tspan>Run → approval</text>
+        <text class="n-mod" x="884" y="544"><tspan fill="#b45309" font-weight="700">D6 </tspan>Payslips</text>
+        <text class="n-mod" x="740" y="566"><tspan fill="#b45309" font-weight="700">D7 </tspan>Reimbursements</text>
+      </g>
+
+      <!-- Foundation (01) -->
+      <g>
+        <rect x="370" y="780" width="300" height="150" rx="18" fill="#eef0fe" stroke="#4f46e5" stroke-width="2"/>
+        <rect x="370" y="780" width="300" height="5" rx="2.5" fill="#4f46e5"/>
+        <circle cx="400" cy="816" r="15" fill="#4f46e5"/>
+        <text class="n-badge-t" x="400" y="821" text-anchor="middle">01</text>
+        <text class="n-title" x="426" y="822" fill="#0e1a14">Foundation</text>
+        <text class="n-mod" x="390" y="850"><tspan fill="#4f46e5" font-weight="700">A1 </tspan>Auth &amp; Login</text>
+        <text class="n-mod" x="534" y="850"><tspan fill="#4f46e5" font-weight="700">A2 </tspan>Users &amp; Roles</text>
+        <text class="n-mod" x="390" y="872"><tspan fill="#4f46e5" font-weight="700">A3 </tspan>Companies (20)</text>
+        <text class="n-mod" x="534" y="872"><tspan fill="#4f46e5" font-weight="700">A4 </tspan>Entities</text>
+        <text class="n-mod" x="390" y="894"><tspan fill="#4f46e5" font-weight="700">A5 </tspan>Shared pool</text>
+        <text class="n-mod" x="534" y="894"><tspan fill="#4f46e5" font-weight="700">A6 </tspan>Permissions</text>
+      </g>
+
+    </svg>
+  </div>
+
+  <div class="legend">
+    <div class="l"><span class="sw"></span> <span><b>Arrow</b> = data flows in that direction (upward)</span></div>
+    <div class="l"><span class="dot" style="background:#4f46e5"></span> Foundation feeds</div>
+    <div class="l"><span class="dot" style="background:#047857"></span> Task feeds</div>
+    <div class="l"><span class="dot" style="background:#0284c7"></span> Leave feeds</div>
+    <div class="l"><span class="dot" style="background:#b45309"></span> Payroll feeds</div>
+  </div>
+
+  <div class="matrix">
+    <h3>Connections — who feeds whom</h3>
+    <div class="tscroll">
+      <table>
+        <thead>
+          <tr><th>From</th><th>To</th><th>Data that flows</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="from">01 Foundation</span></td><td><span class="arrow">→</span>02 Task System</td><td>users, companies, roles, shared pool</td></tr>
+          <tr><td><span class="from">01 Foundation</span></td><td><span class="arrow">→</span>03 Leave &amp; Attendance</td><td>employee records, entities (CA/PK/Remote)</td></tr>
+          <tr><td><span class="from">03 Leave &amp; Attendance</span></td><td><span class="arrow">→</span>04 Payroll</td><td>leave + late records → auto-deductions</td></tr>
+          <tr><td><span class="from">02 Task System</span></td><td><span class="arrow">→</span>05 CEO Dashboard</td><td>tasks, mentions, chat threads, audit log</td></tr>
+          <tr><td><span class="from">03 Leave &amp; Attendance</span></td><td><span class="arrow">→</span>05 CEO Dashboard</td><td>attendance, leave status, headcount tiles</td></tr>
+          <tr><td><span class="from">04 Payroll</span></td><td><span class="arrow">→</span>05 CEO Dashboard</td><td>pay cycles, variance, approvals</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>EZ Manage — module dependency graph · data flows up, control flows down</span>
+    <span class="mono">5 nodes · 38 modules · 6 edges</span>
+  </div>
+
+</div>
+
+</body></html>

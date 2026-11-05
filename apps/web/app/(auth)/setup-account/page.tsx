@@ -102,8 +102,8 @@ export default function SetupAccountPage() {
 
         {/* Steps indicator */}
         <div className="mb-6 flex items-center justify-center gap-2">
-          <div className="h-1.5 w-8 rounded-full bg-indigo-500" />
-          <div className="h-1.5 w-8 rounded-full bg-indigo-500" />
+          <div className="h-1.5 w-8 rounded-full bg-primary" />
+          <div className="h-1.5 w-8 rounded-full bg-primary" />
           <div className="h-1.5 w-8 rounded-full bg-muted" />
         </div>
 
@@ -128,7 +128,7 @@ export default function SetupAccountPage() {
               <Button
                 type="submit"
                 loading={setupAccountMutation.isPending}
-                className="mt-2 h-10 w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="mt-2 h-10 w-full bg-primary hover:bg-primary text-white"
               >
                 Create account
               </Button>

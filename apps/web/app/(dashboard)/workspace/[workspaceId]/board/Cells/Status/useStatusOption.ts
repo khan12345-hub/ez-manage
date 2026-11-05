@@ -1,4 +1,5 @@
 
+import { boardQueryFilter } from "@/lib/board-query";
 import {
   useMutation,
   useQueryClient,
@@ -22,9 +23,7 @@ export function useStatusOptions(
       return;
     }
 
-    await queryClient.invalidateQueries({
-      queryKey: ["board", boardId],
-    });
+    await queryClient.invalidateQueries(boardQueryFilter(boardId));
   };
 
   const createMutation = useMutation({

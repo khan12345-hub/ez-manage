@@ -72,7 +72,7 @@ export function ForwardMessageModal({ message, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <Share2 className="h-4 w-4 text-indigo-500" />
+            <Share2 className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold">Forward message</span>
           </div>
           <button onClick={onClose} className="rounded p-1 hover:bg-muted">
@@ -117,7 +117,7 @@ export function ForwardMessageModal({ message, onClose }: Props) {
               className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-muted disabled:opacity-60"
             >
               {item.type === "channel" ? (
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <Hash className="h-3 w-3" />
                 </div>
               ) : (

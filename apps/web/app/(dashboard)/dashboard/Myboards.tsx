@@ -4,10 +4,11 @@ import Link from "next/link";
 import { ChevronRight, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { motion, type Variants } from "framer-motion";
 
 const ROLE_BADGE: Record<string, { label: string; cn: string }> = {
   OWNER:  { label: "Owner",  cn: "bg-amber-100 text-amber-700 border-amber-200" },
-  ADMIN:  { label: "Admin",  cn: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  ADMIN:  { label: "Admin",  cn: "bg-primary/10 text-primary border-primary/25" },
   MEMBER: { label: "Member", cn: "bg-muted text-muted-foreground border-border" },
   VIEWER: { label: "Viewer", cn: "bg-muted text-muted-foreground border-border" },
   GUEST:  { label: "Guest",  cn: "bg-muted text-muted-foreground border-border" },
@@ -24,6 +25,15 @@ function wsColor(name: string) {
   return WS_COLORS[Math.abs(h) % WS_COLORS.length];
 }
 
+const container: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.055, delayChildren: 0.05 } },
+};
+const rowItem: Variants = {
+  hidden: { opacity: 0, x: -10 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.38, ease: [0.22, 1, 0.36, 1] } },
+};
+
 export function MyBoards() {
   const { user } = useAuth();
 
@@ -31,7 +41,13 @@ export function MyBoards() {
     return (
       <div className="space-y-3">
         <div className="h-5 w-24 rounded bg-muted animate-pulse" />
-        <div className="overflow-hidden rounded-2xl border bg-background shadow-sm divide-y">
+        <div
+          className="overflow-hidden rounded-2xl bg-white divide-y"
+          style={{
+            border: "1px solid rgba(99, 102, 241, 0.1)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+          }}
+        >
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-5 py-4">
               <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
@@ -56,19 +72,36 @@ export function MyBoards() {
           <h2 className="text-base font-semibold">My Boards</h2>
           <p className="text-sm text-muted-foreground">All boards you have access to</p>
         </div>
-        <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+        <span
+          className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+          style={{ background: "rgba(99,102,241,0.1)", color: "#6366f1" }}
+        >
           {memberships.length}
         </span>
       </div>
 
       {memberships.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-background py-14 text-center">
+        <div
+          className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-white py-14 text-center"
+          style={{ borderColor: "rgba(99, 102, 241, 0.25)" }}
+        >
           <LayoutDashboard className="h-10 w-10 text-muted-foreground/40" />
           <p className="mt-3 text-sm font-medium text-muted-foreground">No boards yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">Create a board or ask a workspace admin to add you.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Create a board or ask a workspace admin to add you.
+          </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="overflow-hidden rounded-2xl bg-white"
+          style={{
+            border: "1px solid rgba(99, 102, 241, 0.1)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+          }}
+        >
           {memberships.map((m: any) => {
             const board = m.board;
             const workspace = board.workspace;
@@ -76,30 +109,37 @@ export function MyBoards() {
             const dotColor = wsColor(workspace?.name ?? "");
 
             return (
-              <Link
-                key={board.id}
-                href={`/workspace/${(workspace as any).uid ?? workspace.id}/board/${(board as any).uid ?? board.id}`}
-                className="group flex w-full items-center gap-4 border-b px-5 py-3.5 text-left transition last:border-0 hover:bg-muted/40"
-              >
-                {/* Workspace color dot + board icon */}
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${dotColor}`}>
-                  <LayoutDashboard className="h-4 w-4 text-white" />
-                </div>
+              <motion.div key={board.id} variants={rowItem}>
+                <Link
+                  href={`/workspace/${(workspace as any).uid ?? workspace.id}/board/${(board as any).uid ?? board.id}`}
+                  className="group flex w-full items-center gap-4 border-b px-5 py-3.5 text-left transition-colors last:border-0 hover:bg-primary/5"
+                  style={{ borderColor: "rgba(99,102,241,0.07)" }}
+                >
+                  <div
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${dotColor}`}
+                  >
+                    <LayoutDashboard className="h-4 w-4 text-white" />
+                  </div>
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{board.name}</p>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{workspace?.name}</p>
-                </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{board.name}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {workspace?.name}
+                    </p>
+                  </div>
 
-                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${roleBadge.cn}`}>
-                  {roleBadge.label}
-                </span>
+                  <span
+                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${roleBadge.cn}`}
+                  >
+                    {roleBadge.label}
+                  </span>
 
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-              </Link>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
     </section>
   );

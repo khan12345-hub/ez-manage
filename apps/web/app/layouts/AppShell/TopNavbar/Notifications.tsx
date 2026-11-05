@@ -392,7 +392,7 @@ export function Notifications() {
           <Bell
             className={cn(
               "h-5 w-5 transition-colors",
-              unreadCount > 0 ? "text-indigo-500" : "",
+              unreadCount > 0 ? "text-primary" : "",
             )}
           />
         </span>

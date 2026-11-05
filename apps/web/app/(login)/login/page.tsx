@@ -9,7 +9,7 @@ export default function LoginPage() {
       <LoginHeroPanel />
 
       {/* Form panel — gradient + glassmorphism */}
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-14 lg:px-16 bg-gradient-to-br from-slate-50 via-indigo-50/80 to-purple-50/60 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-14 lg:px-16 bg-gradient-to-br from-slate-50 via-primary/5 to-purple-50/60 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
         {/* Decorative gradient orb — top right */}
         <div className="pointer-events-none absolute -right-24 -top-24 h-[380px] w-[380px] rounded-full dark:opacity-20"
           style={{ background: "radial-gradient(circle, rgba(99,97,240,0.14) 0%, rgba(99,97,240,0.05) 50%, transparent 75%)" }}
@@ -26,7 +26,7 @@ export default function LoginPage() {
 
         {/* Glass card wrapping the form */}
         <div
-          className="relative z-10 w-full max-w-[460px] rounded-2xl px-8 py-10 bg-white/72 dark:bg-gray-900/85 border border-indigo-100/50 dark:border-white/[0.08]"
+          className="relative z-10 w-full max-w-[460px] rounded-2xl px-8 py-10 bg-white/72 dark:bg-gray-900/85 border border-primary/5 dark:border-white/[0.08]"
           style={{
             backdropFilter: "blur(20px) saturate(1.6)",
             WebkitBackdropFilter: "blur(20px) saturate(1.6)",

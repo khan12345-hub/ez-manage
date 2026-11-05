@@ -313,7 +313,7 @@ function TaskHoverCard({
                       {u.avatarUrl ? (
                         <img src={resolveUrl(u.avatarUrl)} className="h-full w-full object-cover" alt="" />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-indigo-100 text-[9px] font-bold text-indigo-600">
+                        <div className="flex h-full w-full items-center justify-center bg-primary/10 text-[9px] font-bold text-primary">
                           {u.firstName[0]}{u.lastName[0]}
                         </div>
                       )}

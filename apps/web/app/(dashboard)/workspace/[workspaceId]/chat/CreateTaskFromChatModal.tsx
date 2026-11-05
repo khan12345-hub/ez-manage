@@ -105,7 +105,7 @@ export function CreateTaskFromChatModal({ message, workspaceId, channelId, onClo
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <ListTodo className="h-4 w-4 text-indigo-500" />
+            <ListTodo className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold">Create task from message</span>
           </div>
           <button onClick={onClose} className="rounded p-1 hover:bg-muted">
@@ -124,7 +124,7 @@ export function CreateTaskFromChatModal({ message, workspaceId, channelId, onClo
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               placeholder="Task name…"
             />
           </div>
@@ -145,7 +145,7 @@ export function CreateTaskFromChatModal({ message, workspaceId, channelId, onClo
                   onChange={(e) =>
                     setSelectedBoardId(Number(e.target.value) || null)
                   }
-                  className="w-full appearance-none rounded-lg border border-border bg-background px-3 py-2 pr-8 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                  className="w-full appearance-none rounded-lg border border-border bg-background px-3 py-2 pr-8 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="">Select a board…</option>
                   {boards.map((b) => (
@@ -176,7 +176,7 @@ export function CreateTaskFromChatModal({ message, workspaceId, channelId, onClo
                     onChange={(e) =>
                       setSelectedGroupId(Number(e.target.value) || null)
                     }
-                    className="w-full appearance-none rounded-lg border border-border bg-background px-3 py-2 pr-8 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                    className="w-full appearance-none rounded-lg border border-border bg-background px-3 py-2 pr-8 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   >
                     <option value="">Select a group…</option>
                     {groups.map((g) => (
@@ -195,7 +195,7 @@ export function CreateTaskFromChatModal({ message, workspaceId, channelId, onClo
           <button
             onClick={handleCreate}
             disabled={!canCreate}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {creating ? (
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 
 import { DragStartEvent, DragOverEvent, DragEndEvent } from "@dnd-kit/core";
 
@@ -128,8 +129,18 @@ export function useBoardDnd({
   // (which happens on every Board render because groupsWithTasks is
   // recreated via .map()), while still picking up real changes such
   // as new pages loading, groups being added/removed, or DnD reorders.
+  // Includes task ids in order (+ subtask count) so a reorder made by someone
+  // else, or a newly added subtask, also refreshes the drag state — not only
+  // a change in the number of tasks.
   const getGroupsSig = (gs: any[]) =>
-    gs.map((g) => `${g.id}:${(g.tasks ?? []).length}`).join('|');
+    gs
+      .map(
+        (g) =>
+          `${g.id}:${(g.tasks ?? [])
+            .map((t: any) => `${t.id}.${(t.subtasks ?? []).length}`)
+            .join(',')}`,
+      )
+      .join('|');
 
   useEffect(() => {
     if (isDraggingRef.current) return;
@@ -172,6 +183,8 @@ export function useBoardDnd({
       queryClient.invalidateQueries({
         queryKey: ["board-tasks", boardId],
       });
+      // Group task counts (header/footer) come from the board detail.
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
   });
 
@@ -189,21 +202,15 @@ export function useBoardDnd({
     }) => reorderGroup(boardId, data),
 
     onMutate: async () => {
-      await queryClient.cancelQueries({
-        queryKey: ["board", boardId],
-      });
+      await queryClient.cancelQueries(boardQueryFilter(boardId));
     },
 
     onError: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
 
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
   });
 
@@ -215,21 +222,15 @@ export function useBoardDnd({
     mutationFn: reorderColumn,
 
     onMutate: async () => {
-      await queryClient.cancelQueries({
-        queryKey: ["board", boardId],
-      });
+      await queryClient.cancelQueries(boardQueryFilter(boardId));
     },
 
     onError: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
 
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
   });
 
@@ -557,16 +558,22 @@ export function useBoardDnd({
           (group) => group.id === activeData.groupId,
         );
 
-        const destinationGroupId =
-          overData.type === "task" ||
-          overData.type === "group" ||
-          overData.type === "group-drop"
-            ? overData.groupId
-            : undefined;
-
-        const destinationGroup = dragGroups.find(
-          (group) => group.id === destinationGroupId,
-        );
+        // The destination is wherever handleDragOver has already placed the
+        // task in the drag state. Do NOT trust over.data.groupId: after a
+        // cross-group move the "over" element is often the dragged row itself,
+        // whose data still carries its ORIGINAL groupId — the drop was then
+        // looked up in the wrong group and silently never saved.
+        const destinationGroup =
+          dragGroups.find((group) =>
+            (group.tasks ?? []).some((task: any) => task.id === activeData.taskId),
+          ) ??
+          dragGroups.find(
+            (group) =>
+              (overData.type === "task" ||
+                overData.type === "group" ||
+                overData.type === "group-drop") &&
+              group.id === overData.groupId,
+          );
 
         if (!sourceGroup || !destinationGroup) {
           break;
@@ -587,6 +594,61 @@ export function useBoardDnd({
         const nextTask = destinationTasks[taskIndex + 1] ?? null;
 
         setGroups(dragGroups);
+
+        // Optimistically move the task in the per-group caches
+        // (["board-tasks", boardId, groupId, …]) so it doesn't snap back to
+        // its old group/position while the request + refetch run.
+        {
+          const movedId = activeData.taskId;
+          const movedTask = {
+            ...destinationTasks[taskIndex],
+            groupId: destinationGroup.id,
+          };
+          const sourceId = sourceGroup.id;
+          const destId = destinationGroup.id;
+          const prevId = previousTask?.id ?? null;
+          queryClient.setQueriesData(
+            {
+              queryKey: ["board-tasks", boardId],
+              predicate: (q) =>
+                q.queryKey[2] === sourceId || q.queryKey[2] === destId,
+            },
+            // 1. Remove the task from the source (and destination) lists.
+            (old: any) => {
+              if (!old?.pages) return old;
+              return {
+                ...old,
+                pages: old.pages.map((p: any) => ({
+                  ...p,
+                  tasks: (p.tasks ?? []).filter((t: any) => t.id !== movedId),
+                })),
+              };
+            },
+          );
+          // 2. Insert it into the destination group's list after prevId.
+          queryClient.setQueriesData(
+            {
+              queryKey: ["board-tasks", boardId],
+              predicate: (q) => q.queryKey[2] === destId,
+            },
+            (old: any) => {
+              if (!old?.pages?.length) return old;
+              const pages = old.pages.map((p: any) => ({ ...p, tasks: [...(p.tasks ?? [])] }));
+              if (prevId == null) {
+                pages[0].tasks.unshift(movedTask);
+              } else {
+                const pi = pages.findIndex((p: any) => p.tasks.some((t: any) => t.id === prevId));
+                if (pi === -1) {
+                  pages[pages.length - 1].tasks.push(movedTask);
+                } else {
+                  const ti = pages[pi].tasks.findIndex((t: any) => t.id === prevId);
+                  pages[pi].tasks.splice(ti + 1, 0, movedTask);
+                }
+              }
+              return { ...old, pages };
+            },
+          );
+        }
 
         reorderTaskMutation.mutate({
           taskId: Number(activeData.taskId),
@@ -654,6 +716,19 @@ export function useBoardDnd({
           break;
         }
         setGroups(dragGroups);
+        // Optimistically write the new order into the board cache so the
+        // sync effect doesn't snap the groups back while the request runs.
+        {
+          const orderIds = dragGroups.map((g: any) => g.id);
+          queryClient.setQueriesData(boardQueryFilter(boardId), (old: any) => {
+            if (!old?.groups) return old;
+            const pos = new Map(orderIds.map((id: any, i: number) => [id, i]));
+            const groupsSorted = [...old.groups].sort(
+              (a: any, b: any) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9),
+            );
+            return { ...old, groups: groupsSorted };
+          });
+        }
         const previousGroup = dragGroups[newIndex - 1] ?? null;
         const nextGroup = dragGroups[newIndex + 1] ?? null;
         reorderGroupMutation.mutate({
@@ -677,6 +752,19 @@ export function useBoardDnd({
           break;
         }
         setColumns(dragColumns);
+        // Optimistically reorder columns in the board cache (the table renders
+        // from it), otherwise the column snaps back until a refetch.
+        {
+          const orderIds = dragColumns.map((c: any) => c.id);
+          queryClient.setQueriesData(boardQueryFilter(boardId), (old: any) => {
+            if (!old?.columns) return old;
+            const pos = new Map(orderIds.map((id: any, i: number) => [id, i]));
+            const columnsSorted = [...old.columns].sort(
+              (a: any, b: any) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9),
+            );
+            return { ...old, columns: columnsSorted };
+          });
+        }
         const previousColumn = dragColumns[newIndex - 1] ?? null;
         const nextColumn = dragColumns[newIndex + 1] ?? null;
         reorderColumnMutation.mutate({

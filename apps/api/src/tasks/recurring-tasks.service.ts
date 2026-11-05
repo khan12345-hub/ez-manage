@@ -3,6 +3,35 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from 'prisma/prisma.service';
 import { RecurrenceType } from 'generated/prisma/enums';
 
+/** Column types whose values are per-instance and must not be copied. */
+const NON_COPYABLE_TYPES = new Set([
+  'FILE',
+  'TIME_TRACKING',
+  'CREATION_LOG',
+  'FORMULA',
+]);
+
+/**
+ * Calendar day of a moment in APP_TIMEZONE (e.g. "Asia/Karachi"), or in the
+ * server's zone when unset. Returned as { y, m (1-12), d, dayNo } where dayNo
+ * is a timezone-free day counter for easy differences.
+ */
+function calendarDay(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: process.env.APP_TIMEZONE || undefined,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const y = get('year');
+  const m = get('month');
+  const d = get('day');
+  return { y, m, d, dayNo: Date.UTC(y, m - 1, d) / 86_400_000 };
+}
+
+const daysInMonth = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+
 @Injectable()
 export class RecurringTasksService {
   private readonly logger = new Logger(RecurringTasksService.name);
@@ -10,10 +39,12 @@ export class RecurringTasksService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Runs at 00:05 every day. Creates new task instances for due recurring tasks. */
-  @Cron('5 0 * * *')
+  @Cron('5 0 * * *', { timeZone: process.env.APP_TIMEZONE || undefined })
   async spawnRecurringTasks() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const today = calendarDay(now);
+    // Start of "today" as a Date, for the recurrenceEndDate filter.
+    const todayStart = new Date(Date.UTC(today.y, today.m - 1, today.d));
 
     const templates = await this.prisma.task.findMany({
       where: {
@@ -21,7 +52,7 @@ export class RecurringTasksService {
         sourceTaskId: null,
         OR: [
           { recurrenceEndDate: null },
-          { recurrenceEndDate: { gte: today } },
+          { recurrenceEndDate: { gte: todayStart } },
         ],
       },
       include: {
@@ -42,10 +73,8 @@ export class RecurringTasksService {
 
         // Skip if we already spawned one today
         const latest = task.recurringCopies[0];
-        if (latest) {
-          const latestDate = new Date(latest.createdAt);
-          latestDate.setHours(0, 0, 0, 0);
-          if (latestDate.getTime() === today.getTime()) continue;
+        if (latest && calendarDay(new Date(latest.createdAt)).dayNo === today.dayNo) {
+          continue;
         }
 
         const lastSibling = await this.prisma.task.findFirst({
@@ -59,9 +88,15 @@ export class RecurringTasksService {
             board: { groups: { some: { id: task.groupId } } },
             isPrimary: false,
           },
-          select: { id: true },
+          select: { id: true, type: true },
           orderBy: { order: 'asc' },
         });
+
+        // Copy the template's values (status, person, text, …) into the new
+        // instance; per-instance columns start empty.
+        const templateValues = new Map(
+          task.cells.map((c) => [c.columnId, c.value]),
+        );
 
         await this.prisma.task.create({
           data: {
@@ -71,7 +106,17 @@ export class RecurringTasksService {
             order: lastSibling ? lastSibling.order + 1000 : 1000,
             sourceTaskId: task.id,
             cells: {
-              create: columns.map((c) => ({ column: { connect: { id: c.id } } })),
+              create: columns.map((c) => {
+                const value = templateValues.get(c.id);
+                const copy =
+                  !NON_COPYABLE_TYPES.has(c.type as string) &&
+                  value !== null &&
+                  value !== undefined;
+                return {
+                  column: { connect: { id: c.id } },
+                  ...(copy ? { value: value as any } : {}),
+                };
+              }),
             },
           },
         });
@@ -89,27 +134,40 @@ export class RecurringTasksService {
 
   private isDueToday(
     task: { recurrenceType: RecurrenceType; recurrenceInterval: number; createdAt: Date },
-    today: Date,
+    today: ReturnType<typeof calendarDay>,
   ): boolean {
-    const start = new Date(task.createdAt);
-    start.setHours(0, 0, 0, 0);
-    const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000);
+    const start = calendarDay(new Date(task.createdAt));
+    const daysDiff = today.dayNo - start.dayNo;
     if (daysDiff <= 0) return false;
 
     const interval = task.recurrenceInterval || 1;
 
+    // Anchor day clamped to the month's length, so a task started on the
+    // 31st still recurs on the 30th / 28th of shorter months.
+    const anchorDay = Math.min(start.d, daysInMonth(today.y, today.m));
+
     switch (task.recurrenceType) {
       case RecurrenceType.DAILY:
         return daysDiff % interval === 0;
+
       case RecurrenceType.WEEKLY:
         return daysDiff % (7 * interval) === 0;
+
       case RecurrenceType.MONTHLY: {
-        const startDay = start.getDate();
-        return today.getDate() === startDay && (
-          (today.getFullYear() - start.getFullYear()) * 12 +
-          (today.getMonth() - start.getMonth())
-        ) % interval === 0;
+        const monthsDiff = (today.y - start.y) * 12 + (today.m - start.m);
+        return monthsDiff > 0 && monthsDiff % interval === 0 && today.d === anchorDay;
       }
+
+      case RecurrenceType.YEARLY: {
+        const yearsDiff = today.y - start.y;
+        return (
+          yearsDiff > 0 &&
+          yearsDiff % interval === 0 &&
+          today.m === start.m &&
+          today.d === anchorDay
+        );
+      }
+
       default:
         return false;
     }

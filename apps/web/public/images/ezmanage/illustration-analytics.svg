@@ -1,0 +1,62 @@
+<svg width="280" height="240" viewBox="0 0 280 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Analytics dashboard illustration">
+  <defs>
+    <linearGradient id="an-panel" x1="40" y1="40" x2="240" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#EEF0FF" stop-opacity="0.75"/>
+    </linearGradient>
+    <linearGradient id="an-bar1" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop stop-color="#60A5FA"/><stop offset="1" stop-color="#3B82F6"/>
+    </linearGradient>
+    <linearGradient id="an-bar2" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop stop-color="#818CF8"/><stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+    <linearGradient id="an-bar3" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+      <stop stop-color="#A78BFA"/><stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="an-arrow" x1="80" y1="150" x2="210" y2="80" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/><stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <filter id="an-shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#6366F1" flood-opacity="0.22"/>
+    </filter>
+    <filter id="an-shadow-sm" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#6366F1" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <!-- back plate -->
+  <rect x="46" y="30" width="196" height="168" rx="20" fill="#E7E9FF" opacity="0.5"/>
+
+  <!-- main glass panel -->
+  <g filter="url(#an-shadow)">
+    <rect x="34" y="42" width="196" height="168" rx="20" fill="url(#an-panel)" stroke="#FFFFFF" stroke-opacity="0.9"/>
+  </g>
+
+  <!-- baseline -->
+  <line x1="56" y1="178" x2="210" y2="178" stroke="#C7CBF5" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- bars -->
+  <rect x="66" y="138" width="20" height="40" rx="5" fill="url(#an-bar1)"/>
+  <rect x="98" y="118" width="20" height="60" rx="5" fill="url(#an-bar2)"/>
+  <rect x="130" y="96" width="20" height="82" rx="5" fill="url(#an-bar3)"/>
+  <rect x="162" y="74" width="20" height="104" rx="5" fill="url(#an-bar3)"/>
+
+  <!-- rising arrow -->
+  <path d="M64 150 L104 132 L140 108 L186 72" fill="none" stroke="url(#an-arrow)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M176 70 L190 68 L188 82" fill="none" stroke="url(#an-arrow)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- floating donut card -->
+  <g filter="url(#an-shadow-sm)">
+    <rect x="30" y="48" width="58" height="46" rx="12" fill="#FFFFFF" fill-opacity="0.9" stroke="#FFFFFF" stroke-opacity="0.9"/>
+  </g>
+  <circle cx="49" cy="71" r="11" fill="none" stroke="#DDE3FF" stroke-width="5"/>
+  <path d="M49 60 a11 11 0 0 1 9.5 16.5" fill="none" stroke="#7C3AED" stroke-width="5" stroke-linecap="round"/>
+  <rect x="64" y="64" width="18" height="3.5" rx="1.75" fill="#C7CBF5"/>
+  <rect x="64" y="72" width="12" height="3.5" rx="1.75" fill="#C7CBF5"/>
+
+  <!-- floating line card -->
+  <g filter="url(#an-shadow-sm)">
+    <rect x="176" y="150" width="62" height="46" rx="12" fill="#FFFFFF" fill-opacity="0.9" stroke="#FFFFFF" stroke-opacity="0.9"/>
+  </g>
+  <path d="M184 182 L196 174 L206 180 L218 164 L230 170" fill="none" stroke="#6366F1" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

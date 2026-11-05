@@ -9,7 +9,6 @@ import { Reflector } from '@nestjs/core';
 import { BOARD_PERMISSION_KEY } from '../decorators/require-board-permission.decorator';
 import { BoardAccessService } from '../../boards/board-access.service';
 import { PrismaService } from 'prisma/prisma.service';
-import { SystemRole } from 'generated/prisma/enums';
 
 @Injectable()
 export class BoardPermissionGuard implements CanActivate {
@@ -54,11 +53,10 @@ export class BoardPermissionGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    // SUPER ADMIN BYPASS
-    if (user.systemRole === SystemRole.SUPER_ADMIN) {
-      return true;
-    }
-
+    // SUPER_ADMIN is handled inside requirePermission, which reads the role
+    // from the database (with deletedAt: null). Trusting the role stored in
+    // the session let a deleted/demoted super admin keep full access until
+    // their session expired.
     return this.boardAccess.requirePermission(
       boardId,
       user.id,

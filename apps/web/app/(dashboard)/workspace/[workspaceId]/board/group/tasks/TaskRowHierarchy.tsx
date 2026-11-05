@@ -17,6 +17,9 @@ interface Props {
   isDraggingTask?: boolean;
   selection?: any;
   showSelection?: boolean;
+  /** Controlled expand state (owned by GroupTable so it survives virtual-scroll unmounts). */
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
 }
 
 export function TaskHierarchyRow({
@@ -25,12 +28,20 @@ export function TaskHierarchyRow({
   color,
   isDraggingTask,
   selection,
-  showSelection
+  showSelection,
+  expanded,
+  onToggleExpanded,
 }: Props) {
   const subtasks = task.subtasks ?? [];
 
   const hasSubtasks = subtasks.length > 0;
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const isControlled = expanded !== undefined;
+  const isExpanded = isControlled ? expanded : localExpanded;
+  const setIsExpanded = (next: boolean) => {
+    if (isControlled) onToggleExpanded?.();
+    else setLocalExpanded(next);
+  };
 
   const taskSelection = selection
     ? selection.getTaskSelectionState(task)

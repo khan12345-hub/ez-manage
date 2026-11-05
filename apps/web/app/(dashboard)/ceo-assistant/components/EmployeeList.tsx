@@ -123,7 +123,7 @@ function EmployeeRow({ group, activeFilter }: { group: EmployeeTaskGroup; active
           <div className="flex items-center gap-1.5 shrink-0">
             <TaskBadge label="overdue" count={group.overdue.length} color="bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400" />
             <TaskBadge label="due soon" count={group.dueSoon.length} color="bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400" />
-            <TaskBadge label="inactive" count={group.inactive.length} color="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400" />
+            <TaskBadge label="inactive" count={group.inactive.length} color="bg-muted text-muted-foreground dark:bg-slate-800 dark:text-slate-400" />
           </div>
 
           <button className="ml-2 text-muted-foreground">

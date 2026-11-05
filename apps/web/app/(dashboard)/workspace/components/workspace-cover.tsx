@@ -1,7 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
 import Image from "next/image";
 
 interface Props {
@@ -10,7 +8,7 @@ interface Props {
 
 export function WorkspaceCover({ image }: Props) {
   return (
-    <div className="relative h-36 sm:h-48 md:h-60 overflow-hidden">
+    <div className="relative h-32 overflow-hidden sm:h-44 md:h-52">
       <Image
         src={image}
         alt="cover-image"
@@ -18,14 +16,10 @@ export function WorkspaceCover({ image }: Props) {
         fill
       />
 
-      <div className="absolute inset-0 bg-black/15" />
-
-      {/* <div className="absolute right-8 top-6">
-        <Button variant="secondary">
-          <Pencil className="mr-2 h-4 w-4" />
-          Change Cover
-        </Button>
-      </div> */}
+      {/* soft tint for text contrast */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/5" />
+      {/* fade into the light page below for a seamless, premium blend */}
+      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent" />
     </div>
   );
 }

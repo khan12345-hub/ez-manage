@@ -47,7 +47,7 @@ function ToolbarBtn({
       title={title}
       className={`flex h-7 w-7 items-center justify-center rounded text-sm transition-colors ${
         active
-          ? "bg-indigo-100 text-indigo-700"
+          ? "bg-primary/10 text-primary"
           : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >

@@ -7,7 +7,10 @@ describe('AutomationsService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [AutomationsService],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     service = module.get<AutomationsService>(AutomationsService);
   });

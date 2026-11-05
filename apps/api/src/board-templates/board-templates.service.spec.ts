@@ -7,7 +7,10 @@ describe('BoardTemplatesService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [BoardTemplatesService],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     service = module.get<BoardTemplatesService>(BoardTemplatesService);
   });

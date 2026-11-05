@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Figtree, Poppins, JetBrains_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 import Providers from "@/providers/providers";
 
-// Body / UI font everywhere
-const figtree = Figtree({
+// Body / UI font everywhere — Plus Jakarta Sans (keeps the --font-figtree var
+// name so every existing style picks it up with zero other changes)
+const figtree = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-figtree",
   display: "swap",
 });
 
-// Board name, group name, workspace name titles only
-const poppins = Poppins({
+// Titles (.font-title) — same family, heavier weights (keeps --font-poppins var)
+const poppins = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["600", "700", "800"],
   variable: "--font-poppins",
   display: "swap",
 });

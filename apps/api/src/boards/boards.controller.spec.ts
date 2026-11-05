@@ -9,7 +9,10 @@ describe('BoardsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BoardsController],
       providers: [BoardsService],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get<BoardsController>(BoardsController);
   });

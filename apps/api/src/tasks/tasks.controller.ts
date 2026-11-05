@@ -66,37 +66,49 @@ export class TasksController {
 
   @Get(':id')
   @RequireBoardPermission(BoardPermission.VIEW)
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  async findOne(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: SessionUser,
+  ) {
+    await this.taskQueryService.assertTaskInBoard(id, boardId, user.id);
     return this.taskQueryService.findOne(id);
   }
 
   @Patch(':id')
   @RequireBoardPermission(BoardPermission.EDIT)
-  update(
+  async update(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTaskDto,
     @CurrentUser() user: SessionUser,
   ) {
+    await this.taskQueryService.assertTaskInBoard(id, boardId);
     return this.taskMutationService.update(id, dto, user.id, boardId);
   }
 
   @Delete(':id')
   @RequireBoardPermission(BoardPermission.DELETE_TASK)
-  remove(
+  async remove(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: SessionUser,
   ) {
+    await this.taskQueryService.assertTaskInBoard(id, boardId);
     return this.taskMutationService.remove(id, user.id, boardId);
   }
 
   @Patch(':taskId/reorder-subtask')
   @RequireBoardPermission(BoardPermission.EDIT)
   async reorderSubtask(
+    @Param('boardId', ParseIntPipe) boardId: number,
     @Param('taskId', ParseIntPipe) taskId: number,
     @Body() dto: ReorderSubtaskDto,
   ) {
+    await this.taskQueryService.assertTaskInBoard(taskId, boardId);
+    for (const n of [dto.previousTaskId, dto.nextTaskId]) {
+      if (n != null) await this.taskQueryService.assertTaskInBoard(n, boardId);
+    }
     return this.taskReorderService.reorderSubtask(
       taskId,
       dto.previousTaskId ?? null,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   SortableContext,
   horizontalListSortingStrategy,
@@ -104,10 +104,28 @@ export function GroupTable({
     setScrollMargin(offset);
   }, [shouldVirtualize, rootTasks.length, isFetchingNextPage]);
 
+  // Which tasks have their subtasks expanded. Kept here (not inside each row)
+  // so it survives rows being unmounted by virtual scrolling.
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(() => new Set());
+  const toggleExpanded = (taskId: number) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+
+  // Rows a root task occupies: itself, plus (when expanded) each subtask and
+  // the "add subtask" row. All rows are 41px.
+  const rowsFor = (task: any) =>
+    task && expandedIds.has(task.id) && !isDraggingTask
+      ? 1 + (task.subtasks?.length ?? 0) + 1
+      : 1;
+
   // The app's scroll container is <main> (overflow-auto in AppShell), not the window.
   const rowVirtualizer = useVirtualizer({
     count: rootTasks.length,
-    estimateSize: () => 41,
+    estimateSize: (i) => 41 * rowsFor(rootTasks[i]),
     overscan: 15,
     getScrollElement: () => {
       if (typeof document === "undefined") return null;
@@ -115,6 +133,12 @@ export function GroupTable({
     },
     scrollMargin,
   });
+
+  // Re-measure when expansion (or drag mode) changes the row heights.
+  useEffect(() => {
+    if (shouldVirtualize) rowVirtualizer.measure();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedIds, isDraggingTask, shouldVirtualize]);
 
   const virtualItems = rowVirtualizer.getVirtualItems();
 
@@ -233,6 +257,8 @@ export function GroupTable({
                 isDraggingTask={isDraggingTask}
                 selection={selection}
                 showSelection={showSelection}
+                expanded={expandedIds.has(task.id)}
+                onToggleExpanded={() => toggleExpanded(task.id)}
               />
             ))}
 

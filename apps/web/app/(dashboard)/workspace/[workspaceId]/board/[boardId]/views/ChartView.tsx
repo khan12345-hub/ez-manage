@@ -54,8 +54,14 @@ function StatusBarChart({
 
   const maxVal = niceMax(Math.max(...items.map((i) => i.count), 1));
 
-  const yTicks = Array.from({ length: GRID_LINES + 1 }, (_, i) =>
-    Math.round((maxVal / GRID_LINES) * i),
+  // Rounding repeats ticks for small maxima (e.g. 0,1,1,2,2): dedupe so grid
+  // lines/labels aren't drawn twice and React keys stay unique.
+  const yTicks = Array.from(
+    new Set(
+      Array.from({ length: GRID_LINES + 1 }, (_, i) =>
+        Math.round((maxVal / GRID_LINES) * i),
+      ),
+    ),
   );
 
   // Dynamic bar width based on count
@@ -259,8 +265,8 @@ export function ChartView({ board }: ChartViewProps) {
   const [statusSize, setStatusSize] = useState<ChartSize>("normal");
   const [groupSize, setGroupSize] = useState<ChartSize>("normal");
 
-  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["board-tasks-chart", board.id],
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage, isError } = useInfiniteQuery({
+    queryKey: ["board-tasks", board.id, "chart"],
     queryFn: ({ pageParam }) =>
       getBoardTasks(board.id, { cursor: pageParam ?? undefined, limit: 500 }),
     initialPageParam: null as number | null,
@@ -271,10 +277,10 @@ export function ChartView({ board }: ChartViewProps) {
 
   /* Auto-fetch all pages so chart always shows complete data */
   useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) {
+    if (hasNextPage && !isFetchingNextPage && !isError) {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
 
   const allTasks: any[] = Array.from(
     new Map((data?.pages.flatMap((p: any) => p.tasks) ?? []).map((t: any) => [t.id, t])).values()

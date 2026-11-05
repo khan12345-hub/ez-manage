@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import {
@@ -51,7 +52,7 @@ export function FormulaEditorDialog({ open, onOpenChange, column, boardColumns }
     mutationFn: () => saveColumnFormula(column.id, formula.trim()),
     onSuccess: () => {
       toast.success("Formula saved");
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
       onOpenChange(false);
     },
     onError: (error: unknown) => {

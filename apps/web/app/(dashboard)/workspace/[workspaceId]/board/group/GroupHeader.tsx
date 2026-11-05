@@ -18,6 +18,7 @@ import {
 } from "@/services/groups.api";
 
 import { GroupActions } from "./GroupActions";
+import { useCanManageGroups } from "../hooks/useCanManageGroups";
 
 // ── collapsed summary helpers ─────────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ export function GroupHeader({
   );
 
   const updateGroup = useGroupStore((state) => state.updateGroup);
+  const canManageGroups = useCanManageGroups();
   const removeGroup = useGroupStore((state) => state.removeGroup);
 
   const { boardId: boardUid } = useParams<{ boardId: string }>();
@@ -296,26 +298,35 @@ export function GroupHeader({
           </button>
         )}
 
-        <ColorPicker
-          value={activeGroup.color ?? undefined}
-          colors={STATUS_COLORS}
-          onChange={handleColorChange}
-        >
-          <button
-            type="button"
-            className="h-8 w-8 shrink-0 rounded-md border transition hover:scale-105"
-            style={{
-              backgroundColor: activeGroup.color ?? undefined,
-            }}
-            aria-label="Change group color"
+        {canManageGroups ? (
+          <ColorPicker
+            value={activeGroup.color ?? undefined}
+            colors={STATUS_COLORS}
+            onChange={handleColorChange}
+          >
+            <button
+              type="button"
+              className="h-8 w-8 shrink-0 rounded-md border transition hover:scale-105"
+              style={{
+                backgroundColor: activeGroup.color ?? undefined,
+              }}
+              aria-label="Change group color"
+            />
+          </ColorPicker>
+        ) : (
+          <div
+            className="h-8 w-8 shrink-0 rounded-md border"
+            style={{ backgroundColor: activeGroup.color ?? undefined }}
           />
-        </ColorPicker>
+        )}
 
         <Input
           ref={inputRef}
           value={activeGroup.name ?? ""}
-          onChange={handleNameChange}
-          onBlur={handleNameBlur}
+          // Only board/workspace OWNER & ADMIN may rename groups.
+          readOnly={!canManageGroups}
+          onChange={canManageGroups ? handleNameChange : undefined}
+          onBlur={canManageGroups ? handleNameBlur : undefined}
           className="font-title w-64 border-none p-0 text-lg shadow-none focus-visible:ring-0"
           style={{
             color: activeGroup.color ?? undefined,

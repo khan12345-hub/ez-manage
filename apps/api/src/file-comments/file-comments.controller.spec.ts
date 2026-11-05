@@ -17,7 +17,10 @@ describe('FileCommentsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [FileCommentsController],
       providers: [{ provide: FileCommentsService, useValue: service }],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get(FileCommentsController);
   });

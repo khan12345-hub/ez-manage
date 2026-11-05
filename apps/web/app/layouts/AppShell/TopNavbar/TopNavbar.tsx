@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, UserPlus, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { Menu, UserPlus, RefreshCw, LayoutGrid } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { InviteModal } from "@/components/InviteModal";
 import { useInviteModalStore } from "@/store/invite-modal";
@@ -30,7 +31,7 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
 
   return (
     <>
-      <header className="flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-3 shadow-sm sm:h-16 sm:px-8">
+      <header className="flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-[linear-gradient(90deg,#eff6ff_0%,#f1f5ff_50%,#f1f6fd_100%)] px-3 dark:bg-none dark:bg-background sm:h-16 sm:px-8">
         {/* Hamburger — mobile only */}
         <button
           type="button"
@@ -40,6 +41,16 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
         >
           <Menu className="h-5 w-5" />
         </button>
+
+        {/* Back to module launcher — desktop only */}
+        <Link
+          href="/home"
+          className="mr-3 hidden shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex"
+          title="Back to module launcher"
+        >
+          <LayoutGrid className="h-3.5 w-3.5" />
+          <span>Modules</span>
+        </Link>
 
         {/* Search bar */}
         <div className="flex flex-1 justify-center px-1 sm:px-6">

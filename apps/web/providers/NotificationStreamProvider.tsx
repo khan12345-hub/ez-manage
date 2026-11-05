@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 
@@ -120,7 +121,7 @@ export function NotificationStreamProvider({
       },
       undefined,
       ({ boardId }) => {
-        queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+        queryClient.invalidateQueries(boardQueryFilter(boardId));
       },
       () => {
         queryClient.invalidateQueries({ queryKey: ["boards"] });

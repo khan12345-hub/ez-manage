@@ -146,7 +146,7 @@ export function ExcelBoardImport({
         role="dialog"
         aria-modal="true"
       >
-        <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600" />
+        <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-primary" />
 
         <button
           type="button"

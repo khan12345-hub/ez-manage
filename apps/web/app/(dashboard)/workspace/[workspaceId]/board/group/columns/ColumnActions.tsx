@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { boardQueryFilter } from "@/lib/board-query";
 import { useParams } from "next/navigation";
 import {
   DropdownMenu,
@@ -80,7 +81,7 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
     onSuccess: () => {
       toast.success("Column renamed");
       setRenameOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error, "Failed to rename column"));
@@ -91,7 +92,7 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
     mutationFn: (type: ColumnType) => updateColumnType(column.id, type),
     onSuccess: () => {
       toast.success("Column type updated");
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error, "Failed to change column type"));
@@ -104,9 +105,7 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
     onSuccess: () => {
       toast.success("Column deleted");
 
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
 
     onError: (error: unknown) => {
@@ -123,9 +122,7 @@ export function ColumnActions({ column, members, boardColumns = [] }: Props) {
         enabled ? "Column protection enabled" : "Column protection disabled",
       );
 
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
 
     onError: (error: unknown) => {

@@ -37,7 +37,10 @@ describe('StatusOptionsService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: BoardAccessService, useValue: boardAccessMock },
       ],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     service = module.get<StatusOptionsService>(StatusOptionsService);
     jest.clearAllMocks();
@@ -137,7 +140,10 @@ describe('StatusOptionsService', () => {
         id: STATUS_ID, columnId: COLUMN_ID, label: 'Old', color: '#000',
       });
       const txMock = {
-        statusOption: { update: jest.fn().mockResolvedValue({ id: STATUS_ID }) },
+        statusOption: {
+          update: jest.fn().mockResolvedValue({ id: STATUS_ID }),
+          count: jest.fn().mockResolvedValue(0),
+        },
         taskCell: { findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
       };
       prismaMock.$transaction.mockImplementation((fn) => fn(txMock));
@@ -172,9 +178,41 @@ describe('StatusOptionsService', () => {
       const deleted = { id: STATUS_ID };
       prismaMock.boardColumn.findUnique.mockResolvedValue({ boardId: BOARD_ID });
       boardAccessMock.requirePermission.mockResolvedValue(true);
-      prismaMock.statusOption.findFirst.mockResolvedValue({ id: STATUS_ID });
-      prismaMock.statusOption.delete.mockResolvedValue(deleted);
+      prismaMock.statusOption.findFirst.mockResolvedValue({ id: STATUS_ID, label: 'Done', color: '#0f0' });
+      const txMock = {
+        statusOption: {
+          count: jest.fn().mockResolvedValue(0),
+          delete: jest.fn().mockResolvedValue(deleted),
+        },
+        taskCell: { findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
+      };
+      prismaMock.$transaction.mockImplementation((fn) => fn(txMock));
       expect(await service.remove(COLUMN_ID, STATUS_ID, USER_ID)).toEqual(deleted);
+    });
+
+    it('clears cells that still show the deleted option', async () => {
+      prismaMock.boardColumn.findUnique.mockResolvedValue({ boardId: BOARD_ID });
+      boardAccessMock.requirePermission.mockResolvedValue(true);
+      prismaMock.statusOption.findFirst.mockResolvedValue({ id: STATUS_ID, label: 'Done', color: '#0f0' });
+      const txMock = {
+        statusOption: {
+          count: jest.fn().mockResolvedValue(0),
+          delete: jest.fn().mockResolvedValue({ id: STATUS_ID }),
+        },
+        taskCell: {
+          findMany: jest.fn().mockResolvedValue([
+            { id: 1, value: { label: 'Done', color: '#0f0' } }, // refers to deleted option
+            { id: 2, value: { label: 'Working', color: '#fa0' } }, // other option
+          ]),
+          update: jest.fn(),
+        },
+      };
+      prismaMock.$transaction.mockImplementation((fn) => fn(txMock));
+      await service.remove(COLUMN_ID, STATUS_ID, USER_ID);
+      expect(txMock.taskCell.update).toHaveBeenCalledTimes(1);
+      expect(txMock.taskCell.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 1 } }),
+      );
     });
   });
 

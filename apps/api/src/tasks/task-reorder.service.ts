@@ -98,6 +98,16 @@ export class TaskReorderService {
       if (parentTask.id === task.id) {
         throw new BadRequestException('A task cannot be its own parent.');
       }
+
+      // Prevent 3 levels: a task that has subtasks cannot become a subtask
+      const childCount = await this.prisma.task.count({
+        where: { parentId: task.id },
+      });
+      if (childCount > 0) {
+        throw new BadRequestException(
+          'A task that has subtasks cannot be made a subtask.',
+        );
+      }
     }
 
     const [previousTask, nextTask] = await Promise.all([
@@ -157,19 +167,39 @@ export class TaskReorderService {
     } else if (previousTask && !nextTask) {
       newOrder = previousTask.order + 1000;
     } else {
-      newOrder = (previousTask!.order + nextTask!.order) / 2;
+      let prevOrder = previousTask!.order;
+      let nextOrder = nextTask!.order;
+      // Repeated midpoint inserts eventually leave no room between the two
+      // neighbours (equal/duplicate orders). Renumber the siblings first.
+      if (nextOrder - prevOrder < 0.001) {
+        const renumbered = await this.rebalanceSiblings(
+          destinationGroup.id,
+          destinationParentId,
+          dto.taskId,
+        );
+        prevOrder = renumbered.get(previousTask!.id) ?? prevOrder;
+        nextOrder = renumbered.get(nextTask!.id) ?? nextOrder;
+      }
+      newOrder = (prevOrder + nextOrder) / 2;
     }
 
-    await this.prisma.task.update({
-      where: {
-        id: dto.taskId,
-      },
-      data: {
-        groupId: destinationGroup.id,
-        parentId: destinationParentId,
-        order: newOrder,
-      },
-    });
+    await this.prisma.$transaction([
+      this.prisma.task.update({
+        where: {
+          id: dto.taskId,
+        },
+        data: {
+          groupId: destinationGroup.id,
+          parentId: destinationParentId,
+          order: newOrder,
+        },
+      }),
+      // Subtasks always live in their parent's group — move them along.
+      this.prisma.task.updateMany({
+        where: { parentId: dto.taskId },
+        data: { groupId: destinationGroup.id },
+      }),
+    ]);
 
     return {
       message: 'Task reordered successfully.',
@@ -265,7 +295,18 @@ export class TaskReorderService {
     let newOrder: number;
 
     if (previousTask && nextTask) {
-      newOrder = (previousTask.order + nextTask.order) / 2;
+      let prevOrder = previousTask.order;
+      let nextOrder = nextTask.order;
+      if (nextOrder - prevOrder < 0.001) {
+        const renumbered = await this.rebalanceSiblings(
+          subtask.groupId,
+          subtask.parentId,
+          subtaskId,
+        );
+        prevOrder = renumbered.get(previousTask.id) ?? prevOrder;
+        nextOrder = renumbered.get(nextTask.id) ?? nextOrder;
+      }
+      newOrder = (prevOrder + nextOrder) / 2;
     } else if (previousTask) {
       newOrder = previousTask.order + 1000;
     } else if (nextTask) {
@@ -294,5 +335,31 @@ export class TaskReorderService {
     });
 
     return updatedSubtask;
+  }
+
+  /**
+   * Renumber all siblings (same group + parent), except the task being
+   * moved, to 1000, 2000, … keeping their current order.
+   * Returns the new order per task id.
+   */
+  private async rebalanceSiblings(
+    groupId: number,
+    parentId: number | null,
+    excludeTaskId: number,
+  ): Promise<Map<number, number>> {
+    const siblings = await this.prisma.task.findMany({
+      where: { groupId, parentId, id: { not: excludeTaskId } },
+      orderBy: [{ order: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    });
+    const result = new Map<number, number>();
+    await this.prisma.$transaction(
+      siblings.map((s, i) => {
+        const order = (i + 1) * 1000;
+        result.set(s.id, order);
+        return this.prisma.task.update({ where: { id: s.id }, data: { order } });
+      }),
+    );
+    return result;
   }
 }

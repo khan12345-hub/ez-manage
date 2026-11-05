@@ -1,4 +1,6 @@
 import { ComponentType, ReactNode } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
+import { parseDateValue, toDateKey } from "@/lib/date-value";
 import { QueryClient } from "@tanstack/react-query";
 
 import { CellEditorProps } from "../EditableCells/EditableCell";
@@ -198,7 +200,7 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
       // Automation may have moved the task to a different group.
       // Refetch the board so the UI reflects the new position.
       if (boardId) {
-        queryClient?.invalidateQueries({ queryKey: ["board", boardId] });
+        queryClient?.invalidateQueries(boardQueryFilter(boardId));
       }
 
       return result;
@@ -248,7 +250,11 @@ export const CELL_CONFIG: Record<string, CellConfig> = {
 
     save: ({ task, cell, column, value, boardId }) =>
       ensureAndUpdate(boardId!, task, column, cell, {
-        value: { startDate: new Date(value.startDate), endDate: new Date(value.endDate) },
+        // Plain "YYYY-MM-DD" (see lib/date-value) — no timezone day-shift.
+        value: {
+          startDate: toDateKey(parseDateValue(value.startDate)!),
+          endDate: toDateKey(parseDateValue(value.endDate)!),
+        },
       }),
   },
 

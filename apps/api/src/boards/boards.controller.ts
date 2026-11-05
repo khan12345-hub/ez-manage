@@ -45,6 +45,7 @@ import { GetBoardTasksService } from './single-board-tasks.service';
 import { boardAllFilesService } from './board-all-files.service';
 import { BoardExportService } from './board-export.service';
 import { FileImportService } from 'src/file-import/file-import.processor';
+import { BoardAccessService } from './board-access.service';
 
 @Controller('boards')
 @UseGuards(SessionAuthGuard, BoardPermissionGuard)
@@ -58,13 +59,18 @@ export class BoardsController {
     private readonly boardAllFilesService: boardAllFilesService,
     private readonly boardExportService: BoardExportService,
     private readonly fileImportService: FileImportService,
+    private readonly boardAccessService: BoardAccessService,
   ) {}
 
   @Post()
-  create(
+  async create(
     @Body() createBoardDto: CreateBoardDto,
     @CurrentUser() user: SessionUser,
   ) {
+    await this.boardAccessService.assertCanCreateBoard(
+      Number(createBoardDto.workspaceId),
+      user.id,
+    );
     return this.boardsService.create(createBoardDto, user.id);
   }
 
@@ -77,6 +83,7 @@ export class BoardsController {
   }
 
   @Get(':boardId/import-progress')
+  @RequireBoardPermission(BoardPermission.VIEW)
   async getImportProgress(@Param('boardId') boardId: string) {
     const id = await this.boardsService.resolveId(boardId);
     return this.fileImportService.getProgress(id);
@@ -278,12 +285,15 @@ export class BoardsController {
     return this.boardsService.getBoardViews(id);
   }
 
+  // Import creates a NEW board, so the check is workspace-level. The old
+  // @RequireBoardPermission here had no :boardId to resolve, so the guard
+  // rejected every request (import was broken for everyone).
   @Post('import/excel')
-  @RequireBoardPermission(BoardPermission.MANAGE_SETTINGS)
   async importExcelBoard(
     @Body() dto: ImportExcelBoardDto,
     @CurrentUser() user: SessionUser,
   ) {
+    await this.boardAccessService.assertCanCreateBoard(Number(dto.workspaceId), user.id);
     return this.boardImportService.startImport(dto, user.id);
   }
 
@@ -305,6 +315,7 @@ export class BoardsController {
     @Query('cursor') cursor?: string,
     @Query('search') search?: string,
     @Query('person') person?: string,
+    @CurrentUser() user?: SessionUser,
   ) {
     const id = await this.boardsService.resolveId(boardId);
     return this.getBoardTasksService.execute({
@@ -314,6 +325,7 @@ export class BoardsController {
       cursor: cursor ? Number(cursor) : undefined,
       search,
       person,
+      userId: user?.id,
     });
   }
 
@@ -326,6 +338,7 @@ export class BoardsController {
     @Query('person') person?: string,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
     @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset?: number,
+    @CurrentUser() user?: SessionUser,
   ) {
     const id = await this.boardsService.resolveId(boardId);
     return this.getBoardTasksService.getGroupTasks(
@@ -335,6 +348,7 @@ export class BoardsController {
       person,
       Math.min(limit ?? 50, 50),
       offset ?? 0,
+      user?.id,
     );
   }
 

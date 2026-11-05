@@ -80,7 +80,7 @@ export function AddMemberModal({ open, onClose }: Props) {
                 <div key={user.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40 transition-colors">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user.avatarUrl ?? undefined} />
-                    <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                    <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-blue-500 to-primary text-white">
                       {initials(user.firstName, user.lastName)}
                     </AvatarFallback>
                   </Avatar>

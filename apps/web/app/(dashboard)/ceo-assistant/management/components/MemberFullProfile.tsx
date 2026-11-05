@@ -23,7 +23,7 @@ function initials(f: string, l: string) {
 const CATEGORY_CONFIG = {
   overdue:  { label: "Overdue",  icon: AlertTriangle, dot: "bg-red-500",     text: "text-red-600",     badge: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400" },
   due_soon: { label: "Due Soon", icon: Clock,         dot: "bg-amber-500",   text: "text-amber-600",   badge: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30" },
-  inactive: { label: "Inactive", icon: Activity,      dot: "bg-slate-400",   text: "text-slate-500",   badge: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-700" },
+  inactive: { label: "Inactive", icon: Activity,      dot: "bg-slate-400",   text: "text-muted-foreground",   badge: "bg-muted text-muted-foreground border-border dark:bg-slate-900 dark:border-slate-700" },
   on_track: { label: "On Track", icon: TrendingUp,    dot: "bg-blue-500",    text: "text-blue-600",    badge: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30" },
   done:     { label: "Done",     icon: CheckCircle2,  dot: "bg-emerald-500", text: "text-emerald-600", badge: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30" },
 } as const;
@@ -70,7 +70,7 @@ export function MemberFullProfile({ userId, onClose, onTaskClick, onBack }: Prop
             <div className="flex items-center gap-3">
               <Avatar className="h-12 w-12 ring-2 ring-border">
                 <AvatarImage src={data.user.avatarUrl ?? undefined} />
-                <AvatarFallback className="text-base font-bold bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+                <AvatarFallback className="text-base font-bold bg-gradient-to-br from-primary to-blue-600 text-white">
                   {initials(data.user.firstName, data.user.lastName)}
                 </AvatarFallback>
               </Avatar>

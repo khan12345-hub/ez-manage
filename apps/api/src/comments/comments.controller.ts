@@ -23,10 +23,15 @@ import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SessionUser } from 'src/auth/types/session-user.type';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { CreateReactionDto } from './dto/create-reaction.dto';
+import { BoardAccessService } from 'src/boards/board-access.service';
+import { BoardPermission } from '@repo/shared';
 
 @Controller('tasks')
 export class CommentsController {
-  constructor(private readonly commentsService: CommentsService) {}
+  constructor(
+    private readonly commentsService: CommentsService,
+    private readonly boardAccess: BoardAccessService,
+  ) {}
 
   @Post(':taskId/comments')
   @UseInterceptors(FilesInterceptor('files', 10))
@@ -43,7 +48,8 @@ export class CommentsController {
     @CurrentUser()
     user: SessionUser,
   ) {
-    // Replace with authenticated user ID
+    // Posting needs EDIT on the task's board (viewers/outsiders cannot).
+    await this.boardAccess.requireTaskPermission(taskId, user.id, BoardPermission.EDIT);
 
     return this.commentsService.create(taskId, user.id, dto, files ?? []);
   }
@@ -66,6 +72,7 @@ export class CommentsController {
     @CurrentUser()
     user: SessionUser,
   ) {
+    await this.boardAccess.requireCommentPermission(commentId, user.id, BoardPermission.EDIT, taskId);
     return this.commentsService.createReply(
       taskId,
       commentId,
@@ -82,6 +89,7 @@ export class CommentsController {
     @Body() dto: CreateReactionDto,
     @CurrentUser() user: SessionUser,
   ) {
+    await this.boardAccess.requireCommentPermission(commentId, user.id, BoardPermission.EDIT, taskId);
     return this.commentsService.toggleReaction(commentId, user.id, dto.emoji);
   }
 
@@ -91,6 +99,7 @@ export class CommentsController {
     @Param('fileId', ParseIntPipe) fileId: number,
     @CurrentUser() user: SessionUser,
   ) {
+    await this.boardAccess.requireCommentPermission(commentId, user.id, BoardPermission.VIEW);
     return this.commentsService.deleteFile(commentId, fileId, user.id);
   }
 
@@ -100,6 +109,7 @@ export class CommentsController {
     @Body() dto: UpdateCommentDto,
     @CurrentUser() user: SessionUser,
   ) {
+    await this.boardAccess.requireCommentPermission(commentId, user.id, BoardPermission.VIEW, taskId);
     return this.commentsService.update(taskId, commentId, user.id, dto);
   }
   @Delete(':taskId/comments/:commentId') async remove(
@@ -107,6 +117,7 @@ export class CommentsController {
     @Param('commentId', ParseIntPipe) commentId: number,
     @CurrentUser() user: SessionUser,
   ) {
+    await this.boardAccess.requireCommentPermission(commentId, user.id, BoardPermission.VIEW, taskId);
     return this.commentsService.remove(taskId, commentId, user.id);
   }
 
@@ -120,7 +131,11 @@ export class CommentsController {
 
     @Query('limit')
     limit?: string,
+
+    @CurrentUser()
+    user?: SessionUser,
   ) {
+    await this.boardAccess.requireTaskPermission(taskId, user!.id, BoardPermission.VIEW);
     return this.commentsService.findAllByTask(
       taskId,
       page ? Number(page) : 1,
@@ -131,7 +146,11 @@ export class CommentsController {
   async findAllTaskFiles(
     @Param('taskId', ParseIntPipe)
     taskId: number,
+
+    @CurrentUser()
+    user: SessionUser,
   ) {
+    await this.boardAccess.requireTaskPermission(taskId, user.id, BoardPermission.VIEW);
     return this.commentsService.findAllTaskFiles(taskId);
   }
 }

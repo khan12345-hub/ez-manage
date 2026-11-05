@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { RefreshCw, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateTask, type RecurrenceType } from "@/services/tasks.api";
@@ -56,7 +57,7 @@ export function RecurrenceSelector({
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["task", taskId] });
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
     onError: (err: any) => {
       const status = err?.response?.status ?? err?.status;

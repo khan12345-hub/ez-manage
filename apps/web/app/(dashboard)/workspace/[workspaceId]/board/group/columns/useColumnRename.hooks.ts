@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/error-message";
@@ -37,9 +38,7 @@ export function useColumnRename({
     },
 
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
 
     onError: (error: unknown, { originalName }) => {

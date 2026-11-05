@@ -28,7 +28,7 @@ interface Props {
 const CAT = {
   overdue:  { icon: AlertTriangle, text: "text-red-600",     iconBg: "bg-red-100 border-red-200"      },
   due_soon: { icon: Clock,         text: "text-amber-600",   iconBg: "bg-amber-100 border-amber-200"  },
-  inactive: { icon: Activity,      text: "text-slate-500",   iconBg: "bg-slate-100 border-slate-200"  },
+  inactive: { icon: Activity,      text: "text-muted-foreground",   iconBg: "bg-muted border-border"  },
   on_track: { icon: TrendingUp,    text: "text-blue-600",    iconBg: "bg-blue-100 border-blue-200"    },
   done:     { icon: CheckCircle2,  text: "text-emerald-600", iconBg: "bg-emerald-100 border-emerald-200" },
 } as const;

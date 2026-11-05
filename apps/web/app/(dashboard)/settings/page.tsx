@@ -17,12 +17,12 @@ function SectionDivider({ icon: Icon, label }: { icon: React.ElementType; label:
 
 export default function SettingsPage() {
   return (
-    <div className="min-h-full bg-muted/30">
+    <div className="min-h-full">
       {/* Page header */}
-      <div className="border-b border-border bg-background px-4 py-4 sm:px-8 sm:py-5">
+      <div className="border-b border-border bg-background/70 px-4 py-4 backdrop-blur-sm sm:px-8 sm:py-5">
         <div className="mx-auto max-w-3xl flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10">
-            <Settings2 className="h-4.5 w-4.5 text-indigo-500" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+            <Settings2 className="h-4.5 w-4.5 text-primary" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-foreground leading-tight">Settings</h1>

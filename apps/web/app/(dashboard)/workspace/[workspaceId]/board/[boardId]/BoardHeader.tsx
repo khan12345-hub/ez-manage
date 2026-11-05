@@ -1,7 +1,7 @@
 "use client";
 
-import { Bot, ChevronDown, MoreHorizontal, Users } from "lucide-react";
-import { useState } from "react";
+import { Bot, ChevronDown, ChevronLeft, MoreHorizontal, Plus, Settings, Users } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { resolveUrl } from "@/lib/resolveUrl";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -45,6 +45,23 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
   const { user } = useAuth();
   const initials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase();
+
+  // Measure the sticky banner height → expose as a CSS var so the view-tabs and
+  // toolbar can offset their own sticky positions below it (robust to any height).
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el) return;
+    const setVar = () =>
+      document.documentElement.style.setProperty(
+        "--ez-board-banner-h",
+        `${el.offsetHeight}px`,
+      );
+    setVar();
+    const ro = new ResizeObserver(setVar);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /**
    * Update board visibility
@@ -214,7 +231,45 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
   return (
     <>
-      <header className="flex h-16 w-full items-center justify-between gap-2 bg-background">
+      <div
+        ref={bannerRef}
+        className="relative -mx-3 -mt-3 overflow-hidden border-b px-3 py-3.5 sm:-mx-6 sm:-mt-6 sm:px-6"
+        style={{
+          background:
+            "linear-gradient(120deg, #eff6ff 0%, #f1f5ff 50%, #f1f6fd 100%)",
+          borderColor: "#DDE6FA",
+        }}
+      >
+        {/* decorative glow + handwritten tagline (non-interactive) */}
+        <div
+          className="pointer-events-none absolute -right-10 -top-12 h-44 w-44 rounded-full blur-2xl"
+          style={{ background: "rgba(139,92,246,0.12)" }}
+          aria-hidden
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-6 hidden -translate-x-1/2 select-none text-center text-[15px] italic leading-tight xl:block"
+          style={{
+            color: "rgba(139,92,246,0.8)",
+            fontFamily: "'Segoe Script','Brush Script MT',cursive",
+          }}
+        >
+          Organize. Collaborate.
+          <br />
+          Get things done.
+        </span>
+
+        {/* breadcrumb */}
+        <nav
+          className="relative mb-1.5 flex items-center gap-1 text-xs font-medium"
+          style={{ color: "#8292B5" }}
+          aria-label="Breadcrumb"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+          Boards
+        </nav>
+
+        <header className="relative flex w-full items-center justify-between gap-2">
         {/* Board name + budget */}
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
           <button type="button" className="flex min-w-0 items-center gap-1.5 text-left">
@@ -245,7 +300,38 @@ export function BoardHeader({ board }: BoardHeaderProps) {
         </div>
 
         {/* Actions */}
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1.5">
+          {/* Board Settings → Manage access */}
+          {canManageBoard(board.role === "OWNER") && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="hidden h-9 gap-2 bg-white/70 font-medium sm:inline-flex"
+              onClick={() => setManageAccessOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+              Board Settings
+            </Button>
+          )}
+
+          {/* New Task → triggers the board's create-task flow via event */}
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 gap-2 border-0 font-semibold text-white"
+            style={{
+              background: "linear-gradient(135deg, #6366F1 0%, #7C3AED 100%)",
+              boxShadow: "0 4px 12px rgba(99,102,241,0.3)",
+            }}
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent("ez:create-task"))
+            }
+          >
+            <Plus className="h-4 w-4" />
+            New Task
+          </Button>
+
           {/* Activity log avatar button */}
           <button
             type="button"
@@ -310,7 +396,32 @@ export function BoardHeader({ board }: BoardHeaderProps) {
             </DropdownMenu>
           )}
         </div>
-      </header>
+        </header>
+
+        {/* description + metadata */}
+        {board?.description && (
+          <p className="relative mt-1.5 max-w-2xl text-[13px]" style={{ color: "#536A9A" }}>
+            {board.description}
+          </p>
+        )}
+        <div className="relative mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: "#536A9A" }}>
+          {board?.workspace?.name && (
+            <span
+              className="inline-flex items-center gap-1 rounded-md bg-white/70 px-2 py-0.5"
+              style={{ border: "1px solid #DDE6FA" }}
+            >
+              Workspace:
+              <b style={{ color: "#635BFF" }}>{board.workspace.name}</b>
+            </span>
+          )}
+          {Array.isArray(board?.members) && (
+            <span className="inline-flex items-center gap-1">
+              <Users className="h-3.5 w-3.5" aria-hidden />
+              {board.members.length} {board.members.length === 1 ? "member" : "members"}
+            </span>
+          )}
+        </div>
+      </div>
 
       <ManageBoardAccessModal
         open={manageAccessOpen}

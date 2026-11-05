@@ -380,9 +380,18 @@ export class AutomationEngineService {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + offsetDays);
 
+    // Store plain "YYYY-MM-DD" like the main table. "Today" is taken in
+    // APP_TIMEZONE (e.g. "Asia/Karachi") when set, otherwise the server's zone.
+    const dateKey = new Intl.DateTimeFormat('en-CA', {
+      timeZone: process.env.APP_TIMEZONE || undefined,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(targetDate);
+
     await this.prisma.taskCell.update({
       where: { id: cell.id },
-      data: { value: { date: targetDate.toISOString() } },
+      data: { value: { date: dateKey } },
     });
   }
 

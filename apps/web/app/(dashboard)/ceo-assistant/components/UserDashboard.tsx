@@ -46,7 +46,7 @@ function initials(f: string, l: string) {
 const CAT = {
   overdue:  { label: "Overdue",  icon: AlertTriangle, text: "text-red-600",     dot: "bg-red-500",     badge: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400" },
   due_soon: { label: "Due Soon", icon: Clock,         text: "text-amber-600",   dot: "bg-amber-500",   badge: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30" },
-  inactive: { label: "Inactive", icon: Activity,      text: "text-slate-500",   dot: "bg-slate-400",   badge: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-900" },
+  inactive: { label: "Inactive", icon: Activity,      text: "text-muted-foreground",   dot: "bg-slate-400",   badge: "bg-muted text-muted-foreground border-border dark:bg-slate-900" },
   on_track: { label: "On Track", icon: TrendingUp,    text: "text-blue-600",    dot: "bg-blue-500",    badge: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30" },
   done:     { label: "Done",     icon: CheckCircle2,  text: "text-emerald-600", dot: "bg-emerald-500", badge: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30" },
 } as const;
@@ -188,7 +188,7 @@ export function UserDashboard({ userId, onBack, onTaskClick, onMemberClick, onWo
               <div className="flex items-start gap-4">
                 <Avatar className="h-16 w-16 ring-2 ring-white/20 shrink-0">
                   <AvatarImage src={data.user.avatarUrl ?? undefined} />
-                  <AvatarFallback className="text-xl font-bold bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                  <AvatarFallback className="text-xl font-bold bg-gradient-to-br from-blue-500 to-primary text-white">
                     {initials(data.user.firstName, data.user.lastName)}
                   </AvatarFallback>
                 </Avatar>
@@ -265,7 +265,7 @@ export function UserDashboard({ userId, onBack, onTaskClick, onMemberClick, onWo
                 { l: "Done",     v: filteredStats.doneTasks,     cls: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900" },
                 { l: "Overdue",  v: filteredStats.overdueTasks,  cls: "text-red-600",     bg: "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900"             },
                 { l: "Due Soon", v: filteredStats.dueSoonTasks,  cls: "text-amber-600",   bg: "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900"     },
-                { l: "Inactive", v: filteredStats.inactiveTasks, cls: "text-slate-500",   bg: "bg-slate-50 border-slate-200 dark:bg-slate-900/50 dark:border-slate-700"     },
+                { l: "Inactive", v: filteredStats.inactiveTasks, cls: "text-muted-foreground",   bg: "bg-muted border-border dark:bg-slate-900/50 dark:border-slate-700"     },
               ].map((s) => (
                 <div key={s.l} className={cn("rounded-xl border p-4 text-center", s.bg)}>
                   <div className={cn("text-2xl font-black tabular-nums", s.cls)}>{s.v}</div>
@@ -399,7 +399,7 @@ export function UserDashboard({ userId, onBack, onTaskClick, onMemberClick, onWo
                           >
                             <Avatar className="h-9 w-9 shrink-0">
                               <AvatarImage src={member.avatarUrl ?? undefined} />
-                              <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                              <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-blue-500 to-primary text-white">
                                 {initials(member.firstName, member.lastName)}
                               </AvatarFallback>
                             </Avatar>

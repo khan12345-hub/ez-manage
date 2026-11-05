@@ -90,18 +90,30 @@ export function StatusEditor({
 
   const currentLabel = current?.label ?? value?.label ?? "Not Started";
   const currentColor = current?.color ?? value?.color ?? "#c4c4c4";
+  const currentTint = /^#[0-9a-fA-F]{6}$/.test(currentColor)
+    ? `${currentColor}22`
+    : currentColor;
 
   /* ── Non-editing display ── */
   if (!editing) {
     return (
       <div
         className={cn(
-          "absolute left-0 top-0 flex h-full w-full items-center justify-center overflow-hidden px-2 text-[13px] font-semibold tracking-wide text-white",
+          "absolute left-0 top-0 flex h-full w-full items-center justify-center overflow-hidden px-2",
           disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer",
         )}
-        style={{ backgroundColor: currentColor }}
       >
-        <span className="min-w-0 truncate">{currentLabel}</span>
+        <span
+          className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold"
+          style={{ background: currentTint, color: currentColor }}
+        >
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ background: currentColor }}
+            aria-hidden
+          />
+          <span className="min-w-0 truncate">{currentLabel}</span>
+        </span>
       </div>
     );
   }
@@ -116,11 +128,18 @@ export function StatusEditor({
       }}
     >
       <PopoverTrigger asChild>
-        <div
-          className="absolute inset-0 flex cursor-pointer items-center justify-center text-[13px] font-semibold tracking-wide text-white"
-          style={{ backgroundColor: currentColor }}
-        >
-          {currentLabel}
+        <div className="absolute inset-0 flex cursor-pointer items-center justify-center px-2">
+          <span
+            className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ring-1 ring-offset-1"
+            style={{ background: currentTint, color: currentColor, ["--tw-ring-color" as any]: currentColor }}
+          >
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ background: currentColor }}
+              aria-hidden
+            />
+            <span className="min-w-0 truncate">{currentLabel}</span>
+          </span>
         </div>
       </PopoverTrigger>
 

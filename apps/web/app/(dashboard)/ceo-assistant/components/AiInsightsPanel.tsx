@@ -219,7 +219,7 @@ export function AiInsightsPanel({
                     <span className="text-xs font-black tabular-nums text-muted-foreground w-4 shrink-0">
                       #{idx + 1}
                     </span>
-                    <div className="h-7 w-7 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[10px] font-bold text-white">
+                    <div className="h-7 w-7 shrink-0 rounded-full bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center text-[10px] font-bold text-white">
                       {item.user.firstName[0]}{item.user.lastName[0]}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -234,7 +234,7 @@ export function AiInsightsPanel({
                           <span className="text-[10px] text-amber-600">{item.dueSoon.length} due soon</span>
                         )}
                         {item.inactive.length > 0 && (
-                          <span className="text-[10px] text-slate-500">{item.inactive.length} inactive</span>
+                          <span className="text-[10px] text-muted-foreground">{item.inactive.length} inactive</span>
                         )}
                       </div>
                     </div>
@@ -244,7 +244,7 @@ export function AiInsightsPanel({
                         ? "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400"
                         : item.overdue.length >= 3
                         ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
-                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+                        : "bg-muted text-muted-foreground dark:bg-slate-800 dark:text-slate-400",
                     )}>
                       {item.overdue.length >= 5 ? "Critical" : item.overdue.length >= 3 ? "High" : "Medium"}
                     </span>

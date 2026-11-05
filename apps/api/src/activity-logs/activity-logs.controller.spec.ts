@@ -9,7 +9,10 @@ describe('ActivityLogsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ActivityLogsController],
       providers: [ActivityLogsService],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get<ActivityLogsController>(ActivityLogsController);
   });

@@ -276,7 +276,7 @@ export function WhatsappSettingsSection() {
               <button
                 type="button"
                 onClick={() => { setEditingPhone(true); setStep("idle"); }}
-                className="text-[12px] font-medium text-indigo-600 hover:underline"
+                className="text-[12px] font-medium text-primary hover:underline"
               >
                 Change number
               </button>

@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { parseDateValue } from "@/lib/date-value";
 
 interface TimelineValue {
   startDate?: string | Date;
@@ -14,8 +15,11 @@ export function TimelineCell({ cell }: Props) {
     return <>—</>;
   }
 
-  const startDate = new Date(cell.startDate);
-  const endDate = new Date(cell.endDate);
+  const startDate = parseDateValue(cell.startDate);
+  const endDate = parseDateValue(cell.endDate);
+  if (!startDate || !endDate) {
+    return <>—</>;
+  }
 
   return (
     <span className="whitespace-nowrap">

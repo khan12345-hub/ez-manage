@@ -153,9 +153,9 @@ function PushPermissionBanner() {
     return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 flex items-center gap-3 rounded-xl border border-indigo-200 bg-popover px-4 py-3 shadow-2xl animate-in slide-in-from-bottom-4">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100">
-        <Bell className="h-4 w-4 text-indigo-600" />
+    <div className="fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 flex items-center gap-3 rounded-xl border border-primary/25 bg-popover px-4 py-3 shadow-2xl animate-in slide-in-from-bottom-4">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+        <Bell className="h-4 w-4 text-primary" />
       </div>
       <p className="text-sm text-foreground">
         <span className="font-semibold">Enable notifications</span> to get alerts when you're away
@@ -163,7 +163,7 @@ function PushPermissionBanner() {
       <button
         onClick={enable}
         disabled={loading}
-        className="ml-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
+        className="ml-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-60"
       >
         {loading ? "…" : "Enable"}
       </button>
@@ -254,7 +254,7 @@ export function AppShell({ children }: AppShellProps) {
 
               <div className="flex flex-1 flex-col overflow-hidden">
                 <TopNavbar onMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
-                <main className="flex-1 overflow-auto bg-background">{children}</main>
+                <main className="flex-1 overflow-auto bg-background ez-page-surface">{children}</main>
               </div>
 
               <CommandPalette />

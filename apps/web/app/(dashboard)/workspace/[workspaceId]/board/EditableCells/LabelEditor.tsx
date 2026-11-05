@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { ArrowLeft, Check, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -154,7 +155,7 @@ export function LabelEditor({
         label: text,
         color: DEFAULT_COLOR,
       });
-      await qc.invalidateQueries({ queryKey: ["board", boardId], exact: true });
+      await qc.invalidateQueries(boardQueryFilter(boardId));
       const next = [...latestRef.current, { text: created.label, color: created.color }];
       setValue(next);
       latestRef.current = next;
@@ -184,7 +185,7 @@ export function LabelEditor({
               }),
         ),
       );
-      await qc.invalidateQueries({ queryKey: ["board", boardId], exact: true });
+      await qc.invalidateQueries(boardQueryFilter(boardId));
       setEditOptions(saved.map((s) => ({ ...s, isNew: false })));
       setMode("picker");
     } catch (err) {
@@ -201,7 +202,7 @@ export function LabelEditor({
     }
     try {
       await deleteStatusOption(columnId, opt.id);
-      await qc.invalidateQueries({ queryKey: ["board", boardId], exact: true });
+      await qc.invalidateQueries(boardQueryFilter(boardId));
       setEditOptions((prev) => prev.filter((o) => o.id !== opt.id));
     } catch (err) {
       console.error("Failed to delete label", err);

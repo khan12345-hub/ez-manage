@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Archive, ChevronDown, ChevronRight, RotateCcw, Trash2, Loader2 } from "lucide-react";
@@ -47,7 +48,7 @@ export function ArchivedGroupsPanel({ boardId }: Props) {
     onSuccess: () => {
       toast.success("Group restored to board.");
       queryClient.invalidateQueries({ queryKey: ["archived-groups", boardId] });
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
     onError: () => toast.error("Failed to restore group."),
   });

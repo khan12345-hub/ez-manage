@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { parseDateValue, toDateKey } from "@/lib/date-value";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { getBoardTasks } from "@/services/boards.api";
 import { updateCell } from "@/services/cells.api";
@@ -65,10 +66,9 @@ const qn     = (d: Date) => Math.floor(d.getMonth() / 3) + 1;
 const diq    = (d: Date) => { const q = Math.floor(d.getMonth() / 3); return [0,1,2].reduce((a,m) => a + new Date(d.getFullYear(), q*3+m+1, 0).getDate(), 0); };
 const diy    = (y: number) => ((y%4===0&&y%100!==0)||y%400===0) ? 366 : 365;
 
+// "YYYY-MM-DD" must be parsed as LOCAL midnight (see lib/date-value).
 function parseDate(val: unknown): Date | null {
-  if (!val) return null;
-  const d = new Date(String(val));
-  return isNaN(d.getTime()) ? null : sod(d);
+  return parseDateValue(val);
 }
 
 function getISOWeek(d: Date) {
@@ -338,6 +338,7 @@ export function GanttView({ board }: GanttViewProps) {
   const dragRef = useRef<{
     taskId: number; cellId: number;
     cellUpdatedAt: string | null;
+    endCellId: number | null; endCellUpdatedAt: string | null;
     type: "TIMELINE" | "DATE";
     origStart: Date; origEnd: Date;
     startX: number; deltaDays: number;
@@ -407,6 +408,7 @@ export function GanttView({ board }: GanttViewProps) {
       let end: Date | null = null;
       let cellId: number | null = null;
       let cellType: "TIMELINE" | "DATE" = "DATE";
+      let endCellId: number | null = null;
 
       if (startCol?.type === "TIMELINE") {
         const cell = task.cells?.find((c: any) => c.columnId === startCol.id);
@@ -424,14 +426,14 @@ export function GanttView({ board }: GanttViewProps) {
         }
         if (endCol && endCol.type === "DATE") {
           const ec = task.cells?.find((c: any) => c.columnId === endCol.id);
-          if (ec) end = parseDate((ec.value as any)?.date ?? ec.value);
+          if (ec) { endCellId = ec.id; end = parseDate((ec.value as any)?.date ?? ec.value); }
         } else {
           end = start;
         }
       }
 
       const group = groupMap.get(task.groupId as number);
-      return { task, start, end, cellId, cellType, group };
+      return { task, start, end, cellId, endCellId, cellType, group };
     });
   }, [allTasks, columns, startDateColId, endDateColId, groupMap]);
 
@@ -467,23 +469,47 @@ export function GanttView({ board }: GanttViewProps) {
     const spanDays = (maxD.getTime() - minD.getTime()) / 86400000;
 
     let newScale: Scale;
-    let newUnits: number;
-    if (spanDays <= 60) { newScale = "weeks"; newUnits = Math.ceil(spanDays / 7) + 2; }
-    else if (spanDays <= 365) { newScale = "months"; newUnits = Math.ceil(spanDays / 30) + 2; }
-    else if (spanDays <= 730) { newScale = "quarters"; newUnits = Math.ceil(spanDays / 91) + 2; }
-    else { newScale = "years"; newUnits = Math.ceil(spanDays / 365) + 2; }
+    if (spanDays <= 60) newScale = "weeks";
+    else if (spanDays <= 365) newScale = "months";
+    else if (spanDays <= 730) newScale = "quarters";
+    else newScale = "years";
+
+    // Start one unit before the earliest date, then add units until the
+    // latest date is covered (+1 unit padding). Previously the window started
+    // 30 days early but the unit count only covered the task span, so short
+    // spans (weeks scale) pushed every bar off the right edge.
+    const start = shiftScale(alignScale(minD, newScale), newScale, -1);
+    let units = 1;
+    while (units < 20 && shiftScale(start, newScale, units) <= maxD) units++;
+    units = Math.min(units + 1, 20);
 
     setScale(newScale);
-    setNumUnits(Math.min(newUnits, 20));
-    setWindowStart(alignScale(addDays(minD, -30), newScale));
+    setNumUnits(Math.max(units, 3));
+    setWindowStart(start);
   }, [taskRows]);
+
+  // Fit the view to the tasks once, when dated tasks first load — otherwise
+  // the default window (last year) can show no bars at all. Afterwards the
+  // user's own zoom/scroll is never overridden.
+  const didInitialFit = useRef(false);
+  useEffect(() => {
+    if (didInitialFit.current) return;
+    if (taskRows.some((r) => r.start || r.end)) {
+      didInitialFit.current = true;
+      autoFit();
+    }
+  }, [taskRows, autoFit]);
 
   // Bar color: group color or status color
   const getBarColor = useCallback((task: any, group: any): string => {
     if (colorBy === "status" && statusCol) {
       const cell = task.cells?.find((c: any) => c.columnId === statusCol.id);
-      const optionId = (cell?.value as any)?.id;
-      const option = (statusCol.statusOptions ?? []).find((o: any) => o.id === optionId);
+      const v = cell?.value as any;
+      // The table/Kanban save { label, color } (no id); automations add an id.
+      if (v?.color) return v.color as string;
+      const option = (statusCol.statusOptions ?? []).find(
+        (o: any) => (v?.id != null && o.id === v.id) || (v?.label && o.label === v.label),
+      );
       if (option?.color) return option.color as string;
     }
     return (group?.color as string) ?? "#6b7280";
@@ -503,11 +529,11 @@ export function GanttView({ board }: GanttViewProps) {
 
   // Drag handler
   const handleBarMouseDown = useCallback(
-    (e: React.MouseEvent, taskId: number, cellId: number|null, cellUpdatedAt: string|null, cellType: "TIMELINE"|"DATE", start: Date|null, end: Date|null) => {
+    (e: React.MouseEvent, taskId: number, cellId: number|null, cellUpdatedAt: string|null, cellType: "TIMELINE"|"DATE", start: Date|null, end: Date|null, endCellId: number|null = null, endCellUpdatedAt: string|null = null) => {
       if (!cellId || (!start && !end)) return;
       e.preventDefault(); e.stopPropagation();
       setPopup(null);
-      dragRef.current = { taskId, cellId, cellUpdatedAt, type: cellType, origStart: start ?? end!, origEnd: end ?? start!, startX: e.clientX, deltaDays: 0 };
+      dragRef.current = { taskId, cellId, cellUpdatedAt, endCellId, endCellUpdatedAt, type: cellType, origStart: start ?? end!, origEnd: end ?? start!, startX: e.clientX, deltaDays: 0 };
       setDragInfo({ taskId, deltaDays: 0 });
 
       const onMove = (me: MouseEvent) => {
@@ -519,15 +545,22 @@ export function GanttView({ board }: GanttViewProps) {
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onUp);
         if (!dragRef.current) return;
-        const { cellId: cId, cellUpdatedAt: cUpdatedAt, type, origStart, origEnd, deltaDays } = dragRef.current;
+        const { cellId: cId, cellUpdatedAt: cUpdatedAt, endCellId: eId, endCellUpdatedAt: eUpdatedAt, type, origStart, origEnd, deltaDays } = dragRef.current;
         dragRef.current = null; setDragInfo(null);
         if (deltaDays === 0) return;
         const ns = addDays(origStart, deltaDays);
         const ne = addDays(origEnd, deltaDays);
-        const value = type === "TIMELINE" ? { startDate: ns.toISOString(), endDate: ne.toISOString() } : { date: ns.toISOString() };
+        // Store plain "YYYY-MM-DD" so the date never shifts across timezones.
+        const value = type === "TIMELINE" ? { startDate: toDateKey(ns), endDate: toDateKey(ne) } : { date: toDateKey(ns) };
         const dto = cUpdatedAt ? { value, updatedAt: cUpdatedAt } : { value };
         try {
           await updateCell(board.id, cId, dto);
+          // Separate start/end DATE columns: move the end date too,
+          // otherwise the bar stretches instead of moving.
+          if (type === "DATE" && eId && eId !== cId) {
+            const endValue = { date: toDateKey(ne) };
+            await updateCell(board.id, eId, eUpdatedAt ? { value: endValue, updatedAt: eUpdatedAt } : { value: endValue });
+          }
           queryClient.invalidateQueries({ queryKey: ["board-tasks", board.id] });
         } catch (err: any) {
           const status = err?.response?.status ?? err?.status;
@@ -700,7 +733,7 @@ export function GanttView({ board }: GanttViewProps) {
                 No tasks — click Auto Fit to find tasks with dates
               </div>
             ) : (
-              taskRows.map(({ task, start, end, cellId, cellType, group }, idx) => {
+              taskRows.map(({ task, start, end, cellId, endCellId, cellType, group }, idx) => {
                 const color = getBarColor(task, group);
                 const delta = dragInfo?.taskId === task.id ? (dragInfo?.deltaDays ?? 0) : 0;
                 const layout = getBarLayout(start, end, windowStart, totalDays, dayPx, delta);
@@ -749,7 +782,7 @@ export function GanttView({ board }: GanttViewProps) {
                             isDragging ? "opacity-80 cursor-grabbing" : "cursor-grab hover:brightness-95 transition-all"
                           }`}
                           style={{ left: layout.left, width: layout.width, height: 24, backgroundColor: color, userSelect: "none" }}
-                          onMouseDown={(e) => handleBarMouseDown(e, task.id, cellId, task.cells?.find((c: any) => c.id === cellId)?.updatedAt ?? null, cellType, start, end)}
+                          onMouseDown={(e) => handleBarMouseDown(e, task.id, cellId, task.cells?.find((c: any) => c.id === cellId)?.updatedAt ?? null, cellType, start, end, endCellId, endCellId ? task.cells?.find((c: any) => c.id === endCellId)?.updatedAt ?? null : null)}
                           onMouseEnter={(e) => {
                             if (!dragRef.current) {
                               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();

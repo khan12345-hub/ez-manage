@@ -50,7 +50,7 @@ export class GroupsController {
   }
 
   @Post()
-  @RequireBoardPermission(BoardPermission.EDIT)
+  @RequireBoardPermission(BoardPermission.CREATE_GROUP)
   create(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Body() createGroupDto: CreateGroupDto,
@@ -64,7 +64,7 @@ export class GroupsController {
   }
 
   @Patch('reorder')
-  @RequireBoardPermission(BoardPermission.EDIT)
+  @RequireBoardPermission(BoardPermission.UPDATE_GROUP)
   reorder(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Body() dto: ReorderGroupDto,
@@ -78,7 +78,7 @@ export class GroupsController {
   }
 
   @Patch(':id')
-  @RequireBoardPermission(BoardPermission.EDIT)
+  @RequireBoardPermission(BoardPermission.UPDATE_GROUP)
   update(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -94,7 +94,7 @@ export class GroupsController {
   }
 
   @Post(':id/duplicate')
-  @RequireBoardPermission(BoardPermission.EDIT)
+  @RequireBoardPermission(BoardPermission.CREATE_GROUP)
   duplicate(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Param('id', ParseIntPipe) id: number,
@@ -110,7 +110,7 @@ export class GroupsController {
   }
 
   @Delete(':id')
-  @RequireBoardPermission(BoardPermission.DELETE)
+  @RequireBoardPermission(BoardPermission.DELETE_GROUP)
   remove(
     @Param('boardId', ParseIntPipe) boardId: number,
     @Param('id', ParseIntPipe) id: number,

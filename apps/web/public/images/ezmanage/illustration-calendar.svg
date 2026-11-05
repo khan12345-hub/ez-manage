@@ -1,0 +1,59 @@
+<svg width="280" height="240" viewBox="0 0 280 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Calendar and attendance illustration">
+  <defs>
+    <linearGradient id="cal-head" x1="40" y1="56" x2="230" y2="86" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#818CF8"/><stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="cal-body" x1="40" y1="86" x2="230" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#EEF0FF" stop-opacity="0.82"/>
+    </linearGradient>
+    <linearGradient id="cal-clock" x1="178" y1="150" x2="238" y2="210" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1"/><stop offset="1" stop-color="#4338CA"/>
+    </linearGradient>
+    <filter id="cal-shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#6366F1" flood-opacity="0.22"/>
+    </filter>
+    <filter id="cal-clock-shadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#4338CA" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- back plate -->
+  <rect x="52" y="44" width="180" height="162" rx="18" fill="#E7E9FF" opacity="0.5"/>
+
+  <!-- binding rings -->
+  <rect x="74" y="34" width="8" height="22" rx="4" fill="#A5B4FC"/>
+  <rect x="190" y="34" width="8" height="22" rx="4" fill="#A5B4FC"/>
+
+  <!-- calendar body -->
+  <g filter="url(#cal-shadow)">
+    <rect x="40" y="48" width="180" height="158" rx="18" fill="url(#cal-body)" stroke="#FFFFFF" stroke-opacity="0.9"/>
+    <path d="M40 66 a18 18 0 0 1 18 -18 h144 a18 18 0 0 1 18 18 v12 h-180 z" fill="url(#cal-head)"/>
+  </g>
+
+  <!-- day grid -->
+  <g fill="#D7DBF7">
+    <rect x="58"  y="92"  width="20" height="16" rx="4"/>
+    <rect x="86"  y="92"  width="20" height="16" rx="4"/>
+    <rect x="114" y="92"  width="20" height="16" rx="4"/>
+    <rect x="142" y="92"  width="20" height="16" rx="4"/>
+    <rect x="170" y="92"  width="20" height="16" rx="4"/>
+    <rect x="58"  y="116" width="20" height="16" rx="4"/>
+    <rect x="86"  y="116" width="20" height="16" rx="4"/>
+    <rect x="170" y="116" width="20" height="16" rx="4"/>
+    <rect x="58"  y="140" width="20" height="16" rx="4"/>
+    <rect x="86"  y="140" width="20" height="16" rx="4"/>
+    <rect x="114" y="140" width="20" height="16" rx="4"/>
+  </g>
+  <!-- highlighted day -->
+  <rect x="114" y="116" width="20" height="16" rx="4" fill="#7C3AED"/>
+  <rect x="142" y="116" width="20" height="16" rx="4" fill="#C4B5FD"/>
+
+  <!-- clock -->
+  <g filter="url(#cal-clock-shadow)">
+    <circle cx="206" cy="180" r="30" fill="url(#cal-clock)"/>
+    <circle cx="206" cy="180" r="30" fill="#FFFFFF" fill-opacity="0.05"/>
+    <path d="M206 180 V164 M206 180 L218 186" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"/>
+    <circle cx="206" cy="180" r="3" fill="#FFFFFF"/>
+  </g>
+</svg>

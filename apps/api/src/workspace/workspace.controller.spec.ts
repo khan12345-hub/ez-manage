@@ -9,7 +9,10 @@ describe('WorkspaceController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [WorkspaceController],
       providers: [WorkspaceService],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get<WorkspaceController>(WorkspaceController);
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { createPortal } from "react-dom";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -71,7 +72,7 @@ export function EditBoardModal({
     mutationFn: (values: FormValues) => updateBoard(boardId, values),
     onSuccess: (updated: any) => {
       if (workspaceId) queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
       toast.success(`Board "${updated.name ?? initialName}" updated.`);
       onAfterSuccess?.();
       onClose();

@@ -1,4 +1,5 @@
 import { bulkDeleteTasks, bulkUpdateTasks, bulkMoveTasks, bulkDuplicateTasks } from "@/services/tasks.api";
+import { boardQueryFilter } from "@/lib/board-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import axios from "axios";
@@ -20,7 +21,7 @@ export function useTaskBulkActions(
       bulkDeleteTasks(boardId, taskIds),
 
     onSuccess: (_data, taskIds) => {
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
       queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
       toast.success(`${taskIds.length} task${taskIds.length !== 1 ? "s" : ""} deleted.`);
       onSuccess?.();
@@ -40,7 +41,7 @@ export function useTaskBulkActions(
       bulkUpdateTasks(boardId, payload),
 
     onSuccess: (_data, payload) => {
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
       queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
       toast.success(`${payload.taskIds.length} task${payload.taskIds.length !== 1 ? "s" : ""} updated.`);
       onSuccess?.();
@@ -59,7 +60,7 @@ export function useTaskBulkActions(
     mutationFn: ({ taskIds, targetGroupId }: { taskIds: number[]; targetGroupId: number }) =>
       bulkMoveTasks(boardId, taskIds, targetGroupId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
       queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
       toast.success("Tasks moved successfully.");
       onSuccess?.();
@@ -77,7 +78,7 @@ export function useTaskBulkActions(
     mutationFn: ({ taskIds, withUpdates }: { taskIds: number[]; withUpdates: boolean }) =>
       bulkDuplicateTasks(boardId, taskIds, withUpdates),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
       queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
       toast.success("Tasks duplicated successfully.");
       onSuccess?.();

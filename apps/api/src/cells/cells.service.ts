@@ -182,6 +182,12 @@ export class CellsService {
           select: {
             id: true,
             type: true,
+            name: true,
+            accessControlEnabled: true,
+            permissions: {
+              where: { userId, canEdit: true },
+              select: { id: true },
+            },
           },
         },
       },
@@ -195,6 +201,21 @@ export class CellsService {
       throw new BadRequestException(
         'Files can only be uploaded to FILE columns.',
       );
+    }
+
+    // Same column-level access rule as updateCell.
+    if (cell.column.accessControlEnabled) {
+      const boardMember = await this.prisma.boardMember.findFirst({
+        where: { boardId, userId },
+        select: { role: true },
+      });
+      const isAdminOrOwner =
+        boardMember?.role === 'OWNER' || boardMember?.role === 'ADMIN';
+      if (!isAdminOrOwner && cell.column.permissions.length === 0) {
+        throw new ForbiddenException(
+          `You do not have permission to edit the "${cell.column.name}" column.`,
+        );
+      }
     }
 
     const uploadedFiles = await Promise.all(
@@ -460,9 +481,14 @@ export class CellsService {
     });
 
     //
+    // Compare statuses by label (+color), not raw JSON: automation-written
+    // values carry an extra `id`, so re-selecting the same status used to
+    // count as a change and re-run the automations.
+    const statusKey = (v: any) =>
+      v && typeof v === 'object' ? `${v.label ?? ''}|${v.color ?? ''}` : String(v ?? '');
     if (
       columnType === BoardColumnType.STATUS &&
-      JSON.stringify(previousValue) !== JSON.stringify(dto.value)
+      statusKey(previousValue) !== statusKey(dto.value)
     ) {
       const newStatusValue = dto.value as {
         label?: string;

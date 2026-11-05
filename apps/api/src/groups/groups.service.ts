@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -220,13 +221,15 @@ export class GroupsService {
           },
         });
 
-        for (const cell of task.cells) {
-          await tx.taskCell.create({
-            data: {
+        // createMany: one insert per task instead of one per cell, so large
+        // groups no longer hit the transaction timeout.
+        if (task.cells.length) {
+          await tx.taskCell.createMany({
+            data: task.cells.map((cell) => ({
               taskId: newTask.id,
               columnId: cell.columnId,
               value: cell.value as any,
-            },
+            })),
           });
         }
 
@@ -241,27 +244,25 @@ export class GroupsService {
             },
           });
 
-          for (const cell of subtask.cells) {
-            await tx.taskCell.create({
-              data: {
+          if (subtask.cells.length) {
+            await tx.taskCell.createMany({
+              data: subtask.cells.map((cell) => ({
                 taskId: newSubtask.id,
                 columnId: cell.columnId,
                 value: cell.value as any,
-              },
+              })),
             });
           }
         }
 
-        if (withUpdates && (task as any).comments) {
-          for (const comment of (task as any).comments) {
-            await tx.taskComment.create({
-              data: {
-                taskId: newTask.id,
-                content: comment.content,
-                userId: comment.userId,
-              },
-            });
-          }
+        if (withUpdates && (task as any).comments?.length) {
+          await tx.taskComment.createMany({
+            data: (task as any).comments.map((comment: any) => ({
+              taskId: newTask.id,
+              content: comment.content,
+              userId: comment.userId,
+            })),
+          });
         }
       }
 
@@ -276,7 +277,7 @@ export class GroupsService {
       }, tx);
 
       return newGroup;
-    });
+    }, { timeout: 60_000 });
   }
 
   async remove(
@@ -359,6 +360,12 @@ export class GroupsService {
           : Promise.resolve(null),
       ]);
 
+    // A neighbour id that doesn't exist on this board used to be silently
+    // ignored, dropping the group to order 1000 (wrong position).
+    if ((dto.previousGroupId && !previousGroup) || (dto.nextGroupId && !nextGroup)) {
+      throw new BadRequestException('Neighbour group does not belong to this board.');
+    }
+
     let newOrder: number;
 
     // Only group in board / no surrounding groups
@@ -378,8 +385,26 @@ export class GroupsService {
 
     // Move between two groups
     else {
-      newOrder =
-        (previousGroup!.order + nextGroup!.order) / 2;
+      let prevOrder = previousGroup!.order;
+      let nextOrder = nextGroup!.order;
+      // No room left between neighbours after many midpoint inserts:
+      // renumber the board's groups (1000, 2000, …) first.
+      if (nextOrder - prevOrder < 0.001) {
+        const others = await this.prisma.group.findMany({
+          where: { boardId, id: { not: dto.groupId } },
+          orderBy: [{ order: 'asc' }, { id: 'asc' }],
+          select: { id: true },
+        });
+        await this.prisma.$transaction(
+          others.map((g, i) =>
+            this.prisma.group.update({ where: { id: g.id }, data: { order: (i + 1) * 1000 } }),
+          ),
+        );
+        const pos = new Map(others.map((g, i) => [g.id, (i + 1) * 1000]));
+        prevOrder = pos.get(previousGroup!.id) ?? prevOrder;
+        nextOrder = pos.get(nextGroup!.id) ?? nextOrder;
+      }
+      newOrder = (prevOrder + nextOrder) / 2;
     }
 
     await this.prisma.group.update({

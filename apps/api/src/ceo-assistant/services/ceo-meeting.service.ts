@@ -79,6 +79,24 @@ export class CeoMeetingService {
     });
   }
 
+  /** Upcoming, non-cancelled meetings the user created or is an attendee of. */
+  async getMyUpcomingMeetings(userId: number) {
+    return this.prisma.ceoMeeting.findMany({
+      where: {
+        cancelledAt: null,
+        scheduledAt: { gte: new Date() },
+        OR: [{ createdById: userId }, { attendees: { some: { userId } } }],
+      },
+      include: {
+        attendees: {
+          include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } } },
+        },
+      },
+      orderBy: { scheduledAt: 'asc' },
+      take: 20,
+    });
+  }
+
   async updateMeeting(userId: number, meetingId: number, dto: UpdateMeetingDto) {
     const meeting = await this.prisma.ceoMeeting.findFirst({
       where: { id: meetingId, createdById: userId, cancelledAt: null },

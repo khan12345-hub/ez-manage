@@ -15,6 +15,7 @@ import { SortableGroup } from "../group/SortableGroup";
 import { SortableGroupContainer } from "../group/SortableGroupContainer";
 import { BoardSkeleton } from "./BoardSkeleton";
 import { ArchivedGroupsPanel } from "../group/ArchivedGroupsPanel";
+import { useCanManageGroups } from "../hooks/useCanManageGroups";
 
 
 interface BoardContentProps {
@@ -57,6 +58,8 @@ export function BoardContent({
   newGroupFocusToken,
 }: BoardContentProps) {
   const addNewGroup = useGroupStore((state) => state.addNewGroup);
+  // Creating / reordering groups: board/workspace OWNER & ADMIN only.
+  const canManageGroups = useCanManageGroups();
 
   const hasDraft = useGroupStore((state) =>
     state.groups.some((group: any) => group.isNew),
@@ -143,10 +146,10 @@ export function BoardContent({
                       <Group
                         group={group}
                         columns={filteredColumns}
-                        dragHandleProps={{
-                          ...attributes,
-                          ...listeners,
-                        }}
+                        // Group drag-to-reorder only for OWNER/ADMIN.
+                        dragHandleProps={
+                          canManageGroups ? { ...attributes, ...listeners } : {}
+                        }
                         isDraggingGroup={activeItem?.type === "group"}
                         isDraggingTask={activeItem?.type === "task"}
                         selection={selection}
@@ -173,16 +176,18 @@ export function BoardContent({
         </div>
       )}
 
-      <Button
-        type="button"
-        variant="outline"
-        onClick={addNewGroup}
-        disabled={hasDraft}
-        className="h-12 cursor-pointer justify-center gap-2 border-dashed text-muted-foreground hover:text-foreground"
-      >
-        <Plus className="h-4 w-4" />
-        Add New Group
-      </Button>
+      {canManageGroups && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={addNewGroup}
+          disabled={hasDraft}
+          className="h-12 cursor-pointer justify-center gap-2 border-dashed text-muted-foreground hover:text-foreground"
+        >
+          <Plus className="h-4 w-4" />
+          Add New Group
+        </Button>
+      )}
 
       {board?.id && <ArchivedGroupsPanel boardId={board.id} />}
 

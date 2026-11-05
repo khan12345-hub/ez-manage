@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { parseDateValue, toDateKey } from "@/lib/date-value";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBoardTasks } from "@/services/boards.api";
 import { createTask } from "@/services/tasks.api";
@@ -178,8 +179,8 @@ export function CalendarView({ board }: CalendarViewProps) {
   const open = useTaskDetailsStore((s) => s.open);
   const queryClient = useQueryClient();
 
-  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["board-tasks-calendar", board.id],
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage, isError } = useInfiniteQuery({
+    queryKey: ["board-tasks", board.id, "calendar"],
     queryFn: ({ pageParam }) =>
       getBoardTasks(board.id, { cursor: pageParam ?? undefined, limit: 500 }),
     initialPageParam: null as number | null,
@@ -190,10 +191,10 @@ export function CalendarView({ board }: CalendarViewProps) {
 
   /* Auto-fetch all pages so calendar always shows complete data */
   useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) {
+    if (hasNextPage && !isFetchingNextPage && !isError) {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
 
   const allTasks: any[] = Array.from(
     new Map((data?.pages.flatMap((p: any) => p.tasks) ?? []).map((t: any) => [t.id, t])).values()
@@ -215,7 +216,7 @@ export function CalendarView({ board }: CalendarViewProps) {
         if (dateCell) {
           const clickedDate = new Date(year, month, day);
           await updateCell(board.id, dateCell.id, {
-            value: { date: clickedDate.toISOString() },
+            value: { date: toDateKey(clickedDate) },
             ...(dateCell.updatedAt ? { updatedAt: String(dateCell.updatedAt) } : {}),
           });
         }
@@ -224,7 +225,7 @@ export function CalendarView({ board }: CalendarViewProps) {
       return task;
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["board-tasks-calendar", board.id] });
+      queryClient.invalidateQueries({ queryKey: ["board-tasks", board.id, "calendar"] });
       setCreatingForDate(null);
       toast.success(`Task "${vars.name}" created`);
     },
@@ -238,9 +239,9 @@ export function CalendarView({ board }: CalendarViewProps) {
   allTasks.forEach((task) => {
     const rawDate = getDateCell(task, columns);
     if (!rawDate) return;
-    const d = new Date(rawDate);
-    if (isNaN(d.getTime())) return;
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const d = parseDateValue(rawDate);
+    if (!d) return;
+    const key = toDateKey(d);
     if (!tasksByDate.has(key)) tasksByDate.set(key, []);
     tasksByDate.get(key)!.push(task);
   });
@@ -283,28 +284,28 @@ export function CalendarView({ board }: CalendarViewProps) {
 
   return (
     <>
-      <div className="flex flex-col gap-3">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm p-2">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">
+        <div className="flex items-center justify-between px-2 py-2.5">
+          <h2 className="text-base font-semibold text-foreground">
             {MONTH_NAMES[month]} {year}
           </h2>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
             <button
               onClick={prevMonth}
-              className="rounded-md p-1.5 hover:bg-muted transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth()); }}
-              className="rounded-md px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
             >
               Today
             </button>
             <button
               onClick={nextMonth}
-              className="rounded-md p-1.5 hover:bg-muted transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -312,9 +313,9 @@ export function CalendarView({ board }: CalendarViewProps) {
         </div>
 
         {/* Day names */}
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 px-px">
           {DAY_NAMES.map((d) => (
-            <div key={d} className="py-1.5 text-center text-xs font-medium text-muted-foreground">
+            <div key={d} className="py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {d}
             </div>
           ))}
@@ -322,16 +323,16 @@ export function CalendarView({ board }: CalendarViewProps) {
 
         {/* Loading skeleton */}
         {isLoading ? (
-          <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
+          <div className="grid grid-cols-7 gap-px rounded-lg bg-border overflow-hidden">
             {Array.from({ length: 35 }).map((_, i) => (
-              <div key={i} className="h-20 bg-background animate-pulse sm:h-28" />
+              <div key={i} className="h-20 bg-card animate-pulse sm:h-28" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
+          <div className="grid grid-cols-7 gap-px rounded-lg bg-border overflow-hidden">
             {cells.map((cell, i) => {
               if (!cell.day) {
-                return <div key={i} className="h-20 bg-muted/30 sm:h-28" />;
+                return <div key={i} className="h-20 bg-muted/40 sm:h-28" />;
               }
               const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`;
               const dayTasks = tasksByDate.get(key) ?? [];
@@ -340,7 +341,9 @@ export function CalendarView({ board }: CalendarViewProps) {
               return (
                 <div
                   key={i}
-                  className="group relative h-20 bg-background p-1 flex flex-col overflow-hidden sm:h-28"
+                  className={`group relative h-20 p-1.5 flex flex-col overflow-hidden transition-colors sm:h-28 ${
+                    isToday ? "bg-primary/[0.06]" : "bg-card hover:bg-muted/30"
+                  }`}
                 >
                   {/* Day number */}
                   <div className="flex items-start justify-between mb-0.5">

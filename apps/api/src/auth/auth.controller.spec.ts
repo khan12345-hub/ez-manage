@@ -44,7 +44,10 @@ describe('AuthController', () => {
         { provide: AuthService, useClass: AuthService },
         { provide: ChatGateway, useClass: ChatGateway },
       ],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get(AuthController);
     service = module.get(AuthService);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 
 import { useGroupStore } from "@/store/create-group-store";
 
@@ -98,6 +99,7 @@ export function Group({
     hasNextPage,
     fetchNextPage,
     isError: isGroupTasksError,
+    refetch: refetchGroupTasks,
   } = useInfiniteQuery<
     BoardTasksResponse,
     Error,
@@ -164,9 +166,7 @@ export function Group({
     onSuccess: () => {
       toast.success("Column created");
 
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
 
       setOpen(false);
     },
@@ -176,8 +176,14 @@ export function Group({
     },
   });
 
-  const hydratedGroup = { ...group, tasks: loadedTasks };
-  const rootTasks = loadedTasks.filter((t: any) => !t.parentId);
+  // While a task is being dragged, render from the board's drag state so the
+  // row appears in the group it is hovering over (cross-group preview).
+  // Otherwise render this group's own query data (always fresh).
+  const displayTasks =
+    props.isDraggingTask && Array.isArray(group.tasks) ? group.tasks : loadedTasks;
+
+  const hydratedGroup = { ...group, tasks: displayTasks };
+  const rootTasks = displayTasks.filter((t: any) => !t.parentId);
   // Use the server-side total from _count so the header shows the real count
   // even when only a subset of tasks has been loaded via infinite scroll.
   const rootTaskCount = group._count?.tasks ?? rootTasks.length;
@@ -213,7 +219,7 @@ export function Group({
 
   return (
     <>
-      <div>
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <GroupHeader
           group={group}
           isCollapsed={isCollapsed}
@@ -241,7 +247,23 @@ export function Group({
                 isFetchingNextPage={isFetchingNextPage}
                 allTasksLoaded={allGroupTasksLoaded}
                 totalTaskCount={rootTaskCount}
+                isDraggingTask={props.isDraggingTask}
               />
+        )}
+
+        {/* A page failed to load: auto-fetch stops (no retry loop), so give
+            the user a way to load the rest instead of a silently partial group. */}
+        {!isCollapsed && isGroupTasksError && (
+          <div className="flex items-center justify-between gap-3 border-t px-4 py-2 text-sm text-muted-foreground">
+            <span>Some tasks in this group could not be loaded.</span>
+            <button
+              type="button"
+              className="rounded-md border px-3 py-1 text-xs font-medium hover:bg-accent"
+              onClick={() => (hasNextPage ? fetchNextPage() : refetchGroupTasks())}
+            >
+              Retry
+            </button>
+          </div>
         )}
       </div>
 

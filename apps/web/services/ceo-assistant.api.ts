@@ -241,6 +241,12 @@ export interface CreateMeetingPayload {
   attendeeIds: number[];
 }
 
+/** Upcoming meetings the current user created or was invited to (any user). */
+export async function getMyMeetings(): Promise<Meeting[]> {
+  const { data } = await api.get<Meeting[]>(`/ceo-assistant/meetings/mine`);
+  return data;
+}
+
 export async function getMeetings(upcoming = true): Promise<Meeting[]> {
   const { data } = await api.get<Meeting[]>(`/ceo-assistant/meetings`, {
     params: { upcoming: upcoming ? 'true' : 'false' },

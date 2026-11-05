@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { BoardSearchService } from './board-search.service';
+import { BoardAccessService } from './board-access.service';
 
 interface GetBoardTasksParams {
   boardId: number;
@@ -10,6 +11,7 @@ interface GetBoardTasksParams {
   cursor?: number;
   search?: string;
   person?: string;
+  userId?: number;
 }
 
 @Injectable()
@@ -17,6 +19,7 @@ export class GetBoardTasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly boardSearchService: BoardSearchService,
+    private readonly boardAccessService: BoardAccessService,
   ) {}
 
   async execute({
@@ -26,15 +29,29 @@ export class GetBoardTasksService {
     cursor,
     search,
     person,
+    userId,
   }: GetBoardTasksParams) {
     const take = Math.min(limit, 1000);
     const trimSearch = search?.trim() || undefined;
     const trimPerson = person?.trim() || undefined;
     const hasFilters = Boolean(trimSearch) || Boolean(trimPerson);
 
+    // Group-restricted members only see their allowed groups.
+    const allowedGroupIds = userId
+      ? await this.boardAccessService.getAllowedGroupIds(boardId, userId)
+      : null;
+    if (groupId && allowedGroupIds && !allowedGroupIds.includes(groupId)) {
+      return { tasks: [], nextCursor: null, hasMore: false, total: 0 };
+    }
+
     const whereBase: Prisma.TaskWhereInput = {
       parentId: null,
-      group: { boardId },
+      // Archived groups are hidden in the main table, so hide them in views too.
+      group: {
+        boardId,
+        isArchived: false,
+        ...(allowedGroupIds ? { id: { in: allowedGroupIds } } : {}),
+      },
       ...(groupId ? { groupId } : {}),
     };
 
@@ -146,12 +163,12 @@ export class GetBoardTasksService {
       return { tasks: [], nextCursor: null, hasMore: false, total: 0 };
     }
 
-    // Load only the candidate tasks — bounded by take even with filters
+    // Load all candidates (already narrowed by the pre-queries), refine in JS,
+    // and only then paginate — paginating before the JS filter made pages
+    // come back short and stopped pagination early (hasMore=false).
     const tasks = await this.prisma.task.findMany({
       where: { ...whereBase, id: { in: [...candidateIds] } },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      take: take + 1,
       include: this.taskInclude(),
     });
 
@@ -163,8 +180,11 @@ export class GetBoardTasksService {
       commentMatchedTaskIds: commentIds,
     });
 
-    const result = filteredTasks.slice(0, take);
-    const hasMore = filteredTasks.length > take;
+    const startIdx = cursor
+      ? filteredTasks.findIndex((t: any) => t.id === cursor) + 1
+      : 0;
+    const result = filteredTasks.slice(startIdx, startIdx + take);
+    const hasMore = startIdx + take < filteredTasks.length;
     const nextCursor = hasMore ? result[result.length - 1]?.id ?? null : null;
 
     await this.enrichPersonCells(result);
@@ -173,9 +193,7 @@ export class GetBoardTasksService {
       tasks: result,
       nextCursor,
       hasMore,
-      // candidateIds is a slight over-count (JS filter may remove false
-      // positives from broad JSONB text cast), but is an accurate bound
-      total: candidateIds.size,
+      total: filteredTasks.length,
     };
   }
 
@@ -186,10 +204,19 @@ export class GetBoardTasksService {
     person?: string,
     limit = 50,
     offset = 0,
+    userId?: number,
   ) {
     const trimSearch = search?.trim() || undefined;
     const trimPerson = person?.trim() || undefined;
     const hasFilters = Boolean(trimSearch) || Boolean(trimPerson);
+
+    // Group-restricted members cannot read groups they were not given.
+    if (userId) {
+      const allowed = await this.boardAccessService.getAllowedGroupIds(boardId, userId);
+      if (allowed && !allowed.includes(groupId)) {
+        return { tasks: [], hasMore: false, nextOffset: offset };
+      }
+    }
 
     const whereBase: Prisma.TaskWhereInput = {
       groupId,
@@ -199,9 +226,10 @@ export class GetBoardTasksService {
 
     if (!hasFilters) {
       // Fast path: push skip/take to DB (improved over previous all-then-slice)
+      // id tie-break keeps offset paging stable when two tasks share an order.
       const tasks = await this.prisma.task.findMany({
         where: whereBase,
-        orderBy: { order: 'asc' },
+        orderBy: [{ order: 'asc' }, { id: 'asc' }],
         skip: offset,
         take: limit + 1,
         select: this.groupTaskSelect(),
@@ -277,7 +305,7 @@ export class GetBoardTasksService {
 
     const tasks = await this.prisma.task.findMany({
       where: { ...whereBase, id: { in: [...candidateIds] } },
-      orderBy: { order: 'asc' },
+      orderBy: [{ order: 'asc' }, { id: 'asc' }],
       select: this.groupTaskSelect(),
     });
 

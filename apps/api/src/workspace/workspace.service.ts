@@ -358,7 +358,11 @@ export class WorkspaceService {
             : Array.isArray(v)
             ? v
             : [];
-          const filtered = users.filter((u: any) => u.userId !== userId);
+          // PERSON cells store { users: [{ id, ... }] } — match on `id`
+          // (older data may use `userId`).
+          const filtered = users.filter(
+            (u: any) => (u?.id ?? u?.userId) !== userId,
+          );
           if (filtered.length !== users.length) {
             const newValue = Array.isArray(v) ? filtered : { ...v, users: filtered };
             await this.prisma.taskCell.update({

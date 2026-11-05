@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Crown, Search, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -101,9 +102,7 @@ export function ColumnAccessDialog({
           : "User removed from column access",
       );
 
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
+      queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
 
     onError: () => {

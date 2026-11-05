@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toDateKey } from "@/lib/date-value";
+import { boardQueryFilter } from "@/lib/board-query";
 
 import {
   InfiniteData,
@@ -131,6 +133,14 @@ export function Board({
    */
   const selection = useTaskSelection(sortedGroups);
 
+  // Clear the selection when search / person filter changes, so a bulk
+  // action can never touch tasks that are now hidden from view.
+  const { setSelectedTaskIds } = selection;
+  useEffect(() => {
+    setSelectedTaskIds(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTrimmed, personFilterKey]);
+
   /**
    * ---------------------------------------------------------
    * CREATE TASK
@@ -149,6 +159,9 @@ export function Board({
 
     onSuccess: (newTask) => {
       toast.success("Task created");
+
+      // Group header/footer counts come from the board detail (_count).
+      queryClient.invalidateQueries(boardQueryFilter(board.id));
 
       // Insert the new task immediately into the correct per-group cache
       // so it appears at the bottom of its group without waiting for a refetch.
@@ -211,6 +224,14 @@ export function Board({
     createMutation.mutate(groupId);
   };
 
+  // Lets the banner "New Task" button trigger the same create-task flow.
+  useEffect(() => {
+    const handler = () => handleCreateTask();
+    window.addEventListener("ez:create-task", handler);
+    return () => window.removeEventListener("ez:create-task", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedGroups]);
+
   /**
    * ---------------------------------------------------------
    * CREATE GROUP
@@ -239,10 +260,24 @@ export function Board({
    * ---------------------------------------------------------
    */
   const handleBulkUpdate = (columnId: number, value: any) => {
+    // Bulk Date / Timeline editors hand back Date objects; store them as
+    // plain "YYYY-MM-DD" like the main table (no timezone day-shift).
+    let normalized = value;
+    if (value && typeof value === "object") {
+      if (value.date instanceof Date) {
+        normalized = { ...value, date: toDateKey(value.date) };
+      } else if (value.startDate instanceof Date || value.endDate instanceof Date) {
+        normalized = {
+          ...value,
+          startDate: value.startDate instanceof Date ? toDateKey(value.startDate) : value.startDate,
+          endDate: value.endDate instanceof Date ? toDateKey(value.endDate) : value.endDate,
+        };
+      }
+    }
     bulkUpdate({
       taskIds: [...selection.selectedTaskIds],
       columnId,
-      value,
+      value: normalized,
     });
   };
 

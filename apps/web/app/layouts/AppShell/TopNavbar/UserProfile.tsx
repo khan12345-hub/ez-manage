@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Settings, User, UserPlus } from "lucide-react";
+import { ChevronDown, LogOut, Settings, User, UserPlus } from "lucide-react";
 import { resolveUrl } from "@/lib/resolveUrl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -66,13 +66,16 @@ export default function UserProfile() {
     `${user?.firstName?.charAt(0) ?? ""}${user?.lastName?.charAt(0) ?? ""}`.toUpperCase();
   const openInviteModal = useInviteModalStore((state) => state.open);
 
+  const roleLabel =
+    user?.systemRole === "SUPER_ADMIN" ? "Administrator" : "Team Member";
+
   return (
     <div className="flex items-center gap-4">
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="cursor-pointer rounded-full outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="flex cursor-pointer items-center gap-2.5 rounded-full py-1 pl-1 pr-1.5 outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary/40 sm:pr-2.5"
           >
             {avatarUrl ? (
               <img
@@ -80,15 +83,24 @@ export default function UserProfile() {
                 alt="Profile"
                 width={40}
                 height={40}
-                className="h-10 w-10 rounded-full border border-border object-cover"
+                className="h-9 w-9 rounded-full border border-border object-cover"
               />
             ) : (
-              <Avatar className="h-10 w-10 border border-border">
+              <Avatar className="h-9 w-9 border border-border">
                 <AvatarFallback className="bg-muted text-sm font-medium text-foreground">
                   {initials || "U"}
                 </AvatarFallback>
               </Avatar>
             )}
+
+            <div className="hidden text-left leading-tight sm:block">
+              <p className="max-w-[140px] truncate text-sm font-semibold text-foreground">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-[11px] text-muted-foreground">{roleLabel}</p>
+            </div>
+
+            <ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
           </button>
         </DropdownMenuTrigger>
 

@@ -122,7 +122,7 @@ export function ProfileSection({
       {/* ── Profile preview card ─────────────────────────────────────────── */}
       <div className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm">
         {/* Banner */}
-        <div className="relative h-24 bg-gradient-to-r from-muted via-indigo-500/5 to-violet-500/5">
+        <div className="relative h-24 bg-gradient-to-r from-muted via-primary/5 to-violet-500/5">
           <div className="absolute inset-0 opacity-40"
             style={{
               backgroundImage: "radial-gradient(circle at 20% 50%, #6366f1 0%, transparent 50%), radial-gradient(circle at 80% 50%, #8b5cf6 0%, transparent 50%)",
@@ -141,7 +141,7 @@ export function ProfileSection({
                 {imageSrc ? (
                   <img src={imageSrc} alt="avatar" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-indigo-100 text-xl font-bold text-indigo-600">
+                  <div className="flex h-full w-full items-center justify-center bg-primary/10 text-xl font-bold text-primary">
                     {initials || "U"}
                   </div>
                 )}
@@ -202,7 +202,7 @@ export function ProfileSection({
               {imageSrc ? (
                 <img src={imageSrc} alt="avatar" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-indigo-500/10 text-base font-semibold uppercase text-indigo-600 dark:text-indigo-400">
+                <div className="flex h-full w-full items-center justify-center bg-primary/10 text-base font-semibold uppercase text-primary dark:text-primary">
                   {initials || "U"}
                 </div>
               )}
@@ -299,14 +299,14 @@ export function ProfileSection({
                   onChange={(e) => setStatusEmoji(e.target.value)}
                   placeholder="😊"
                   maxLength={2}
-                  className="w-12 rounded-lg border border-border bg-background px-2 py-2.5 text-center text-lg focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
+                  className="w-12 rounded-lg border border-border bg-background px-2 py-2.5 text-center text-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
                 <input
                   value={statusText}
                   onChange={(e) => setStatusText(e.target.value)}
                   placeholder="What's your status?"
                   maxLength={100}
-                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
+                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
 
@@ -319,7 +319,7 @@ export function ProfileSection({
                     onClick={() => { setStatusEmoji(p.emoji); setStatusText(p.text); }}
                     className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-left text-xs transition ${
                       statusEmoji === p.emoji && statusText === p.text
-                        ? "border-indigo-300 bg-indigo-500/10 text-indigo-700 dark:text-indigo-400"
+                        ? "border-primary/40 bg-primary/10 text-primary dark:text-primary"
                         : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                   >
@@ -335,7 +335,7 @@ export function ProfileSection({
                   type="button"
                   onClick={handleSaveStatus}
                   disabled={statusMutation.isPending}
-                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                  className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white transition hover:bg-primary disabled:opacity-60"
                 >
                   {statusMutation.isPending ? "Saving…" : (
                     <><CheckCircle2 className="h-3.5 w-3.5" /> Save status</>

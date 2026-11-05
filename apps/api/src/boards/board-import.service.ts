@@ -585,6 +585,76 @@ export class BoardImportService {
         }
 
         /*
+         * Unmatched PERSON values: instead of skipping the assignment, assign the
+         * task to a deleted (soft-deleted) user. Reuses an existing deleted user
+         * with the same email/name, otherwise creates one with deletedAt set so it
+         * cannot log in and is not a workspace member, but still shows on the task.
+         */
+        const deletedPersonIds = new Map<string, number>();
+        const getDeletedPersonId = async (rawName: string): Promise<number> => {
+          const key = rawName.toLowerCase().trim();
+          const cached = deletedPersonIds.get(key);
+          if (cached !== undefined) return cached;
+
+          const isEmail = key.includes('@');
+          let firstName: string;
+          let lastName: string;
+          if (isEmail) {
+            firstName = key.split('@')[0] || 'Deleted';
+            lastName = 'User';
+          } else {
+            const parts = rawName.trim().split(/\s+/);
+            firstName = parts[0] || 'Deleted';
+            lastName = parts.slice(1).join(' ') || 'User';
+          }
+          firstName = firstName.slice(0, 100);
+          lastName = lastName.slice(0, 100);
+
+          const existing = await tx.user.findFirst({
+            where: isEmail
+              ? { email: key, deletedAt: { not: null } }
+              : {
+                  deletedAt: { not: null },
+                  firstName: { equals: firstName, mode: 'insensitive' },
+                  ...(lastName !== 'User'
+                    ? { lastName: { equals: lastName, mode: 'insensitive' } }
+                    : {}),
+                },
+            select: { id: true },
+          });
+
+          let id: number;
+          if (existing) {
+            id = existing.id;
+          } else {
+            // An email may still be taken by an inactive record; fall back to a placeholder.
+            const emailTaken = isEmail
+              ? await tx.user.findFirst({ where: { email: key }, select: { id: true } })
+              : null;
+            const email =
+              isEmail && !emailTaken
+                ? key
+                : `deleted.${Date.now()}.${Math.random().toString(36).slice(2, 10)}@deleted.local`;
+            const created = await tx.user.create({
+              data: {
+                firstName,
+                lastName,
+                email,
+                password: '!', // not a valid hash — login is impossible
+                systemRole: 'USER' as any,
+                createdById: userId,
+                deletedAt: new Date(),
+              } as any,
+              select: { id: true },
+            });
+            id = created.id;
+          }
+
+          deletedPersonIds.set(key, id);
+          return id;
+        };
+
+        /*
          * ---------------------------------------------------------
          * 8. Group imported rows
          * ---------------------------------------------------------
@@ -909,19 +979,19 @@ export class BoardImportService {
                * and name-based lookup (Monday.com exports display names).
                */
               if (column.type === BoardColumnType.PERSON) {
-                const rawDisplay = this.extractDisplayValue(rawValue).toLowerCase().trim();
-                if (rawDisplay) {
-                  const tokens = rawDisplay.split(/,\s*/).map((s) => s.trim()).filter(Boolean);
+                const originalDisplay = this.extractDisplayValue(rawValue).trim();
+                if (originalDisplay) {
+                  const tokens = originalDisplay.split(/,\s*/).map((s) => s.trim()).filter(Boolean);
                   const resolvedIds: number[] = [];
-                  const notFound: string[] = [];
 
                   for (const token of tokens) {
-                    const resolvedId = personEmailToUserId.get(token);
-                    if (resolvedId !== undefined) {
-                      resolvedIds.push(resolvedId);
-                    } else {
-                      notFound.push(token);
+                    const key = token.toLowerCase();
+                    let resolvedId = personEmailToUserId.get(key);
+                    if (resolvedId === undefined) {
+                      // No active account — assign to a deleted user instead of skipping.
+                      resolvedId = await getDeletedPersonId(token);
                     }
+                    if (!resolvedIds.includes(resolvedId)) resolvedIds.push(resolvedId);
                   }
 
                   if (resolvedIds.length > 0) {
@@ -929,15 +999,6 @@ export class BoardImportService {
                       taskId: task.id,
                       columnId: column.id,
                       value: { users: resolvedIds.map((id) => ({ id })) },
-                    });
-                  }
-
-                  for (const name of notFound) {
-                    skippedItems.push({
-                      rowIndex: allValidRows[index]!.rowIdx,
-                      taskName: task.name,
-                      column: column.name,
-                      reason: `Person '${name}' not found in workspace — assignment skipped`,
                     });
                   }
                 }

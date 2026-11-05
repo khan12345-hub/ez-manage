@@ -26,7 +26,7 @@ function initials(f: string, l: string) {
 const CAT_CONFIG = {
   overdue:  { label: "Overdue",  icon: AlertTriangle, text: "text-red-600",     dot: "bg-red-500"     },
   due_soon: { label: "Due Soon", icon: Clock,         text: "text-amber-600",   dot: "bg-amber-500"   },
-  inactive: { label: "Inactive", icon: Activity,      text: "text-slate-500",   dot: "bg-slate-400"   },
+  inactive: { label: "Inactive", icon: Activity,      text: "text-muted-foreground",   dot: "bg-slate-400"   },
   on_track: { label: "On Track", icon: TrendingUp,    text: "text-blue-600",    dot: "bg-blue-500"    },
   done:     { label: "Done",     icon: CheckCircle2,  text: "text-emerald-600", dot: "bg-emerald-500" },
 } as const;

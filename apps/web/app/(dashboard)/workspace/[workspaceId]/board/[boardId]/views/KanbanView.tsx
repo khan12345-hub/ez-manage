@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { parseDateValue } from "@/lib/date-value";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -44,15 +45,17 @@ function getColumnByType(columns: any[], type: string) {
 }
 
 function formatDate(iso: string) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
+  const d = parseDateValue(iso);
+  if (!d) return null;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function isOverdue(iso: string) {
-  const d = new Date(iso);
-  return !isNaN(d.getTime()) && d < new Date();
+  const d = parseDateValue(iso);
+  if (!d) return false;
+  const today = new Date();
+  // Overdue only from the day AFTER the due date (due today is not overdue).
+  return d < new Date(today.getFullYear(), today.getMonth(), today.getDate());
 }
 
 function getTaskFiles(task: any) {
@@ -339,11 +342,14 @@ function KanbanColumn({
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
+  const tint = /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#8292B5";
+
   return (
     <div
-      className={`flex w-[270px] shrink-0 flex-col rounded-xl border shadow-sm transition-colors ${
-        isDragOver ? "border-primary/60 bg-primary/5" : "bg-muted/10"
+      className={`flex w-[280px] shrink-0 flex-col overflow-hidden rounded-xl border transition-colors ${
+        isDragOver ? "border-primary/60" : "border-border/70"
       }`}
+      style={{ background: `${tint}0d`, borderTop: `3px solid ${tint}` }}
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
@@ -356,37 +362,36 @@ function KanbanColumn({
         onDrop(statusOption);
       }}
     >
-      {/* Colored header */}
-      <div
-        className="flex items-center justify-between rounded-t-xl px-3 py-2.5"
-        style={{ backgroundColor: color }}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="truncate text-sm font-semibold text-white drop-shadow-sm">
+      {/* Header — colored icon + title + count pill */}
+      <div className="flex items-center justify-between px-3 py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+            style={{ background: tint }}
+          >
+            <Layers className="h-3.5 w-3.5 text-white" />
+          </span>
+          <span className="truncate text-sm font-semibold text-foreground">
             {label}
           </span>
-          <span className="shrink-0 rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-semibold text-white">
-            {tasks.length}
-          </span>
         </div>
-        <button
-          type="button"
-          className="flex h-6 w-6 items-center justify-center rounded text-white/80 hover:bg-white/20 transition-colors"
-          title="Add task"
+        <span
+          className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums"
+          style={{ background: `${tint}22`, color: tint }}
         >
-          <Plus className="h-4 w-4" />
-        </button>
+          {tasks.length}
+        </span>
       </div>
 
       {/* Cards */}
       <div
-        className="flex flex-col gap-2.5 overflow-y-auto p-2.5"
+        className="flex flex-col gap-2.5 overflow-y-auto px-2.5 pb-2.5"
         style={{ maxHeight: "calc(100vh - 240px)" }}
       >
         {tasks.length === 0 ? (
           <div
             className={`flex h-16 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground transition-colors ${
-              isDragOver ? "border-primary/40 bg-primary/5" : ""
+              isDragOver ? "border-primary/40 bg-primary/5" : "border-border"
             }`}
           >
             {isDragOver ? "Drop here" : "No tasks"}
@@ -403,6 +408,15 @@ function KanbanColumn({
             />
           ))
         )}
+
+        {/* Add new task */}
+        <button
+          type="button"
+          className="mt-0.5 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-black/[0.03]"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add new task
+        </button>
       </div>
     </div>
   );
@@ -470,9 +484,18 @@ export function KanbanView({ board }: KanbanViewProps) {
         dto.updatedAt = item.statusCellUpdatedAt;
       }
 
-      await updateCell(board.id, cellId, dto);
+      const saved = await updateCell(board.id, cellId, dto);
 
-      // Optimistically update cached tasks
+      // Update cached tasks with the saved value AND the new version stamp
+      // (without the new updatedAt, the next drag of this card sent a stale
+      // stamp and got a false 409). If the task had no status cell yet, add it.
+      const nextCell = {
+        id: cellId,
+        columnId: item.statusColumnId,
+        taskId: item.taskId,
+        value,
+        ...(saved?.updatedAt ? { updatedAt: saved.updatedAt } : {}),
+      };
       queryClient.setQueriesData(
         { queryKey: ["board-tasks", board.id] },
         (old: any) => {
@@ -483,13 +506,15 @@ export function KanbanView({ board }: KanbanViewProps) {
               ...page,
               tasks: page.tasks.map((t: any) => {
                 if (t.id !== item.taskId) return t;
+                const cells = t.cells ?? [];
+                const exists = cells.some((c: any) => c.columnId === item.statusColumnId);
                 return {
                   ...t,
-                  cells: t.cells.map((c: any) =>
-                    c.columnId === item.statusColumnId
-                      ? { ...c, id: cellId, value }
-                      : c,
-                  ),
+                  cells: exists
+                    ? cells.map((c: any) =>
+                        c.columnId === item.statusColumnId ? { ...c, ...nextCell } : c,
+                      )
+                    : [...cells, nextCell],
                 };
               }),
             })),

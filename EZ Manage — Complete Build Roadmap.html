@@ -1,0 +1,375 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>EZ Manage — Complete Build Roadmap</title>
+<style>
+  :root {
+    --ground: #eef3f0;
+    --panel: #ffffff;
+    --ink: #0e1a14;
+    --ink-soft: #3b4a42;
+    --ink-faint: #6b7a72;
+    --line: #d7e3db;
+    --line-soft: #e6eee9;
+    --accent: #047857;
+    --accent-deep: #065f46;
+
+    --p1: #4f46e5;  --p1-bg: #eef0fe;  --p1-ring: #d7daff;
+    --p2: #047857;  --p2-bg: #e7f3ec;  --p2-ring: #c6e4d2;
+    --p3: #0284c7;  --p3-bg: #e6f3fb;  --p3-ring: #c5e4f5;
+    --p4: #b45309;  --p4-bg: #fcf1e1;  --p4-ring: #f3dcb9;
+    --p5: #7c3aed;  --p5-bg: #f2ebfd;  --p5-ring: #e0d1fa;
+
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(120% 80% at 50% -20%, rgba(4,120,87,0.07), rgba(255,255,255,0) 60%),
+      var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.011em;
+  }
+
+  .wrap { max-width: 940px; margin: 0 auto; padding: 56px 24px 80px; }
+
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .brand .mark {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: linear-gradient(135deg, #065f46, #10b981);
+    color: #fff; display: grid; place-items: center;
+    font-family: var(--mono); font-weight: 700; font-size: 14px;
+    letter-spacing: -0.04em; box-shadow: 0 4px 14px rgba(6,95,70,0.25);
+  }
+  .brand .name { font-weight: 800; font-size: 14px; letter-spacing: -0.02em; }
+  .brand .tag {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--accent-deep);
+    background: #dcefe4; border: 1px solid #c6e4d2;
+    padding: 3px 7px; border-radius: 6px;
+  }
+
+  h1 {
+    font-size: clamp(28px, 5vw, 42px); line-height: 1.04;
+    letter-spacing: -0.035em; margin: 0 0 14px; text-wrap: balance; font-weight: 820;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lede { font-size: 16px; color: var(--ink-soft); max-width: 62ch; margin: 0 0 26px; }
+
+  /* summary strip */
+  .summary {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    margin-bottom: 20px;
+  }
+  .summary .s {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 13px; padding: 13px 15px;
+  }
+  .summary .s .k { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); }
+  .summary .s .v { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; margin-top: 3px; }
+  .summary .s .v small { font-size: 12px; font-weight: 600; color: var(--ink-faint); letter-spacing: 0; }
+
+  .guide {
+    display: flex; flex-wrap: wrap; gap: 10px 22px;
+    padding: 15px 18px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 14px;
+    margin-bottom: 42px; box-shadow: 0 1px 2px rgba(14,26,20,0.03);
+  }
+  .guide .g { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ink-soft); }
+  .guide .g strong { color: var(--ink); font-weight: 650; }
+  .guide .arrow { color: var(--accent); font-family: var(--mono); font-weight: 700; }
+
+  .timeline { position: relative; display: flex; flex-direction: column; gap: 22px; }
+  .timeline::before {
+    content: ""; position: absolute; left: 23px; top: 16px; bottom: 16px; width: 2px;
+    background: linear-gradient(to bottom, var(--p1) 0%, var(--p2) 28%, var(--p3) 52%, var(--p4) 74%, var(--p5) 100%);
+    opacity: 0.35; border-radius: 2px;
+  }
+
+  .phase { position: relative; padding-left: 70px; }
+  .node {
+    position: absolute; left: 0; top: 2px;
+    width: 48px; height: 48px; border-radius: 14px;
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: 16px; font-weight: 700; color: #fff;
+    z-index: 2; box-shadow: 0 3px 10px rgba(14,26,20,0.14);
+  }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; padding: 18px 20px 20px;
+    box-shadow: 0 1px 3px rgba(14,26,20,0.04);
+    border-top: 3px solid var(--c);
+  }
+  .card .head {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+    gap: 6px 14px; margin-bottom: 4px;
+  }
+  .card h2 { font-size: 19px; letter-spacing: -0.025em; margin: 0; font-weight: 760; }
+  .card .ur { font-size: 13px; color: var(--ink-faint); font-weight: 500; }
+  .card .dep {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--c); background: var(--c-bg); border: 1px solid var(--c-ring);
+    padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+  }
+
+  .goal { font-size: 13.5px; color: var(--ink-soft); margin: 10px 0 14px; padding-left: 12px; border-left: 2px solid var(--c-ring); }
+  .goal b { color: var(--ink); font-weight: 650; }
+
+  .seclabel {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-faint); margin: 0 0 8px;
+  }
+
+  .mods { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mod {
+    font-size: 12.5px; font-weight: 540; color: var(--ink);
+    background: var(--c-bg); border: 1px solid var(--c-ring);
+    padding: 6px 11px; border-radius: 9px;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .mod:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(14,26,20,0.08); }
+  .mod .k { font-family: var(--mono); font-size: 10px; color: var(--c); margin-right: 6px; opacity: 0.8; }
+
+  .deliver {
+    margin-top: 15px; padding: 11px 14px;
+    background: var(--c-bg); border: 1px dashed var(--c-ring); border-radius: 11px;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .deliver .m {
+    font-family: var(--mono); font-size: 10px; font-weight: 700; color: #fff;
+    background: var(--c); padding: 3px 7px; border-radius: 6px; white-space: nowrap; margin-top: 1px;
+  }
+  .deliver .t { font-size: 12.5px; color: var(--ink-soft); }
+  .deliver .t b { color: var(--ink); font-weight: 650; }
+
+  .p1 { --c: var(--p1); --c-bg: var(--p1-bg); --c-ring: var(--p1-ring); }
+  .p2 { --c: var(--p2); --c-bg: var(--p2-bg); --c-ring: var(--p2-ring); }
+  .p3 { --c: var(--p3); --c-bg: var(--p3-bg); --c-ring: var(--p3-ring); }
+  .p4 { --c: var(--p4); --c-bg: var(--p4-bg); --c-ring: var(--p4-ring); }
+  .p5 { --c: var(--p5); --c-bg: var(--p5-bg); --c-ring: var(--p5-ring); }
+  .p1 .node { background: var(--p1); } .p2 .node { background: var(--p2); }
+  .p3 .node { background: var(--p3); } .p4 .node { background: var(--p4); }
+  .p5 .node { background: var(--p5); }
+
+  .phase.capstone .card { background: linear-gradient(180deg, #faf7ff, #ffffff); }
+  .phase.capstone .node { box-shadow: 0 0 0 4px var(--p5-ring), 0 3px 10px rgba(124,58,237,0.3); }
+
+  .flow { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .flow .f { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .flow .f .lab { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); margin-bottom: 5px; }
+  .flow .f .big { font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
+  .flow .f.up .big { color: var(--accent); }
+  .flow .f.down .big { color: var(--p1); }
+  .flow .f p { font-size: 12.5px; color: var(--ink-soft); margin: 6px 0 0; }
+
+  .foot {
+    margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-faint);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+  .foot .mono { font-family: var(--mono); }
+
+  @media (max-width: 620px) {
+    .summary { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .wrap { padding: 36px 16px 60px; }
+    .phase { padding-left: 58px; }
+    .node { width: 42px; height: 42px; border-radius: 12px; font-size: 14px; }
+    .timeline::before { left: 20px; }
+    .flow { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { .mod { transition: none; } }
+</style>
+
+<div class="wrap">
+
+  <div class="brand">
+    <div class="mark">EZ</div>
+    <div class="name">EZ MANAGE</div>
+    <div class="tag">Complete Roadmap</div>
+  </div>
+
+  <h1>The complete build roadmap — <em>Foundation to CEO</em></h1>
+  <p class="lede">
+    The full plan in 5 phases: goal, every module, and the milestone that marks each phase done.
+    Build bottom to top (01 → 05) — each upper layer consumes the layers below it.
+  </p>
+
+  <div class="summary">
+    <div class="s"><div class="k">Phases</div><div class="v">5</div></div>
+    <div class="s"><div class="k">Modules</div><div class="v">38</div></div>
+    <div class="s"><div class="k">Milestones</div><div class="v">5 <small>M1–M5</small></div></div>
+    <div class="s"><div class="k">Build order</div><div class="v">01<small> → 05</small></div></div>
+  </div>
+
+  <div class="guide">
+    <div class="g"><span class="arrow">↑</span> <span><strong>Data</strong> flows up (what's built below surfaces at the top)</span></div>
+    <div class="g"><span class="arrow">↓</span> <span><strong>Control</strong> flows down (the CEO assigns from the top)</span></div>
+    <div class="g"><span class="arrow">M</span> <span><strong>Milestone</strong> = phase is shippable</span></div>
+  </div>
+
+  <div class="timeline">
+
+    <!-- PHASE 1 -->
+    <div class="phase p1">
+      <div class="node">01</div>
+      <div class="card">
+        <div class="head">
+          <div><h2>Foundation</h2><div class="ur">The base — login, companies, roles, shared staff</div></div>
+          <span class="dep">Depends on: nothing</span>
+        </div>
+        <p class="goal"><b>Goal:</b> Set up the core structure — one CEO, 20 companies, 3 entities, and staff that can be shared across companies. Everything above stands on this.</p>
+        <p class="seclabel">Modules</p>
+        <div class="mods">
+          <div class="mod"><span class="k">A1</span>Auth &amp; Login</div>
+          <div class="mod"><span class="k">A2</span>Users &amp; Roles (CEO / Manager / Staff)</div>
+          <div class="mod"><span class="k">A3</span>Companies (20 portfolio)</div>
+          <div class="mod"><span class="k">A4</span>Entities (CA / PK / Remote)</div>
+          <div class="mod"><span class="k">A5</span>Shared Staff Pool</div>
+          <div class="mod"><span class="k">A6</span>Permissions</div>
+        </div>
+        <div class="deliver">
+          <span class="m">M1</span>
+          <span class="t"><b>Done when:</b> a user can log in, the 20 companies exist, roles work, and one staff member can be assigned to multiple companies.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 2 -->
+    <div class="phase p2">
+      <div class="node">02</div>
+      <div class="card">
+        <div class="head">
+          <div><h2>ClickUp Task System</h2><div class="ur">The core product — boards, tasks, chat, mentions</div></div>
+          <span class="dep">Depends on: 01</span>
+        </div>
+        <p class="goal"><b>Goal:</b> The heart of the app. The CEO assigns tasks to managers; everyone collaborates inside the task with threads, mentions, files and voice notes — replacing scattered WhatsApp groups.</p>
+        <p class="seclabel">Modules</p>
+        <div class="mods">
+          <div class="mod"><span class="k">B1</span>Workspaces / Spaces</div>
+          <div class="mod"><span class="k">B2</span>Boards / Lists</div>
+          <div class="mod"><span class="k">B3</span>Groups</div>
+          <div class="mod"><span class="k">B4</span>Tasks</div>
+          <div class="mod"><span class="k">B5</span>Columns &amp; Custom Fields</div>
+          <div class="mod"><span class="k">B6</span>Status (To-do / WIP / Done)</div>
+          <div class="mod"><span class="k">B7</span>Comments / Task Thread</div>
+          <div class="mod"><span class="k">B8</span>Channel Chat</div>
+          <div class="mod"><span class="k">B9</span>@Mentions</div>
+          <div class="mod"><span class="k">B10</span>Attachments + Voice Notes</div>
+          <div class="mod"><span class="k">B11</span>Activity / Audit Log</div>
+          <div class="mod"><span class="k">B12</span>Attention Needed Radar</div>
+        </div>
+        <div class="deliver">
+          <span class="m">M2</span>
+          <span class="t"><b>Done when:</b> the CEO assigns a task to a manager, the manager replies in-thread with a file, an @mention lands in the Attention radar, and the task moves to Done.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 3 -->
+    <div class="phase p3">
+      <div class="node">03</div>
+      <div class="card">
+        <div class="head">
+          <div><h2>Leave &amp; Attendance (HR)</h2><div class="ur">Punch in/out, late tracking, leave approvals</div></div>
+          <span class="dep">Depends on: 01</span>
+        </div>
+        <p class="goal"><b>Goal:</b> Track who's present, late or on leave. These records are the raw input that Payroll (04) uses for deductions — so this comes first.</p>
+        <p class="seclabel">Modules</p>
+        <div class="mods">
+          <div class="mod"><span class="k">C1</span>Employee Directory &amp; Contracts</div>
+          <div class="mod"><span class="k">C2</span>Attendance / Punch In-Out</div>
+          <div class="mod"><span class="k">C3</span>Late Detection</div>
+          <div class="mod"><span class="k">C4</span>Leave Types</div>
+          <div class="mod"><span class="k">C5</span>Leave Requests &amp; Approvals</div>
+          <div class="mod"><span class="k">C6</span>Leave Balances</div>
+          <div class="mod"><span class="k">C7</span>Partial / Hourly Passes</div>
+        </div>
+        <div class="deliver">
+          <span class="m">M3</span>
+          <span class="t"><b>Done when:</b> staff can punch in/out, a leave request flows to a manager for approval, and the balance updates automatically.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 4 -->
+    <div class="phase p4">
+      <div class="node">04</div>
+      <div class="card">
+        <div class="head">
+          <div><h2>Payroll</h2><div class="ur">CA bi-weekly, PK monthly, contractor, cash</div></div>
+          <span class="dep">Depends on: 03</span>
+        </div>
+        <p class="goal"><b>Goal:</b> Run payroll per entity with the right cycle, applying leave and late deductions automatically, then route the run for CEO approval.</p>
+        <p class="seclabel">Modules</p>
+        <div class="mods">
+          <div class="mod"><span class="k">D1</span>Pay Cycles (Bi-weekly / Monthly / Milestone)</div>
+          <div class="mod"><span class="k">D2</span>Salary Structure</div>
+          <div class="mod"><span class="k">D3</span>Leave &amp; Late Deductions</div>
+          <div class="mod"><span class="k">D4</span>Overtime</div>
+          <div class="mod"><span class="k">D5</span>Payroll Run → CEO Approval</div>
+          <div class="mod"><span class="k">D6</span>Payslips / Invoices</div>
+          <div class="mod"><span class="k">D7</span>Reimbursements &amp; Claims</div>
+        </div>
+        <div class="deliver">
+          <span class="m">M4</span>
+          <span class="t"><b>Done when:</b> a pay run generates payslips with leave/late deductions applied, and the CEO approves the cycle.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 5 -->
+    <div class="phase p5 capstone">
+      <div class="node">05</div>
+      <div class="card">
+        <div class="head">
+          <div><h2>CEO Dashboard + AI</h2><div class="ur">Capstone — only displays data, stores nothing</div></div>
+          <span class="dep">Depends on: 01–04</span>
+        </div>
+        <p class="goal"><b>Goal:</b> One control tower that reads and combines everything below — workforce, per-company tasks, approvals, payroll — plus an AI copilot to summarize it all.</p>
+        <p class="seclabel">Modules</p>
+        <div class="mods">
+          <div class="mod"><span class="k">E1</span>Executive Metric Tiles</div>
+          <div class="mod"><span class="k">E2</span>Company Portfolio View</div>
+          <div class="mod"><span class="k">E3</span>Managers &amp; Teams View</div>
+          <div class="mod"><span class="k">E4</span>Attention Needed (mentions + approvals)</div>
+          <div class="mod"><span class="k">E5</span>Live Pulse Ticker</div>
+          <div class="mod"><span class="k">E6</span>AI Copilot (summarizes all layers)</div>
+        </div>
+        <div class="deliver">
+          <span class="m">M5</span>
+          <span class="t"><b>Done when:</b> the dashboard shows real tiles, per-company task streams, a working Attention radar, and the AI copilot answers questions from live data.</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="flow">
+    <div class="f up">
+      <div class="lab">Upward ↑</div>
+      <div class="big">Data flows up</div>
+      <p>Task, leave and payroll data is created below and surfaces, aggregated, on the CEO dashboard (05).</p>
+    </div>
+    <div class="f down">
+      <div class="lab">Downward ↓</div>
+      <div class="big">Control flows down</div>
+      <p>The CEO assigns tasks/approvals from the top, which reach managers and staff below.</p>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>EZ Manage — multi-company agency platform · ClickUp + HR + Payroll + CEO control tower</span>
+    <span class="mono">v3 · 5 phases · 38 modules</span>
+  </div>
+
+</div>
+
+</body></html>

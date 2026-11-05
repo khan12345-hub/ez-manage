@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { MessageCircleMore, FileInput } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -72,6 +72,17 @@ export function Cell({
     next: null,
   });
 
+  // Same idea for the primary (name) column, which saves the TASK: keep the
+  // newest task.updatedAt so a quick second rename doesn't send a stale stamp.
+  const latestTaskUpdatedAt = useRef<any>(task?.updatedAt);
+  if (task?.updatedAt && (!latestTaskUpdatedAt.current || task.updatedAt > latestTaskUpdatedAt.current)) {
+    latestTaskUpdatedAt.current = task.updatedAt;
+  }
+
+  // Bumped when a save fails: remounts the editor so it drops the unsaved
+  // local value and shows the last confirmed (server) value again.
+  const [resetKey, setResetKey] = useState(0);
+
   const config =
     CELL_CONFIG[
       column.type as keyof typeof CELL_CONFIG
@@ -114,6 +125,7 @@ export function Cell({
 
         <div className="min-w-0 flex-1">
           <EditableCell
+            key={resetKey}
             value={value}
             component={Component}
             cell={cell}
@@ -126,16 +138,37 @@ export function Cell({
                   ? { ...cell, updatedAt: latestCellUpdatedAt.current }
                   : cell;
 
+                const effectiveTask = isPrimary && latestTaskUpdatedAt.current
+                  ? { ...task, updatedAt: latestTaskUpdatedAt.current }
+                  : task;
+
                 savePending.current.inFlight = true;
-                const promise = config.save({ task, cell: effectiveCell, column, value: v, boardId, queryClient });
+                const promise = config.save({ task: effectiveTask, cell: effectiveCell, column, value: v, boardId, queryClient });
 
                 promise?.then?.((updatedCell: any) => {
                   savePending.current.inFlight = false;
 
-                  if (updatedCell?.updatedAt) {
+                  // For the primary (name) column the response is the TASK, not a
+                  // cell — its id/updatedAt must not be written onto a cell that
+                  // happens to share the id (caused false "changed by someone else").
+                  const isCellResponse = !isPrimary && updatedCell?.id && updatedCell?.updatedAt;
+
+                  if (isCellResponse) {
                     latestCellUpdatedAt.current = updatedCell.updatedAt;
                   }
-                  if (updatedCell?.id && updatedCell?.updatedAt) {
+                  if (isPrimary && updatedCell?.updatedAt) {
+                    latestTaskUpdatedAt.current = updatedCell.updatedAt;
+                  }
+
+                  // Existing cell: patch value + updatedAt straight into every
+                  // cached task list (table, Kanban, Calendar, …) — no refetch
+                  // of the whole board on every click.
+                  const canPatchInPlace = isCellResponse && cell?.id === updatedCell.id;
+                  if (canPatchInPlace) {
+                    const patch: any = { updatedAt: updatedCell.updatedAt };
+                    if (updatedCell.value !== undefined) patch.value = updatedCell.value;
+                    const patchCells = (cells: any[]) =>
+                      (cells ?? []).map((c: any) => (c.id === updatedCell.id ? { ...c, ...patch } : c));
                     queryClient.setQueriesData(
                       { queryKey: ["board-tasks", boardId], exact: false },
                       (old: any) => {
@@ -146,18 +179,27 @@ export function Cell({
                             ...page,
                             tasks: (page.tasks ?? []).map((t: any) => ({
                               ...t,
-                              cells: (t.cells ?? []).map((c: any) =>
-                                c.id === updatedCell.id
-                                  ? { ...c, updatedAt: updatedCell.updatedAt }
-                                  : c
-                              ),
+                              cells: patchCells(t.cells),
+                              ...(t.subtasks
+                                ? { subtasks: t.subtasks.map((s: any) => ({ ...s, cells: patchCells(s.cells) })) }
+                                : {}),
                             })),
                           })),
                         };
                       }
                     );
+                    // Mark stale (picked up on next mount/focus) without an
+                    // immediate refetch of every group.
+                    queryClient.invalidateQueries({
+                      queryKey: ["board-tasks", boardId],
+                      exact: false,
+                      refetchType: "none",
+                    });
+                  } else {
+                    // New cell or task rename: the cache can't be patched in
+                    // place, so refetch.
+                    queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId], exact: false });
                   }
-                  queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId], exact: false });
 
                   // Flush the queued value (if another edit arrived while in-flight)
                   if (savePending.current.next !== null) {
@@ -178,6 +220,8 @@ export function Cell({
                   } else {
                     toast.error('Failed to save change. Please try again.');
                   }
+                  // Roll the cell back to the last saved value.
+                  setResetKey((k) => k + 1);
                 });
               };
 

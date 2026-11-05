@@ -24,7 +24,7 @@ function initials(f: string, l: string) {
 const CAT_CONFIG = {
   overdue:  { label: "Overdue",  icon: AlertTriangle, text: "text-red-600",     dot: "bg-red-500",     badge: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400" },
   due_soon: { label: "Due Soon", icon: Clock,         text: "text-amber-600",   dot: "bg-amber-500",   badge: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30" },
-  inactive: { label: "Inactive", icon: Activity,      text: "text-slate-500",   dot: "bg-slate-400",   badge: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-900" },
+  inactive: { label: "Inactive", icon: Activity,      text: "text-muted-foreground",   dot: "bg-slate-400",   badge: "bg-muted text-muted-foreground border-border dark:bg-slate-900" },
   on_track: { label: "On Track", icon: TrendingUp,    text: "text-blue-600",    dot: "bg-blue-500",    badge: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30" },
   done:     { label: "Done",     icon: CheckCircle2,  text: "text-emerald-600", dot: "bg-emerald-500", badge: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30" },
 } as const;
@@ -97,7 +97,7 @@ export function ManagerProfile({ managerId, onClose, onTaskClick, onMemberClick,
             ) : data && (
               <Avatar className="h-14 w-14 ring-2 ring-border shrink-0">
                 <AvatarImage src={data.user.avatarUrl ?? undefined} />
-                <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+                <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-primary to-blue-600 text-white">
                   {initials(data.user.firstName, data.user.lastName)}
                 </AvatarFallback>
               </Avatar>
@@ -175,7 +175,7 @@ export function ManagerProfile({ managerId, onClose, onTaskClick, onMemberClick,
                       { l: "Done",     v: data.taskStats.doneTasks,     c: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30",         border: "border-emerald-200 dark:border-emerald-900" },
                       { l: "Overdue",  v: data.taskStats.overdueTasks,  c: "text-red-600",     bg: "bg-red-50 dark:bg-red-950/30",                border: "border-red-200 dark:border-red-900" },
                       { l: "Due Soon", v: data.taskStats.dueSoonTasks,  c: "text-amber-600",   bg: "bg-amber-50 dark:bg-amber-950/30",            border: "border-amber-200 dark:border-amber-900" },
-                      { l: "Inactive", v: data.taskStats.inactiveTasks, c: "text-slate-500",   bg: "bg-slate-50 dark:bg-slate-900/40",             border: "border-slate-200 dark:border-slate-700" },
+                      { l: "Inactive", v: data.taskStats.inactiveTasks, c: "text-muted-foreground",   bg: "bg-muted dark:bg-slate-900/40",             border: "border-border dark:border-slate-700" },
                     ].map((s) => (
                       <div key={s.l} className={cn("rounded-lg border p-2 text-center", s.bg, s.border)}>
                         <div className={cn("text-lg font-bold tabular-nums", s.c)}>{s.v}</div>
@@ -256,7 +256,7 @@ export function ManagerProfile({ managerId, onClose, onTaskClick, onMemberClick,
                       >
                         <Avatar className="h-9 w-9 shrink-0">
                           <AvatarImage src={member.avatarUrl ?? undefined} />
-                          <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                          <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-blue-500 to-primary text-white">
                             {initials(member.firstName, member.lastName)}
                           </AvatarFallback>
                         </Avatar>

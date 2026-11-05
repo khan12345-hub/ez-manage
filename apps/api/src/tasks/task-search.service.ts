@@ -14,6 +14,37 @@ export class TaskQueryService {
     private readonly prisma: PrismaService,
   ) {}
 
+  /** Throws 404 unless the task belongs to a group of this board. */
+  async assertTaskInBoard(
+    taskId: number,
+    boardId: number,
+    userId?: number,
+  ): Promise<void> {
+    const task = await this.prisma.task.findFirst({
+      where: { id: taskId, group: { boardId } },
+      select: { id: true, groupId: true },
+    });
+    if (!task) throw new NotFoundException('Task not found.');
+
+    // Group-restricted members may only open tasks in their allowed groups.
+    if (userId) {
+      const member = await this.prisma.boardMember.findUnique({
+        where: { boardId_userId: { boardId, userId } },
+        select: {
+          accessAllGroups: true,
+          groupAccess: { select: { groupId: true } },
+        },
+      });
+      if (
+        member &&
+        !member.accessAllGroups &&
+        !member.groupAccess.some((g) => g.groupId === task.groupId)
+      ) {
+        throw new NotFoundException('Task not found.');
+      }
+    }
+  }
+
   async findOne(taskId: number) {
     const task = await this.prisma.task.findUnique({
       where: {

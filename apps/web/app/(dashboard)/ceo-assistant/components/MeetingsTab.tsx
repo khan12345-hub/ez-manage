@@ -34,7 +34,7 @@ function getTimeLabel(date: Date): { label: string; urgent: boolean } {
 }
 
 function getAccentColor(date: Date) {
-  if (isPast(date)) return { bar: "bg-slate-300 dark:bg-slate-600", badge: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" };
+  if (isPast(date)) return { bar: "bg-slate-300 dark:bg-slate-600", badge: "bg-muted text-muted-foreground dark:bg-slate-800 dark:text-slate-400" };
   const mins = differenceInMinutes(date, new Date());
   if (mins < 60)  return { bar: "bg-red-500",    badge: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400" };
   if (mins < 180) return { bar: "bg-amber-500",  badge: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400" };
@@ -102,7 +102,7 @@ function AttendeePicker({
                 )}
               >
                 {on ? <CheckSquare className="h-3.5 w-3.5 shrink-0 text-blue-500" /> : <Square className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                <div className="h-6 w-6 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[9px] font-bold text-white">
+                <div className="h-6 w-6 shrink-0 rounded-full bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center text-[9px] font-bold text-white">
                   {e.user.firstName[0]}{e.user.lastName[0]}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -170,7 +170,7 @@ function MeetingForm({
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-gradient-to-r from-blue-50 to-primary/5 dark:from-blue-950/20 dark:to-primary/10">
         <div className="flex items-center gap-2">
           <div className="h-7 w-7 rounded-lg bg-blue-500 flex items-center justify-center">
             {isEdit ? <Pencil className="h-3.5 w-3.5 text-white" /> : <Video className="h-3.5 w-3.5 text-white" />}
@@ -280,7 +280,7 @@ function MeetingDetailModal({ meeting, onClose }: { meeting: Meeting; onClose: (
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={cn("flex items-start gap-3 p-5 border-b border-border", past ? "bg-muted/30" : "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20")}>
+        <div className={cn("flex items-start gap-3 p-5 border-b border-border", past ? "bg-muted/30" : "bg-gradient-to-r from-blue-50 to-primary/5 dark:from-blue-950/20 dark:to-primary/10")}>
           {/* Date block */}
           <div className="shrink-0 flex flex-col items-center justify-center rounded-xl border border-border bg-white dark:bg-card px-3 py-2 min-w-[56px] text-center shadow-sm">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none">
@@ -363,7 +363,7 @@ function MeetingDetailModal({ meeting, onClose }: { meeting: Meeting; onClose: (
             <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
               {meeting.attendees.map(({ user }) => (
                 <div key={user.id} className="flex items-center gap-3 px-3.5 py-2.5 bg-card hover:bg-muted/30 transition-colors">
-                  <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[11px] font-bold text-white">
+                  <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center text-[11px] font-bold text-white">
                     {user.firstName[0]}{user.lastName[0]}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -508,13 +508,13 @@ function MeetingCard({ meeting, employees }: { meeting: Meeting; employees: Empl
                     <div
                       key={user.id}
                       title={`${user.firstName} ${user.lastName}`}
-                      className="h-5 w-5 rounded-full border-2 border-card bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[8px] font-bold text-white"
+                      className="h-5 w-5 rounded-full border-2 border-card bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center text-[8px] font-bold text-white"
                     >
                       {user.firstName[0]}{user.lastName[0]}
                     </div>
                   ))}
                   {meeting.attendees.length > 5 && (
-                    <div className="h-5 w-5 rounded-full border-2 border-card bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[8px] font-bold text-slate-600 dark:text-slate-300">
+                    <div className="h-5 w-5 rounded-full border-2 border-card bg-muted dark:bg-slate-700 flex items-center justify-center text-[8px] font-bold text-muted-foreground dark:text-slate-300">
                       +{meeting.attendees.length - 5}
                     </div>
                   )}
@@ -531,7 +531,7 @@ function MeetingCard({ meeting, employees }: { meeting: Meeting; employees: Empl
             {/* View button — always shown */}
             <button
               onClick={(e) => { e.stopPropagation(); setViewing(true); }}
-              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 dark:hover:border-indigo-900 transition-colors opacity-0 group-hover:opacity-100"
+              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 dark:hover:bg-primary/10 dark:hover:border-primary transition-colors opacity-0 group-hover:opacity-100"
             >
               <Eye className="h-3 w-3" /> View
             </button>

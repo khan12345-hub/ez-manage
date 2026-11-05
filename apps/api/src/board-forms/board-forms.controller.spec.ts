@@ -9,7 +9,10 @@ describe('BoardFormsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BoardFormsController],
       providers: [BoardFormsService],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get<BoardFormsController>(BoardFormsController);
   });

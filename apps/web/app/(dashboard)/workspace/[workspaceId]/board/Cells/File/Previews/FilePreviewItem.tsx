@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, Loader2, Trash2 } from "lucide-react";
+import { boardQueryFilter } from "@/lib/board-query";
 import { useState } from "react";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -78,9 +79,7 @@ export default function FilePreviewItem({
 
       // Invalidate cell-related queries
       if (cellId) {
-        await queryClient.invalidateQueries({
-          queryKey: ["board", boardId],
-        });
+        await queryClient.invalidateQueries(boardQueryFilter(boardId));
       }
 
       // Invalidate comment-related queries

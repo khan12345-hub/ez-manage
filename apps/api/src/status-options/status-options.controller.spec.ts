@@ -24,7 +24,10 @@ describe('StatusOptionsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [StatusOptionsController],
       providers: [{ provide: StatusOptionsService, useValue: serviceMock }],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get<StatusOptionsController>(StatusOptionsController);
     jest.clearAllMocks();

@@ -1,0 +1,87 @@
+<svg width="440" height="360" viewBox="0 0 440 360" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="EzManage hero illustration">
+  <defs>
+    <linearGradient id="hero-tile" x1="150" y1="70" x2="290" y2="210" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C6CF8"/>
+      <stop offset="0.5" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="hero-glass" x1="140" y1="200" x2="300" y2="300" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#E6E8FF" stop-opacity="0.65"/>
+    </linearGradient>
+    <linearGradient id="hero-orbit" x1="110" y1="120" x2="330" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="0.5" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+    <radialGradient id="hero-cyan" cx="0.5" cy="0.5" r="0.5">
+      <stop stop-color="#A5F3FC"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </radialGradient>
+    <radialGradient id="hero-violet-sphere" cx="0.5" cy="0.4" r="0.6">
+      <stop stop-color="#C4B5FD"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </radialGradient>
+    <radialGradient id="hero-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop stop-color="#A78BFA" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#A78BFA" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="hero-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#6366F1" flood-opacity="0.28"/>
+    </filter>
+    <filter id="hero-soft-sm" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#6366F1" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- ambient glow -->
+  <ellipse cx="220" cy="190" rx="190" ry="150" fill="url(#hero-glow)"/>
+
+  <!-- frosted glass base stack -->
+  <g filter="url(#hero-soft)">
+    <rect x="150" y="238" width="150" height="40" rx="14" fill="#EDECFF" opacity="0.55"/>
+    <rect x="140" y="218" width="170" height="44" rx="16" fill="url(#hero-glass)" stroke="#FFFFFF" stroke-opacity="0.9"/>
+  </g>
+
+  <!-- floating supporting tiles -->
+  <g filter="url(#hero-soft-sm)">
+    <rect x="78" y="96" width="60" height="60" rx="16" fill="#FFFFFF" fill-opacity="0.72" stroke="#FFFFFF" stroke-opacity="0.9"/>
+  </g>
+  <!-- checklist glyph -->
+  <rect x="92" y="110" width="32" height="32" rx="7" fill="none" stroke="#6366F1" stroke-width="2.4" stroke-opacity="0.85"/>
+  <path d="M99 126 l4 4 l8 -9" fill="none" stroke="#7C3AED" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g filter="url(#hero-soft-sm)">
+    <rect x="300" y="86" width="60" height="60" rx="16" fill="#FFFFFF" fill-opacity="0.72" stroke="#FFFFFF" stroke-opacity="0.9"/>
+  </g>
+  <!-- team glyph -->
+  <circle cx="323" cy="108" r="6.5" fill="#6366F1" fill-opacity="0.9"/>
+  <circle cx="340" cy="112" r="5.5" fill="#8B5CF6" fill-opacity="0.85"/>
+  <path d="M312 134 c0 -8 7 -13 11 -13 c4 0 11 5 11 13" fill="none" stroke="#6366F1" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M332 134 c0 -7 5 -11 8 -11 c4 0 8 4 8 11" fill="none" stroke="#8B5CF6" stroke-width="2.4" stroke-linecap="round"/>
+
+  <g filter="url(#hero-soft-sm)">
+    <rect x="96" y="214" width="56" height="56" rx="15" fill="#FFFFFF" fill-opacity="0.72" stroke="#FFFFFF" stroke-opacity="0.9"/>
+  </g>
+  <!-- mini calendar glyph -->
+  <rect x="108" y="226" width="32" height="30" rx="6" fill="none" stroke="#6366F1" stroke-width="2.2" stroke-opacity="0.8"/>
+  <line x1="108" y1="234" x2="140" y2="234" stroke="#6366F1" stroke-width="2.2" stroke-opacity="0.8"/>
+  <rect x="120" y="240" width="8" height="8" rx="2" fill="#7C3AED"/>
+
+  <!-- orbit ring (behind tile top, in front bottom) -->
+  <ellipse cx="220" cy="150" rx="118" ry="44" transform="rotate(-18 220 150)" fill="none" stroke="url(#hero-orbit)" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- central gradient tile -->
+  <g filter="url(#hero-soft)">
+    <rect x="156" y="70" width="128" height="128" rx="30" fill="url(#hero-tile)"/>
+    <rect x="156" y="70" width="128" height="128" rx="30" fill="#FFFFFF" fill-opacity="0.04"/>
+    <!-- brand mark: three task bars -->
+    <rect x="188" y="110" width="64" height="11" rx="5.5" fill="#FFFFFF" fill-opacity="0.95"/>
+    <rect x="188" y="129" width="46" height="11" rx="5.5" fill="#FFFFFF" fill-opacity="0.78"/>
+    <rect x="188" y="148" width="28" height="11" rx="5.5" fill="#FFFFFF" fill-opacity="0.55"/>
+  </g>
+
+  <!-- orbit spheres -->
+  <circle cx="112" cy="168" r="10" fill="url(#hero-cyan)"/>
+  <circle cx="328" cy="128" r="9" fill="url(#hero-violet-sphere)"/>
+</svg>

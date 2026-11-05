@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { createTask } from "@/services/tasks.api";
+import { boardQueryFilter } from "@/lib/board-query";
 
 interface Props {
   columns: any[];
@@ -62,6 +63,8 @@ export function NewTaskRow({
       queryClient.invalidateQueries({
         queryKey: ["board-tasks", boardId],
       });
+      // Group header/footer counts come from the board detail (_count).
+      if (!parentId) queryClient.invalidateQueries(boardQueryFilter(boardId));
     },
 
     onError: (error: unknown) => {

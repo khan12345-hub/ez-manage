@@ -50,18 +50,28 @@ import {
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 
+/* Reference spec — active nav link: gradient wash + purple text + left accent bar */
+const NAV_ACTIVE_STYLE: React.CSSProperties = {
+  color: "#4435F5",
+  background:
+    "linear-gradient(100deg, rgba(104,83,255,0.12), rgba(137,111,255,0.07))",
+  boxShadow: "inset 3px 0 0 #6953FF",
+};
+/* Base (inactive) nav text color per spec */
+const NAV_BASE_COLOR = "#40547F";
+
 function ChatNavLink({ workspaceId }: { workspaceId: string }) {
   const { unreadCounts } = useChatStore();
   const total = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
   return (
     <Link
       href={`/workspace/${workspaceId}/chat`}
-      className="relative flex items-center gap-2 border-t border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      className="relative flex items-center gap-2 mx-3 mt-0.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
     >
       <MessageSquare strokeWidth={1.5} className="h-4 w-4" />
       Team Chat
       {total > 0 && (
-        <span className="ml-auto flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-bold text-white">
+        <span className="ml-auto flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
           {total > 9 ? "9+" : total}
         </span>
       )}
@@ -226,16 +236,26 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
     >
       <div
         className={cn(
-          "flex h-full flex-col overflow-hidden bg-background",
+          "flex h-full flex-col overflow-hidden bg-background ez-sidebar-surface",
           "w-[270px]",
           "md:w-auto md:transition-all md:duration-300 md:ease-in-out",
           isOpen ? "md:max-w-[270px]" : "md:max-w-0",
         )}
       >
-        {/* Header */}
+        {/* Header — EzManage brand */}
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
-          <Link href="/dashboard" className="text-sm font-bold tracking-tight text-foreground">
-            Workspace
+          <Link href="/dashboard" className="flex min-w-0 items-center gap-2.5" aria-label="EzManage — Dashboard">
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
+              style={{ background: "linear-gradient(135deg, #6361F0 0%, #4845E4 100%)" }}
+            >
+              <svg width="18" height="14" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0" y="0" width="18" height="2.5" rx="1.25" fill="white" fillOpacity="0.92" />
+                <rect x="0" y="6.5" width="13" height="2.5" rx="1.25" fill="white" fillOpacity="0.70" />
+                <rect x="0" y="13" width="8" height="2.5" rx="1.25" fill="white" fillOpacity="0.48" />
+              </svg>
+            </span>
+            <span className="truncate text-base font-bold tracking-tight text-foreground">EzManage</span>
           </Link>
           <div className="flex items-center gap-1">
             {workspace?.id && (
@@ -347,7 +367,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
             </div>
 
             {isContentExpanded && (
-              <div data-tour="boards-list" className="mt-1 flex flex-col gap-0.5">
+              <div data-tour="boards-list" className="mt-1 flex flex-col gap-1">
                 {isBoardsLoading ? (
                   <div className="px-3.5 py-2 text-xs text-muted-foreground">Loading…</div>
                 ) : (
@@ -360,9 +380,10 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                         <div
                           key={`board-${item.id}`}
                           className={cn(
-                            "group flex w-full items-center justify-between gap-2 rounded-md px-3.5 py-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                            isActive && "bg-primary/10 font-semibold text-primary shadow-sm hover:bg-primary/20",
+                            "group flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                            isActive && "font-semibold",
                           )}
+                          style={isActive ? NAV_ACTIVE_STYLE : undefined}
                           onMouseEnter={() => {
                             if (!isActive) {
                               prefetchTimerRef.current = setTimeout(() => {
@@ -407,9 +428,10 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                         <div
                           key={`doc-${doc.id}`}
                           className={cn(
-                            "group flex w-full items-center justify-between gap-2 rounded-md px-3.5 py-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                            isActive && "bg-primary/10 font-semibold text-primary shadow-sm hover:bg-primary/20",
+                            "group flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                            isActive && "font-semibold",
                           )}
+                          style={isActive ? NAV_ACTIVE_STYLE : undefined}
                         >
                           <button
                             type="button"
@@ -450,7 +472,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                     {boards.length === 0 && docs.length === 0 && isManagerRole && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="mx-2 mt-1 flex w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 focus:outline-none">
+                          <button className="mx-2 mt-1 flex w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5 focus:outline-none">
                             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-dashed border-border bg-background">
                               <Plus className="h-3.5 w-3.5 text-muted-foreground" />
                             </div>
@@ -488,18 +510,19 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
 
           {/* Workspace nav links — below content */}
           {!!workspaceId && (
-            <div className="mt-3 border-t border-border pt-3 flex flex-col gap-0.5">
+            <div className="mt-3 border-t border-border pt-3 flex flex-col gap-1">
               {/* Workspace Home — hidden from GUEST */}
               {!isGuest && (
                 <Link
                   href={`/workspace/${workspaceId}`}
                   onClick={() => onMobileClose?.()}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                     !boardUid && !activeDocId && !pathname?.includes("/calendar") && !pathname?.includes("/timesheet") && !pathname?.includes("/capacity")
-                      ? "bg-primary/10 text-primary font-semibold shadow-sm"
+                      ? "font-semibold"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
+                  style={!boardUid && !activeDocId && !pathname?.includes("/calendar") && !pathname?.includes("/timesheet") && !pathname?.includes("/capacity") ? NAV_ACTIVE_STYLE : undefined}
                 >
                   <Home className="h-4 w-4 shrink-0" />
                   Workspace home
@@ -512,11 +535,12 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                   href={`/workspace/${workspaceId}/calendar`}
                   onClick={() => onMobileClose?.()}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                     pathname?.endsWith("/calendar")
-                      ? "bg-primary/10 text-primary font-semibold shadow-sm"
+                      ? "font-semibold"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
+                  style={pathname?.endsWith("/calendar") ? NAV_ACTIVE_STYLE : undefined}
                 >
                   <CalendarDays className="h-4 w-4 shrink-0" />
                   Workspace Calendar
@@ -529,11 +553,12 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                   href={`/workspace/${workspaceId}/timesheet`}
                   onClick={() => onMobileClose?.()}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                     pathname?.endsWith("/timesheet")
-                      ? "bg-primary/10 text-primary font-semibold shadow-sm"
+                      ? "font-semibold"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
+                  style={pathname?.endsWith("/timesheet") ? NAV_ACTIVE_STYLE : undefined}
                 >
                   <Clock className="h-4 w-4 shrink-0" />
                   My Timesheet
@@ -546,11 +571,12 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                   href={`/workspace/${workspaceId}/capacity`}
                   onClick={() => onMobileClose?.()}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                     pathname?.endsWith("/capacity")
-                      ? "bg-primary/10 text-primary font-semibold shadow-sm"
+                      ? "font-semibold"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
+                  style={pathname?.endsWith("/capacity") ? NAV_ACTIVE_STYLE : undefined}
                 >
                   <Users className="h-4 w-4 shrink-0" />
                   Capacity Planning
@@ -565,7 +591,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         {false && (
         <Link
           href="/home"
-          className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-2 mx-3 mt-0.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <Home strokeWidth={1.5} className="h-4 w-4" />
           Home
@@ -574,7 +600,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         <Link
           href="/help"
           data-tour="help-link"
-          className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-2 mx-3 mt-0.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <HelpCircle strokeWidth={1.5} className="h-4 w-4" />
           Help & Guide
@@ -582,7 +608,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         {false && user?.systemRole === "SUPER_ADMIN" && (
           <Link
             href="/ceo-assistant"
-            className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex items-center gap-2 mx-3 mt-0.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <BrainCircuit strokeWidth={1.5} className="h-4 w-4" />
             CEO AI
@@ -591,12 +617,30 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         {user?.systemRole === "SUPER_ADMIN" && (
           <Link
             href="/system-settings"
-            className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex items-center gap-2 mx-3 mt-0.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <Cog strokeWidth={1.5} className="h-4 w-4" />
             System Settings
           </Link>
         )}
+
+        {/* Brand footer */}
+        <div className="flex items-center gap-2.5 border-t border-border px-4 py-3.5">
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px]"
+            style={{ background: "linear-gradient(135deg, #6361F0 0%, #4845E4 100%)" }}
+          >
+            <svg width="15" height="12" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="0" y="0" width="18" height="2.5" rx="1.25" fill="white" fillOpacity="0.92" />
+              <rect x="0" y="6.5" width="13" height="2.5" rx="1.25" fill="white" fillOpacity="0.70" />
+              <rect x="0" y="13" width="8" height="2.5" rx="1.25" fill="white" fillOpacity="0.48" />
+            </svg>
+          </span>
+          <div className="min-w-0 leading-tight">
+            <p className="text-xs font-bold text-foreground">EzManage</p>
+            <p className="truncate text-[10px] text-muted-foreground">Work Smarter. Achieve More.</p>
+          </div>
+        </div>
       </div>
 
       {/* Desktop re-open handle */}

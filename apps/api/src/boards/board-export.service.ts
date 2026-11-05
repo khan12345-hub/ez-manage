@@ -39,7 +39,7 @@ export class BoardExportService {
             color: true,
             tasks: {
               where: { parentId: null },
-              orderBy: { order: 'asc' },
+              orderBy: [{ order: 'asc' }, { id: 'asc' }],
               select: {
                 id: true,
                 name: true,
@@ -47,6 +47,14 @@ export class BoardExportService {
                   select: {
                     columnId: true,
                     value: true,
+                  },
+                },
+                subtasks: {
+                  orderBy: [{ order: 'asc' }, { id: 'asc' }],
+                  select: {
+                    id: true,
+                    name: true,
+                    cells: { select: { columnId: true, value: true } },
                   },
                 },
               },
@@ -61,6 +69,33 @@ export class BoardExportService {
     }
 
     const extraCols = board.columns.filter((c) => !c.isPrimary);
+
+    /* Resolve PERSON cell user ids → display names in one query */
+    const personColIds = new Set(
+      extraCols.filter((c) => c.type === BoardColumnType.PERSON).map((c) => c.id),
+    );
+    const userIds = new Set<number>();
+    for (const g of board.groups) {
+      for (const t of g.tasks) {
+        for (const row of [t, ...t.subtasks]) {
+          for (const c of row.cells) {
+            if (!personColIds.has(c.columnId)) continue;
+            for (const u of ((c.value as any)?.users ?? []) as any[]) {
+              if (typeof u?.id === 'number') userIds.add(u.id);
+            }
+          }
+        }
+      }
+    }
+    const users = userIds.size
+      ? await this.prisma.user.findMany({
+          where: { id: { in: [...userIds] } },
+          select: { id: true, firstName: true, lastName: true },
+        })
+      : [];
+    const userNames = new Map(
+      users.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]),
+    );
 
     /* column names row: always "Name" first so the import parser detects groups */
     const headerRow = ['Name', ...extraCols.map((c) => c.name)];
@@ -93,8 +128,12 @@ export class BoardExportService {
       /* Header row */
       wsData.push(headerRow);
 
-      /* Task rows */
-      for (const task of group.tasks) {
+      /* Task rows (each parent followed by its subtasks, prefixed "↳ ") */
+      const rows = group.tasks.flatMap((t) => [
+        { name: t.name, cells: t.cells },
+        ...t.subtasks.map((s) => ({ name: `↳ ${s.name}`, cells: s.cells })),
+      ]);
+      for (const task of rows) {
         const rowIdx = wsData.length;
         const cellMap = new Map(task.cells.map((c) => [c.columnId, c.value]));
 
@@ -134,7 +173,9 @@ export class BoardExportService {
               };
             }
           } else {
-            rowData.push(resolveDisplayValue(raw, col.type as BoardColumnType));
+            rowData.push(
+              resolveDisplayValue(raw, col.type as BoardColumnType, userNames),
+            );
           }
         }
 
@@ -179,37 +220,94 @@ function hexToRgb(hex: string): string {
   return '94A3B8'; /* fallback gray */
 }
 
-function resolveDisplayValue(raw: unknown, type: BoardColumnType): unknown {
+/**
+ * Stored date → "YYYY-MM-DD".
+ * Plain "YYYY-MM-DD" values are returned as-is (never re-parsed, so the
+ * server's timezone cannot shift them). Legacy ISO timestamps use the UTC day.
+ */
+function formatDateValue(d: unknown): string {
+  if (d === null || d === undefined || d === '') return '';
+  const s = String(d).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const dt = new Date(s);
+  return isNaN(dt.getTime()) ? s : dt.toISOString().slice(0, 10);
+}
+
+/** Generic fallback for shapes like {text}, {label}, {url}, {email}, arrays. */
+function genericText(v: any): string {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string' || typeof v === 'number') return String(v);
+  if (typeof v === 'boolean') return v ? 'Yes' : '';
+  if (Array.isArray(v)) return v.map(genericText).filter(Boolean).join(', ');
+  if (typeof v === 'object') {
+    return String(
+      v.text ?? v.label ?? v.name ?? v.url ?? v.email ?? v.number ?? v.value ?? '',
+    );
+  }
+  return '';
+}
+
+function resolveDisplayValue(
+  raw: unknown,
+  type: BoardColumnType,
+  userNames: Map<number, string>,
+): unknown {
   if (raw === null || raw === undefined) return '';
 
   const v = raw as any;
 
   switch (type) {
     case BoardColumnType.TEXT:
-      return v?.text ?? (typeof v === 'string' ? v : '');
+    case BoardColumnType.LONG_TEXT:
+    case BoardColumnType.DROPDOWN:
+      return genericText(v);
 
     case BoardColumnType.NUMBER:
-      return v?.number ?? (typeof v === 'number' ? v : '');
+    case BoardColumnType.PRICE: {
+      // The UI stores numbers as { text: "12" }.
+      const n = v?.number ?? v?.text ?? v;
+      const num = Number(n);
+      return n === '' || n === null || n === undefined || isNaN(num)
+        ? genericText(n)
+        : num;
+    }
 
     case BoardColumnType.CHECKBOX:
       return v?.checked ? 'Yes' : '';
 
     case BoardColumnType.DATE:
-      if (!v?.date) return '';
-      try {
-        return new Date(v.date).toLocaleDateString('en-CA'); /* YYYY-MM-DD */
-      } catch {
-        return v.date;
-      }
+    case BoardColumnType.PLAIN_DATE:
+      return formatDateValue(v?.date ?? v);
 
-    case BoardColumnType.TIMELINE:
-      if (v?.startDate && v?.endDate) return `${v.startDate} - ${v.endDate}`;
-      return v?.startDate ?? v?.endDate ?? '';
+    case BoardColumnType.TIMELINE: {
+      const s = formatDateValue(v?.startDate);
+      const e = formatDateValue(v?.endDate);
+      if (s && e) return `${s} - ${e}`;
+      return s || e;
+    }
 
-    case BoardColumnType.PERSON:
-      return '';
+    case BoardColumnType.PERSON: {
+      const list: any[] = Array.isArray(v?.users) ? v.users : [];
+      return list
+        .map(
+          (u) =>
+            userNames.get(u?.id) ??
+            [u?.firstName, u?.lastName].filter(Boolean).join(' '),
+        )
+        .filter(Boolean)
+        .join(', ');
+    }
+
+    case BoardColumnType.LINK:
+      return v?.text || v?.url || genericText(v);
+
+    case BoardColumnType.EMAIL:
+      return v?.email || genericText(v);
+
+    case BoardColumnType.LABEL:
+      return genericText(v);
 
     default:
-      return typeof v === 'string' ? v : '';
+      return genericText(v);
   }
 }

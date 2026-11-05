@@ -38,7 +38,10 @@ describe('TimeTrackingController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TimeTrackingController],
       providers: [{ provide: TimeTrackingService, useValue: service }],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get(TimeTrackingController);
   });
@@ -143,7 +146,10 @@ describe('TimeTrackingGlobalController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TimeTrackingGlobalController],
       providers: [{ provide: TimeTrackingService, useValue: service }],
-    }).compile();
+    })
+      // Auto-mock other dependencies (e.g. PrismaService).
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get(TimeTrackingGlobalController);
   });

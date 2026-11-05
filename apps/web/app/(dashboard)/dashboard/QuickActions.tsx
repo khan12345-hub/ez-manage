@@ -9,6 +9,19 @@ import {
 import { useAuth } from "@/providers/AuthProvider";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { CreateBoardModal } from "@/components/CreateBoardModal";
+import { motion, type Variants } from "framer-motion";
+
+const panel: Variants = {
+  hidden: { opacity: 0, x: 18 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+};
+
+const CARD_STYLE = {
+  border: "1px solid rgba(99, 102, 241, 0.1)",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+};
+
+const HEADER_BORDER = { borderBottom: "1px solid rgba(99,102,241,0.07)" };
 
 export function QuickActions() {
   const { user } = useAuth();
@@ -16,33 +29,35 @@ export function QuickActions() {
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
 
   const firstWorkspaceId = user?.workspaceMemberships?.[0]?.workspace?.id;
-  const firstWorkspaceUid = (user?.workspaceMemberships?.[0]?.workspace as any)?.uid ?? firstWorkspaceId;
+  const firstWorkspaceUid =
+    (user?.workspaceMemberships?.[0]?.workspace as any)?.uid ?? firstWorkspaceId;
 
   return (
     <>
-      {/* Quick Actions panel */}
-      <div className="space-y-4">
-        {/* Actions card */}
-        <div className="rounded-2xl border bg-background shadow-sm">
-          <div className="border-b px-5 py-4">
+      <motion.div variants={panel} initial="hidden" animate="show" className="space-y-4">
+        {/* Quick Actions card */}
+        <div className="overflow-hidden rounded-2xl bg-card" style={CARD_STYLE}>
+          <div className="px-5 py-4" style={HEADER_BORDER}>
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100">
-                <Zap className="h-4 w-4 text-indigo-600" />
+              <div
+                className="flex h-7 w-7 items-center justify-center rounded-lg"
+                style={{ background: "rgba(99,102,241,0.1)" }}
+              >
+                <Zap className="h-4 w-4 text-primary" />
               </div>
               <h3 className="text-sm font-semibold">Quick Actions</h3>
             </div>
           </div>
 
-          <div className="divide-y">
+          <div className="divide-y" style={{ borderColor: "rgba(99,102,241,0.07)" }}>
             <ActionButton
-              icon={<Plus className="h-4 w-4 text-indigo-600" />}
-              iconBg="bg-indigo-100"
+              icon={<Plus className="h-4 w-4 text-primary" />}
+              iconBg="bg-primary/10"
               label="Create new board"
               sublabel="Start a new project board"
               disabled={!firstWorkspaceId}
               onClick={() => firstWorkspaceId && setCreateBoardOpen(true)}
             />
-
             <ActionButton
               icon={<UserPlus className="h-4 w-4 text-emerald-600" />}
               iconBg="bg-emerald-100"
@@ -50,7 +65,6 @@ export function QuickActions() {
               sublabel="Add someone to your workspace"
               onClick={openInvite}
             />
-
             <ActionButton
               icon={<Command className="h-4 w-4 text-violet-600" />}
               iconBg="bg-violet-100"
@@ -67,12 +81,12 @@ export function QuickActions() {
         </div>
 
         {/* Resources card */}
-        <div className="rounded-2xl border bg-background shadow-sm">
-          <div className="border-b px-5 py-4">
+        <div className="overflow-hidden rounded-2xl bg-card" style={CARD_STYLE}>
+          <div className="px-5 py-4" style={HEADER_BORDER}>
             <h3 className="text-sm font-semibold text-muted-foreground">Resources</h3>
           </div>
 
-          <div className="divide-y">
+          <div className="divide-y" style={{ borderColor: "rgba(99,102,241,0.07)" }}>
             <LinkAction
               href="/help"
               icon={<BookOpen className="h-4 w-4 text-blue-600" />}
@@ -92,16 +106,27 @@ export function QuickActions() {
           </div>
         </div>
 
-        {/* Tip card */}
-        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-400">Pro tip</p>
-          <p className="mt-1 text-sm font-medium text-indigo-900">
-            Press <kbd className="rounded bg-indigo-100 px-1.5 py-0.5 font-mono text-xs text-indigo-700">⌘K</kbd> anywhere to search boards, workspaces, and actions instantly.
+        {/* Pro tip */}
+        <div
+          className="rounded-2xl p-4"
+          style={{
+            background: "linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(124,58,237,0.06) 100%)",
+            border: "1px solid rgba(99,102,241,0.15)",
+          }}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            Pro tip
+          </p>
+          <p className="mt-1 text-sm font-medium text-primary">
+            Press{" "}
+            <kbd className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-xs text-primary">
+              ⌘K
+            </kbd>{" "}
+            anywhere to search boards, workspaces, and actions instantly.
           </p>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Create Board Modal */}
       {firstWorkspaceId && (
         <CreateBoardModal
           isOpen={createBoardOpen}
@@ -114,7 +139,13 @@ export function QuickActions() {
 }
 
 function ActionButton({
-  icon, iconBg, label, sublabel, disabled, onClick, shortcut,
+  icon,
+  iconBg,
+  label,
+  sublabel,
+  disabled,
+  onClick,
+  shortcut,
 }: {
   icon: React.ReactNode;
   iconBg: string;
@@ -128,9 +159,11 @@ function ActionButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-muted/50 disabled:opacity-40"
+      className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-accent disabled:opacity-40"
     >
-      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+      <div
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}
+      >
         {icon}
       </div>
       <div className="min-w-0 flex-1">
@@ -149,7 +182,11 @@ function ActionButton({
 }
 
 function LinkAction({
-  href, icon, iconBg, label, sublabel,
+  href,
+  icon,
+  iconBg,
+  label,
+  sublabel,
 }: {
   href: string;
   icon: React.ReactNode;
@@ -160,9 +197,11 @@ function LinkAction({
   return (
     <Link
       href={href}
-      className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-muted/50"
+      className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-accent"
     >
-      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+      <div
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}
+      >
         {icon}
       </div>
       <div className="min-w-0 flex-1">

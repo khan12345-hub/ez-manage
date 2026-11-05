@@ -60,7 +60,7 @@ export function ManagerCard({ member, hidden = false, onClick }: Props) {
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-10 w-10 ring-2 ring-border">
             <AvatarImage src={member.avatarUrl ?? undefined} />
-            <AvatarFallback className="text-sm font-bold bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+            <AvatarFallback className="text-sm font-bold bg-gradient-to-br from-primary to-blue-600 text-white">
               {initials(member.firstName, member.lastName)}
             </AvatarFallback>
           </Avatar>

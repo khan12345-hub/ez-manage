@@ -1,0 +1,17 @@
+<svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Task board icon">
+  <defs>
+    <linearGradient id="itb-tile" x1="10" y1="10" x2="62" y2="62" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#EDEBFF" stop-opacity="0.72"/>
+    </linearGradient>
+    <filter id="itb-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#6366F1" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <g filter="url(#itb-shadow)">
+    <rect x="8" y="8" width="56" height="56" rx="16" fill="url(#itb-tile)" stroke="#FFFFFF" stroke-opacity="0.9"/>
+  </g>
+  <rect x="20" y="22" width="14" height="28" rx="4" fill="#6366F1" fill-opacity="0.9"/>
+  <rect x="38" y="22" width="14" height="18" rx="4" fill="#7C3AED" fill-opacity="0.85"/>
+  <rect x="38" y="44" width="14" height="6" rx="3" fill="#C4B5FD"/>
+</svg>

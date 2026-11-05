@@ -35,7 +35,7 @@ export function PeopleResolutionStep({
     <div className="rounded-xl border border-border bg-card">
       {/* Header */}
       <div className="flex items-start gap-3 border-b border-border px-5 py-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/5 text-primary dark:bg-primary/10 dark:text-primary">
           <Users className="h-4.5 w-4.5" />
         </div>
         <div className="flex-1 min-w-0">
@@ -48,7 +48,7 @@ export function PeopleResolutionStep({
           </p>
         </div>
         {includedCount > 0 && (
-          <div className="flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400">
+          <div className="flex items-center gap-1.5 rounded-full bg-primary/5 px-2.5 py-1 text-xs font-semibold text-primary dark:bg-primary/10 dark:text-primary">
             <UserPlus className="h-3.5 w-3.5" />
             {includedCount} to create
           </div>
@@ -76,7 +76,7 @@ export function PeopleResolutionStep({
                   checked={allChecked}
                   onChange={(e) => toggleAll(e.target.checked)}
                   disabled={disabled}
-                  className="h-3.5 w-3.5 rounded border-border accent-indigo-600"
+                  className="h-3.5 w-3.5 rounded border-border accent-primary"
                   aria-label="Select all"
                 />
               </th>
@@ -110,7 +110,7 @@ export function PeopleResolutionStep({
                   key={user.rawName}
                   className={`border-b border-border last:border-0 transition-colors ${
                     user.include
-                      ? "bg-indigo-50/40 dark:bg-indigo-950/10"
+                      ? "bg-primary/5 dark:bg-primary/10"
                       : "opacity-60 hover:opacity-80"
                   }`}
                 >
@@ -121,7 +121,7 @@ export function PeopleResolutionStep({
                       checked={user.include}
                       onChange={(e) => update(i, { include: e.target.checked })}
                       disabled={disabled}
-                      className="h-3.5 w-3.5 rounded border-border accent-indigo-600"
+                      className="h-3.5 w-3.5 rounded border-border accent-primary"
                     />
                   </td>
 
@@ -140,7 +140,7 @@ export function PeopleResolutionStep({
                       onChange={(e) => update(i, { firstName: e.target.value })}
                       disabled={disabled || !user.include}
                       placeholder="First"
-                      className={`h-7 w-28 rounded-md border bg-background px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      className={`h-7 w-28 rounded-md border bg-background px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50 ${
                         needsName ? "border-red-400 focus:ring-red-400" : "border-border"
                       }`}
                     />
@@ -154,7 +154,7 @@ export function PeopleResolutionStep({
                       onChange={(e) => update(i, { lastName: e.target.value })}
                       disabled={disabled || !user.include}
                       placeholder="Last"
-                      className="h-7 w-24 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-7 w-24 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </td>
 
@@ -166,7 +166,7 @@ export function PeopleResolutionStep({
                       onChange={(e) => update(i, { email: e.target.value })}
                       disabled={disabled || !user.include}
                       placeholder="user@company.com"
-                      className={`h-7 w-48 rounded-md border bg-background px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      className={`h-7 w-48 rounded-md border bg-background px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50 ${
                         needsEmail ? "border-red-400 focus:ring-red-400" : "border-border"
                       }`}
                     />
@@ -181,7 +181,7 @@ export function PeopleResolutionStep({
                       value={user.workspaceRole}
                       onChange={(e) => update(i, { workspaceRole: e.target.value as WorkspaceRole })}
                       disabled={disabled || !user.include}
-                      className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {WS_ROLES.map((r) => (
                         <option key={r} value={r}>
@@ -197,7 +197,7 @@ export function PeopleResolutionStep({
                       value={user.boardRole}
                       onChange={(e) => update(i, { boardRole: e.target.value as BoardRole })}
                       disabled={disabled || !user.include}
-                      className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {BOARD_ROLES.map((r) => (
                         <option key={r} value={r}>

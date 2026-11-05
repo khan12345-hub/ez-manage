@@ -38,16 +38,16 @@ export default function JoinWorkspacePage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-500/5 via-background to-violet-500/5 p-6">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-violet-500/5 p-6">
       <div className="w-full max-w-sm overflow-hidden rounded-2xl border bg-background shadow-2xl">
         {/* Header strip */}
-        <div className="h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-600" />
+        <div className="h-1 bg-gradient-to-r from-primary via-violet-500 to-purple-600" />
 
         <div className="flex flex-col items-center px-6 py-8 text-center sm:px-8 sm:py-10">
           {state === "idle" && (
             <>
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10">
-                <Users className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                <Users className="h-7 w-7 text-primary dark:text-primary" />
               </div>
               <h1 className="text-xl font-bold text-foreground">You've been invited!</h1>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -61,7 +61,7 @@ export default function JoinWorkspacePage() {
 
           {state === "joining" && (
             <>
-              <Loader2 className="h-12 w-12 animate-spin text-indigo-500" />
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
               <p className="mt-4 text-sm font-medium text-muted-foreground">Joining workspace…</p>
             </>
           )}

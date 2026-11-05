@@ -150,7 +150,7 @@ const COLUMN_TYPES: ColumnTypeItem[] = [
     type: "TIME_TRACKING",
     category: "Super useful",
     icon: Timer,
-    color: "bg-indigo-500",
+    color: "bg-primary",
   },
   {
     label: "Formula",

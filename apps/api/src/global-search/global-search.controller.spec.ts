@@ -9,7 +9,10 @@ describe('GlobalSearchController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GlobalSearchController],
       providers: [GlobalSearchService],
-    }).compile();
+    })
+      // Auto-mock every dependency these smoke tests do not care about.
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get<GlobalSearchController>(GlobalSearchController);
   });

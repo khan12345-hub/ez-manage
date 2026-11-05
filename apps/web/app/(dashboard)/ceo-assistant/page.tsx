@@ -115,29 +115,28 @@ function FilterSelect({
 // ─── SectionBanner ──────────────────────────────────────────────────────────
 interface BannerChip { label: string; color: string }
 function SectionBanner({
-  icon: Icon, iconBg, title, description, chips, gradient,
+  icon: Icon, iconBg, title, description, chips,
 }: {
   icon: React.ElementType; iconBg: string; title: string; description: string;
-  chips: BannerChip[]; gradient: string;
+  chips: BannerChip[]; gradient?: string;
 }) {
   return (
-    <div
-      className="rounded-2xl px-5 py-4 flex items-center gap-4"
-      style={{ background: gradient, border: "1px solid rgba(99,102,241,0.08)" }}
-    >
-      <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm", iconBg)}>
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-card px-5 py-4 flex items-center gap-4 shadow-sm">
+      {/* indigo→violet executive wash — opacity-based so it works in light & dark */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-indigo-500/[0.08] via-transparent to-violet-500/[0.07]" />
+      <div className={cn("relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm", iconBg)}>
         <Icon className="h-5 w-5" strokeWidth={1.8} />
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-bold text-slate-800">{title}</div>
-        <div className="text-xs text-slate-500 mt-0.5">{description}</div>
+      <div className="relative flex-1 min-w-0">
+        <div className="text-sm font-bold text-foreground">{title}</div>
+        <div className="text-xs text-muted-foreground mt-0.5">{description}</div>
       </div>
-      <div className="hidden sm:flex items-center gap-2 shrink-0 flex-wrap justify-end">
+      <div className="relative hidden sm:flex items-center gap-2 shrink-0 flex-wrap justify-end">
         {chips.map((chip) => (
           <span
             key={chip.label}
             className="rounded-full px-3 py-1 text-[11px] font-semibold"
-            style={{ background: chip.color + "18", color: chip.color, border: `1px solid ${chip.color}30` }}
+            style={{ background: chip.color + "22", color: chip.color, border: `1px solid ${chip.color}40` }}
           >
             {chip.label}
           </span>
@@ -227,15 +226,22 @@ interface KpiDef {
   viewLabel?: string;
   label: string; sublabel: string;
   icon: React.ElementType; count: number;
-  numCls: string; bg: string; border: string; iconBg: string; btnCls: string; urgent?: boolean;
+  accent: string;          // semantic hex — works in light & dark
+  urgent?: boolean;
+  viz?: React.ReactNode;   // real mini-visualization from live data
 }
 function KpiCard({ card, onView }: { card: KpiDef; onView: () => void }) {
   const Icon = card.icon;
+  const showBtn = (!card.noPanel && card.count > 0) || (card.noPanel && card.viewLabel);
   return (
-    <div className={cn("relative overflow-hidden rounded-2xl border p-4 transition-shadow hover:shadow-md", card.bg, card.border)}>
+    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      {/* slim top accent */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px]" style={{ background: card.accent }} />
+
       <div className="flex items-center justify-between mb-3">
-        <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-sm", card.iconBg)}>
-          <Icon className="h-4 w-4" strokeWidth={1.8} />
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl"
+          style={{ background: card.accent + "16", color: card.accent }}>
+          <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
         </div>
         {card.urgent && card.count > 0 && (
           <span className="relative flex h-2.5 w-2.5">
@@ -244,22 +250,56 @@ function KpiCard({ card, onView }: { card: KpiDef; onView: () => void }) {
           </span>
         )}
       </div>
-      <div className={cn("text-3xl font-black tabular-nums leading-none", card.numCls)}>{card.count}</div>
-      <div className="text-xs font-bold text-foreground/80 mt-1.5">{card.label}</div>
+
+      <div className="text-[32px] font-black tabular-nums leading-none" style={{ color: card.accent }}>{card.count}</div>
+      <div className="text-xs font-bold text-foreground mt-1.5">{card.label}</div>
       <div className="text-[10px] text-muted-foreground">{card.sublabel}</div>
-      {!card.noPanel && card.count > 0 && (
+
+      {card.viz && <div className="mt-3">{card.viz}</div>}
+
+      {showBtn && (
         <button onClick={onView}
-          className={cn("mt-3 w-full rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors", card.btnCls)}>
+          className="mt-3 w-full rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+          style={{ borderColor: card.accent + "40", color: card.accent }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = card.accent + "14")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
           {card.viewLabel ?? `View ${card.count} task${card.count !== 1 ? "s" : ""}`}
         </button>
       )}
-      {card.noPanel && card.viewLabel && (
-        <button onClick={onView}
-          className={cn("mt-3 w-full rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors", card.btnCls)}>
-          {card.viewLabel}
-        </button>
-      )}
-      <div className={cn("pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full opacity-10", card.iconBg)} />
+    </div>
+  );
+}
+
+// ─── KPI mini-visualizations (built from live data) ──────────────────────────
+function MiniBar({ pct, color, label, right }: { pct: number; color: string; label: string; right: string }) {
+  return (
+    <div>
+      <div className="flex justify-between text-[9px] font-medium text-muted-foreground mb-1">
+        <span>{label}</span><span className="tabular-nums" style={{ color }}>{right}</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(Math.max(pct, 0), 100)}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+function SegmentBar({ segments }: { segments: { value: number; color: string; label: string }[] }) {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  return (
+    <div>
+      <div className="flex h-1.5 rounded-full bg-muted overflow-hidden">
+        {segments.map((s, i) => s.value > 0 && (
+          <div key={i} className="h-full" style={{ width: `${(s.value / total) * 100}%`, background: s.color }} />
+        ))}
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-0.5">
+        {segments.filter((s) => s.value > 0).map((s, i) => (
+          <span key={i} className="flex items-center gap-1 text-[9px] text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-sm" style={{ background: s.color }} />
+            {s.label} <span className="tabular-nums font-semibold text-foreground">{s.value}</span>
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -388,19 +428,47 @@ export default function CeoAssistantPage() {
       })()
     : "No upcoming";
 
+  // ── Real mini-viz data (from live overview) ──
+  const donePctAll = totalTasks > 0 ? Math.round((totalDone / totalTasks) * 100) : 0;
+  const myTaskSegments = useMemo(() => {
+    const c = { overdue: 0, due_soon: 0, done: 0, other: 0 };
+    for (const t of filteredMyTasks) {
+      if (t.category === "overdue")       c.overdue++;
+      else if (t.category === "due_soon") c.due_soon++;
+      else if (t.category === "done")     c.done++;
+      else                                c.other++;
+    }
+    return [
+      { value: c.overdue,  color: "#ef4444", label: "Overdue"  },
+      { value: c.due_soon, color: "#f59e0b", label: "Due soon" },
+      { value: c.done,     color: "#10b981", label: "Done"     },
+      { value: c.other,    color: "#94a3b8", label: "Other"    },
+    ];
+  }, [filteredMyTasks]);
+
   const kpiCards: KpiDef[] = [
-    { key: "done",         label: "Done Tasks",     sublabel: "Completed across all",    icon: CheckCircle2,  count: totalDone,
-      numCls: "text-emerald-600", bg: "bg-emerald-50",
-      border: "border-emerald-200", iconBg: "bg-emerald-500", btnCls: "border-emerald-300 text-emerald-700 hover:bg-emerald-100" },
-    { key: "next_meeting", label: "Meetings",        sublabel: nextMeetingLabel,          icon: CalendarClock, count: upcomingMeetings?.length ?? 0, noPanel: true, viewLabel: "Open Meetings →",
-      numCls: "text-indigo-600",  bg: "bg-indigo-50",
-      border: "border-indigo-200",  iconBg: "bg-indigo-500",  btnCls: "border-indigo-300 text-indigo-700 hover:bg-indigo-100" },
-    { key: "my_tasks",     label: "My Tasks",        sublabel: "Tasks assigned to you",   icon: UserCircle2,   count: filteredMyTasks.length,
-      numCls: "text-violet-600",  bg: "bg-violet-50",
-      border: "border-violet-200", iconBg: "bg-violet-500", btnCls: "border-violet-300 text-violet-700 hover:bg-violet-100" },
-    { key: "due_soon",     label: "Due Soon",        sublabel: "Upcoming deadlines",      icon: AlertTriangle, count: filteredDueSoon,
-      numCls: "text-amber-600",   bg: "bg-amber-50",
-      border: "border-amber-200", iconBg: "bg-amber-500",   btnCls: "border-amber-300 text-amber-700 hover:bg-amber-100" },
+    { key: "done", label: "Done Tasks", sublabel: "Completed across all", icon: CheckCircle2, count: totalDone,
+      accent: "#10b981",
+      viz: <MiniBar pct={donePctAll} color="#10b981" label="Completion rate" right={`${donePctAll}%`} /> },
+    { key: "next_meeting", label: "Meetings", sublabel: "Upcoming scheduled", icon: CalendarClock, count: upcomingMeetings?.length ?? 0,
+      noPanel: true, viewLabel: "Open Meetings →", accent: "#6366f1",
+      viz: (
+        <div className="flex items-center gap-1.5 rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-2 py-1.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-300">
+          <CalendarClock className="h-3 w-3 shrink-0" />
+          <span className="truncate">Next: {nextMeetingLabel}</span>
+        </div>
+      ) },
+    { key: "my_tasks", label: "My Tasks", sublabel: "Assigned to you", icon: UserCircle2, count: filteredMyTasks.length,
+      accent: "#8b5cf6",
+      viz: filteredMyTasks.length > 0 ? <SegmentBar segments={myTaskSegments} /> : undefined },
+    { key: "due_soon", label: "Due Soon", sublabel: "Upcoming deadlines", icon: AlertTriangle, count: filteredDueSoon, urgent: true,
+      accent: "#f59e0b",
+      viz: (filteredDueSoon + filteredOverdue) > 0
+        ? <SegmentBar segments={[
+            { value: filteredDueSoon, color: "#f59e0b", label: "Due soon" },
+            { value: filteredOverdue, color: "#ef4444", label: "Overdue"  },
+          ]} />
+        : undefined },
   ];
 
   if (authLoading || !isOwner) return null;
@@ -437,11 +505,11 @@ export default function CeoAssistantPage() {
   const isFiltered = wsFilter !== "all" || dateFilter !== "all";
 
   return (
-    <div className="min-h-full" style={{ background: "#f8fafc" }}>
+    <div className="min-h-full bg-background ceo-page-surface">
 
       {/* ══ FILTER BAR ══════════════════════════════════════════════════════ */}
-      <div className="sticky top-0 z-30" style={{ background: "rgba(255,255,255,0.95)", borderBottom: "1px solid #e2e8f0", backdropFilter: "blur(10px)" }}>
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="sticky top-0 z-30 border-b border-border bg-card/70 backdrop-blur-md">
+        <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3 py-2.5">
             {/* Scrollable filter chips — overflow only on this inner strip */}
             <div className="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto">
@@ -461,7 +529,7 @@ export default function CeoAssistantPage() {
               />
               {isFiltered && (
                 <button onClick={() => { setWsFilter("all"); setDateFilter("all"); }}
-                  className="text-[11px] font-semibold text-indigo-600 hover:underline whitespace-nowrap shrink-0">
+                  className="text-[11px] font-semibold text-primary hover:underline whitespace-nowrap shrink-0">
                   Clear filters
                 </button>
               )}
@@ -476,10 +544,10 @@ export default function CeoAssistantPage() {
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                 placeholder="Search member…"
-                className="w-full rounded-xl border border-border bg-muted/40 pl-8 pr-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                className="w-full rounded-xl border border-border bg-muted/40 pl-8 pr-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
               {searchFocused && globalSearch.length >= 2 && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-[200] rounded-xl border border-border bg-white shadow-xl overflow-hidden">
+                <div className="absolute left-0 right-0 top-full mt-1 z-[200] rounded-xl border border-border bg-card shadow-xl overflow-hidden">
                   {searchLoading
                     ? <div className="p-3 text-xs text-muted-foreground text-center">Searching…</div>
                     : !searchResults?.length
@@ -487,13 +555,13 @@ export default function CeoAssistantPage() {
                     : <div className="py-1 max-h-48 overflow-y-auto">
                         {searchResults.map((u) => (
                           <button key={u.id} onClick={() => { setProfileUserId(u.id); setGlobalSearch(""); }}
-                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 text-left transition-colors">
+                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted text-left transition-colors">
                             <div className="h-6 w-6 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[9px] font-bold text-white">
                               {u.firstName[0]}{u.lastName[0]}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-xs font-semibold text-slate-800 truncate">{u.firstName} {u.lastName}</div>
-                              <div className="text-[10px] text-slate-500 truncate">{u.email}</div>
+                              <div className="text-xs font-semibold text-foreground truncate">{u.firstName} {u.lastName}</div>
+                              <div className="text-[10px] text-muted-foreground truncate">{u.email}</div>
                             </div>
                           </button>
                         ))}
@@ -513,20 +581,20 @@ export default function CeoAssistantPage() {
       </div>
 
       {/* ══ CONTENT ═════════════════════════════════════════════════════════ */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5">
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-6">
 
         {/* ── Active filter badge ── */}
         {isFiltered && (
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="text-xs text-slate-400">Showing:</span>
+            <span className="text-xs text-muted-foreground">Showing:</span>
             {wsFilter !== "all" && (
-              <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200">
+              <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300 bg-indigo-500/10 border border-indigo-500/20">
                 <Building2 className="h-3 w-3" />{wsFilter}
                 <button onClick={() => setWsFilter("all")} className="ml-1 opacity-60 hover:opacity-100">×</button>
               </span>
             )}
             {dateFilter !== "all" && (
-              <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200">
+              <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-violet-600 dark:text-violet-300 bg-violet-500/10 border border-violet-500/20">
                 <Calendar className="h-3 w-3" />{DATE_OPTIONS.find((o) => o.value === dateFilter)?.label}
                 <button onClick={() => setDateFilter("all")} className="ml-1 opacity-60 hover:opacity-100">×</button>
               </span>
@@ -538,7 +606,7 @@ export default function CeoAssistantPage() {
         {activeTab === "overview" && (
           <div className="space-y-5">
             <SectionBanner
-              icon={LayoutDashboard} iconBg="bg-indigo-500"
+              icon={LayoutDashboard} iconBg="bg-primary"
               title="Executive Overview"
               description="Real-time task health and performance across your entire organization"
               gradient="linear-gradient(135deg,#eef2ff 0%,#f5f3ff 100%)"
@@ -554,41 +622,33 @@ export default function CeoAssistantPage() {
               </div>
             ) : (
               <>
-                {/* AI Insights */}
-                <AiInsightsPanel
-                  employees={data?.employees ?? []}
-                  teamProgress={filteredTeamProg}
-                  stats={stats}
-                  summary={summary}
-                  isLoading={isLoading}
-                  onMemberClick={setProfileUserId}
-                  onWorkspaceClick={(id, name) => setSelectedWorkspace({ workspaceId: id, workspaceName: name })}
-                />
-
-                {/* KPI cards */}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {isLoading
-                    ? [...Array(4)].map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)
-                    : kpiCards.map((card) => (
-                        <KpiCard
-                          key={card.key}
-                          card={card}
-                          onView={card.key === "next_meeting"
-                            ? () => setActiveTab("meetings")
-                            : () => setTaskListPanel(card.key as any)}
-                        />
-                      ))
-                  }
+                {/* ── 1. KPI summary row — numbers first ── */}
+                <div>
+                  <h3 className="mb-3 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">At a glance</h3>
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {isLoading
+                      ? [...Array(4)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)
+                      : kpiCards.map((card) => (
+                          <KpiCard
+                            key={card.key}
+                            card={card}
+                            onView={card.key === "next_meeting"
+                              ? () => setActiveTab("meetings")
+                              : () => setTaskListPanel(card.key as any)}
+                          />
+                        ))
+                    }
+                  </div>
                 </div>
 
-                {/* Analytics */}
+                {/* ── 2. Workspace analysis — primary visual ── */}
                 <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 border-b border-border">
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4 border-b border-border">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-indigo-500" />
+                      <TrendingUp className="h-4 w-4 text-primary" />
                       <span className="text-sm font-bold text-foreground">Workspace Task Analysis</span>
                       {wsFilter !== "all" && (
-                        <span className="rounded-full bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-400">{wsFilter}</span>
+                        <span className="rounded-full bg-primary/5 dark:bg-primary/10 border border-primary/25 dark:border-primary px-2 py-0.5 text-[10px] font-semibold text-primary dark:text-primary">{wsFilter}</span>
                       )}
                     </div>
                     <div className="hidden sm:flex items-center gap-3 text-[10px] text-muted-foreground">
@@ -604,6 +664,16 @@ export default function CeoAssistantPage() {
                   </div>
                 </div>
 
+                {/* ── 3. AI insights, focus & workload — secondary detail ── */}
+                <AiInsightsPanel
+                  employees={data?.employees ?? []}
+                  teamProgress={filteredTeamProg}
+                  stats={stats}
+                  summary={summary}
+                  isLoading={isLoading}
+                  onMemberClick={setProfileUserId}
+                  onWorkspaceClick={(id, name) => setSelectedWorkspace({ workspaceId: id, workspaceName: name })}
+                />
               </>
             )}
           </div>

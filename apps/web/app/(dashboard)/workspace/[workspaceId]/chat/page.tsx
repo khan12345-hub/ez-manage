@@ -88,7 +88,7 @@ function parseMentionNodes(
           key={`mention-${m.index}`}
           type="button"
           onClick={(e) => { e.stopPropagation(); onMentionClick(uid); }}
-          className="rounded px-0.5 font-semibold text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 cursor-pointer leading-tight"
+          className="rounded px-0.5 font-semibold text-primary bg-primary/10 hover:bg-primary/20 cursor-pointer leading-tight"
         >
           @{m[1]}
         </button>,
@@ -104,7 +104,7 @@ function injectMentionSpans(html: string): string {
   return html.replace(
     /@([A-Za-z]+(?:\s[A-Za-z]+)?)/g,
     (_match, name) =>
-      `<span data-mention-name="${name}" class="rounded px-0.5 font-semibold text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 cursor-pointer">@${name}</span>`,
+      `<span data-mention-name="${name}" class="rounded px-0.5 font-semibold text-primary bg-primary/10 hover:bg-primary/20 cursor-pointer">@${name}</span>`,
   );
 }
 
@@ -211,13 +211,13 @@ function TaskMessageCard({
   return (
     <button
       onClick={onOpen}
-      className="mt-1 flex max-w-sm items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-500/5 px-3 py-2.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-500/10"
+      className="mt-1 flex max-w-sm items-center gap-3 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-primary/10"
     >
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-600">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
         <ListTodo className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-medium text-indigo-600">
+        <p className="text-[11px] font-medium text-primary">
           {data.creatorName} created a task
         </p>
         <p className="truncate text-sm font-semibold text-foreground">
@@ -995,7 +995,7 @@ export default function ChatPage() {
       <div className={`${mobileSidebarOpen ? "flex" : "hidden"} sm:flex fixed inset-y-0 left-0 z-30 w-64 shrink-0 flex-col border-r border-border bg-background sm:relative sm:z-auto sm:bg-muted/30`}>
         {/* Header */}
         <div className="flex items-center gap-2 border-b border-border px-4 py-4">
-          <MessageSquare className="h-4 w-4 text-indigo-500" />
+          <MessageSquare className="h-4 w-4 text-primary" />
           <span className="text-sm font-bold text-foreground">Team Chat</span>
         </div>
 
@@ -1015,7 +1015,7 @@ export default function ChatPage() {
             </div>
 
             {showNewChannel && (
-              <div className="mx-3 mb-2 rounded-lg border border-indigo-200 bg-background p-3 shadow-sm">
+              <div className="mx-3 mb-2 rounded-lg border border-primary/25 bg-background p-3 shadow-sm">
                 {/* Channel name */}
                 <div className="mb-2 flex items-center gap-1">
                   <span className="text-muted-foreground text-sm">#</span>
@@ -1025,7 +1025,7 @@ export default function ChatPage() {
                     value={newChannelName}
                     onChange={(e) => setNewChannelName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Escape") resetNewChannel(); }}
-                    className="flex-1 rounded border border-indigo-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    className="flex-1 rounded border border-primary/40 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
 
@@ -1034,7 +1034,7 @@ export default function ChatPage() {
                   placeholder="Add members…"
                   value={newChannelSearch}
                   onChange={(e) => setNewChannelSearch(e.target.value)}
-                  className="mb-1.5 w-full rounded border border-border px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                  className="mb-1.5 w-full rounded border border-border px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
 
                 {/* User list */}
@@ -1054,7 +1054,7 @@ export default function ChatPage() {
                           onClick={() => toggleNewChannelMember(m.userId)}
                           className={`flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors ${
                             selected
-                              ? "bg-indigo-500/10 text-indigo-700"
+                              ? "bg-primary/10 text-primary"
                               : "text-muted-foreground hover:bg-muted"
                           }`}
                         >
@@ -1062,14 +1062,14 @@ export default function ChatPage() {
                             {m.user.avatarUrl ? (
                               <img src={av(m.user.avatarUrl)} className="h-5 w-5 rounded-full object-cover" alt="" />
                             ) : (
-                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/10 text-[9px] font-bold text-indigo-600">
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
                                 {m.user.firstName[0]}{m.user.lastName[0]}
                               </div>
                             )}
                             <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${isOnline ? "bg-green-400" : "bg-muted-foreground/40"}`} />
                           </div>
                           <span className="flex-1 truncate">{m.user.firstName} {m.user.lastName}</span>
-                          {selected && <span className="text-indigo-500">✓</span>}
+                          {selected && <span className="text-primary">✓</span>}
                         </button>
                       );
                     })}
@@ -1077,13 +1077,13 @@ export default function ChatPage() {
 
                 {/* Selected count + actions */}
                 {newChannelMembers.length > 0 && (
-                  <p className="mt-1.5 text-[10px] text-indigo-500">{newChannelMembers.length} member{newChannelMembers.length !== 1 ? "s" : ""} selected</p>
+                  <p className="mt-1.5 text-[10px] text-primary">{newChannelMembers.length} member{newChannelMembers.length !== 1 ? "s" : ""} selected</p>
                 )}
                 <div className="mt-2 flex gap-1.5">
                   <button
                     onClick={handleCreateChannel}
                     disabled={!newChannelName.trim()}
-                    className="flex-1 rounded bg-indigo-500 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-600 disabled:opacity-40"
+                    className="flex-1 rounded bg-primary px-2 py-1 text-xs font-medium text-white hover:bg-primary disabled:opacity-40"
                   >
                     Create
                   </button>
@@ -1107,7 +1107,7 @@ export default function ChatPage() {
                   onClick={() => handleSelectChannel(ch)}
                   className={`flex w-full items-center gap-2 px-4 py-1.5 text-left text-sm transition-colors ${
                     activeChannelId === ch.id
-                      ? "bg-indigo-500/10 font-semibold text-indigo-700"
+                      ? "bg-primary/10 font-semibold text-primary"
                       : isMuted ? "text-muted-foreground hover:bg-muted" : "text-muted-foreground hover:bg-muted"
                   }`}
                 >
@@ -1115,7 +1115,7 @@ export default function ChatPage() {
                   <span className="flex-1 truncate">{ch.name}</span>
                   {isMuted && <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" />}
                   {!isMuted && unread > 0 && (
-                    <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-bold text-white">
+                    <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
                       {unread > 9 ? "9+" : unread}
                     </span>
                   )}
@@ -1199,7 +1199,7 @@ export default function ChatPage() {
                   onClick={() => handleSelectChannel(dm)}
                   className={`flex w-full items-center gap-2 px-4 py-1.5 text-left text-sm transition-colors ${
                     activeChannelId === dm.id
-                      ? "bg-indigo-500/10 font-semibold text-indigo-700"
+                      ? "bg-primary/10 font-semibold text-primary"
                       : "text-muted-foreground hover:bg-muted"
                   }`}
                 >
@@ -1214,7 +1214,7 @@ export default function ChatPage() {
                   </div>
                   <span className="flex-1 truncate">{otherUser.firstName} {otherUser.lastName}</span>
                   {unread > 0 && (
-                    <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-bold text-white">
+                    <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
                       {unread > 9 ? "9+" : unread}
                     </span>
                   )}
@@ -1278,15 +1278,15 @@ export default function ChatPage() {
                       value={editChannelName}
                       onChange={(e) => setEditChannelName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleSaveChannelEdit(); if (e.key === "Escape") setEditingChannel(false); }}
-                      className="rounded border border-indigo-300 px-2 py-0.5 text-sm font-semibold text-foreground outline-none focus:ring-1 focus:ring-indigo-400 w-36"
+                      className="rounded border border-primary/40 px-2 py-0.5 text-sm font-semibold text-foreground outline-none focus:ring-1 focus:ring-primary w-36"
                     />
                     <input
                       value={editChannelDesc}
                       onChange={(e) => setEditChannelDesc(e.target.value)}
                       placeholder="Description (optional)"
-                      className="rounded border border-border px-2 py-0.5 text-xs text-muted-foreground outline-none focus:ring-1 focus:ring-indigo-300 w-44"
+                      className="rounded border border-border px-2 py-0.5 text-xs text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 w-44"
                     />
-                    <button onClick={handleSaveChannelEdit} className="rounded bg-indigo-600 px-2 py-0.5 text-xs text-white hover:bg-indigo-700">Save</button>
+                    <button onClick={handleSaveChannelEdit} className="rounded bg-primary px-2 py-0.5 text-xs text-white hover:bg-primary">Save</button>
                     <button onClick={() => setEditingChannel(false)} className="rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted">Cancel</button>
                   </div>
                 ) : (
@@ -1371,7 +1371,7 @@ export default function ChatPage() {
                   onClick={handleLoadScheduled}
                   className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                     showScheduledList
-                      ? "border-indigo-300 bg-indigo-500/10 text-indigo-700"
+                      ? "border-primary/40 bg-primary/10 text-primary"
                       : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                   title="Scheduled messages"
@@ -1437,7 +1437,7 @@ export default function ChatPage() {
                               handleSetNotifPref(pref);
                             }}
                             className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-muted ${
-                              cur === pref ? "font-semibold text-indigo-600" : "text-foreground"
+                              cur === pref ? "font-semibold text-primary" : "text-foreground"
                             }`}
                           >
                             <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -1454,7 +1454,7 @@ export default function ChatPage() {
                   onClick={() => { setShowMsgSearch((v) => !v); setMsgSearch(""); setMsgSearchResults(null); }}
                   className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                     showMsgSearch
-                      ? "border-indigo-300 bg-indigo-500/10 text-indigo-700"
+                      ? "border-primary/40 bg-primary/10 text-primary"
                       : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                   title="Search messages"
@@ -1467,7 +1467,7 @@ export default function ChatPage() {
                     onClick={() => setShowMembersPanel(!showMembersPanel)}
                     className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                       showMembersPanel
-                        ? "border-indigo-300 bg-indigo-500/10 text-indigo-700"
+                        ? "border-primary/40 bg-primary/10 text-primary"
                         : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                     title="Manage members"
@@ -1505,24 +1505,24 @@ export default function ChatPage() {
 
             {/* Scheduled messages panel */}
             {showScheduledList && (
-              <div className="border-b border-indigo-900/20 dark:border-indigo-900/50 bg-indigo-500/10 px-6 py-3">
+              <div className="border-b border-primary/40 dark:border-primary/40 bg-primary/10 px-6 py-3">
                 <div className="mb-2 flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5 text-indigo-600" />
-                  <span className="text-xs font-semibold text-indigo-800">Scheduled Messages</span>
-                  <span className="ml-auto text-[11px] text-indigo-500">{scheduledList.filter(m => m.status === "PENDING").length} pending</span>
-                  <button onClick={() => setShowScheduledList(false)} className="text-indigo-400 hover:text-indigo-600">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-primary">Scheduled Messages</span>
+                  <span className="ml-auto text-[11px] text-primary">{scheduledList.filter(m => m.status === "PENDING").length} pending</span>
+                  <button onClick={() => setShowScheduledList(false)} className="text-primary hover:text-primary">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 {scheduledList.filter(m => m.status === "PENDING").length === 0 ? (
-                  <p className="text-xs text-indigo-600">No scheduled messages for this channel.</p>
+                  <p className="text-xs text-primary">No scheduled messages for this channel.</p>
                 ) : (
                   <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
                     {scheduledList.filter(m => m.status === "PENDING").map((sm) => (
-                      <div key={sm.id} className="flex items-start gap-2 rounded-lg border border-indigo-200 bg-background px-3 py-2">
-                        <Clock className="h-3.5 w-3.5 mt-0.5 shrink-0 text-indigo-400" />
+                      <div key={sm.id} className="flex items-start gap-2 rounded-lg border border-primary/25 bg-background px-3 py-2">
+                        <Clock className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-semibold text-indigo-600">
+                          <p className="text-[10px] font-semibold text-primary">
                             {new Date(sm.scheduledAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </p>
                           <div className="text-xs text-muted-foreground line-clamp-1"><RichContent content={sm.content} /></div>
@@ -1575,10 +1575,10 @@ export default function ChatPage() {
 
             {/* Jump to unread banner */}
             {showJumpToUnread && firstUnreadId && (
-              <div className="flex justify-center border-b border-indigo-900/20 dark:border-indigo-900/50 bg-indigo-500/10 py-1.5">
+              <div className="flex justify-center border-b border-primary/40 dark:border-primary/40 bg-primary/10 py-1.5">
                 <button
                   onClick={handleJumpToUnread}
-                  className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-background px-4 py-1 text-xs font-medium text-indigo-700 shadow-sm hover:bg-muted transition-colors"
+                  className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-background px-4 py-1 text-xs font-medium text-primary shadow-sm hover:bg-muted transition-colors"
                 >
                   <ArrowDown className="h-3 w-3" />
                   Jump to first unread
@@ -1588,10 +1588,10 @@ export default function ChatPage() {
 
             {/* Search result notice */}
             {msgSearchResults !== null && (
-              <div className="flex items-center gap-2 border-b border-indigo-900/20 dark:border-indigo-900/50 bg-indigo-500/10 px-6 py-1.5 text-xs text-indigo-700">
+              <div className="flex items-center gap-2 border-b border-primary/40 dark:border-primary/40 bg-primary/10 px-6 py-1.5 text-xs text-primary">
                 <BookmarkCheck className="h-3.5 w-3.5 shrink-0" />
                 Showing {msgSearchResults.length} search result{msgSearchResults.length !== 1 ? "s" : ""} for <strong className="ml-1">"{msgSearch}"</strong>
-                <button onClick={() => { setMsgSearchResults(null); setMsgSearch(""); setShowMsgSearch(false); }} className="ml-auto text-indigo-400 hover:text-indigo-600">
+                <button onClick={() => { setMsgSearchResults(null); setMsgSearch(""); setShowMsgSearch(false); }} className="ml-auto text-primary hover:text-primary">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -1628,8 +1628,8 @@ export default function ChatPage() {
 
               {!loadingMessages && topLevelMessages.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/10">
-                    {isDM ? <MessageSquare className="h-6 w-6 text-indigo-400" /> : <Hash className="h-6 w-6 text-indigo-400" />}
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                    {isDM ? <MessageSquare className="h-6 w-6 text-primary" /> : <Hash className="h-6 w-6 text-primary" />}
                   </div>
                   <p className="text-sm font-semibold text-foreground">
                     {isDM ? `Start a conversation with ${displayName}` : `Welcome to #${displayName}`}
@@ -1654,7 +1654,7 @@ export default function ChatPage() {
                   const statusColor =
                     msg.callStatus === "ended" ? "text-green-600 bg-green-500/10 border-green-200 dark:text-green-400 dark:border-green-900/50" :
                     msg.callStatus === "declined" || msg.callStatus === "missed" ? "text-red-500 bg-red-500/10 border-red-200 dark:text-red-400 dark:border-red-900/50" :
-                    "text-indigo-600 bg-indigo-500/10 border-indigo-200 dark:text-indigo-400 dark:border-indigo-900/50";
+                    "text-primary bg-primary/10 border-primary/25 dark:text-primary dark:border-primary/40";
                   const statusLabel =
                     msg.callStatus === "ended" ? "Call ended" :
                     msg.callStatus === "declined" ? "Call declined" :
@@ -1709,9 +1709,9 @@ export default function ChatPage() {
                     {/* New messages divider */}
                     {isFirstUnread && (
                       <div className="my-2 flex items-center gap-2">
-                        <div className="flex-1 h-px bg-indigo-300" />
-                        <span className="shrink-0 rounded-full bg-indigo-500 px-3 py-0.5 text-[10px] font-semibold text-white">New</span>
-                        <div className="flex-1 h-px bg-indigo-300" />
+                        <div className="flex-1 h-px bg-primary/40" />
+                        <span className="shrink-0 rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold text-white">New</span>
+                        <div className="flex-1 h-px bg-primary/40" />
                       </div>
                     )}
 
@@ -1776,11 +1776,11 @@ export default function ChatPage() {
                                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveMessageEdit(); }
                                     if (e.key === "Escape") { setEditingMsgId(null); }
                                   }}
-                                  className="w-full rounded border border-indigo-300 px-2 py-1 text-sm leading-relaxed text-foreground outline-none focus:ring-1 focus:ring-indigo-400 resize-none"
+                                  className="w-full rounded border border-primary/40 px-2 py-1 text-sm leading-relaxed text-foreground outline-none focus:ring-1 focus:ring-primary resize-none"
                                   rows={2}
                                 />
                                 <div className="flex gap-1.5 text-[11px]">
-                                  <button onClick={handleSaveMessageEdit} className="rounded bg-indigo-600 px-2 py-0.5 text-white hover:bg-indigo-700">Save</button>
+                                  <button onClick={handleSaveMessageEdit} className="rounded bg-primary px-2 py-0.5 text-white hover:bg-primary">Save</button>
                                   <button onClick={() => setEditingMsgId(null)} className="rounded border border-border px-2 py-0.5 text-muted-foreground hover:bg-muted">Cancel</button>
                                   <span className="text-muted-foreground self-center">Enter to save · Esc to cancel</span>
                                 </div>
@@ -1821,7 +1821,7 @@ export default function ChatPage() {
                             {/* Reply button */}
                             <button
                               onClick={() => openThread(msg)}
-                              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-indigo-600"
+                              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
                               title="Reply in thread"
                             >
                               <CornerDownRight className="h-3.5 w-3.5" />
@@ -1831,7 +1831,7 @@ export default function ChatPage() {
                               <button
                                 onClick={() => setAssigningMsgId(assigningMsgId === msg.id ? null : msg.id)}
                                 className={`rounded p-1.5 transition-colors ${
-                                  msg.assignedTo ? "text-green-600" : "text-muted-foreground hover:bg-muted hover:text-indigo-600"
+                                  msg.assignedTo ? "text-green-600" : "text-muted-foreground hover:bg-muted hover:text-primary"
                                 }`}
                                 title="Assign to someone"
                               >
@@ -1902,14 +1902,14 @@ export default function ChatPage() {
                               <>
                                 <button
                                   onClick={() => setForwardingMsg(msg)}
-                                  className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-indigo-600"
+                                  className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
                                   title="Forward message"
                                 >
                                   <Share2 className="h-3.5 w-3.5" />
                                 </button>
                                 <button
                                   onClick={() => setCreatingTaskFromMsg(msg)}
-                                  className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-indigo-600"
+                                  className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
                                   title="Create task from message"
                                 >
                                   <ListTodo className="h-3.5 w-3.5" />
@@ -1921,7 +1921,7 @@ export default function ChatPage() {
                               <>
                                 <button
                                   onClick={() => { setEditingMsgId(msg.id); setEditingMsgContent(msg.content); }}
-                                  className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-indigo-600 transition-colors"
+                                  className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-primary transition-colors"
                                   title="Edit message"
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
@@ -1953,8 +1953,8 @@ export default function ChatPage() {
                                   onClick={() => handleToggleReaction(msg.id, emoji)}
                                   className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors ${
                                     myReaction
-                                      ? "border-indigo-300 bg-indigo-500/10 text-indigo-700"
-                                      : "border-border bg-muted/50 text-muted-foreground hover:border-indigo-200 hover:bg-indigo-500/10"
+                                      ? "border-primary/40 bg-primary/10 text-primary"
+                                      : "border-border bg-muted/50 text-muted-foreground hover:border-primary/25 hover:bg-primary/10"
                                   }`}
                                 >
                                   <span>{emoji}</span>
@@ -1968,7 +1968,7 @@ export default function ChatPage() {
                         {(msg.assignedTo || (msg._count?.replies ?? 0) > 0) && (
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             {msg.assignedTo && (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-900/20 dark:border-indigo-900/50 bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-600">
+                              <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 dark:border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
                                 <AtSign className="h-2.5 w-2.5" />
                                 {msg.assignedTo.firstName} {msg.assignedTo.lastName}
                               </span>
@@ -1976,7 +1976,7 @@ export default function ChatPage() {
                             {(msg._count?.replies ?? 0) > 0 && (
                               <button
                                 onClick={() => openThread(msg)}
-                                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-indigo-200 hover:bg-indigo-500/10 hover:text-indigo-600 transition-colors"
+                                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-primary/25 hover:bg-primary/10 hover:text-primary transition-colors"
                               >
                                 <CornerDownRight className="h-2.5 w-2.5" />
                                 {msg._count?.replies} {msg._count?.replies === 1 ? "reply" : "replies"}
@@ -2110,12 +2110,12 @@ export default function ChatPage() {
                   ))}
                 </div>
               )}
-              <div onPaste={handlePaste} className="relative flex items-end gap-3 rounded-xl border border-border bg-muted/30 px-4 py-2.5 focus-within:border-indigo-300 focus-within:bg-background focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+              <div onPaste={handlePaste} className="relative flex items-end gap-3 rounded-xl border border-border bg-muted/30 px-4 py-2.5 focus-within:border-primary/40 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                 {/* File attachment button */}
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="shrink-0 text-muted-foreground hover:text-indigo-500 transition-colors disabled:opacity-50"
+                  className="shrink-0 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
                   title="Attach file or image"
                 >
                   <Paperclip className="h-4 w-4" />
@@ -2187,7 +2187,7 @@ export default function ChatPage() {
                               onClick={() => setScheduleDateTime(targetStr)}
                               className={`flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors ${
                                 scheduleDateTime === targetStr
-                                  ? "bg-indigo-500/10 text-indigo-700 font-semibold"
+                                  ? "bg-primary/10 text-primary font-semibold"
                                   : "hover:bg-muted text-muted-foreground"
                               }`}
                             >
@@ -2208,14 +2208,14 @@ export default function ChatPage() {
                           value={scheduleDateTime}
                           min={toLocalDatetimeInput(new Date(Date.now() + 60_000))}
                           onChange={(e) => setScheduleDateTime(e.target.value)}
-                          className="w-full rounded-lg border border-border px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                          className="w-full rounded-lg border border-border px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
                       <div className="border-t border-border px-3 py-3">
                         <button
                           onClick={handleScheduleSend}
                           disabled={!scheduleDateTime || schedulingMsg}
-                          className="w-full rounded-lg bg-indigo-600 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                          className="w-full rounded-lg bg-primary py-2 text-xs font-semibold text-white hover:bg-primary disabled:opacity-50 transition-colors"
                         >
                           {schedulingMsg ? "Scheduling…" : "Schedule Send"}
                         </button>
@@ -2227,7 +2227,7 @@ export default function ChatPage() {
                 <button
                   onClick={handleSend}
                   disabled={uploading || (!input.trim() && pendingFiles.length === 0)}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-white transition-colors hover:bg-indigo-600 disabled:opacity-30"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-white transition-colors hover:bg-primary disabled:opacity-30"
                 >
                   {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                 </button>
@@ -2246,7 +2246,7 @@ export default function ChatPage() {
               {/* Header */}
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <CornerDownRight className="h-4 w-4 text-indigo-500" />
+                  <CornerDownRight className="h-4 w-4 text-primary" />
                   <span className="text-sm font-semibold text-foreground">Thread</span>
                 </div>
                 <button onClick={() => { setThreadMsg(null); setReplies([]); }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
@@ -2255,7 +2255,7 @@ export default function ChatPage() {
               </div>
 
               {/* Original message */}
-              <div className="border-b border-border bg-indigo-500/5 px-4 py-3">
+              <div className="border-b border-border bg-primary/5 px-4 py-3">
                 <div className="flex items-center gap-2 mb-1">
                   <Avatar className="h-6 w-6">
                     <AvatarImage src={av(threadMsg.user.avatarUrl)} />
@@ -2269,7 +2269,7 @@ export default function ChatPage() {
                     <img src={resolveUrl(threadMsg.attachmentUrl)} className="mb-1 max-h-32 rounded-lg border border-border object-contain" alt={threadMsg.content} />
                   </a>
                 ) : threadMsg.attachmentUrl ? (
-                  <a href={resolveUrl(threadMsg.attachmentUrl)} className="flex items-center gap-1 text-xs text-indigo-600 underline" target="_blank" rel="noreferrer" download>{threadMsg.content}</a>
+                  <a href={resolveUrl(threadMsg.attachmentUrl)} className="flex items-center gap-1 text-xs text-primary underline" target="_blank" rel="noreferrer" download>{threadMsg.content}</a>
                 ) : null}
                 {(!threadMsg.attachmentUrl || threadMsg.content !== threadMsg.attachmentUrl) && (
                   <div className="text-sm text-foreground"><RichContent content={threadMsg.content} allUsers={allUsers} onMentionClick={setMentionProfileUserId} /></div>
@@ -2297,7 +2297,7 @@ export default function ChatPage() {
                           <img src={resolveUrl(r.attachmentUrl)} className="mt-1 max-h-40 max-w-xs rounded-lg border border-border object-contain" alt={r.content} />
                         </a>
                       ) : r.attachmentUrl ? (
-                        <a href={resolveUrl(r.attachmentUrl)} className="flex items-center gap-1 text-xs text-indigo-600 underline" target="_blank" rel="noreferrer" download>
+                        <a href={resolveUrl(r.attachmentUrl)} className="flex items-center gap-1 text-xs text-primary underline" target="_blank" rel="noreferrer" download>
                           <Download className="h-3 w-3" />{r.content}
                         </a>
                       ) : (
@@ -2310,7 +2310,7 @@ export default function ChatPage() {
 
               {/* Reply input */}
               <div className="border-t border-border p-3">
-                <div onPaste={handleReplyPaste} className="flex items-end gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-200">
+                <div onPaste={handleReplyPaste} className="flex items-end gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/25">
                   <input
                     type="file"
                     ref={replyFileRef}
@@ -2320,7 +2320,7 @@ export default function ChatPage() {
                   <button
                     onClick={() => replyFileRef.current?.click()}
                     disabled={replyUploading}
-                    className="shrink-0 text-muted-foreground hover:text-indigo-500"
+                    className="shrink-0 text-muted-foreground hover:text-primary"
                     title="Attach file"
                   >
                     {replyUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
@@ -2356,7 +2356,7 @@ export default function ChatPage() {
                   <button
                     onClick={handleSendReply}
                     disabled={!replyInput.trim()}
-                    className="shrink-0 rounded-md bg-indigo-500 p-1.5 text-white hover:bg-indigo-600 disabled:opacity-40"
+                    className="shrink-0 rounded-md bg-primary p-1.5 text-white hover:bg-primary disabled:opacity-40"
                   >
                     <Send className="h-3.5 w-3.5" />
                   </button>
@@ -2541,7 +2541,7 @@ export default function ChatPage() {
                               <AvatarFallback className="text-[9px]">{u.user.firstName[0]}{u.user.lastName[0]}</AvatarFallback>
                             </Avatar>
                             <span className="flex-1 truncate">{u.user.firstName} {u.user.lastName}</span>
-                            <Plus className="h-3 w-3 text-indigo-400" />
+                            <Plus className="h-3 w-3 text-primary" />
                           </button>
                         ))}
                         {nonMemberUsers.length === 0 && addMemberSearch && (
@@ -2572,8 +2572,8 @@ export default function ChatPage() {
           </div>
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10">
-                <MessageSquare className="h-8 w-8 text-indigo-400" />
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+                <MessageSquare className="h-8 w-8 text-primary" />
               </div>
               <h3 className="text-base font-semibold text-foreground">Select a channel or conversation</h3>
               <p className="mt-1 text-sm text-muted-foreground">

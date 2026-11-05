@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Optional, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { UpdateUserSettingsDto } from './dto/update-user.dto';
@@ -152,7 +152,8 @@ export class UsersService {
         for (const cell of personCells) {
           const v = cell.value as any;
           const users: any[] = Array.isArray(v?.users) ? v.users : Array.isArray(v) ? v : [];
-          const filtered = users.filter((u: any) => u.userId !== id);
+          // Cells store { users: [{ id }] }; older data may use `userId`.
+          const filtered = users.filter((u: any) => (u?.id ?? u?.userId) !== id);
           if (filtered.length !== users.length) {
             const newValue = Array.isArray(v) ? filtered : { ...v, users: filtered };
             await this.prisma.taskCell.update({ where: { id: cell.id }, data: { value: newValue } });
@@ -243,7 +244,22 @@ export class UsersService {
     });
   }
 
-  async findByEmailForInvite(email: string) {
+  async findByEmailForInvite(email: string, requesterId: number) {
+    // Only people who can invite (workspace OWNER/ADMIN, or super admin) may
+    // look users up by email — otherwise any account could probe who exists.
+    const requester = await this.prisma.user.findFirst({
+      where: { id: requesterId, deletedAt: null },
+      select: { systemRole: true },
+    });
+    if (requester?.systemRole !== 'SUPER_ADMIN') {
+      const canInvite = await this.prisma.workspaceMember.count({
+        where: { userId: requesterId, deletedAt: null, role: { in: ['OWNER', 'ADMIN'] } },
+      });
+      if (!canInvite) {
+        throw new ForbiddenException('You do not have permission to invite users.');
+      }
+    }
+    if (!email) return null;
     return this.prisma.user.findFirst({
       where: { email: email.toLowerCase(), deletedAt: null },
       select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true },
