@@ -122,10 +122,14 @@ export function CommandPalette() {
             Boards
             <CommandShortcut>Workspaces</CommandShortcut>
           </CommandItem>
-          <CommandItem value="product work" disabled>
+          <CommandItem
+            value="product work spaces lists tasks"
+            disabled={!boardsHome}
+            onSelect={() => run(() => router.push(`/work/${boardsHome}`))}
+          >
             <Dot className="bg-product-work" />
             Work
-            <CommandShortcut>Soon</CommandShortcut>
+            <CommandShortcut>Spaces & lists</CommandShortcut>
           </CommandItem>
           {isSuperAdmin && (
             <CommandItem value="product ceo control tower" disabled>

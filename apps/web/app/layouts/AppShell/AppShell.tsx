@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Bell, Phone, PhoneOff, Video, X } from "lucide-react";
 import { SecondarySidebar } from "./Sidebar/SecondarySidebar";
+import { WorkSidebar } from "./Sidebar/WorkSidebar";
 import { TopNavbar } from "./TopNavbar/TopNavbar";
 import { NotificationStreamProvider } from "@/providers/NotificationStreamProvider";
 import { ImportJobProvider } from "@/providers/ImportJobContext";
@@ -232,6 +233,8 @@ export function AppShell({ children }: AppShellProps) {
   // Board URLs carry uid strings (e.g. /board/Xr9…), not numeric ids — the old
   // /\d+/ check never matched, so every board page rendered a second drawer.
   const isBoardPage = /\/workspace\/[^/]+\/board\/[^/]+/.test(pathname ?? "");
+  // Work (ClickUp-style product) has its own sidebar: Spaces → Folders → Lists
+  const isWorkPage = (pathname ?? "").startsWith("/work");
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground antialiased font-sans">
@@ -247,12 +250,21 @@ export function AppShell({ children }: AppShellProps) {
                 />
               )}
 
-              <SecondarySidebar
-                isOpen={isSecondaryOpen}
-                onToggle={() => setIsSecondaryOpen(!isSecondaryOpen)}
-                isMobileOpen={isMobileOpen}
-                onMobileClose={() => setIsMobileOpen(false)}
-              />
+              {isWorkPage ? (
+                <WorkSidebar
+                  isOpen={isSecondaryOpen}
+                  onToggle={() => setIsSecondaryOpen(!isSecondaryOpen)}
+                  isMobileOpen={isMobileOpen}
+                  onMobileClose={() => setIsMobileOpen(false)}
+                />
+              ) : (
+                <SecondarySidebar
+                  isOpen={isSecondaryOpen}
+                  onToggle={() => setIsSecondaryOpen(!isSecondaryOpen)}
+                  isMobileOpen={isMobileOpen}
+                  onMobileClose={() => setIsMobileOpen(false)}
+                />
+              )}
 
               <div className="flex flex-1 flex-col overflow-hidden">
                 <TopNavbar onMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />

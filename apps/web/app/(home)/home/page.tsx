@@ -607,21 +607,22 @@ export default function HomePage() {
             <motion.div variants={fadeUp}>
               <ProductCard
                 tone="work"
+                href={firstWorkspace ? `/work/${firstWorkspace.uid ?? firstWorkspace.id}` : undefined}
                 icon={ListChecks}
                 kicker="Projects"
                 title="Work"
-                blurb="Spaces, lists, goals and AI for every project."
+                blurb="Spaces, lists and tasks for every project."
                 graphic={<WorkGraphic />}
                 footer={
                   <div className="flex flex-wrap items-center gap-2">
-                    {["Spaces", "Lists", "Goals", "Docs", "AI"].map((f) => (
+                    {["Spaces", "Lists", "Board", "Calendar"].map((f) => (
                       <span key={f} className="rounded-full bg-primary/8 px-2.5 py-1 text-[11.5px] font-medium text-accent-foreground ring-1 ring-primary/15">
                         {f}
                       </span>
                     ))}
-                    <span className="ml-auto inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground">
-                      <Hammer className="h-3.5 w-3.5" aria-hidden />
-                      Being built
+                    <span className="ml-auto inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
+                      Open Work
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
                     </span>
                   </div>
                 }
