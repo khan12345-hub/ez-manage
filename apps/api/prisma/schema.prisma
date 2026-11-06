@@ -117,6 +117,15 @@ model User {
   ceoMeetingsCreated      CeoMeeting[]          @relation("CeoMeetingCreator")
   ceoMeetingAttendances   CeoMeetingAttendee[]  @relation("CeoMeetingAttendeeUser")
 
+  // ── Work (ClickUp-style product) ──
+  workSpacesCreated   Space[]            @relation("SpaceCreator")
+  workSpaceMembership SpaceMember[]      @relation("SpaceMemberUser")
+  workFoldersCreated  WorkFolder[]       @relation("WorkFolderCreator")
+  workListsCreated    WorkList[]         @relation("WorkListCreator")
+  workTasksCreated    WorkTask[]         @relation("WorkTaskCreator")
+  workTaskAssignments WorkTaskAssignee[] @relation("WorkTaskAssigneeUser")
+  workComments        WorkComment[]      @relation("WorkCommentAuthor")
+
   @@map("users")
 }
 
@@ -353,6 +362,7 @@ model Workspace {
   chatChannels ChatChannel[]
   docs         WorkspaceDoc[]
   inviteLinks  WorkspaceInviteLink[]
+  workSpaces   Space[]
 }
 
 model WorkspaceDoc {
@@ -1371,4 +1381,195 @@ model CeoSettings {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("ceo_settings")
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WORK — ClickUp-style product: Workspace → Space → (Folder) → List → Task.
+// Separate engine from Boards (Board/Group/Task). Status groups reuse
+// StatusCategory (NOT_STARTED / ACTIVE / DONE).
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum WorkPriority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+model Space {
+  id          Int       @id @default(autoincrement())
+  uid         String    @unique
+  workspaceId Int
+  name        String
+  color       String    @default("#047857")
+  icon        String?
+  /// private space: only SpaceMember rows (+ workspace OWNER/ADMIN) can see it
+  isPrivate   Boolean   @default(false)
+  order       Float     @default(1000)
+  archivedAt  DateTime?
+  createdById Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User          @relation("SpaceCreator", fields: [createdById], references: [id])
+  members   SpaceMember[]
+  folders   WorkFolder[]
+  lists     WorkList[]
+  statuses  WorkStatus[]
+
+  @@index([workspaceId])
+  @@map("work_spaces")
+}
+
+model SpaceMember {
+  spaceId   Int
+  userId    Int
+  createdAt DateTime @default(now())
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user  User  @relation("SpaceMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([spaceId, userId])
+  @@index([userId])
+  @@map("work_space_members")
+}
+
+model WorkFolder {
+  id          Int       @id @default(autoincrement())
+  uid         String    @unique
+  spaceId     Int
+  name        String
+  order       Float     @default(1000)
+  archivedAt  DateTime?
+  createdById Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  space     Space        @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdBy User         @relation("WorkFolderCreator", fields: [createdById], references: [id])
+  lists     WorkList[]
+  statuses  WorkStatus[]
+
+  @@index([spaceId])
+  @@map("work_folders")
+}
+
+model WorkList {
+  id          Int       @id @default(autoincrement())
+  uid         String    @unique
+  spaceId     Int
+  /// null = list sits directly in the space
+  folderId    Int?
+  name        String
+  description String?
+  color       String?
+  order       Float     @default(1000)
+  archivedAt  DateTime?
+  createdById Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  space     Space        @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  folder    WorkFolder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdBy User         @relation("WorkListCreator", fields: [createdById], references: [id])
+  tasks     WorkTask[]
+  statuses  WorkStatus[]
+
+  @@index([spaceId])
+  @@index([folderId])
+  @@map("work_lists")
+}
+
+/// Statuses are owned by exactly one of space / folder / list. A list uses its
+/// own statuses if it has any, else its folder's, else its space's (ClickUp
+/// inheritance).
+model WorkStatus {
+  id        Int            @id @default(autoincrement())
+  spaceId   Int?
+  folderId  Int?
+  listId    Int?
+  name      String
+  color     String
+  category  StatusCategory @default(ACTIVE)
+  order     Float          @default(1000)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  space  Space?      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  folder WorkFolder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  list   WorkList?   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  tasks  WorkTask[]
+
+  @@index([spaceId])
+  @@index([folderId])
+  @@index([listId])
+  @@map("work_statuses")
+}
+
+model WorkTask {
+  id          Int           @id @default(autoincrement())
+  uid         String        @unique
+  listId      Int
+  statusId    Int?
+  parentId    Int?
+  name        String
+  /// rich text (HTML from the editor)
+  description String?
+  priority    WorkPriority?
+  startDate   DateTime?
+  dueDate     DateTime?
+  order       Float         @default(1000)
+  completedAt DateTime?
+  archivedAt  DateTime?
+  createdById Int
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  list      WorkList           @relation(fields: [listId], references: [id], onDelete: Cascade)
+  status    WorkStatus?        @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  parent    WorkTask?          @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks  WorkTask[]         @relation("WorkSubtasks")
+  createdBy User               @relation("WorkTaskCreator", fields: [createdById], references: [id])
+  assignees WorkTaskAssignee[]
+  comments  WorkComment[]
+
+  @@index([listId, order])
+  @@index([statusId])
+  @@index([parentId])
+  @@index([dueDate])
+  @@map("work_tasks")
+}
+
+model WorkTaskAssignee {
+  taskId    Int
+  userId    Int
+  createdAt DateTime @default(now())
+
+  task WorkTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User     @relation("WorkTaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("work_task_assignees")
+}
+
+model WorkComment {
+  id        Int       @id @default(autoincrement())
+  taskId    Int
+  userId    Int
+  parentId  Int?
+  content   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  task    WorkTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user    User          @relation("WorkCommentAuthor", fields: [userId], references: [id])
+  parent  WorkComment?  @relation("WorkCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies WorkComment[] @relation("WorkCommentReplies")
+
+  @@index([taskId, createdAt])
+  @@map("work_comments")
 }
