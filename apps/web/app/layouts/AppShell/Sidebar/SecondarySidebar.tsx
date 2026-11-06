@@ -88,7 +88,7 @@ function ProductSwitcher({
     { key: "boards", label: "Boards", dot: "bg-product-boards", href: boardsHref },
     { key: "work", label: "Work", dot: "bg-product-work", note: "Soon" },
     ...(showCeo
-      ? [{ key: "ceo" as const, label: "CEO Tower", dot: "bg-product-ceo", href: "/ceo-assistant" }]
+      ? [{ key: "ceo" as const, label: "CEO Tower", dot: "bg-product-ceo", note: "Soon" }] // disabled for now
       : []),
   ];
 

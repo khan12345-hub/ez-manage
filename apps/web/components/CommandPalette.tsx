@@ -128,9 +128,10 @@ export function CommandPalette() {
             <CommandShortcut>Soon</CommandShortcut>
           </CommandItem>
           {isSuperAdmin && (
-            <CommandItem value="product ceo control tower" onSelect={() => run(() => router.push("/ceo-assistant"))}>
+            <CommandItem value="product ceo control tower" disabled>
               <Dot className="bg-product-ceo" />
               CEO Control Tower
+              <CommandShortcut>Soon</CommandShortcut>
             </CommandItem>
           )}
         </CommandGroup>

@@ -4,6 +4,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 
 import * as dotenv from 'dotenv';
 import helmet from 'helmet';
+import compression from 'compression';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import cookieParser from 'cookie-parser';
@@ -48,6 +49,21 @@ async function bootstrap() {
     helmet({
       crossOriginResourcePolicy: { policy: 'same-site' },
       contentSecurityPolicy: false, // disabled — API only, no HTML served
+    }),
+  );
+
+  // ── Gzip ────────────────────────────────────────────────────────────────────
+  // Board task pages are large, repetitive JSON (~630 KB per 500 tasks):
+  // gzip cuts that by ~90%. Never compress server-sent events (the
+  // notification stream) — compression buffers chunks and stalls live events.
+  app.use(
+    compression({
+      threshold: 1024,
+      filter: (req, res) => {
+        if (req.path?.endsWith('/notifications/stream')) return false;
+        if (String(req.headers.accept ?? '').includes('text/event-stream')) return false;
+        return compression.filter(req, res);
+      },
     }),
   );
 

@@ -632,7 +632,6 @@ export default function HomePage() {
               <motion.div variants={fadeUp} className="md:col-span-2 lg:col-span-1">
                 <ProductCard
                   tone="ceo"
-                  href="/ceo-assistant"
                   icon={BarChart3}
                   kicker="Executive"
                   title="CEO Tower"
@@ -644,9 +643,10 @@ export default function HomePage() {
                     { value: tasksLoading ? "–" : stats.overdue.length, label: "late tasks", alert: stats.overdue.length > 0 },
                   ]}
                   footer={
-                    <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brass-soft">
-                      Open CEO Tower
-                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                    // Disabled for now: not clickable until the CEO Tower rebuild ships.
+                    <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#b9c8be]">
+                      <Hammer className="h-3.5 w-3.5" aria-hidden />
+                      Coming soon
                     </span>
                   }
                 />
