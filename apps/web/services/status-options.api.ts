@@ -1,14 +1,19 @@
 import { api } from "@/lib/api";
 
+export type StatusCategory = "NOT_STARTED" | "ACTIVE" | "DONE";
+
 export interface UpdateStatusOptionPayload {
   label?: string;
   color?: string;
+  category?: StatusCategory;
 //   order?: number;
 }
 
 export interface CreateStatusOptionPayload {
   label: string;
   color: string;
+  /** omitted = server guesses from the label ("Paid" -> DONE) */
+  category?: StatusCategory;
 //   order: number;
 }
 

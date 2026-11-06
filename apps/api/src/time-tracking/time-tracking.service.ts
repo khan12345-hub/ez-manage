@@ -1,3 +1,4 @@
+import { resolveStatusCategory } from '../common/status-category';
 import {
   BadRequestException,
   ForbiddenException,
@@ -226,10 +227,12 @@ export class TimeTrackingService {
       if (!taskRows.has(task.id)) {
         let statusLabel: string | null = null;
         let statusColor: string | null = null;
+        let statusCategory: string | null = null;
         for (const c of task.cells) {
           if (c.column.type === 'STATUS' && c.value) {
             const cv = c.value as any;
             const opts = (c.column.statusOptions as any[]) ?? [];
+            statusCategory = resolveStatusCategory(cv, opts);
             const optId = cv?.id ?? cv?.statusOptionId;
             if (optId) {
               const opt = opts.find((o: any) => o.id === optId);
@@ -241,7 +244,7 @@ export class TimeTrackingService {
           task: {
             id: task.id, name: task.name,
             boardId: task.group.board.id, boardName: task.group.board.name,
-            groupId: task.group.id, groupName: task.group.name, statusLabel, statusColor,
+            groupId: task.group.id, groupName: task.group.name, statusLabel, statusColor, statusCategory,
           },
           days: {},
           totalMs: 0,

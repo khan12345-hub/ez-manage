@@ -1,3 +1,4 @@
+import { resolveStatusCategory } from '../common/status-category';
 import {
   BadRequestException,
   ConflictException,
@@ -468,6 +469,7 @@ export class WorkspaceService {
       let dueDate: string | null = null;
       let statusLabel: string | null = null;
       let statusColor: string | null = null;
+      let statusCategory: string | null = null;
       let statusCellId: number | null = null;
       let dateCellId: number | null = null;
       let personCellId: number | null = null;
@@ -484,6 +486,7 @@ export class WorkspaceService {
           const v = cell.value as any;
           statusCellId = cell.id;
           statusOptions = (cell.column.statusOptions as any[]) ?? [];
+          statusCategory = resolveStatusCategory(cell.value, statusOptions);
           const optionId = v?.id ?? v?.statusOptionId;
           if (optionId) {
             const opt = statusOptions.find((o: any) => o.id === optionId);
@@ -506,6 +509,7 @@ export class WorkspaceService {
         dueDate,
         statusLabel,
         statusColor,
+        statusCategory,
         statusCellId,
         dateCellId,
         personCellId,
@@ -646,6 +650,7 @@ export class WorkspaceService {
         let dueDate: string | null = null;
         let statusLabel: string | null = null;
         let statusColor: string | null = null;
+        let statusCategory: string | null = null;
 
         for (const c of task.cells) {
           if (c.column.type === 'DATE' && c.value) {
@@ -655,6 +660,7 @@ export class WorkspaceService {
           if (c.column.type === 'STATUS' && c.value) {
             const cv = c.value as any;
             const opts = (c.column.statusOptions as any[]) ?? [];
+            statusCategory = resolveStatusCategory(cv, opts);
             const optId = cv?.id ?? cv?.statusOptionId;
             if (optId) {
               const opt = opts.find((o: any) => o.id === optId);
@@ -668,7 +674,7 @@ export class WorkspaceService {
         taskDataMap.set(task.id, {
           id: task.id, name: task.name,
           boardId: task.group.board.id, boardName: task.group.board.name,
-          groupId: task.group.id, groupName: task.group.name, dueDate, statusLabel, statusColor,
+          groupId: task.group.id, groupName: task.group.name, dueDate, statusLabel, statusColor, statusCategory,
         });
       }
 
@@ -683,8 +689,11 @@ export class WorkspaceService {
       const taskIds = [...(userTaskIds.get(m.user.id) ?? [])];
       const tasks = taskIds.map((id) => taskDataMap.get(id)).filter(Boolean);
 
-      let overdueTasks = 0, dueSoonTasks = 0, onTrackTasks = 0, noDueDateTasks = 0;
+      let overdueTasks = 0, dueSoonTasks = 0, onTrackTasks = 0, noDueDateTasks = 0, doneTasks = 0;
       for (const t of tasks) {
+        // Done tasks are never overdue / due soon (previously every past due
+        // date counted as overdue, even for finished tasks).
+        if (t.statusCategory === 'DONE') { doneTasks++; continue; }
         if (!t.dueDate) { noDueDateTasks++; continue; }
         const d = new Date(t.dueDate);
         if (d < now) overdueTasks++;
@@ -695,7 +704,7 @@ export class WorkspaceService {
       return {
         user: m.user,
         totalTasks: tasks.length,
-        overdueTasks, dueSoonTasks, onTrackTasks, noDueDateTasks,
+        overdueTasks, dueSoonTasks, onTrackTasks, noDueDateTasks, doneTasks,
         tasks,
       };
     });

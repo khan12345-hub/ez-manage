@@ -433,6 +433,14 @@ enum BoardColumnType {
   EMAIL
   FORMULA
 }
+/// Status group, like ClickUp: drives "done" / overdue everywhere
+/// (dashboard, home, group progress, CEO tower) instead of guessing from label text.
+enum StatusCategory {
+  NOT_STARTED
+  ACTIVE
+  DONE
+}
+
 model StatusOption {
   id          Int         @id @default(autoincrement())
   columnId    Int
@@ -440,6 +448,7 @@ model StatusOption {
   color       String
   order       Float       @default(1000)
   isArchived  Boolean     @default(false)
+  category    StatusCategory @default(ACTIVE)
 
   column      BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
 

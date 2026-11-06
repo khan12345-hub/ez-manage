@@ -1,3 +1,4 @@
+import { suggestStatusCategory } from '../../common/status-category';
 import { Inject, Injectable } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
@@ -134,6 +135,7 @@ async seed() {
             label: status.label,
             color: status.color,
             order: status.order,
+            category: suggestStatusCategory(status.label),
           })),
         });
 

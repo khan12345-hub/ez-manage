@@ -1,3 +1,4 @@
+import { suggestStatusCategory } from '../common/status-category';
 import {
   BadRequestException,
   Injectable,
@@ -304,6 +305,7 @@ export class ImportsService {
                 label,
                 color: sourceOption?.color ?? '#94a3b8',
                 order: (index + 1) * 1000,
+                category: suggestStatusCategory(label),
               };
             }),
           });

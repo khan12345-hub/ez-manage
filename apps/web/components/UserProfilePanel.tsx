@@ -1,5 +1,6 @@
 "use client";
 
+import { isTaskDone, resolveStatusCategory } from "@/lib/status-category";
 import React, { useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -226,8 +227,7 @@ function TaskRow({ task, isOverdue, workspaceId, onRefetch }: TaskRowProps) {
   const [deleting, setDeleting] = useState(false);
   const [completing, setCompleting] = useState(false);
 
-  const isDone =
-    task.statusLabel != null && /done|complete|finish|closed/i.test(task.statusLabel);
+  const isDone = isTaskDone(task);
 
   const handleMouseEnter = () => {
     setHover(true);
@@ -252,8 +252,9 @@ function TaskRow({ task, isOverdue, workspaceId, onRefetch }: TaskRowProps) {
   const handleComplete = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (completing || !task.statusCellId) return;
-    const doneOpt = (task.statusOptions as any[]).find((o) =>
-      /done|complete|finish|closed/i.test(o.label),
+    // first option whose status group is Done (falls back to the label rule for old data)
+    const doneOpt = (task.statusOptions as any[]).find(
+      (o) => (o.category ?? resolveStatusCategory({ label: o.label }, [])) === "DONE",
     );
     if (!doneOpt) return;
     setCompleting(true);
@@ -696,8 +697,7 @@ export function UserProfilePanel({
   const taskGroups = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-    const isDone = (t: AssignedTask) =>
-      t.statusLabel != null && /done|complete|finish|closed/i.test(t.statusLabel);
+    const isDone = (t: AssignedTask) => isTaskDone(t);
     const groups: { key: string; label: string; tasks: AssignedTask[] }[] = [
       { key: "overdue", label: "Overdue", tasks: [] },
       { key: "today",   label: "Today",   tasks: [] },

@@ -79,7 +79,7 @@ export class GuestAccessService {
             statusOptions: {
               where: { isArchived: false },
               orderBy: { order: 'asc' },
-              select: { id: true, label: true, color: true },
+              select: { id: true, label: true, color: true, category: true },
             },
           },
         },

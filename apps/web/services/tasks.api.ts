@@ -234,6 +234,8 @@ export interface AssignedTask {
   name: string;
   dueDate: string | null;
   statusLabel: string | null;
+  /** NOT_STARTED | ACTIVE | DONE — from the status option (ClickUp-style group). */
+  statusCategory?: "NOT_STARTED" | "ACTIVE" | "DONE" | null;
   statusColor: string | null;
   statusCellId: number | null;
   dateCellId: number | null;

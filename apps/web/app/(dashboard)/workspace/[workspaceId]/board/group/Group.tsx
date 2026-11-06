@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { boardQueryFilter } from "@/lib/board-query";
+import { resolveStatusCategory } from "@/lib/status-category";
 
 import { useGroupStore } from "@/store/create-group-store";
 
@@ -205,8 +206,8 @@ export function Group({
     }
     if (statusCol) {
       const cell = task.cells?.find((c: any) => c.columnId === statusCol.id);
-      const label: string = cell?.value?.label ?? "";
-      if (/done|complet|finish/i.test(label)) return true;
+      // same "done" rule as dashboard / CEO: the status option's category
+      if (resolveStatusCategory(cell?.value, statusCol.statusOptions ?? []) === "DONE") return true;
     }
     return false;
   }).length;

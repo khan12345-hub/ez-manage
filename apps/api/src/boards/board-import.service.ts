@@ -1,3 +1,4 @@
+import { suggestStatusCategory } from '../common/status-category';
 import {
   ConflictException,
   Injectable,
@@ -484,6 +485,7 @@ export class BoardImportService {
               label: option.label,
               color: option.color || this.getStatusColor(index),
               order: (index + 1) * 1000,
+              category: suggestStatusCategory(option.label),
             })),
           });
 

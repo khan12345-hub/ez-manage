@@ -1,5 +1,6 @@
 "use client";
 
+import { isTaskDone } from "@/lib/status-category";
 import { useMemo } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/providers/AuthProvider";
@@ -24,10 +25,7 @@ function startOfToday() {
   return d;
 }
 
-function isDoneLabel(label: string | null) {
-  if (!label) return false;
-  return /done|complete|closed|finished|resolved/i.test(label);
-}
+// "Done" comes from the status option's category (see lib/status-category).
 function isReviewLabel(label: string | null) {
   if (!label) return false;
   return /review|qa|check|approv/i.test(label);
@@ -39,12 +37,12 @@ function isProgressLabel(label: string | null) {
 
 export function isOverdue(t: AssignedTask) {
   if (!t.dueDate) return false;
-  if (isDoneLabel(t.statusLabel)) return false;
+  if (isTaskDone(t)) return false;
   return new Date(t.dueDate) < startOfToday();
 }
 
 export function taskBucket(t: AssignedTask): StatusBucket {
-  if (isDoneLabel(t.statusLabel)) return "done";
+  if (isTaskDone(t)) return "done";
   if (isOverdue(t)) return "overdue";
   if (isReviewLabel(t.statusLabel)) return "review";
   if (isProgressLabel(t.statusLabel)) return "in_progress";

@@ -8,6 +8,7 @@ import {
   deleteStatusOption,
   updateStatusOption,
 } from "@/services/status-options.api";
+import { suggestStatusCategory } from "@/lib/status-category";
 
 import {
   StatusEditorMode,
@@ -89,6 +90,22 @@ export function useStatusEditor({
     updateStatusInState(id, {
       color,
     });
+  };
+
+  /** Toggle "counts as done" for one option. Turning it off picks the label's non-done guess. */
+  const toggleDone = (id: number) => {
+    setStatuses((prev) =>
+      prev.map((status) => {
+        if (status.id !== id) return status;
+        const isDone = (status.category ?? suggestStatusCategory(status.label)) === "DONE";
+        const off = suggestStatusCategory(status.label);
+        return {
+          ...status,
+          category: isDone ? (off === "DONE" ? "ACTIVE" : off) : "DONE",
+          categoryTouched: true,
+        };
+      }),
+    );
   };
 
   const addLabel = () => {
@@ -187,6 +204,9 @@ export function useStatusEditor({
                   label:
                     status.label.trim(),
                   color: status.color,
+                  ...(status.categoryTouched && status.category
+                    ? { category: status.category }
+                    : {}),
                 },
               );
             }
@@ -198,6 +218,9 @@ export function useStatusEditor({
                 label:
                   status.label.trim(),
                 color: status.color,
+                ...(status.categoryTouched && status.category
+                  ? { category: status.category }
+                  : {}),
               },
             );
           }),
@@ -256,6 +279,7 @@ export function useStatusEditor({
     setStatuses,
     updateLabel,
     updateColor,
+    toggleDone,
     addLabel,
     removeLabel,
     selectStatus,

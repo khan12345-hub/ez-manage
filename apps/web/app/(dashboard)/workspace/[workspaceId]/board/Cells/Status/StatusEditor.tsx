@@ -1,7 +1,9 @@
 "use client";
+import { suggestStatusCategory } from "@/lib/status-category";
+import { useCanManageGroups } from "../../hooks/useCanManageGroups";
 
 import { useEffect } from "react";
-import { ArrowLeft, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Plus, Trash2, CheckCircle2 } from "lucide-react";
 
 import {
   Popover,
@@ -64,6 +66,7 @@ export function StatusEditor({
     selectStatus,
     updateLabel,
     updateColor,
+    toggleDone,
     addLabel,
     removeLabel,
     applyChanges,
@@ -76,6 +79,8 @@ export function StatusEditor({
     onSetValue: setValue,
     onSave: save,
   });
+  // Changing which statuses count as done affects overdue reporting: owner/admin only (matches API).
+  const canSetDone = useCanManageGroups();
 
   useEffect(() => {
     setStatuses(statusOptions);
@@ -195,6 +200,10 @@ export function StatusEditor({
               </Button>
               <span className="text-sm font-semibold">Edit Labels</span>
             </div>
+            <p className="-mt-1 text-[11.5px] leading-snug text-muted-foreground">
+              Mark the statuses that mean <span className="font-semibold text-foreground">finished</span> (e.g. Done, Paid).
+              Tasks in them are never counted as overdue.
+            </p>
 
             {/* Label rows */}
             <div className="space-y-1.5">
@@ -230,6 +239,34 @@ export function StatusEditor({
                       onChange={(e) => updateLabel(status.id, e.target.value)}
                       className="h-auto min-w-0 flex-1 border-0 p-0 text-sm shadow-none focus-visible:ring-0"
                     />
+
+                    {/* Counts-as-done toggle (status group) */}
+                    {(() => {
+                      const isDone = (status.category ?? suggestStatusCategory(status.label)) === "DONE";
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => canSetDone && toggleDone(status.id)}
+                          disabled={!canSetDone}
+                          aria-pressed={isDone}
+                          title={
+                            !canSetDone
+                              ? "Only board owners/admins can change which statuses count as done"
+                              : isDone ? "Counts as done — click to unmark" : "Mark as a done status"
+                          }
+                          className={cn(
+                            "flex h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed",
+                            isDone
+                              ? "border-primary/40 bg-primary/10 text-primary"
+                              : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
+                            !canSetDone && !isDone && "opacity-40",
+                          )}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Done
+                        </button>
+                      );
+                    })()}
 
                     {/* ⋮ menu — delete */}
                     <DropdownMenu>

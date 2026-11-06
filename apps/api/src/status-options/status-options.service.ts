@@ -1,3 +1,4 @@
+import { suggestStatusCategory } from '../common/status-category';
 import {
   ConflictException,
   Injectable,
@@ -71,6 +72,11 @@ export class StatusOptionsService {
     }
 
     await this.boardAccess.requirePermission(column.boardId, userId, BoardPermission.EDIT);
+    // Choosing an explicit status group changes overdue reporting (dashboard, CEO):
+    // board OWNER/ADMIN only. Without one, the label-based default is used.
+    if (dto.category !== undefined) {
+      await this.boardAccess.requirePermission(column.boardId, userId, BoardPermission.MANAGE_SETTINGS);
+    }
 
     const OPTION_COLUMN_TYPES = ['STATUS', 'DROPDOWN', 'LABEL'];
     if (!OPTION_COLUMN_TYPES.includes(column.type)) {
@@ -100,6 +106,7 @@ export class StatusOptionsService {
         columnId,
         label: dto.label.trim(),
         color: dto.color,
+        category: dto.category ?? suggestStatusCategory(dto.label),
         // order: dto.order,
       },
     });
@@ -108,6 +115,9 @@ export class StatusOptionsService {
   async update(columnId: number, statusId: number, userId: number, dto: UpdateStatusOptionDto) {
     const boardId = await this.resolveColumnBoard(columnId);
     await this.boardAccess.requirePermission(boardId, userId, BoardPermission.EDIT);
+    if (dto.category !== undefined) {
+      await this.boardAccess.requirePermission(boardId, userId, BoardPermission.MANAGE_SETTINGS);
+    }
 
     const statusOption = await this.prisma.statusOption.findFirst({
       where: {
@@ -157,6 +167,11 @@ export class StatusOptionsService {
           }),
           ...(dto.color !== undefined && {
             color: newColor,
+          }),
+          // Category is explicit: renaming a status never silently changes
+          // whether it counts as done.
+          ...(dto.category !== undefined && {
+            category: dto.category,
           }),
           // ...(dto.order !== undefined && {
           //   order: dto.order,

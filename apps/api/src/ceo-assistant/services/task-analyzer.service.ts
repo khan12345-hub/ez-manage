@@ -1,8 +1,8 @@
+import { resolveStatusCategory } from '../../common/status-category';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { BoardColumnType } from 'generated/prisma/enums';
 
-const DONE_KEYWORDS = ['done', 'complete', 'completed', 'finished', 'closed', 'deployed', 'shipped', 'resolved'];
 
 export interface TaskSummary {
   taskId: number;
@@ -158,7 +158,7 @@ export class TaskAnalyzerService {
         cells: {
           select: {
             value: true,
-            column: { select: { id: true, type: true } },
+            column: { select: { id: true, type: true, statusOptions: { select: { id: true, label: true, category: true } } } },
           },
         },
         comments: {
@@ -205,7 +205,7 @@ export class TaskAnalyzerService {
 
       if (assignedUserIds.length === 0) continue;
 
-      const isDone = this.isStatusDone(status?.label);
+      const isDone = this.isStatusDone(statusCell?.value, statusCell?.column.statusOptions);
       if (isDone) continue;
 
       let daysOverdue: number | null = null;
@@ -379,7 +379,7 @@ export class TaskAnalyzerService {
         name: true,
         updatedAt: true,
         group: { select: { name: true, boardId: true } },
-        cells: { select: { value: true, column: { select: { id: true, type: true } } } },
+        cells: { select: { value: true, column: { select: { id: true, type: true, statusOptions: { select: { id: true, label: true, category: true } } } } } },
         comments: { where: { createdAt: { gte: inactivityCutoff } }, select: { id: true }, take: 1 },
         timeEntries: { where: { createdAt: { gte: inactivityCutoff } }, select: { id: true }, take: 1 },
       },
@@ -419,7 +419,7 @@ export class TaskAnalyzerService {
       const assignedUserIds = this.extractPersonIds(personCell?.value);
       const dueDate = this.extractDate(dateCell?.value);
       const status = this.extractStatus(statusCell?.value);
-      const isDone = this.isStatusDone(status?.label);
+      const isDone = this.isStatusDone(statusCell?.value, statusCell?.column.statusOptions);
 
       const timezone = board.timezone;
       const todayStr = getTodayStr(timezone);
@@ -525,7 +525,7 @@ export class TaskAnalyzerService {
         name: true,
         updatedAt: true,
         group: { select: { name: true, boardId: true } },
-        cells: { select: { value: true, column: { select: { id: true, type: true } } } },
+        cells: { select: { value: true, column: { select: { id: true, type: true, statusOptions: { select: { id: true, label: true, category: true } } } } } },
         comments: { where: { createdAt: { gte: inactivityCutoff } }, select: { id: true }, take: 1 },
         timeEntries: { where: { createdAt: { gte: inactivityCutoff } }, select: { id: true }, take: 1 },
       },
@@ -552,7 +552,7 @@ export class TaskAnalyzerService {
 
       const dueDate = this.extractDate(dateCell?.value);
       const status = this.extractStatus(statusCell?.value);
-      const isDone = this.isStatusDone(status?.label);
+      const isDone = this.isStatusDone(statusCell?.value, statusCell?.column.statusOptions);
 
       const timezone = board.timezone;
       const todayStr = getTodayStr(timezone);
@@ -654,9 +654,8 @@ export class TaskAnalyzerService {
     return null;
   }
 
-  private isStatusDone(label?: string | null): boolean {
-    if (!label) return false;
-    const lower = label.toLowerCase().trim();
-    return DONE_KEYWORDS.some((kw) => lower.includes(kw));
+  /** Same rule as the dashboard: the status option's category (ClickUp-style groups). */
+  private isStatusDone(value: unknown, options?: { id: number; label: string; category: string }[]): boolean {
+    return resolveStatusCategory(value, options) === 'DONE';
   }
 }

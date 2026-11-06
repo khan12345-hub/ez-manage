@@ -1,3 +1,4 @@
+import { suggestStatusCategory } from '../common/status-category';
 import {
   BadRequestException,
   ConflictException,
@@ -168,6 +169,7 @@ export class BoardsService {
                   label: option.label,
                   color: option.color,
                   order: option.order,
+                  category: suggestStatusCategory(option.label),
                 })),
               });
             }
@@ -212,6 +214,7 @@ export class BoardsService {
             label: status.label,
             color: status.color,
             order: status.order,
+            category: suggestStatusCategory(status.label),
           })),
         });
 
@@ -432,6 +435,7 @@ export class BoardsService {
                 label: true,
                 color: true,
                 order: true,
+                category: true,
               },
             },
 
