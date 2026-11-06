@@ -6,6 +6,8 @@ import {
   IsDateString,
   IsIn,
   IsInt,
+  Max,
+  Min,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -92,13 +94,57 @@ export class UpdateTaskDto {
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(100000) description?: string | null;
   /** move to another list (same workspace); status is remapped by category */
   @IsOptional() @IsInt() listId?: number;
+  /** minutes */
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(0) @Max(100000) timeEstimate?: number | null;
+  /** replaces the task's tags; tags must belong to the task's space */
+  @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) tagIds?: number[];
   @IsOptional() @IsNumber() order?: number;
 }
 
 export class CreateCommentDto {
   @IsString() @IsNotEmpty() @MaxLength(50000) content!: string;
   @IsOptional() @IsInt() parentId?: number;
+  /** assign the comment to someone (action item) */
+  @IsOptional() @IsInt() assigneeId?: number;
 }
 export class UpdateCommentDto {
   @IsString() @IsNotEmpty() @MaxLength(50000) content!: string;
+}
+
+export class CreateTagDto {
+  @IsString() @IsNotEmpty() @MaxLength(40) name!: string;
+  @Matches(HEX) color!: string;
+}
+
+export class CreateChecklistDto {
+  @IsString() @IsNotEmpty() @MaxLength(200) name!: string;
+}
+export class UpdateChecklistDto {
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(200) name?: string;
+  @IsOptional() @IsNumber() order?: number;
+}
+export class CreateChecklistItemDto {
+  @IsString() @IsNotEmpty() @MaxLength(500) name!: string;
+  @IsOptional() @IsInt() assigneeId?: number;
+}
+export class UpdateChecklistItemDto {
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(500) name?: string;
+  @IsOptional() @IsBoolean() done?: boolean;
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() assigneeId?: number | null;
+  @IsOptional() @IsNumber() order?: number;
+}
+
+export const LINK_TYPES = ['WAITING_ON', 'BLOCKING', 'LINKED'] as const;
+export class CreateLinkDto {
+  @IsInt() taskId!: number;
+  /** WAITING_ON: this task waits on taskId; BLOCKING: this task blocks taskId; LINKED: related */
+  @IsIn(LINK_TYPES) type!: (typeof LINK_TYPES)[number];
+}
+
+export class ManualTimeDto {
+  @IsDateString() startedAt!: string;
+  /** seconds */
+  @IsInt() @Min(60) @Max(24 * 3600) duration!: number;
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
+  @IsOptional() @IsBoolean() billable?: boolean;
 }

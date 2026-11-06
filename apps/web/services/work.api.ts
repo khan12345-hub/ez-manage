@@ -79,9 +79,65 @@ export interface WorkTask {
   createdAt: string;
   updatedAt: string;
   createdById: number;
+  timeEstimate: number | null;
   assignees: WorkUser[];
+  tags: WorkTag[];
   subtaskCount: number;
   commentCount: number;
+}
+
+export interface WorkTag {
+  id: number;
+  name: string;
+  color: string;
+}
+
+export interface WorkChecklistItem {
+  id: number;
+  name: string;
+  done: boolean;
+  order: number;
+  assignee: WorkUser | null;
+}
+
+export interface WorkChecklist {
+  id: number;
+  name: string;
+  order: number;
+  items: WorkChecklistItem[];
+}
+
+export interface WorkLinkedTask {
+  linkId: number;
+  task: {
+    id: number;
+    uid: string;
+    name: string;
+    completedAt: string | null;
+    status: { name: string; color: string; category: StatusCategory } | null;
+    list: { name: string };
+  };
+}
+
+export interface WorkTimeEntry {
+  id: number;
+  startedAt: string;
+  endedAt: string | null;
+  duration: number | null;
+  seconds: number;
+  running: boolean;
+  note: string | null;
+  billable: boolean;
+  user: WorkUser;
+}
+
+export interface WorkActivity {
+  id: number;
+  action: string;
+  fromValue: unknown;
+  toValue: unknown;
+  createdAt: string;
+  user: WorkUser;
 }
 
 export interface WorkListDetail {
@@ -107,6 +163,9 @@ export interface WorkTaskDetail extends WorkTask {
   subtasks: WorkTask[];
   statuses: WorkStatus[];
   access: WorkAccessFlags;
+  checklists: WorkChecklist[];
+  links: { waitingOn: WorkLinkedTask[]; blocking: WorkLinkedTask[]; linked: WorkLinkedTask[] };
+  time: { totalSeconds: number; myRunning: { id: number; startedAt: string } | null };
 }
 
 export interface WorkComment {
@@ -116,7 +175,9 @@ export interface WorkComment {
   content: string;
   createdAt: string;
   updatedAt: string;
+  resolvedAt: string | null;
   user: WorkUser;
+  assignee: WorkUser | null;
 }
 
 export interface MyWorkTask extends WorkTask {
@@ -135,6 +196,8 @@ export interface TaskInput {
   description?: string | null;
   listId?: number;
   order?: number;
+  timeEstimate?: number | null;
+  tagIds?: number[];
 }
 
 /* ─── calls ────────────────────────────────────────────────────────────── */
@@ -180,8 +243,37 @@ export const workApi = {
   archiveTask: (id: number) => del(`/work/tasks/${id}`),
 
   comments: (taskId: number) => get<WorkComment[]>(`/work/tasks/${taskId}/comments`),
-  addComment: (taskId: number, content: string, parentId?: number) =>
-    post<WorkComment>(`/work/tasks/${taskId}/comments`, { content, ...(parentId ? { parentId } : {}) }),
+  addComment: (taskId: number, content: string, opts?: { parentId?: number; assigneeId?: number }) =>
+    post<WorkComment>(`/work/tasks/${taskId}/comments`, { content, ...(opts?.parentId ? { parentId: opts.parentId } : {}), ...(opts?.assigneeId ? { assigneeId: opts.assigneeId } : {}) }),
+  resolveComment: (id: number) => post<WorkComment>(`/work/comments/${id}/resolve`),
+  reopenComment: (id: number) => post<WorkComment>(`/work/comments/${id}/reopen`),
+  assignedComments: (workspace: string | number, mode: "to-me" | "by-me", resolved = false) =>
+    get<any[]>(`/work/workspaces/${workspace}/assigned-comments?mode=${mode}&resolved=${resolved}`),
+  activity: (taskId: number) => get<WorkActivity[]>(`/work/tasks/${taskId}/activity`),
+
+  tags: (spaceId: number) => get<WorkTag[]>(`/work/spaces/${spaceId}/tags`),
+  createTag: (spaceId: number, name: string, color: string) => post<WorkTag>(`/work/spaces/${spaceId}/tags`, { name, color }),
+  deleteTag: (id: number) => del(`/work/tags/${id}`),
+
+  createChecklist: (taskId: number, name: string) => post<WorkChecklist>(`/work/tasks/${taskId}/checklists`, { name }),
+  updateChecklist: (id: number, body: Partial<{ name: string; order: number }>) => patch(`/work/checklists/${id}`, body),
+  deleteChecklist: (id: number) => del(`/work/checklists/${id}`),
+  addChecklistItem: (checklistId: number, name: string, assigneeId?: number) =>
+    post<WorkChecklistItem>(`/work/checklists/${checklistId}/items`, { name, ...(assigneeId ? { assigneeId } : {}) }),
+  updateChecklistItem: (id: number, body: Partial<{ name: string; done: boolean; assigneeId: number | null; order: number }>) =>
+    patch<WorkChecklistItem>(`/work/checklist-items/${id}`, body),
+  deleteChecklistItem: (id: number) => del(`/work/checklist-items/${id}`),
+
+  addLink: (taskId: number, otherTaskId: number, type: "WAITING_ON" | "BLOCKING" | "LINKED") =>
+    post(`/work/tasks/${taskId}/links`, { taskId: otherTaskId, type }),
+  removeLink: (linkId: number) => del(`/work/links/${linkId}`),
+
+  time: (taskId: number) => get<{ totalSeconds: number; entries: WorkTimeEntry[] }>(`/work/tasks/${taskId}/time`),
+  startTimer: (taskId: number) => post(`/work/tasks/${taskId}/time/start`),
+  stopTimer: () => post(`/work/time/stop`),
+  runningTimer: () => get<{ id: number; startedAt: string; task: { id: number; uid: string; name: string; list: { uid: string; space: { workspaceId: number } } } } | null>(`/work/time/running`),
+  addTime: (taskId: number, body: { startedAt: string; duration: number; note?: string }) => post(`/work/tasks/${taskId}/time`, body),
+  deleteTime: (id: number) => del(`/work/time/${id}`),
   editComment: (id: number, content: string) => patch<WorkComment>(`/work/comments/${id}`, { content }),
   deleteComment: (id: number) => del(`/work/comments/${id}`),
 };
@@ -219,4 +311,30 @@ export function isTaskOverdue(t: Pick<WorkTask, "dueDate" | "completedAt">) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return dayOf(t.dueDate) < today;
+}
+
+/** 5400 -> "1h 30m", 45 -> "45s" */
+export function formatDuration(totalSeconds: number) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  if (h) return m ? `${h}h ${m}m` : `${h}h`;
+  if (m) return `${m}m`;
+  return `${Math.max(0, Math.round(totalSeconds))}s`;
+}
+
+/** minutes -> "1h 30m" */
+export const formatMinutes = (min: number) => formatDuration(min * 60);
+
+/** "1h 30m" | "90m" | "1.5h" | "90" (minutes) -> minutes, or null if unparseable */
+export function parseEstimate(input: string): number | null {
+  const v = input.trim().toLowerCase();
+  if (!v) return null;
+  if (/^\d+$/.test(v)) return Number(v);
+  let total = 0;
+  let matched = false;
+  for (const [, n, unit] of v.matchAll(/(\d+(?:\.\d+)?)\s*(h|hr|hrs|hours?|m|min|mins|minutes?)/g)) {
+    matched = true;
+    total += unit!.startsWith("h") ? Number(n) * 60 : Number(n);
+  }
+  return matched ? Math.round(total) : null;
 }

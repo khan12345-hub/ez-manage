@@ -125,6 +125,10 @@ model User {
   workTasksCreated    WorkTask[]         @relation("WorkTaskCreator")
   workTaskAssignments WorkTaskAssignee[] @relation("WorkTaskAssigneeUser")
   workComments        WorkComment[]      @relation("WorkCommentAuthor")
+  workCommentsAssigned WorkComment[]     @relation("WorkCommentAssignee")
+  workChecklistItems  WorkChecklistItem[] @relation("WorkChecklistAssignee")
+  workTimeEntries     WorkTimeEntry[]    @relation("WorkTimeEntryUser")
+  workActivities      WorkActivity[]     @relation("WorkActivityUser")
 
   @@map("users")
 }
@@ -1418,6 +1422,7 @@ model Space {
   folders   WorkFolder[]
   lists     WorkList[]
   statuses  WorkStatus[]
+  tags      WorkTag[]
 
   @@index([workspaceId])
   @@map("work_spaces")
@@ -1523,9 +1528,18 @@ model WorkTask {
   order       Float         @default(1000)
   completedAt DateTime?
   archivedAt  DateTime?
+  /// time estimate in minutes
+  timeEstimate Int?
   createdById Int
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  tags         WorkTaskTag[]
+  checklists   WorkChecklist[]
+  timeEntries  WorkTimeEntry[]
+  activities   WorkActivity[]
+  dependsOn    WorkTaskLink[] @relation("WorkLinkFrom")
+  dependedBy   WorkTaskLink[] @relation("WorkLinkTo")
 
   list      WorkList           @relation(fields: [listId], references: [id], onDelete: Cascade)
   status    WorkStatus?        @relation(fields: [statusId], references: [id], onDelete: SetNull)
@@ -1561,15 +1575,138 @@ model WorkComment {
   userId    Int
   parentId  Int?
   content   String
+  /// assigned comment (ClickUp-style action item): who must act, and when it was resolved
+  assigneeId Int?
+  resolvedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  assignee User?        @relation("WorkCommentAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   task    WorkTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user    User          @relation("WorkCommentAuthor", fields: [userId], references: [id])
   parent  WorkComment?  @relation("WorkCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies WorkComment[] @relation("WorkCommentReplies")
 
   @@index([taskId, createdAt])
+  @@index([assigneeId, resolvedAt])
   @@map("work_comments")
+}
+
+enum WorkLinkType {
+  /// fromTask is waiting on toTask (toTask blocks fromTask)
+  WAITING_ON
+  /// plain relationship
+  LINKED
+}
+
+model WorkTag {
+  id        Int      @id @default(autoincrement())
+  spaceId   Int
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+
+  space Space         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  tasks WorkTaskTag[]
+
+  @@unique([spaceId, name])
+  @@map("work_tags")
+}
+
+model WorkTaskTag {
+  taskId Int
+  tagId  Int
+
+  task WorkTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  WorkTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+  @@index([tagId])
+  @@map("work_task_tags")
+}
+
+model WorkChecklist {
+  id        Int      @id @default(autoincrement())
+  taskId    Int
+  name      String
+  order     Float    @default(1000)
+  createdAt DateTime @default(now())
+
+  task  WorkTask            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  items WorkChecklistItem[]
+
+  @@index([taskId])
+  @@map("work_checklists")
+}
+
+model WorkChecklistItem {
+  id          Int      @id @default(autoincrement())
+  checklistId Int
+  name        String
+  done        Boolean  @default(false)
+  assigneeId  Int?
+  order       Float    @default(1000)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  checklist WorkChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  assignee  User?         @relation("WorkChecklistAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([checklistId])
+  @@map("work_checklist_items")
+}
+
+model WorkTaskLink {
+  id        Int          @id @default(autoincrement())
+  fromId    Int
+  toId      Int
+  type      WorkLinkType
+  createdAt DateTime     @default(now())
+
+  from WorkTask @relation("WorkLinkFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   WorkTask @relation("WorkLinkTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId, type])
+  @@index([toId])
+  @@map("work_task_links")
+}
+
+/// Time tracking. endedAt null = timer running (at most one per user).
+model WorkTimeEntry {
+  id        Int       @id @default(autoincrement())
+  taskId    Int
+  userId    Int
+  startedAt DateTime
+  endedAt   DateTime?
+  /// seconds; set when the entry is stopped or added manually
+  duration  Int?
+  note      String?
+  billable  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  task WorkTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User     @relation("WorkTimeEntryUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId, endedAt])
+  @@map("work_time_entries")
+}
+
+/// Task history shown in the activity timeline next to comments.
+model WorkActivity {
+  id        Int      @id @default(autoincrement())
+  taskId    Int
+  userId    Int
+  /// created | status | name | priority | start_date | due_date | assignees | estimate | tags | moved | archived
+  action    String
+  fromValue Json?
+  toValue   Json?
+  createdAt DateTime @default(now())
+
+  task WorkTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User     @relation("WorkActivityUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("work_activities")
 }

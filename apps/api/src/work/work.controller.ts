@@ -1,9 +1,17 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
+import { WorkDetailService } from './work-detail.service';
 import {
+  CreateChecklistDto,
+  CreateChecklistItemDto,
   CreateCommentDto,
+  CreateLinkDto,
+  CreateTagDto,
+  ManualTimeDto,
+  UpdateChecklistDto,
+  UpdateChecklistItemDto,
   CreateFolderDto,
   CreateListDto,
   CreateSpaceDto,
@@ -24,7 +32,10 @@ import {
  */
 @Controller('work')
 export class WorkController {
-  constructor(private readonly work: WorkService) {}
+  constructor(
+    private readonly work: WorkService,
+    private readonly detail: WorkDetailService,
+  ) {}
 
   // ── workspace level ──
   @Get('workspaces/:workspaceId/tree')
@@ -156,5 +167,120 @@ export class WorkController {
   @Delete('comments/:id')
   deleteComment(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
     return this.work.deleteComment(id, u.id);
+  }
+
+  // ── tags ──
+  @Get('spaces/:id/tags')
+  listTags(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.listTags(id, u.id);
+  }
+
+  @Post('spaces/:id/tags')
+  createTag(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateTagDto, @CurrentUser() u: SessionUser) {
+    return this.detail.createTag(id, u.id, dto);
+  }
+
+  @Delete('tags/:id')
+  deleteTag(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.deleteTag(id, u.id);
+  }
+
+  // ── checklists ──
+  @Post('tasks/:id/checklists')
+  createChecklist(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateChecklistDto, @CurrentUser() u: SessionUser) {
+    return this.detail.createChecklist(id, u.id, dto);
+  }
+
+  @Patch('checklists/:id')
+  updateChecklist(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateChecklistDto, @CurrentUser() u: SessionUser) {
+    return this.detail.updateChecklist(id, u.id, dto);
+  }
+
+  @Delete('checklists/:id')
+  deleteChecklist(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.deleteChecklist(id, u.id);
+  }
+
+  @Post('checklists/:id/items')
+  addChecklistItem(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateChecklistItemDto, @CurrentUser() u: SessionUser) {
+    return this.detail.addChecklistItem(id, u.id, dto);
+  }
+
+  @Patch('checklist-items/:id')
+  updateChecklistItem(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateChecklistItemDto, @CurrentUser() u: SessionUser) {
+    return this.detail.updateChecklistItem(id, u.id, dto);
+  }
+
+  @Delete('checklist-items/:id')
+  deleteChecklistItem(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.deleteChecklistItem(id, u.id);
+  }
+
+  // ── dependencies / links ──
+  @Post('tasks/:id/links')
+  addLink(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateLinkDto, @CurrentUser() u: SessionUser) {
+    return this.detail.addLink(id, u.id, dto);
+  }
+
+  @Delete('links/:id')
+  removeLink(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.removeLink(id, u.id);
+  }
+
+  // ── time tracking ──
+  @Get('tasks/:id/time')
+  listTime(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.listTime(id, u.id);
+  }
+
+  @Post('tasks/:id/time/start')
+  startTimer(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.startTimer(id, u.id);
+  }
+
+  @Post('time/stop')
+  stopTimer(@CurrentUser() u: SessionUser) {
+    return this.detail.stopTimer(u.id);
+  }
+
+  @Get('time/running')
+  myRunning(@CurrentUser() u: SessionUser) {
+    return this.detail.myRunning(u.id);
+  }
+
+  @Post('tasks/:id/time')
+  addManualTime(@Param('id', ParseIntPipe) id: number, @Body() dto: ManualTimeDto, @CurrentUser() u: SessionUser) {
+    return this.detail.addManualTime(id, u.id, dto);
+  }
+
+  @Delete('time/:id')
+  deleteTime(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.deleteTime(id, u.id);
+  }
+
+  // ── assigned comments + activity ──
+  @Post('comments/:id/resolve')
+  resolveComment(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.setCommentResolved(id, u.id, true);
+  }
+
+  @Post('comments/:id/reopen')
+  reopenComment(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.setCommentResolved(id, u.id, false);
+  }
+
+  @Get('workspaces/:workspaceId/assigned-comments')
+  async assignedComments(
+    @Param('workspaceId') ws: string,
+    @Query('mode') mode: string,
+    @Query('resolved') resolved: string,
+    @CurrentUser() u: SessionUser,
+  ) {
+    return this.detail.assignedComments(await this.work.resolveWorkspaceId(ws), u.id, mode === 'by-me' ? 'by-me' : 'to-me', resolved === 'true');
+  }
+
+  @Get('tasks/:id/activity')
+  activity(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.detail.activity(id, u.id);
   }
 }

@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, CalendarDays, CircleDot, Flag, Link2, Plus, Trash2, Users } from "lucide-react";
+import { Archive, CalendarDays, CircleDot, Flag, Hourglass, Link2, Plus, Tag as TagIcon, Timer, UserCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
-import { userName, workApi, workKeys, type TaskInput, type WorkTask } from "@/services/work.api";
+import { userName, workApi, workKeys, type TaskInput, type WorkTask, type WorkUser } from "@/services/work.api";
+import { ChecklistsSection, EstimateField, RelationshipsSection, TagsField, TimeTracker, Timeline } from "./TaskDetailSections";
 import { Avatar, AvatarStack, DueLabel, PriorityFlag, StatusGlyph, StatusPill, dueText } from "./primitives";
 import { AssigneePicker, DatePicker, PriorityPicker, StatusPicker } from "./pickers";
 
@@ -48,6 +49,7 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
   const [description, setDescription] = useState("");
   const [comment, setComment] = useState("");
   const [subName, setSubName] = useState("");
+  const [commentAssignee, setCommentAssignee] = useState<WorkUser | null>(null);
   useEffect(() => {
     setName(task?.name ?? "");
     setDescription(task?.description ?? "");
@@ -74,9 +76,10 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
     onError: (e) => toast.error(errMsg(e)),
   });
   const addComment = useMutation({
-    mutationFn: (c: string) => workApi.addComment(task!.id, c),
+    mutationFn: (c: string) => workApi.addComment(task!.id, c, { assigneeId: commentAssignee?.id }),
     onSuccess: () => {
       setComment("");
+      setCommentAssignee(null);
       qc.invalidateQueries({ queryKey: workKeys.comments(task!.id) });
       refresh(task!.listId);
     },
@@ -187,6 +190,15 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                     <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent"><PriorityFlag priority={task.priority} showLabel /></button>
                   </PriorityPicker>
                 </Prop>
+                <Prop icon={Hourglass} label="Estimate">
+                  <EstimateField task={task} onSave={(m) => update({ timeEstimate: m })} />
+                </Prop>
+                <Prop icon={Timer} label="Track time">
+                  <TimeTracker task={task} />
+                </Prop>
+                <Prop icon={TagIcon} label="Tags">
+                  <TagsField task={task} spaceId={task.list.spaceId} onSave={(ids) => update({ tagIds: ids })} />
+                </Prop>
               </dl>
 
               {/* description */}
@@ -241,30 +253,17 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                 </section>
               )}
 
-              {/* comments */}
-              <section className="px-6 py-4">
-                <h3 className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">Activity · comments</h3>
-                <ul className="space-y-3">
-                  {comments.map((c) => (
-                    <li key={c.id} className="flex gap-2.5">
-                      <Avatar user={c.user} size={28} />
-                      <div className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-[13px] font-semibold">{userName(c.user)}</span>
-                          <span className="text-[11px] text-muted-foreground">{timeAgo(c.createdAt)}</span>
-                          {c.user.id === user?.id && (
-                            <button type="button" aria-label="Delete comment" onClick={() => delComment.mutate(c.id)} className="ml-auto rounded p-0.5 text-muted-foreground hover:text-destructive">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                        <p className="mt-0.5 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">{c.content}</p>
-                      </div>
-                    </li>
-                  ))}
-                  {comments.length === 0 && <li className="text-[13px] text-muted-foreground">No comments yet.</li>}
-                </ul>
-              </section>
+              <ChecklistsSection task={task} members={list?.members ?? []} />
+              <RelationshipsSection task={task} />
+
+              {/* comments + history */}
+              <Timeline
+                task={task}
+                comments={comments}
+                currentUserId={user?.id}
+                members={list?.members ?? []}
+                onDeleteComment={(id) => delComment.mutate(id)}
+              />
             </div>
 
             {/* composer + actions */}
@@ -282,6 +281,23 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                     rows={2}
                     className="min-h-[44px] flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-[13.5px] outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
                   />
+                  <AssigneePicker
+                    members={list?.members ?? []}
+                    value={commentAssignee ? [commentAssignee] : []}
+                    onChange={(ids) => {
+                      const id = ids.filter((x) => x !== commentAssignee?.id)[0];
+                      setCommentAssignee(id ? (list?.members ?? []).find((m) => m.id === id) ?? null : null);
+                    }}
+                  >
+                    <button
+                      type="button"
+                      title="Assign this comment"
+                      aria-label="Assign this comment"
+                      className={cn("flex h-10 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium", commentAssignee ? "border-[#b08d57]/60 bg-[#b08d57]/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+                    >
+                      {commentAssignee ? <><Avatar user={commentAssignee} size={18} /> <span className="max-w-[70px] truncate">{commentAssignee.firstName}</span></> : <UserCheck className="h-4 w-4" />}
+                    </button>
+                  </AssigneePicker>
                   <button
                     type="button"
                     disabled={!comment.trim() || addComment.isPending}

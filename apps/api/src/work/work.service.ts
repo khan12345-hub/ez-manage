@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { randomBytes } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 import { WorkAccessService } from './work-access.service';
+import { WorkDetailService } from './work-detail.service';
 import {
   CreateCommentDto,
   CreateFolderDto,
@@ -40,27 +41,42 @@ const TASK_SELECT = {
   dueDate: true,
   order: true,
   completedAt: true,
+  timeEstimate: true,
   createdAt: true,
   updatedAt: true,
   createdById: true,
   assignees: { select: { user: { select: USER_MINI } } },
+  tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
   _count: { select: { subtasks: { where: { archivedAt: null } }, comments: { where: { deletedAt: null } } } },
 } as const;
 
 type TaskRow = {
   assignees: { user: { id: number; firstName: string; lastName: string; avatarUrl: string | null; email: string } }[];
+  tags: { tag: { id: number; name: string; color: string } }[];
   _count: { subtasks: number; comments: number };
   [k: string]: unknown;
 };
 const shapeTask = (t: TaskRow) => {
-  const { assignees, _count, ...rest } = t;
+  const { assignees, tags, _count, ...rest } = t;
   return {
     ...rest,
     assignees: assignees.map((a) => a.user),
+    tags: tags.map((x) => x.tag),
     subtaskCount: _count.subtasks,
     commentCount: _count.comments,
   };
 };
+
+const LINKED_TASK = {
+  id: true, uid: true, name: true, completedAt: true, archivedAt: true,
+  status: { select: { name: true, color: true, category: true } },
+  list: { select: { name: true } },
+} as const;
+
+const COMMENT_SELECT = {
+  id: true, taskId: true, parentId: true, content: true, createdAt: true, updatedAt: true, resolvedAt: true,
+  user: { select: USER_MINI }, assignee: { select: USER_MINI },
+} as const;
 
 const toDate = (v: string | null | undefined) => (v === undefined ? undefined : v === null ? null : new Date(v));
 
@@ -69,6 +85,7 @@ export class WorkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: WorkAccessService,
+    private readonly detail: WorkDetailService,
   ) {}
 
   /* ─────────────────────────── helpers ─────────────────────────── */
@@ -414,6 +431,7 @@ export class WorkService {
       },
       select: TASK_SELECT,
     });
+    await this.detail.log(created.id, userId, 'created');
     return shapeTask(created);
   }
 
@@ -428,14 +446,37 @@ export class WorkService {
         parent: { select: { id: true, uid: true, name: true } },
         list: { select: { id: true, uid: true, name: true, spaceId: true, folderId: true, space: { select: { name: true, uid: true } } } },
         subtasks: { where: { archivedAt: null }, orderBy: [{ order: 'asc' }, { id: 'asc' }], select: TASK_SELECT },
+        checklists: {
+          orderBy: [{ order: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true, name: true, order: true,
+            items: { orderBy: [{ order: 'asc' }, { id: 'asc' }], select: { id: true, name: true, done: true, order: true, assignee: { select: USER_MINI } } },
+          },
+        },
+        dependsOn: { select: { id: true, type: true, to: { select: LINKED_TASK } } },
+        dependedBy: { select: { id: true, type: true, from: { select: LINKED_TASK } } },
       },
     });
     if (!row) throw new NotFoundException('Task not found.');
     const access = await this.access.requireSpace(row.list.spaceId, userId, 'view');
     const statuses = await this.effectiveStatuses(row.list);
-    const { subtasks, ...rest } = row as any;
+    const { subtasks, checklists, dependsOn, dependedBy, ...rest } = row as any;
+    const visible = (t: any) => !t.archivedAt;
+    const links = {
+      waitingOn: dependsOn.filter((l: any) => l.type === 'WAITING_ON' && visible(l.to)).map((l: any) => ({ linkId: l.id, task: l.to })),
+      blocking: dependedBy.filter((l: any) => l.type === 'WAITING_ON' && visible(l.from)).map((l: any) => ({ linkId: l.id, task: l.from })),
+      linked: [
+        ...dependsOn.filter((l: any) => l.type === 'LINKED' && visible(l.to)).map((l: any) => ({ linkId: l.id, task: l.to })),
+        ...dependedBy.filter((l: any) => l.type === 'LINKED' && visible(l.from)).map((l: any) => ({ linkId: l.id, task: l.from })),
+      ],
+    };
+    const time = await this.detail.listTime(row.id, userId);
+    const running = time.entries.find((e: any) => e.running && e.user.id === userId) ?? null;
     return {
       ...shapeTask(rest),
+      checklists,
+      links,
+      time: { totalSeconds: time.totalSeconds, myRunning: running ? { id: running.id, startedAt: running.startedAt } : null },
       description: row.description,
       createdBy: row.createdBy,
       parent: row.parent,
@@ -479,7 +520,37 @@ export class WorkService {
     }
 
     await this.assertAssignable(access.workspaceId, dto.assigneeIds);
+
+    // snapshot for the activity history
+    const before = await this.prisma.workTask.findUnique({
+      where: { id: taskId },
+      select: {
+        name: true, priority: true, startDate: true, dueDate: true, timeEstimate: true, statusId: true, listId: true,
+        status: { select: { name: true } },
+        list: { select: { name: true, spaceId: true } },
+        assignees: { select: { userId: true } },
+        tags: { select: { tagId: true } },
+      },
+    });
+
+    // tags must belong to the (target) list's space; moving to another space drops foreign tags
+    const targetSpaceId = listId === task.listId
+      ? task.list.spaceId
+      : (await this.prisma.workList.findUnique({ where: { id: listId }, select: { spaceId: true } }))!.spaceId;
+    if (dto.tagIds?.length) {
+      const ids = [...new Set(dto.tagIds)];
+      const n = await this.prisma.workTag.count({ where: { id: { in: ids }, spaceId: targetSpaceId } });
+      if (n !== ids.length) throw new BadRequestException('Tags must belong to this space.');
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
+      if (dto.tagIds) {
+        const ids = [...new Set(dto.tagIds)];
+        await tx.workTaskTag.deleteMany({ where: { taskId, tagId: { notIn: ids } } });
+        await tx.workTaskTag.createMany({ data: ids.map((tagId) => ({ taskId, tagId })), skipDuplicates: true });
+      } else if (targetSpaceId !== task.list.spaceId) {
+        await tx.workTaskTag.deleteMany({ where: { taskId, tag: { spaceId: { not: targetSpaceId } } } });
+      }
       if (dto.assigneeIds) {
         const ids = [...new Set(dto.assigneeIds)];
         await tx.workTaskAssignee.deleteMany({ where: { taskId, userId: { notIn: ids } } });
@@ -498,6 +569,7 @@ export class WorkService {
           ...(dto.startDate !== undefined && { startDate: toDate(dto.startDate) }),
           ...(dto.dueDate !== undefined && { dueDate: toDate(dto.dueDate) }),
           ...(dto.order !== undefined && { order: dto.order }),
+          ...(dto.timeEstimate !== undefined && { timeEstimate: dto.timeEstimate }),
           ...(listId !== task.listId && { listId, parentId: null }),
           ...(statusId !== undefined && { statusId }),
           // completedAt only changes when the status group actually changes
@@ -507,11 +579,44 @@ export class WorkService {
         select: TASK_SELECT,
       });
     });
+    await this.logChanges(taskId, userId, before, updated, dto);
     return shapeTask(updated);
+  }
+
+  /** Write one history row per changed field. */
+  private async logChanges(taskId: number, userId: number, before: any, after: any, dto: UpdateTaskDto) {
+    if (!before) return;
+    const day = (d: Date | null) => (d ? new Date(d).toISOString() : null);
+    const rows: [string, unknown, unknown][] = [];
+    if (dto.name !== undefined && before.name !== after.name) rows.push(['name', before.name, after.name]);
+    if (after.statusId !== before.statusId) {
+      const st = after.statusId ? await this.prisma.workStatus.findUnique({ where: { id: after.statusId }, select: { name: true } }) : null;
+      rows.push(['status', before.status?.name ?? null, st?.name ?? null]);
+    }
+    if (dto.priority !== undefined && before.priority !== after.priority) rows.push(['priority', before.priority, after.priority]);
+    if (dto.startDate !== undefined && day(before.startDate) !== day(after.startDate)) rows.push(['start_date', day(before.startDate), day(after.startDate)]);
+    if (dto.dueDate !== undefined && day(before.dueDate) !== day(after.dueDate)) rows.push(['due_date', day(before.dueDate), day(after.dueDate)]);
+    if (dto.timeEstimate !== undefined && before.timeEstimate !== after.timeEstimate) rows.push(['estimate', before.timeEstimate, after.timeEstimate]);
+    if (dto.assigneeIds) {
+      const b = before.assignees.map((a: any) => a.userId).sort();
+      const a = after.assignees.map((x: any) => x.user.id).sort();
+      if (b.join() !== a.join()) rows.push(['assignees', b, a]);
+    }
+    if (dto.tagIds) {
+      const b = before.tags.map((t: any) => t.tagId).sort();
+      const a = after.tags.map((t: any) => t.tag.id).sort();
+      if (b.join() !== a.join()) rows.push(['tags', b, after.tags.map((t: any) => t.tag.name)]);
+    }
+    if (after.listId !== before.listId) {
+      const l = await this.prisma.workList.findUnique({ where: { id: after.listId }, select: { name: true } });
+      rows.push(['moved', before.list?.name ?? null, l?.name ?? null]);
+    }
+    for (const [action, from, to] of rows) await this.detail.log(taskId, userId, action, from, to);
   }
 
   async archiveTask(taskId: number, userId: number) {
     await this.access.requireTask(taskId, userId, 'edit');
+    await this.detail.log(taskId, userId, 'archived');
     const now = new Date();
     await this.prisma.$transaction([
       this.prisma.workTask.updateMany({ where: { parentId: taskId, archivedAt: null }, data: { archivedAt: now } }),
@@ -527,7 +632,7 @@ export class WorkService {
     return this.prisma.workComment.findMany({
       where: { taskId, deletedAt: null },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, taskId: true, parentId: true, content: true, createdAt: true, updatedAt: true, user: { select: USER_MINI } },
+      select: COMMENT_SELECT,
     });
   }
 
@@ -537,9 +642,14 @@ export class WorkService {
       const p = await this.prisma.workComment.findFirst({ where: { id: dto.parentId, taskId, deletedAt: null }, select: { id: true } });
       if (!p) throw new BadRequestException('Reply target is not on this task.');
     }
+    if (dto.assigneeId) {
+      const { access } = await this.access.requireTask(taskId, userId, 'edit');
+      const ok = await this.prisma.workspaceMember.count({ where: { workspaceId: access.workspaceId, userId: dto.assigneeId, deletedAt: null } });
+      if (!ok) throw new BadRequestException('Comments can only be assigned to workspace members.');
+    }
     return this.prisma.workComment.create({
-      data: { taskId, userId, parentId: dto.parentId ?? null, content: dto.content },
-      select: { id: true, taskId: true, parentId: true, content: true, createdAt: true, updatedAt: true, user: { select: USER_MINI } },
+      data: { taskId, userId, parentId: dto.parentId ?? null, content: dto.content, assigneeId: dto.assigneeId ?? null },
+      select: COMMENT_SELECT,
     });
   }
 
@@ -556,7 +666,7 @@ export class WorkService {
     return this.prisma.workComment.update({
       where: { id: commentId },
       data: { content: dto.content },
-      select: { id: true, taskId: true, parentId: true, content: true, createdAt: true, updatedAt: true, user: { select: USER_MINI } },
+      select: COMMENT_SELECT,
     });
   }
 

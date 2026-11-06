@@ -77,3 +77,27 @@ Use together with `clickup-feature-inventory.md` (397-item public checklist).
   - landing pages
 - **Meetings:** AI prompt ("turn action items into follow-up tasks"), upcoming meetings, send AI Notetaker, meeting notes with tags.
 - **Brain** chat agent (model picker, Skills in the composer) and **Super Agents**.
+
+## From the owner's screenshots (2026-11-07)
+- **Group options (⋯ on a status group):**
+  - Rename, New status, Edit statuses
+  - Collapse group, Hide status
+  - Select all, Collapse all groups
+  - Automate status
+  - Plus a **+** next to each group to add a status.
+- **Column ⊕ → Fields panel:**
+  - **Create new** custom fields.
+    - Popular: Dropdown, Text, Date, Text area, Number, Labels.
+    - All: Button, Checkbox, Date, Dropdown, Email, Files, Formula, Labels, Location, Money, Number, People, Phone, Progress (auto/manual), Rating, Relationship, Rollup, Signature, Tasks, Text, Text area, Voting, Website.
+  - **Add existing:** toggles per column (Shown: Assignee, Due date, Priority, Sprints). Properties: Assigned comments, Comments, Created by, Custom task ID, Date closed/created/done/updated, Dependencies, Duration, Latest comment, Linked docs, Linked tasks, Lists, Pull requests, Sprint points, Start date, Status, Task ID, Task type, Time estimate, Time tracked, Timeline. Also "Custom fields in workspace".
+  - Column headers are sortable.
+- **Toolbar:** Group by, Subtasks, Columns, **Save view** (split), Filter, Closed, Assignee, avatar filter, Search, Customize, **Add Task** (split).
+- **Task view layouts:** **Modal / Full screen / Sidebar**, using a "switch layout" button in the task header. Header also has Integrate, Share, ⋯, Favourite, Close.
+- **Global timer** in the top bar (running time + stop) next to the reminders/record/mic icons.
+- **Create panel (+):**
+  - Tabs: **Task / Doc / Reminder / Whiteboard / Dashboard**.
+  - Task tab: **list picker** (Recents + browse tree with search), task type, name, description, chips (status, Assignee, Due date, Priority, Tags, ⋯), Fields "+ Create new field", **Templates**, attach, watchers bell.
+  - The **Create Task** split button offers Create and open / Create and start another / Create and duplicate.
+- **Doc tab:** location (My Docs), name, Start writing, add Table / Column / List, Private toggle.
+- **Reminder tab:** name, description, Today, For me, Notify me.
+- **List rows:** subtasks shown nested under the parent with expand arrows, an "Add to Sprint" button, and a date or flag placeholder on hover.

@@ -93,6 +93,11 @@ function Row({ task, depth = 0, ctx }: { task: WorkTask; depth?: number; ctx: Ro
             <button type="button" onClick={() => onOpenTask(task.uid)} className={cn("min-w-0 truncate text-left text-[14px] font-medium text-foreground hover:text-primary", task.completedAt && "text-muted-foreground line-through decoration-muted-foreground/40")}>
               {task.name}
             </button>
+            {task.tags?.slice(0, 3).map((t) => (
+              <span key={t.id} className="hidden shrink-0 rounded px-1.5 py-px text-[10.5px] font-semibold sm:inline" style={{ background: `${t.color}1f`, color: t.color }}>
+                {t.name}
+              </span>
+            ))}
             {task.subtaskCount > 0 && (
               <span className="shrink-0 rounded bg-muted px-1.5 font-mono text-[10.5px] text-muted-foreground" title={`${task.subtaskCount} subtasks`}>
                 {task.subtaskCount}
