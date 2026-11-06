@@ -114,7 +114,9 @@ export function Group({
       getBoardTasks(boardId, {
         groupId: group.id,
         cursor: pageParam ?? undefined,
-        limit: 500,
+        // Small first page so rows appear fast, then big pages (API caps at
+        // 1000) so a large group needs few round-trips / re-renders.
+        limit: pageParam == null ? 100 : 1000,
         search: searchTrimmed || undefined,
         person: personFilterKey || undefined,
       }),
@@ -150,16 +152,21 @@ export function Group({
   // must stop firing fetchNextPage() or we hammer the API forever.
   useEffect(() => {
     if (!hasNextPage || isFetchingNextPage || isGroupTasksError) return;
-    const timer = setTimeout(() => fetchNextPage(), 200);
-    return () => clearTimeout(timer);
+    // next page right away (the old 200ms pause only added latency)
+    fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, isGroupTasksError, fetchNextPage, loadedTasks.length]);
 
-  // Report tasks up to Board so useBoardDnd can compute drag positions
+  // Report tasks up to Board (drag & drop positions, bulk selection).
+  // Every report re-renders the whole board, so while a big group is still
+  // paging in we report only the first page and the final full list — not
+  // every intermediate page. Rows render from this group's own query anyway.
+  const pagesLoaded = data?.pages.length ?? 0;
+  const stillPaging = !!hasNextPage && !isGroupTasksError;
   useEffect(() => {
-    if (onTasksLoaded) {
-      onTasksLoaded(group.id, loadedTasks);
-    }
-  }, [group.id, loadedTasks, onTasksLoaded]);
+    if (!onTasksLoaded) return;
+    if (stillPaging && pagesLoaded > 1) return;
+    onTasksLoaded(group.id, loadedTasks);
+  }, [group.id, loadedTasks, onTasksLoaded, stillPaging, pagesLoaded]);
 
   const createColumnMutation = useMutation({
     mutationFn: (type: BoardColumnType) => createColumn(boardId || 0, type),
