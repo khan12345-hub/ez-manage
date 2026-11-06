@@ -11,6 +11,7 @@ import { Searchbar } from "./Searchbar";
 import { Notifications } from "./Notifications";
 import UserProfile from "./UserProfile";
 import { ImportJobBadge } from "@/components/ImportJobBadge";
+import { RunningTimer } from "./RunningTimer";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearchModal } from "@/app/(dashboard)/workspace/[workspaceId]/board/[boardId]/BoardHeader/GlobalSearch/GlobalSearchModal";
 
@@ -72,6 +73,7 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           </button>
 
+          <RunningTimer />
           <ImportJobBadge />
           <ThemeToggle />
           <Notifications />

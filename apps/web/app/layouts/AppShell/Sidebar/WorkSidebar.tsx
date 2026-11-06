@@ -39,6 +39,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NameDialog, type NameDialogResult } from "@/app/(dashboard)/work/_components/NameDialog";
 import { BrandMark, ProductSwitcher } from "./ProductNav";
+import { CreatePanel } from "@/app/(dashboard)/work/_components/CreatePanel";
+import { useWorkCreate } from "@/store/work-create";
 
 type DialogState =
   | null
@@ -79,6 +81,8 @@ export function WorkSidebar({
     staleTime: 30_000,
   });
   const canManage = !!tree?.access.canManage;
+  const canEdit = !!tree?.access.canEdit;
+  const openCreate = useWorkCreate((st) => st.openCreate);
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
@@ -219,6 +223,18 @@ export function WorkSidebar({
           </select>
         </div>
 
+        {canEdit && (
+          <div className="px-4 pb-1">
+            <button
+              type="button"
+              onClick={() => openCreate(activeListUid || null)}
+              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-forest text-[13px] font-semibold text-forest-foreground shadow-sm hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground"
+            >
+              <Plus className="h-4 w-4" /> New task
+            </button>
+          </div>
+        )}
+
         <nav className="flex-1 overflow-y-auto px-3 pb-3" aria-label="Work">
           <Link
             href={wsParam ? `/work/${wsParam}` : "#"}
@@ -346,6 +362,7 @@ export function WorkSidebar({
         </button>
       )}
 
+      {wsParam && <CreatePanel ws={wsParam} />}
       {dialogProps && (
         <NameDialog
           open={!!dialog}

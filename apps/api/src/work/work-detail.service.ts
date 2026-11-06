@@ -196,7 +196,7 @@ export class WorkDetailService {
   async myRunning(userId: number) {
     const e = await this.prisma.workTimeEntry.findFirst({
       where: { userId, endedAt: null },
-      select: { id: true, startedAt: true, task: { select: { id: true, uid: true, name: true, list: { select: { uid: true, space: { select: { workspaceId: true } } } } } } },
+      select: { id: true, startedAt: true, task: { select: { id: true, uid: true, name: true, list: { select: { uid: true, space: { select: { workspaceId: true, workspace: { select: { uid: true } } } } } } } } },
     });
     return e ?? null;
   }

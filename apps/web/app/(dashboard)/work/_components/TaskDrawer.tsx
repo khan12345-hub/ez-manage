@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, CalendarDays, CircleDot, Flag, Hourglass, Link2, Plus, Tag as TagIcon, Timer, UserCheck, Users } from "lucide-react";
+import { Archive, CalendarDays, Check, CircleDot, Flag, Hourglass, Link2, Maximize2, PanelRight, Plus, SquareStack, Tag as TagIcon, Timer, UserCheck, Users } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -22,7 +23,36 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/** Task detail drawer (opened with ?task=<uid>). */
+export type TaskLayout = "modal" | "full" | "sidebar";
+const LAYOUT_KEY = "ez:work:taskLayout";
+const LAYOUTS: { id: TaskLayout; label: string; icon: typeof Maximize2 }[] = [
+  { id: "modal", label: "Modal", icon: SquareStack },
+  { id: "full", label: "Full screen", icon: Maximize2 },
+  { id: "sidebar", label: "Sidebar", icon: PanelRight },
+];
+const LAYOUT_CLASS: Record<TaskLayout, string> = {
+  sidebar: "data-[side=right]:w-full data-[side=right]:sm:w-[680px] data-[side=right]:sm:max-w-[680px]",
+  modal:
+    "data-[side=right]:inset-y-auto data-[side=right]:top-[4vh] data-[side=right]:left-0 data-[side=right]:mx-auto data-[side=right]:h-[92vh] data-[side=right]:w-[min(1180px,96vw)] data-[side=right]:sm:max-w-none data-[side=right]:overflow-hidden data-[side=right]:rounded-2xl data-[side=right]:border",
+  full: "data-[side=right]:left-0 data-[side=right]:w-full data-[side=right]:sm:max-w-none data-[side=right]:border-l-0",
+};
+
+function useTaskLayout() {
+  const [layout, setLayout] = useState<TaskLayout>("modal");
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(LAYOUT_KEY) as TaskLayout | null;
+      if (v && v in LAYOUT_CLASS) setLayout(v);
+    } catch {}
+  }, []);
+  const choose = (l: TaskLayout) => {
+    setLayout(l);
+    try { localStorage.setItem(LAYOUT_KEY, l); } catch {}
+  };
+  return [layout, choose] as const;
+}
+
+/** Task detail view (opened with ?task=<uid>): Modal, Full screen or Sidebar layout. */
 export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string | null; onClose: () => void; onOpenTask: (uid: string) => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -45,6 +75,8 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
   });
 
   const canEdit = !!task?.access.canEdit;
+  const [layout, setLayout] = useTaskLayout();
+  const wide = layout !== "sidebar";
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [comment, setComment] = useState("");
@@ -107,9 +139,54 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
     navigator.clipboard.writeText(window.location.href).then(() => toast.success("Task link copied"));
   };
 
+  const composerEl = !task ? null : (
+    <>
+      {canEdit && (
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && comment.trim()) addComment.mutate(comment.trim());
+                    }}
+                    placeholder="Write a comment…  (Ctrl+Enter to send)"
+                    aria-label="Comment"
+                    rows={2}
+                    className="min-h-[44px] flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-[13.5px] outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+                  />
+                  <AssigneePicker
+                    members={list?.members ?? []}
+                    value={commentAssignee ? [commentAssignee] : []}
+                    onChange={(ids) => {
+                      const id = ids.filter((x) => x !== commentAssignee?.id)[0];
+                      setCommentAssignee(id ? (list?.members ?? []).find((m) => m.id === id) ?? null : null);
+                    }}
+                  >
+                    <button
+                      type="button"
+                      title="Assign this comment"
+                      aria-label="Assign this comment"
+                      className={cn("flex h-10 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium", commentAssignee ? "border-[#b08d57]/60 bg-[#b08d57]/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+                    >
+                      {commentAssignee ? <><Avatar user={commentAssignee} size={18} /> <span className="max-w-[70px] truncate">{commentAssignee.firstName}</span></> : <UserCheck className="h-4 w-4" />}
+                    </button>
+                  </AssigneePicker>
+                  <button
+                    type="button"
+                    disabled={!comment.trim() || addComment.isPending}
+                    onClick={() => addComment.mutate(comment.trim())}
+                    className="h-10 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-50 dark:bg-primary dark:text-primary-foreground"
+                  >
+                    Comment
+                  </button>
+                </div>
+              )}
+    </>
+  );
+
   return (
     <Sheet open={!!taskUid} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:w-[680px] data-[side=right]:sm:max-w-[680px]">
+      <SheetContent side="right" data-layout={layout} className={cn("flex w-full flex-col gap-0 p-0", LAYOUT_CLASS[layout])}>
         {(isLoading || !task) && (
           <div className="p-6">
             <SheetHeader className="sr-only">
@@ -133,6 +210,23 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                   </>
                 )}
               </p>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" aria-label="Switch layout" title="Switch layout" className="absolute right-12 top-3 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+                    {(() => { const I = LAYOUTS.find((l) => l.id === layout)!.icon; return <I className="h-4 w-4" />; })()}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Task view layout</DropdownMenuLabel>
+                  {LAYOUTS.map((l) => (
+                    <DropdownMenuItem key={l.id} onClick={() => setLayout(l.id)}>
+                      <l.icon className="mr-2 h-3.5 w-3.5" />
+                      {l.label}
+                      {layout === l.id && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <SheetTitle className="sr-only">{task.name}</SheetTitle>
               <SheetDescription className="sr-only">Task details</SheetDescription>
               <textarea
@@ -152,9 +246,10 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
               />
             </SheetHeader>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className={cn("flex min-h-0 flex-1", wide ? "flex-col lg:flex-row" : "flex-col")}>
+            <div className="min-h-0 flex-1 overflow-y-auto">
               {/* properties */}
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-1 border-b border-border px-6 py-4 sm:grid-cols-2">
+              <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-1 border-b border-border px-6 py-4 sm:grid-cols-2", layout === "full" && "xl:grid-cols-3")}>
                 <Prop icon={CircleDot} label="Status">
                   <StatusPicker statuses={task.statuses} value={task.statusId} disabled={!canEdit} onChange={(id) => update({ statusId: id })}>
                     <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent"><StatusPill status={status} /></button>
@@ -256,6 +351,8 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
               <ChecklistsSection task={task} members={list?.members ?? []} />
               <RelationshipsSection task={task} />
 
+              {!wide && (
+                <>
               {/* comments + history */}
               <Timeline
                 task={task}
@@ -264,51 +361,31 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                 members={list?.members ?? []}
                 onDeleteComment={(id) => delComment.mutate(id)}
               />
+                </>
+              )}
+            </div>
+
+            {wide && (
+              <aside aria-label="Activity" className="flex min-h-0 w-full flex-col border-t border-border bg-muted/25 lg:w-[420px] lg:border-l lg:border-t-0">
+                <div className="min-h-0 flex-1 overflow-y-auto">
+              {/* comments + history */}
+              <Timeline
+                task={task}
+                comments={comments}
+                currentUserId={user?.id}
+                members={list?.members ?? []}
+                onDeleteComment={(id) => delComment.mutate(id)}
+              />
+                </div>
+                {canEdit && <div className="border-t border-border bg-card px-4 py-3">{composerEl}</div>}
+              </aside>
+            )}
             </div>
 
             {/* composer + actions */}
-            <footer className="border-t border-border bg-card px-6 py-3">
-              {canEdit && (
-                <div className="flex items-end gap-2">
-                  <textarea
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && comment.trim()) addComment.mutate(comment.trim());
-                    }}
-                    placeholder="Write a comment…  (Ctrl+Enter to send)"
-                    aria-label="Comment"
-                    rows={2}
-                    className="min-h-[44px] flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-[13.5px] outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
-                  />
-                  <AssigneePicker
-                    members={list?.members ?? []}
-                    value={commentAssignee ? [commentAssignee] : []}
-                    onChange={(ids) => {
-                      const id = ids.filter((x) => x !== commentAssignee?.id)[0];
-                      setCommentAssignee(id ? (list?.members ?? []).find((m) => m.id === id) ?? null : null);
-                    }}
-                  >
-                    <button
-                      type="button"
-                      title="Assign this comment"
-                      aria-label="Assign this comment"
-                      className={cn("flex h-10 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium", commentAssignee ? "border-[#b08d57]/60 bg-[#b08d57]/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}
-                    >
-                      {commentAssignee ? <><Avatar user={commentAssignee} size={18} /> <span className="max-w-[70px] truncate">{commentAssignee.firstName}</span></> : <UserCheck className="h-4 w-4" />}
-                    </button>
-                  </AssigneePicker>
-                  <button
-                    type="button"
-                    disabled={!comment.trim() || addComment.isPending}
-                    onClick={() => addComment.mutate(comment.trim())}
-                    className="h-10 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-50 dark:bg-primary dark:text-primary-foreground"
-                  >
-                    Comment
-                  </button>
-                </div>
-              )}
-              <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+            <footer className={cn("border-t border-border bg-card px-6", wide ? "py-1.5" : "py-3")}>
+              {!wide && composerEl}
+              <div className={cn("flex items-center gap-1 text-xs text-muted-foreground", !wide && canEdit && "mt-2")}>
                 <span>Created by {userName(task.createdBy)} · {timeAgo(task.createdAt)}</span>
                 <span className="flex-1" />
                 <button type="button" onClick={copyLink} className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent hover:text-foreground"><Link2 className="h-3.5 w-3.5" />Copy link</button>

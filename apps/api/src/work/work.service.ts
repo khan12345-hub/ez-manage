@@ -406,6 +406,11 @@ export class WorkService {
       if (!parent) throw new BadRequestException('Parent task must be in the same list.');
     }
     await this.assertAssignable(access.workspaceId, dto.assigneeIds);
+    const tagIds = [...new Set(dto.tagIds ?? [])];
+    if (tagIds.length) {
+      const n = await this.prisma.workTag.count({ where: { id: { in: tagIds }, spaceId: list.spaceId } });
+      if (n !== tagIds.length) throw new BadRequestException('Tags must belong to this space.');
+    }
     const last = await this.prisma.workTask.findFirst({
       where: { listId, parentId: dto.parentId ?? null },
       orderBy: { order: 'desc' },
@@ -428,6 +433,7 @@ export class WorkService {
         ...(dto.assigneeIds?.length
           ? { assignees: { create: [...new Set(dto.assigneeIds)].map((u) => ({ userId: u })) } }
           : {}),
+        ...(tagIds.length ? { tags: { create: tagIds.map((tagId) => ({ tagId })) } } : {}),
       },
       select: TASK_SELECT,
     });

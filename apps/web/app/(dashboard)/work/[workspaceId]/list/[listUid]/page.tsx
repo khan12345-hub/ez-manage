@@ -1,8 +1,10 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, Columns3, List as ListIcon, Search, User } from "lucide-react";
+import { CalendarDays, Columns3, List as ListIcon, Plus } from "lucide-react";
+import { pushRecentList, useWorkCreate } from "@/store/work-create";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { ListView } from "../../../_components/ListView";
@@ -10,6 +12,8 @@ import { BoardView } from "../../../_components/BoardView";
 import { CalendarView } from "../../../_components/CalendarView";
 import { TaskDrawer } from "../../../_components/TaskDrawer";
 import { useListTasks, useWorkList } from "../../../_components/hooks";
+import { ListToolbar } from "../../../_components/ListToolbar";
+import { DEFAULT_VIEW, filterTasks, loadView, sameView, saveView, type ViewSettings } from "../../../_components/viewSettings";
 
 type View = "list" | "board" | "calendar";
 const VIEWS: { id: View; label: string; icon: typeof ListIcon }[] = [
@@ -19,7 +23,8 @@ const VIEWS: { id: View; label: string; icon: typeof ListIcon }[] = [
 ];
 
 function ListPageInner() {
-  const { listUid } = useParams<{ workspaceId: string; listUid: string }>();
+  const { listUid, workspaceId } = useParams<{ workspaceId: string; listUid: string }>();
+  const openCreate = useWorkCreate((st) => st.openCreate);
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -28,9 +33,20 @@ function ListPageInner() {
   const taskUid = sp.get("task");
 
   const { data: list, isLoading, isError } = useWorkList(listUid);
+  useEffect(() => {
+    if (list) pushRecentList(workspaceId, list.uid);
+  }, [list?.uid, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
   const { data: tasks = [], isLoading: tasksLoading } = useListTasks(list?.id);
   const [q, setQ] = useState("");
   const [meMode, setMeMode] = useState(false);
+  // view settings: the saved copy (localStorage) and the working copy
+  const [saved, setSaved] = useState<ViewSettings>(DEFAULT_VIEW);
+  const [vs, setVs] = useState<ViewSettings>(DEFAULT_VIEW);
+  useEffect(() => {
+    const v = loadView(listUid);
+    setSaved(v);
+    setVs(v);
+  }, [listUid]);
 
   const setParam = (key: string, value: string | null) => {
     const next = new URLSearchParams(sp.toString());
@@ -42,16 +58,17 @@ function ListPageInner() {
   // Search + "Me mode" (only my tasks). Keep a subtask's parent visible when the subtask matches.
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term && !meMode) return tasks;
+    const base = list ? filterTasks(tasks, vs, list.statuses) : tasks;
+    if (!term && !meMode) return base;
     const match = (t: (typeof tasks)[number]) =>
       (!term || t.name.toLowerCase().includes(term)) && (!meMode || t.assignees.some((a) => a.id === user?.id));
     const keep = new Set<number>();
-    for (const t of tasks) if (match(t)) {
+    for (const t of base) if (match(t)) {
       keep.add(t.id);
       if (t.parentId) keep.add(t.parentId);
     }
-    return tasks.filter((t) => keep.has(t.id));
-  }, [tasks, q, meMode, user?.id]);
+    return base.filter((t) => keep.has(t.id));
+  }, [tasks, list, vs, q, meMode, user?.id]);
 
   if (isError) {
     return <div className="p-10 text-center text-sm text-muted-foreground">This list doesn&apos;t exist, was archived, or you don&apos;t have access.</div>;
@@ -84,9 +101,20 @@ function ListPageInner() {
         <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
           <h1 className="font-serif text-[30px] font-normal leading-tight tracking-tight sm:text-[34px]">{list?.name ?? (isLoading ? "…" : "")}</h1>
           {list && (
-            <p className="pb-1.5 font-mono text-[12px] text-muted-foreground">
-              {open} open · {doneCount} done
-            </p>
+            <div className="flex items-center gap-3 pb-1.5">
+              <p className="font-mono text-[12px] text-muted-foreground">
+                {open} open · {doneCount} done
+              </p>
+              {list.access.canEdit && (
+                <button
+                  type="button"
+                  onClick={() => openCreate(list.uid)}
+                  className="flex h-8 items-center gap-1.5 rounded-md bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground shadow-sm hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Task
+                </button>
+              )}
+            </div>
           )}
         </div>
         {/* views */}
@@ -111,23 +139,28 @@ function ListPageInner() {
       </div>
 
       {/* toolbar */}
-      <div className="flex flex-wrap items-center gap-2 px-4 pt-4 sm:px-6">
-        <label className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-md border border-border bg-card px-2.5 sm:max-w-xs">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tasks" aria-label="Search tasks" className="w-full bg-transparent text-[13.5px] outline-none placeholder:text-muted-foreground" />
-        </label>
-        <button
-          type="button"
-          aria-pressed={meMode}
-          onClick={() => setMeMode((m) => !m)}
-          className={cn(
-            "flex h-9 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors",
-            meMode ? "border-primary/40 bg-accent text-accent-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <User className="h-4 w-4" /> Me mode
-        </button>
-      </div>
+      {list && (
+        <div className="px-4 pt-4 sm:px-6">
+          <ListToolbar
+            list={list}
+            tasks={tasks}
+            view={vs}
+            onView={setVs}
+            dirty={!sameView(vs, saved)}
+            onSave={() => {
+              saveView(listUid, vs);
+              setSaved(vs);
+              toast.success("View saved");
+            }}
+            onReset={() => setVs(saved)}
+            q={q}
+            onQ={setQ}
+            meMode={meMode}
+            onMeMode={setMeMode}
+            showListControls={view === "list"}
+          />
+        </div>
+      )}
 
       <div className="flex-1 px-4 py-4 sm:px-6">
         {(isLoading || tasksLoading || !list) ? (
@@ -139,7 +172,7 @@ function ListPageInner() {
         ) : view === "calendar" ? (
           <CalendarView list={list} tasks={shown} onOpenTask={openTask} />
         ) : (
-          <ListView list={list} tasks={shown} onOpenTask={openTask} />
+          <ListView list={list} tasks={shown} view={vs} onView={setVs} onOpenTask={openTask} />
         )}
       </div>
 

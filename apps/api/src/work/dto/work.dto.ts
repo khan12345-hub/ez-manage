@@ -83,6 +83,7 @@ export class CreateTaskDto {
   @IsOptional() @IsDateString() dueDate?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) assigneeIds?: number[];
   @IsOptional() @IsString() @MaxLength(100000) description?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) tagIds?: number[];
 }
 export class UpdateTaskDto {
   @IsOptional() @IsString() @IsNotEmpty() @MaxLength(500) name?: string;
