@@ -73,7 +73,7 @@ function CreateTaskModal({ dateLabel, groups, onClose, onSubmit, isSubmitting }:
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-[calc(100vw-32px)] max-w-sm rounded-xl border bg-background shadow-xl">
+      <div className="w-[calc(100vw-32px)] max-w-sm rounded-xl border bg-card shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div>
@@ -126,7 +126,7 @@ function CreateTaskModal({ dateLabel, groups, onClose, onSubmit, isSubmitting }:
               </button>
 
               {groupOpen && (
-                <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border bg-background shadow-lg">
+                <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border bg-card shadow-lg">
                   {groups.map((g: any) => (
                     <button
                       key={g.id}
@@ -287,7 +287,7 @@ export function CalendarView({ board }: CalendarViewProps) {
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm p-2">
         {/* Header */}
         <div className="flex items-center justify-between px-2 py-2.5">
-          <h2 className="text-base font-semibold text-foreground">
+          <h2 className="font-serif text-[24px] font-normal leading-none text-foreground">
             {MONTH_NAMES[month]} {year}
           </h2>
           <div className="flex items-center gap-1">
@@ -315,7 +315,7 @@ export function CalendarView({ board }: CalendarViewProps) {
         {/* Day names */}
         <div className="grid grid-cols-7 px-px">
           {DAY_NAMES.map((d) => (
-            <div key={d} className="py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div key={d} className="py-2 text-center font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
               {d}
             </div>
           ))}
@@ -375,7 +375,7 @@ export function CalendarView({ board }: CalendarViewProps) {
                         <button
                           key={task.id}
                           onClick={() => open({ taskId: task.id, boardId: board.id, groupId: task.groupId })}
-                          className="flex items-center gap-1 rounded px-1 py-px text-left text-[9px] leading-tight font-medium hover:bg-muted/60 transition-colors"
+                          className="flex items-center gap-1 rounded px-1 py-px text-left text-[10.5px] leading-tight font-medium hover:bg-muted/60 transition-colors"
                         >
                           <span
                             className="h-1.5 w-1.5 rounded-full shrink-0"
@@ -386,7 +386,7 @@ export function CalendarView({ board }: CalendarViewProps) {
                       );
                     })}
                     {dayTasks.length > 4 && (
-                      <span className="text-[9px] text-muted-foreground px-1">
+                      <span className="text-[10px] text-muted-foreground px-1">
                         +{dayTasks.length - 4} more
                       </span>
                     )}

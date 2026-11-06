@@ -188,7 +188,7 @@ function TaskHoverCard({ task, rect }: { task: AssignedTask; rect: DOMRect }) {
             {task.assignedUsers.slice(0, 4).map((u) => (
               <Avatar key={u.id} className="h-5 w-5 ring-1 ring-white">
                 <AvatarImage src={av(u.avatarUrl)} />
-                <AvatarFallback className="bg-indigo-100 text-[8px] text-indigo-700">
+                <AvatarFallback className="bg-accent text-[8px] text-accent-foreground">
                   {u.firstName[0]}{u.lastName[0]}
                 </AvatarFallback>
               </Avatar>
@@ -365,8 +365,8 @@ function MentionBadge({
     <span
       ref={ref}
       className={inline
-        ? "cursor-pointer rounded px-0.5 font-semibold text-indigo-600 hover:bg-indigo-50"
-        : "relative inline-flex cursor-default items-center gap-1 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700"}
+        ? "cursor-pointer rounded px-0.5 font-semibold text-primary hover:bg-accent"
+        : "relative inline-flex cursor-default items-center gap-1 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground"}
       onMouseEnter={show}
       onMouseLeave={hide}
     >
@@ -381,12 +381,12 @@ function MentionBadge({
             onMouseLeave={hide}
           >
             {/* gradient header */}
-            <div className="h-10 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500" />
+            <div className="h-10 bg-gradient-to-r from-forest via-primary to-brass" />
             <div className="-mt-6 flex flex-col items-center px-3 pb-3">
               <div className="relative">
                 <Avatar className="h-12 w-12 ring-2 ring-white shadow">
                   <AvatarImage src={av(mention.user.avatarUrl)} />
-                  <AvatarFallback className="bg-indigo-100 text-sm font-bold text-indigo-700">
+                  <AvatarFallback className="bg-accent text-sm font-bold text-accent-foreground">
                     {mention.user.firstName[0]}{mention.user.lastName[0]}
                   </AvatarFallback>
                 </Avatar>
@@ -403,7 +403,7 @@ function MentionBadge({
                 </button>
                 <button
                   onClick={() => router.push(`/workspace/${workspaceId}/members`)}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-indigo-600 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-indigo-700"
+                  className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-primary/90"
                 >
                   Profile
                 </button>
@@ -448,8 +448,8 @@ function ActivityTaskLink({ task, workspaceId }: { task: ActivityTask; workspace
         onMouseLeave={hideCard}
         className="flex items-center gap-1.5 text-left"
       >
-        <span className="h-2 w-2 shrink-0 rounded-sm bg-indigo-500" />
-        <span className="truncate text-[11px] font-semibold text-indigo-600 underline-offset-2 hover:underline">
+        <span className="h-2 w-2 shrink-0 rounded-sm bg-primary" />
+        <span className="truncate text-[11px] font-semibold text-primary underline-offset-2 hover:underline">
           {task.name}
         </span>
       </button>
@@ -460,7 +460,7 @@ function ActivityTaskLink({ task, workspaceId }: { task: ActivityTask; workspace
         >
           <p className="mb-0.5 line-clamp-2 text-xs font-semibold text-foreground">{task.name}</p>
           <p className="text-[10px] text-muted-foreground">{task.group.board.name} › {task.group.name}</p>
-          <p className="mt-2 text-[10px] font-medium text-indigo-500">Click to open task →</p>
+          <p className="mt-2 text-[10px] font-medium text-primary">Click to open task →</p>
         </div>,
         document.body,
       )}
@@ -600,7 +600,7 @@ function ActivityFeed({ workspaceId, userId, enabled }: {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-10">
-        <Loader2 className="h-5 w-5 animate-spin text-indigo-300" />
+        <Loader2 className="h-5 w-5 animate-spin text-primary/60" />
       </div>
     );
   }
@@ -749,12 +749,12 @@ export function UserProfilePanel({
 
       {/* Cover + avatar */}
       <div className="shrink-0">
-        <div className="h-16 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500" />
+        <div className="h-16 bg-gradient-to-r from-forest via-primary to-brass" />
         <div className="-mt-8 flex flex-col items-center px-4 pb-4">
           <div className="relative">
             <Avatar className="h-16 w-16 shadow-md ring-2 ring-white">
               <AvatarImage src={av(user.avatarUrl)} />
-              <AvatarFallback className="bg-indigo-100 text-xl font-bold text-indigo-700">
+              <AvatarFallback className="bg-accent text-xl font-bold text-accent-foreground">
                 {user.firstName[0]}{user.lastName[0]}
               </AvatarFallback>
             </Avatar>
@@ -790,7 +790,7 @@ export function UserProfilePanel({
               {onSendMessage && (
                 <button
                   onClick={onSendMessage}
-                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+                  className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary/90"
                 >
                   <MessageSquare className="h-3 w-3" /> Message
                 </button>
@@ -818,7 +818,7 @@ export function UserProfilePanel({
             onClick={() => setProfileTab(t)}
             className={`flex-1 py-2 text-xs font-semibold transition-colors ${
               profileTab === t
-                ? "border-b-2 border-indigo-600 text-indigo-600"
+                ? "border-b-2 border-primary/60 text-primary"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -873,7 +873,7 @@ export function UserProfilePanel({
                       onClick={() => { setEditEmoji(p.emoji); setEditText(p.text); }}
                       className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-left text-[11px] transition-colors ${
                         editEmoji === p.emoji && editText === p.text
-                          ? "bg-indigo-50 text-indigo-700"
+                          ? "bg-accent text-accent-foreground"
                           : "text-muted-foreground hover:bg-muted"
                       }`}
                     >
@@ -886,12 +886,12 @@ export function UserProfilePanel({
                   <input
                     value={editEmoji} onChange={(e) => setEditEmoji(e.target.value)}
                     placeholder="😊" maxLength={2}
-                    className="w-9 rounded border border-border bg-background px-1 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    className="w-9 rounded border border-border bg-background px-1 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
                   />
                   <input
                     value={editText} onChange={(e) => setEditText(e.target.value)}
                     placeholder="What's your status?" maxLength={100}
-                    className="flex-1 rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    className="flex-1 rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/30"
                   />
                 </div>
                 <div className="flex gap-1.5">
@@ -903,7 +903,7 @@ export function UserProfilePanel({
                   </button>
                   <button
                     onClick={handleSaveStatus} disabled={savingStatus}
-                    className="flex-1 rounded bg-indigo-600 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                    className="flex-1 rounded bg-primary py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
                   >
                     {savingStatus ? "…" : "Save"}
                   </button>
@@ -918,7 +918,7 @@ export function UserProfilePanel({
           <div className="flex flex-col">
             {loadingTasks ? (
               <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-5 w-5 animate-spin text-indigo-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
               </div>
             ) : assignedTasks.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-10 text-center">

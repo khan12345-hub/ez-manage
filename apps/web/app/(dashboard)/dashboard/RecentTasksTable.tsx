@@ -82,17 +82,17 @@ export function RecentTasksTable() {
     <div
       className="rounded-2xl bg-card"
       style={{
-        border: "1px solid rgba(99, 102, 241, 0.1)",
+        border: "1px solid rgba(4,120,87,0.1)",
         boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }}
     >
       {/* header */}
       <div className="flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(99,102,241,0.1)" }}>
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(4,120,87,0.1)" }}>
             <CheckSquare className="h-4 w-4 text-primary" />
           </div>
-          <h3 className="text-base font-semibold text-foreground">Recent Tasks</h3>
+          <h3 className="font-serif text-[21px] font-normal leading-none text-foreground">Recent Tasks</h3>
         </div>
       </div>
 
@@ -104,12 +104,11 @@ export function RecentTasksTable() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
-              style={
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 active
-                  ? { background: "#6366f1", color: "white" }
-                  : { background: "rgba(99,102,241,0.07)", color: "#64748b" }
-              }
+                  ? "bg-forest text-forest-foreground dark:bg-primary dark:text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
             >
               {t.label} ({counts[t.key]})
             </button>
@@ -134,7 +133,7 @@ export function RecentTasksTable() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-left">
             <thead>
-              <tr className="border-y text-[11px] uppercase tracking-wide text-muted-foreground" style={{ borderColor: "rgba(99,102,241,0.08)" }}>
+              <tr className="border-y text-[11px] uppercase tracking-wide text-muted-foreground" style={{ borderColor: "rgba(4,120,87,0.08)" }}>
                 <th className="px-5 py-2.5 font-medium">Task</th>
                 <th className="px-3 py-2.5 font-medium">Board</th>
                 <th className="px-3 py-2.5 font-medium">Assignee</th>
@@ -216,7 +215,7 @@ function TaskRow({
 
   const rowCn =
     "border-b transition-colors last:border-0 hover:bg-accent";
-  const rowStyle = { borderColor: "rgba(99,102,241,0.06)" };
+  const rowStyle = { borderColor: "rgba(4,120,87,0.06)" };
 
   if (href) {
     return (
@@ -248,7 +247,7 @@ function TaskRow({
 
 const STATUS_FALLBACK: Record<StatusBucket, string> = {
   todo: "#3b82f6",
-  in_progress: "#8b5cf6",
+  in_progress: "#b08d57",
   review: "#f59e0b",
   done: "#10b981",
   overdue: "#f43f5e",

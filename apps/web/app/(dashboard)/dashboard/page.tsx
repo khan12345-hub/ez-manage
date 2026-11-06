@@ -11,7 +11,7 @@ import { QuickActions } from "./QuickActions";
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-full bg-[linear-gradient(160deg,#f0f1ff_0%,#eeeffe_50%,#f4f0ff_100%)] dark:bg-none dark:bg-background">
+    <div className="min-h-full bg-background">
       <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_340px]">
           {/* ── Main column ───────────────────────────────────────────── */}

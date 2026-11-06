@@ -17,11 +17,11 @@ const panel: Variants = {
 };
 
 const CARD_STYLE = {
-  border: "1px solid rgba(99, 102, 241, 0.1)",
+  border: "1px solid rgba(4,120,87,0.1)",
   boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
 };
 
-const HEADER_BORDER = { borderBottom: "1px solid rgba(99,102,241,0.07)" };
+const HEADER_BORDER = { borderBottom: "1px solid rgba(4,120,87,0.07)" };
 
 export function QuickActions() {
   const { user } = useAuth();
@@ -41,15 +41,15 @@ export function QuickActions() {
             <div className="flex items-center gap-2">
               <div
                 className="flex h-7 w-7 items-center justify-center rounded-lg"
-                style={{ background: "rgba(99,102,241,0.1)" }}
+                style={{ background: "rgba(4,120,87,0.1)" }}
               >
                 <Zap className="h-4 w-4 text-primary" />
               </div>
-              <h3 className="text-sm font-semibold">Quick Actions</h3>
+              <h3 className="font-serif text-[19px] font-normal leading-none text-foreground">Quick Actions</h3>
             </div>
           </div>
 
-          <div className="divide-y" style={{ borderColor: "rgba(99,102,241,0.07)" }}>
+          <div className="divide-y" style={{ borderColor: "rgba(4,120,87,0.07)" }}>
             <ActionButton
               icon={<Plus className="h-4 w-4 text-primary" />}
               iconBg="bg-primary/10"
@@ -86,7 +86,7 @@ export function QuickActions() {
             <h3 className="text-sm font-semibold text-muted-foreground">Resources</h3>
           </div>
 
-          <div className="divide-y" style={{ borderColor: "rgba(99,102,241,0.07)" }}>
+          <div className="divide-y" style={{ borderColor: "rgba(4,120,87,0.07)" }}>
             <LinkAction
               href="/help"
               icon={<BookOpen className="h-4 w-4 text-blue-600" />}
@@ -108,11 +108,7 @@ export function QuickActions() {
 
         {/* Pro tip */}
         <div
-          className="rounded-2xl p-4"
-          style={{
-            background: "linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(124,58,237,0.06) 100%)",
-            border: "1px solid rgba(99,102,241,0.15)",
-          }}
+          className="rounded-2xl border border-primary/20 bg-accent/60 p-4"
         >
           <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
             Pro tip
@@ -162,7 +158,7 @@ function ActionButton({
       className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-accent disabled:opacity-40"
     >
       <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg} dark:bg-white/[0.06] dark:ring-1 dark:ring-white/10`}
       >
         {icon}
       </div>
@@ -200,7 +196,7 @@ function LinkAction({
       className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-accent"
     >
       <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg} dark:bg-white/[0.06] dark:ring-1 dark:ring-white/10`}
       >
         {icon}
       </div>

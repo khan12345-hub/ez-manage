@@ -107,7 +107,7 @@ export function TextEditor({
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 onBlur={handleSave}
-                className="h-8 w-full truncate rounded-sm border-none bg-transparent pr-7 text-[16px]! shadow-none focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-inset"
+                className="h-8 w-full truncate rounded-sm border-none bg-transparent pr-7 text-[14.5px]! shadow-none dark:bg-transparent focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-inset"
               />
             </TooltipTrigger>
 

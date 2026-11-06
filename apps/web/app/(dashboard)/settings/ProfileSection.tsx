@@ -122,7 +122,7 @@ export function ProfileSection({
       {/* ── Profile preview card ─────────────────────────────────────────── */}
       <div className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm">
         {/* Banner */}
-        <div className="relative h-24 bg-gradient-to-r from-muted via-primary/5 to-violet-500/5">
+        <div className="relative h-24 bg-gradient-to-r from-muted via-primary/5 to-forest/5">
           <div className="absolute inset-0 opacity-40"
             style={{
               backgroundImage: "radial-gradient(circle at 20% 50%, #6366f1 0%, transparent 50%), radial-gradient(circle at 80% 50%, #8b5cf6 0%, transparent 50%)",

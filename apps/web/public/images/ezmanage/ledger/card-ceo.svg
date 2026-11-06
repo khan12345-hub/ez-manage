@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 150" fill="none" role="img" aria-label="A rising portfolio chart with KPI chips">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#103a2b"/>
+      <stop offset="1" stop-color="#0b2a1f"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e0c79b"/>
+      <stop offset="1" stop-color="#b08d57" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34d399" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#34d399" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="420" height="150" fill="url(#bg)"/>
+  <!-- ledger grid -->
+  <path d="M0 37.5h420M0 75h420M0 112.5h420" stroke="#ffffff" stroke-opacity="0.05"/>
+  <path d="M84 0v150M168 0v150M252 0v150M336 0v150" stroke="#ffffff" stroke-opacity="0.04"/>
+
+  <!-- bars -->
+  <rect x="34" y="96" width="22" height="40" rx="5" fill="url(#bar)" opacity="0.7"/>
+  <rect x="70" y="82" width="22" height="54" rx="5" fill="url(#bar)" opacity="0.8"/>
+  <rect x="106" y="88" width="22" height="48" rx="5" fill="url(#bar)" opacity="0.8"/>
+  <rect x="142" y="64" width="22" height="72" rx="5" fill="url(#bar)" opacity="0.9"/>
+  <rect x="178" y="50" width="22" height="86" rx="5" fill="url(#bar)"/>
+
+  <!-- trend line -->
+  <path d="M45 92 L81 76 L117 80 L153 56 L189 40 L224 30" stroke="#34d399" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M45 92 L81 76 L117 80 L153 56 L189 40 L224 30 L224 136 L45 136 Z" fill="url(#area)"/>
+  <circle cx="224" cy="30" r="5" fill="#34d399"/>
+  <circle cx="224" cy="30" r="10" stroke="#34d399" stroke-opacity="0.35" stroke-width="2"/>
+
+  <!-- KPI chips -->
+  <rect x="262" y="24" width="132" height="34" rx="9" fill="#ffffff" fill-opacity="0.06" stroke="#b08d57" stroke-opacity="0.45"/>
+  <circle cx="280" cy="41" r="5" fill="#34d399"/>
+  <rect x="292" y="37" width="58" height="8" rx="4" fill="#e9efe9" opacity="0.8"/>
+  <rect x="358" y="35" width="26" height="12" rx="6" fill="#34d399" fill-opacity="0.2"/>
+
+  <rect x="262" y="68" width="132" height="34" rx="9" fill="#ffffff" fill-opacity="0.06" stroke="#b08d57" stroke-opacity="0.45"/>
+  <circle cx="280" cy="85" r="5" fill="#e0c79b"/>
+  <rect x="292" y="81" width="46" height="8" rx="4" fill="#e9efe9" opacity="0.8"/>
+  <rect x="358" y="79" width="26" height="12" rx="6" fill="#e0c79b" fill-opacity="0.22"/>
+
+  <rect x="262" y="112" width="132" height="24" rx="8" fill="#e0c79b"/>
+  <rect x="300" y="121" width="56" height="6" rx="3" fill="#0b2a1f" opacity="0.8"/>
+</svg>

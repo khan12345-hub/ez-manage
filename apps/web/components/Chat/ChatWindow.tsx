@@ -271,7 +271,7 @@ export function ChatWindow({ channel }: Props) {
           <button
             onClick={handleSend}
             disabled={!input.trim()}
-            className="text-indigo-500 hover:text-indigo-600 disabled:text-muted-foreground transition-colors"
+            className="text-primary hover:text-primary disabled:text-muted-foreground transition-colors"
           >
             <Send className="h-4 w-4" />
           </button>

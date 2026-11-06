@@ -104,11 +104,12 @@ export const Headers = ({ column, members, allColumns }: any) => {
         group
         relative
         border-b border-l
-        px-4 py-3
-        font-semibold
+        bg-table-head
+        px-3 py-1.5
+        font-medium
         ${
           column.isPrimary
-            ? "sticky left-[150px] z-30 bg-background"
+            ? "sticky left-[150px] z-30"
             : ""
         }
       `}
@@ -147,10 +148,16 @@ export const Headers = ({ column, members, allColumns }: any) => {
               min-w-0
               flex-1
               border-transparent
-              bg-transparent
+              bg-transparent dark:bg-transparent
               px-2
-              font-semibold
+              font-mono
+              text-[10.5px] md:text-[10.5px]
+              font-medium
+              uppercase
+              tracking-[0.08em]
+              text-muted-foreground
               shadow-none
+              focus-visible:text-foreground
               focus-visible:ring-1
             "
           />

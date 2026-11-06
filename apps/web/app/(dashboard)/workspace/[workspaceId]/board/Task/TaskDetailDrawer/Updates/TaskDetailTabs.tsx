@@ -11,7 +11,7 @@ import { useInviteModalStore } from "@/store/invite-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const TAB_TRIGGER_CLS =
-  "cursor-pointer relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none! transition-colors hover:text-foreground data-[state=active]:border-primary";
+  "cursor-pointer relative h-full rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none! transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary dark:data-[state=active]:border-primary dark:data-[state=active]:bg-transparent";
 
 interface TaskDetailsTabsProps {
   task: any;

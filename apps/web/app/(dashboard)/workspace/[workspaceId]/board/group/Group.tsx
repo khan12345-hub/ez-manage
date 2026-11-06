@@ -35,7 +35,7 @@ function GroupTasksSkeleton({
               {/* Group color bar */}
               <td className="w-1.5 border-0 p-0" style={{ backgroundColor: color ?? "transparent" }} />
               {/* Task name cell */}
-              <td className="sticky left-1.5 z-20 w-[200px] bg-background px-3 py-2.5 sm:w-[450px]">
+              <td className="sticky left-1.5 z-20 w-[200px] bg-card px-3 py-2.5 sm:w-[450px]">
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 shrink-0 rounded bg-muted/40" />
                   <div className="h-4 w-4 shrink-0 rounded bg-muted/40" />
@@ -219,7 +219,10 @@ export function Group({
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div
+        className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgb(11_42_31/0.04),0_8px_24px_-14px_rgb(11_42_31/0.18)]"
+        style={{ borderTopColor: group.color ?? undefined, borderTopWidth: 3 }}
+      >
         <GroupHeader
           group={group}
           isCollapsed={isCollapsed}

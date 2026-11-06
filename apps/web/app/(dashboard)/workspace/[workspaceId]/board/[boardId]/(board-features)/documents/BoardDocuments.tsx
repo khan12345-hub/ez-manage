@@ -118,7 +118,7 @@ export function BoardDocuments() {
         {/* Header */}
         <div className="flex items-center justify-between border-b px-3 py-3">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold">Documents</h2>
+            <h2 className="font-serif text-[22px] font-normal leading-none">Documents</h2>
             <p className="text-[15px] text-muted-foreground">
               {documents.length}{" "}
               {documents.length === 1 ? "document" : "documents"}

@@ -28,7 +28,7 @@ const ACCENT_PRESETS = [
 ];
 
 const BG_PRESETS = [
-  { label: "Default",    value: "#eef1f8" },
+  { label: "Default",    value: "#eef3f0" },
   { label: "White",      value: "#ffffff" },
   { label: "Light gray", value: "#f5f6f8" },
   { label: "Warm gray",  value: "#f3f4f0" },

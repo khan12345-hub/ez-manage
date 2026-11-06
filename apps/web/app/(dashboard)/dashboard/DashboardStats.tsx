@@ -113,13 +113,13 @@ export function DashboardStats() {
         <motion.div
           key={s.label}
           variants={item}
-          whileHover={{ y: -5, boxShadow: "0 12px 28px rgba(99,102,241,0.15)" }}
+          whileHover={{ y: -5, boxShadow: "0 12px 28px rgba(4,120,87,0.15)" }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
           className="group rounded-2xl border border-border bg-card p-5 shadow-sm"
         >
           <div className="flex items-start justify-between">
             <div
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${s.iconBg}`}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${s.iconBg} dark:bg-white/[0.06] dark:ring-1 dark:ring-white/10`}
             >
               {s.icon}
             </div>

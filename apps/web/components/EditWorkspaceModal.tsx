@@ -90,7 +90,7 @@ export function EditWorkspaceModal({
         role="dialog"
         aria-modal="true"
       >
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-brass" />
 
         <button
           onClick={onClose}
@@ -101,7 +101,7 @@ export function EditWorkspaceModal({
         </button>
 
         <div className="mb-6 flex items-start gap-3.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-primary dark:bg-primary/10 dark:text-accent-foreground">
             <Building2 className="h-5 w-5" />
           </div>
           <div>
@@ -145,7 +145,7 @@ export function EditWorkspaceModal({
               <Button
                 type="submit"
                 loading={mutation.isPending}
-                className="h-9.5 px-4 text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700"
+                className="h-9.5 px-4 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {mutation.isPending ? "Saving..." : "Save Changes"}
               </Button>

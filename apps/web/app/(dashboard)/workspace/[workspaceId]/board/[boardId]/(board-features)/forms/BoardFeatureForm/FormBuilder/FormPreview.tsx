@@ -25,7 +25,7 @@ export interface FormDesign {
 
 export const DEFAULT_DESIGN: FormDesign = {
   position: "center",
-  bgColor: "#eef1f8",
+  bgColor: "#eef3f0",
   accentColor: "#0070f3",
   cardBg: "#ffffff",
   textColor: "#111827",

@@ -183,15 +183,15 @@ function EmptyIllustration() {
       xmlns="http://www.w3.org/2000/svg"
     >
       {/* soft background circle */}
-      <circle cx="110" cy="105" r="60" fill="#F0EDFF" />
+      <circle cx="110" cy="105" r="60" fill="#dcefe5" />
 
       {/* Bell body */}
       <path
         d="M110 52 C90 52 74 68 74 88 L74 108 L66 116 L66 122 L154 122 L154 116 L146 108 L146 88 C146 68 130 52 110 52Z"
-        fill="#6C5CE7"
+        fill="#047857"
       />
       {/* Bell clapper */}
-      <ellipse cx="110" cy="124" rx="10" ry="6" fill="#6C5CE7" />
+      <ellipse cx="110" cy="124" rx="10" ry="6" fill="#047857" />
       {/* Bell shine */}
       <ellipse
         cx="94"
@@ -220,7 +220,7 @@ function EmptyIllustration() {
         width="20"
         height="20"
         rx="4"
-        fill="#5034FF"
+        fill="#0b2a1f"
         transform="rotate(-18 28 36)"
       />
 
@@ -252,7 +252,7 @@ function EmptyIllustration() {
       {/* Star sparkle – upper right */}
       <path
         d="M170 54 L172 60 L178 62 L172 64 L170 70 L168 64 L162 62 L168 60Z"
-        fill="#FFD166"
+        fill="#d9bd8c"
       />
 
       {/* Star sparkle – left */}
@@ -397,7 +397,7 @@ export function Notifications() {
           />
         </span>
         {unreadCount > 0 && (
-          <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF3D57] px-1 text-[9px] font-bold leading-none text-white ring-2 ring-white">
+          <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-white ring-2 ring-card">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
@@ -504,7 +504,7 @@ export function Notifications() {
               <button
                 type="button"
                 onClick={requestPermission}
-                className="shrink-0 rounded-md bg-[#0073EA] px-2.5 py-1 text-xs font-medium text-white transition hover:bg-[#0060C0]"
+                className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition hover:bg-primary/90"
               >
                 Enable
               </button>
@@ -522,13 +522,13 @@ export function Notifications() {
               className={cn(
                 "relative mr-4 pb-2.5 text-sm font-medium transition-colors",
                 activeTab === tab.id
-                  ? "text-[#0073EA]"
+                  ? "text-primary"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
               {tab.label}
               {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[#0073EA]" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-primary" />
               )}
             </button>
           ))}
@@ -543,7 +543,7 @@ export function Notifications() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search notifications by people, boards, and more..."
-              className="w-full rounded-md border border-border bg-muted/50 py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-[#0073EA] focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0073EA]/20 transition"
+              className="w-full rounded-md border border-border bg-muted/50 py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 transition"
             />
           </div>
 
@@ -552,7 +552,7 @@ export function Notifications() {
               id="unread-only"
               checked={unreadOnly}
               onCheckedChange={setUnreadOnly}
-              className="data-[state=checked]:bg-[#0073EA] scale-90"
+              className="data-[state=checked]:bg-primary scale-90"
             />
             <label
               htmlFor="unread-only"
@@ -604,7 +604,7 @@ export function Notifications() {
                 }
                 className={cn(
                   "flex w-full gap-3 border-b border-border px-4 py-3 text-left transition-colors hover:bg-muted",
-                  !notification.isRead && "bg-blue-50/50",
+                  !notification.isRead && "bg-accent/40",
                 )}
               >
                 {/* Unread dot */}
@@ -613,7 +613,7 @@ export function Notifications() {
                     className={cn(
                       "block h-2 w-2 rounded-full",
                       !notification.isRead
-                        ? "bg-[#0073EA]"
+                        ? "bg-primary"
                         : "bg-transparent",
                     )}
                   />

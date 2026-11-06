@@ -88,7 +88,7 @@ function StatusBarChart({
                 y1={y}
                 x2={PAD_LEFT + PAD_RIGHT + items.length * (barW + gap) + gap + 40}
                 y2={y}
-                stroke="#e5e7eb"
+                className="stroke-border"
                 strokeWidth={1}
               />
               <text
@@ -96,7 +96,7 @@ function StatusBarChart({
                 y={y + 4}
                 textAnchor="end"
                 fontSize={11}
-                fill="#9ca3af"
+                className="fill-muted-foreground"
               >
                 {fmtCount(tick)}
               </text>
@@ -110,7 +110,7 @@ function StatusBarChart({
           y={PAD_TOP + chartH / 2}
           textAnchor="middle"
           fontSize={11}
-          fill="#6b7280"
+          className="fill-muted-foreground"
           transform={`rotate(-90, 12, ${PAD_TOP + chartH / 2})`}
         >
           Count
@@ -144,7 +144,7 @@ function StatusBarChart({
                   textAnchor="middle"
                   fontSize={11}
                   fontWeight="600"
-                  fill="#111827"
+                  className="fill-foreground"
                 >
                   {item.count.toLocaleString()}
                 </text>
@@ -166,7 +166,7 @@ function StatusBarChart({
                 y={labelY + 6}
                 textAnchor="end"
                 fontSize={11}
-                fill="#374151"
+                className="fill-foreground/80"
                 transform={`rotate(-45, ${x + barW / 2}, ${labelY + 6})`}
               >
                 {item.label.length > 18 ? item.label.slice(0, 17) + "…" : item.label}
@@ -181,7 +181,7 @@ function StatusBarChart({
           const x = PAD_LEFT + gap + i * (barW + gap);
           const y = PAD_TOP + chartH;
           return (
-            <text key={`zero-${item.label}`} x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize={10} fill="#9ca3af">
+            <text key={`zero-${item.label}`} x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize={10} className="fill-muted-foreground">
               0
             </text>
           );
@@ -210,14 +210,14 @@ function ChartWidget({
 }) {
   return (
     <div
-      className={`rounded-xl border bg-background shadow-sm transition-all duration-200 ${
+      className={`rounded-xl border bg-card shadow-sm transition-all duration-200 ${
         size === "large" ? "col-span-2" : ""
       }`}
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">{title}</span>
+          <span className="font-serif text-[18px] font-normal leading-none">{title}</span>
           <button
             type="button"
             className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted"
@@ -342,7 +342,7 @@ export function ChartView({ board }: ChartViewProps) {
     return (
       <div className="grid grid-cols-1 gap-4 p-2 md:grid-cols-2">
         {[1, 2].map((i) => (
-          <div key={i} className="animate-pulse rounded-xl border bg-background p-5">
+          <div key={i} className="animate-pulse rounded-xl border bg-card p-5">
             <div className="mb-4 h-4 w-32 rounded bg-muted" />
             <div className="h-64 rounded bg-muted/50" />
           </div>
@@ -392,9 +392,9 @@ export function ChartView({ board }: ChartViewProps) {
       </ChartWidget>
 
       {/* Summary row */}
-      <div className="col-span-1 rounded-xl border bg-background shadow-sm md:col-span-2">
+      <div className="col-span-1 rounded-xl border bg-card shadow-sm md:col-span-2">
         <div className="border-b px-4 py-3">
-          <span className="text-sm font-semibold">Summary</span>
+          <span className="font-serif text-[18px] font-normal leading-none">Summary</span>
         </div>
         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
           {summaryStats.map((stat) => (

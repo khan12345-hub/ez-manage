@@ -55,8 +55,8 @@ export function WorkspaceCards() {
       <section>
         <SectionTitle title="My Workspaces" subtitle="Workspaces you belong to" count={0} />
         <div
-          className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-white py-14 text-center"
-          style={{ borderColor: "rgba(99, 102, 241, 0.25)" }}
+          className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-card py-14 text-center"
+          style={{ borderColor: "rgba(4,120,87,0.25)" }}
         >
           <LayoutDashboard className="h-10 w-10 text-muted-foreground/40" />
           <p className="mt-3 text-sm font-medium text-muted-foreground">No workspaces yet</p>
@@ -88,9 +88,9 @@ export function WorkspaceCards() {
             <motion.div key={ws.id} variants={item} whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
               <Link
                 href={`/workspace/${(ws as any).uid ?? ws.id}`}
-                className="group relative block overflow-hidden rounded-2xl bg-white transition-shadow hover:shadow-lg"
+                className="group relative block overflow-hidden rounded-2xl bg-card transition-shadow hover:shadow-lg"
                 style={{
-                  border: "1px solid rgba(99, 102, 241, 0.1)",
+                  border: "1px solid rgba(4,120,87,0.1)",
                   boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
                 }}
               >
@@ -155,13 +155,12 @@ function SectionTitle({
   return (
     <div className="mb-4 flex items-center justify-between">
       <div>
-        <h2 className="text-base font-semibold">{title}</h2>
+        <h2 className="font-serif text-[21px] font-normal leading-none">{title}</h2>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
       {count !== undefined && (
         <span
-          className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-          style={{ background: "rgba(99,102,241,0.1)", color: "#6366f1" }}
+          className="rounded-full bg-accent px-2.5 py-0.5 font-mono text-xs font-medium text-accent-foreground"
         >
           {count}
         </span>

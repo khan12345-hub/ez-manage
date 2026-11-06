@@ -238,7 +238,7 @@ function TaskCard({
       draggable
       onDragStart={handleDragStart}
       onClick={() => open({ taskId: task.id, boardId, groupId: task.groupId })}
-      className="group cursor-grab rounded-xl border bg-background shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing active:opacity-70"
+      className="group cursor-grab rounded-lg border border-border bg-card shadow-[0_1px_2px_rgb(11_42_31/0.05)] transition-[box-shadow,border-color] hover:border-primary/30 hover:shadow-md active:cursor-grabbing active:opacity-70"
     >
       {/* File carousel */}
       {files.length > 0 && (
@@ -251,7 +251,7 @@ function TaskCard({
       <div className="px-3 pb-3 pt-3 space-y-2.5">
         {/* Task name + actions */}
         <div className="flex items-start justify-between gap-2">
-          <p className="flex-1 text-xs font-medium leading-snug text-foreground line-clamp-2">
+          <p className="flex-1 text-[13px] font-medium leading-snug text-foreground line-clamp-2">
             {task.name}
           </p>
           <div className="flex shrink-0 items-center gap-1">
@@ -285,7 +285,7 @@ function TaskCard({
         <div className="flex items-center gap-2">
           <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           {dateStr ? (
-            <span className={`text-[11px] font-medium ${overdue ? "text-red-500" : "text-muted-foreground"}`}>
+            <span className={`text-[11px] font-medium ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
               {dateStr}
             </span>
           ) : (
@@ -303,7 +303,7 @@ function TaskCard({
               </span>
               <div className="h-1 w-12 overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full rounded-full bg-blue-500"
+                  className="h-full rounded-full bg-primary"
                   style={{ width: `${(subtaskDone / subtaskCount) * 100}%` }}
                 />
               </div>
@@ -346,10 +346,10 @@ function KanbanColumn({
 
   return (
     <div
-      className={`flex w-[280px] shrink-0 flex-col overflow-hidden rounded-xl border transition-colors ${
-        isDragOver ? "border-primary/60" : "border-border/70"
+      className={`flex w-[280px] shrink-0 flex-col overflow-hidden rounded-xl border bg-table-head shadow-[0_1px_2px_rgb(11_42_31/0.04)] transition-colors ${
+        isDragOver ? "border-primary/60 ring-2 ring-primary/15" : "border-border"
       }`}
-      style={{ background: `${tint}0d`, borderTop: `3px solid ${tint}` }}
+      style={{ borderTopColor: tint, borderTopWidth: 3 }}
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
@@ -363,23 +363,13 @@ function KanbanColumn({
       }}
     >
       {/* Header — colored icon + title + count pill */}
-      <div className="flex items-center justify-between px-3 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-            style={{ background: tint }}
-          >
-            <Layers className="h-3.5 w-3.5 text-white" />
-          </span>
-          <span className="truncate text-sm font-semibold text-foreground">
-            {label}
-          </span>
-        </div>
-        <span
-          className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums"
-          style={{ background: `${tint}22`, color: tint }}
-        >
-          {tasks.length}
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+        <span className="flex min-w-0 items-center gap-2">
+          <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tint }} />
+          <span className="truncate text-[13px] font-semibold text-foreground">{label}</span>
+        </span>
+        <span className="shrink-0 font-mono text-[12px] tabular-nums text-muted-foreground">
+          {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
         </span>
       </div>
 
@@ -409,14 +399,6 @@ function KanbanColumn({
           ))
         )}
 
-        {/* Add new task */}
-        <button
-          type="button"
-          className="mt-0.5 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-black/[0.03]"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add new task
-        </button>
       </div>
     </div>
   );
@@ -535,7 +517,7 @@ export function KanbanView({ board }: KanbanViewProps) {
     return (
       <div className="flex gap-4 overflow-x-auto p-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="w-[270px] shrink-0 animate-pulse rounded-xl border">
+          <div key={i} className="w-[280px] shrink-0 animate-pulse rounded-xl border bg-table-head">
             <div className="h-10 rounded-t-xl bg-muted" />
             <div className="space-y-3 p-3">
               {[1, 2, 3].map((j) => (

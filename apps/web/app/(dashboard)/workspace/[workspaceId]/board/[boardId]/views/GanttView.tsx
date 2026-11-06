@@ -202,7 +202,7 @@ function TaskPopup({ info, boardId, onOpen, onClose }: {
 }) {
   return (
     <div
-      className="fixed z-50 w-56 rounded-xl border bg-background shadow-xl p-3 space-y-2"
+      className="fixed z-50 w-56 rounded-xl border bg-card shadow-xl p-3 space-y-2"
       style={{ left: info.x, top: info.y }}
       onMouseLeave={onClose}
     >
@@ -241,7 +241,7 @@ function SettingsPanel({
   const hasStatus = (board.columns ?? []).some((c: any) => c.type === "STATUS");
 
   return (
-    <div className="flex w-[300px] shrink-0 flex-col border-l bg-background">
+    <div className="flex w-[300px] shrink-0 flex-col border-l bg-card">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <span className="text-sm font-semibold">Widget settings</span>
         <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted">
@@ -259,7 +259,7 @@ function SettingsPanel({
             <select
               value={startColId ?? ""}
               onChange={(e) => onStartColChange(Number(e.target.value))}
-              className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border bg-card px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
               {dateCols.length === 0 && <option value="">No date columns</option>}
               {dateCols.map((c: any) => (
@@ -273,7 +273,7 @@ function SettingsPanel({
             <select
               value={endColId ?? ""}
               onChange={(e) => onEndColChange(Number(e.target.value))}
-              className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border bg-card px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
               {dateCols.length === 0 && <option value="">No date columns</option>}
               {dateCols.map((c: any) => (
@@ -486,12 +486,17 @@ export function GanttView({ board }: GanttViewProps) {
     setScale(newScale);
     setNumUnits(Math.max(units, 3));
     setWindowStart(start);
+    setScrollToEarliest((n) => n + 1);
   }, [taskRows]);
 
   // Fit the view to the tasks once, when dated tasks first load — otherwise
   // the default window (last year) can show no bars at all. Afterwards the
   // user's own zoom/scroll is never overridden.
   const didInitialFit = useRef(false);
+  // After a fit, scroll the timeline so the earliest bar is in view (with a
+  // little lead-in). Without this, wide scales leave the first bar off-screen.
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
+  const [scrollToEarliest, setScrollToEarliest] = useState(0);
   useEffect(() => {
     if (didInitialFit.current) return;
     if (taskRows.some((r) => r.start || r.end)) {
@@ -499,6 +504,21 @@ export function GanttView({ board }: GanttViewProps) {
       autoFit();
     }
   }, [taskRows, autoFit]);
+
+  const handledScrollToken = useRef(0);
+  useEffect(() => {
+    if (!scrollToEarliest || handledScrollToken.current === scrollToEarliest) return;
+    const el = timelineScrollRef.current;
+    if (!el) return;
+    const starts = taskRows.map((r) => r.start ?? r.end).filter(Boolean) as Date[];
+    if (!starts.length) return;
+    const minT = Math.min(...starts.map((d) => d.getTime()));
+    const x = ((minT - windowStart.getTime()) / 86400000) * dayPx;
+    handledScrollToken.current = scrollToEarliest;
+    el.scrollTo({ left: Math.max(0, x - 48), behavior: "smooth" });
+    // run once per fit, after the new window/scale has rendered
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToEarliest, windowStart, dayPx]);
 
   // Bar color: group color or status color
   const getBarColor = useCallback((task: any, group: any): string => {
@@ -602,7 +622,7 @@ export function GanttView({ board }: GanttViewProps) {
       {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {/* Left: nav */}
-        <div className="flex items-center gap-0.5 rounded-lg border bg-background px-1 py-0.5">
+        <div className="flex items-center gap-0.5 rounded-lg border bg-card px-1 py-0.5">
           <button onClick={goBack} className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted">
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -617,14 +637,14 @@ export function GanttView({ board }: GanttViewProps) {
         {/* Auto Fit */}
         <button
           onClick={autoFit}
-          className="flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted"
+          className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted"
         >
           <AlignLeft className="h-3.5 w-3.5" />
           Auto Fit
         </button>
 
         {/* Scale selector */}
-        <div className="ml-auto flex items-center gap-1 rounded-lg border bg-background px-1 py-0.5">
+        <div className="ml-auto flex items-center gap-1 rounded-lg border bg-card px-1 py-0.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium hover:bg-muted">
@@ -656,7 +676,7 @@ export function GanttView({ board }: GanttViewProps) {
         {/* Settings icon */}
         <button
           onClick={() => setShowSettings(v => !v)}
-          className={`flex h-8 w-8 items-center justify-center rounded-lg border ${showSettings ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg border ${showSettings ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
         >
           <Settings className="h-4 w-4" />
         </button>
@@ -664,7 +684,7 @@ export function GanttView({ board }: GanttViewProps) {
         {/* "..." menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex h-8 w-8 items-center justify-center rounded-lg border bg-background text-muted-foreground hover:bg-muted">
+            <button className="flex h-8 w-8 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:bg-muted">
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </DropdownMenuTrigger>
@@ -684,12 +704,12 @@ export function GanttView({ board }: GanttViewProps) {
       {/* ── Main area (gantt + optional settings panel) ──────────────────────── */}
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border">
         {/* Gantt table */}
-        <div className="flex-1 overflow-x-auto select-none" onMouseLeave={() => { if (!dragRef.current) setPopup(null); }}>
+        <div ref={timelineScrollRef} className="flex-1 overflow-x-auto select-none" onMouseLeave={() => { if (!dragRef.current) setPopup(null); }}>
           <div style={{ minWidth: `${totalWidth + LEFT_W}px` }}>
 
             {/* Top header: years / quarter-groups / month-groups */}
-            <div className="flex border-b bg-muted/40 sticky top-0 z-20">
-              <div style={{ width: LEFT_W }} className="shrink-0 border-r px-3 py-2 text-xs font-semibold text-muted-foreground">
+            <div className="flex border-b bg-table-head sticky top-0 z-20">
+              <div style={{ width: LEFT_W }} className="sticky left-0 z-30 shrink-0 border-r bg-table-head px-3 py-2 font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
                 Task
               </div>
               <div className="flex">
@@ -706,8 +726,8 @@ export function GanttView({ board }: GanttViewProps) {
             </div>
 
             {/* Bottom header: quarters / months / weeks / days */}
-            <div className="flex border-b bg-muted/20 sticky top-[33px] z-20">
-              <div style={{ width: LEFT_W }} className="shrink-0 border-r" />
+            <div className="flex border-b bg-table-head sticky top-[33px] z-20">
+              <div style={{ width: LEFT_W }} className="sticky left-0 z-30 shrink-0 border-r bg-table-head" />
               <div className="flex">
                 {cells.map((cell, i) => {
                   const cellPx = CELL_W[scale];
@@ -746,13 +766,13 @@ export function GanttView({ board }: GanttViewProps) {
                 return (
                   <div
                     key={task.id}
-                    className={`flex border-b last:border-b-0 ${idx % 2 === 1 ? "bg-muted/10" : "bg-background"}`}
+                    className={`flex border-b last:border-b-0 ${idx % 2 === 1 ? "bg-muted/10" : "bg-card"}`}
                     style={{ height: ROW_H }}
                   >
                     {/* Left panel */}
                     <div
                       style={{ width: LEFT_W }}
-                      className="shrink-0 border-r px-3 flex items-center gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
+                      className="sticky left-0 z-[15] shrink-0 border-r bg-card px-3 flex items-center gap-2 cursor-pointer hover:bg-accent transition-colors"
                       onClick={() => open({ taskId: task.id, boardId: board.id, groupId: task.groupId })}
                     >
                       <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
@@ -763,7 +783,7 @@ export function GanttView({ board }: GanttViewProps) {
                     </div>
 
                     {/* Bar area */}
-                    <div className="flex-1 relative overflow-hidden" style={{ height: ROW_H }}>
+                    <div className="isolate flex-1 relative overflow-hidden" style={{ height: ROW_H }}>
                       {/* Cell dividers */}
                       {cells.map((_, ci) => (
                         <div key={ci} className="absolute top-0 bottom-0 border-r border-muted/40"

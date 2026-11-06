@@ -147,7 +147,7 @@ function TooltipCard({
   return (
     <div style={style} className="rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden select-none">
       {/* Header bar */}
-      <div className="flex items-center justify-between bg-indigo-600 px-4 py-3">
+      <div className="flex items-center justify-between bg-forest px-4 py-3">
         <div className="flex items-center gap-1.5">
           {Array.from({ length: total }).map((_, i) => (
             <div
@@ -196,7 +196,7 @@ function TooltipCard({
 
         <button
           onClick={onNext}
-          className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors"
+          className="flex items-center gap-1.5 rounded-lg bg-forest px-4 py-1.5 text-xs font-semibold text-forest-foreground hover:bg-forest/90 transition-colors"
         >
           {isLast ? "Finish 🎉" : (
             <>

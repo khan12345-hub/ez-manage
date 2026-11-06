@@ -62,7 +62,7 @@ const ROLE_INFO: Record<string, { border: string; bg: string; iconBg: string; te
     restrictions: [],
   },
   ADMIN: {
-    border: "border-indigo-200", bg: "bg-indigo-50", iconBg: "bg-indigo-100", textColor: "text-indigo-800",
+    border: "border-primary/30", bg: "bg-accent", iconBg: "bg-accent", textColor: "text-accent-foreground",
     icon: "🛡️", title: "Admin",
     desc: "Manages people and boards but cannot delete the workspace.",
     perms: ["Manage workspace members", "Change member roles (except Owner)", "Create, edit and delete boards", "Access all workspace settings"],
@@ -154,18 +154,18 @@ function BoardGroupSelector({
           ) : (
             <>
               <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                <input type="radio" checked={isAll} onChange={() => onChange("all")} className="accent-indigo-600" />
+                <input type="radio" checked={isAll} onChange={() => onChange("all")} className="accent-primary" />
                 <span className="text-xs text-foreground font-medium">All groups</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                <input type="radio" checked={!isAll} onChange={() => onChange([])} className="accent-indigo-600" />
+                <input type="radio" checked={!isAll} onChange={() => onChange([])} className="accent-primary" />
                 <span className="text-xs text-foreground font-medium">Specific groups</span>
               </label>
               {!isAll && (
                 <div className="pl-5 mt-1 space-y-1">
                   {groups.map((group) => (
                     <label key={group.id} className="flex items-center gap-2 cursor-pointer py-0.5">
-                      <input type="checkbox" checked={selectedIds.includes(group.id)} onChange={() => toggleGroup(group.id)} className="accent-indigo-600" />
+                      <input type="checkbox" checked={selectedIds.includes(group.id)} onChange={() => toggleGroup(group.id)} className="accent-primary" />
                       <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: group.color || "#94a3b8" }} />
                       <span className="text-xs text-muted-foreground truncate">{group.name}</span>
                     </label>
@@ -316,7 +316,7 @@ export function InviteModal() {
         aria-modal="true"
       >
         {/* Decorative Top Accent Line */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-brass" />
 
         {/* Close Button */}
         <button
@@ -329,7 +329,7 @@ export function InviteModal() {
 
         {/* Header */}
         <div className="flex items-start gap-3.5 mb-6">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent dark:bg-primary/10 text-primary dark:text-accent-foreground">
             <UserPlus className="h-5 w-5" />
           </div>
           <div>
@@ -361,7 +361,7 @@ export function InviteModal() {
             <Clock className="h-3 w-3" />
             Pending
             {pendingInvitations.length > 0 && (
-              <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
+              <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground dark:bg-primary/10 dark:text-accent-foreground">
                 {pendingInvitations.length}
               </span>
             )}
@@ -425,7 +425,7 @@ export function InviteModal() {
                     <select
                       value={linkRole}
                       onChange={(e) => setLinkRole(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                     >
                       <option value="MEMBER">Member</option>
                       <option value="ADMIN">Admin</option>
@@ -438,7 +438,7 @@ export function InviteModal() {
                     <select
                       value={linkExpiry ?? ""}
                       onChange={(e) => setLinkExpiry(e.target.value ? Number(e.target.value) : undefined)}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                     >
                       <option value="">Never</option>
                       <option value="1">1 day</option>
@@ -449,8 +449,8 @@ export function InviteModal() {
                 </div>
 
                 {generatedLink ? (
-                  <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900/50 dark:bg-indigo-950/30">
-                    <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-indigo-500 dark:text-indigo-400">Shareable link</p>
+                  <div className="rounded-lg border border-primary/30 bg-accent p-3 dark:border-primary/40 dark:bg-primary/10">
+                    <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-primary dark:text-accent-foreground">Shareable link</p>
                     <div className="flex items-center gap-2">
                       <p className="flex-1 truncate rounded bg-background px-2 py-1.5 text-xs font-mono text-foreground border border-border">
                         {generatedLink}
@@ -462,12 +462,12 @@ export function InviteModal() {
                           setLinkCopied(true);
                           setTimeout(() => setLinkCopied(false), 2000);
                         }}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white transition-colors hover:bg-indigo-700"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
                       >
                         {linkCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                       </button>
                     </div>
-                    <p className="mt-2 text-[10px] text-indigo-400">
+                    <p className="mt-2 text-[10px] text-primary">
                       Anyone with this link can join as {linkRole.charAt(0) + linkRole.slice(1).toLowerCase()}.
                       {linkExpiry ? ` Expires in ${linkExpiry} day${linkExpiry > 1 ? "s" : ""}.` : " Never expires."}
                     </p>
@@ -639,7 +639,7 @@ export function InviteModal() {
               </Button>
               <Button
                 type="submit"
-                className="h-9.5 px-4 font-semibold text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all flex items-center justify-center gap-1.5"
+                className="h-9.5 px-4 font-semibold text-xs bg-primary hover:bg-primary/90 text-white shadow-sm transition-all flex items-center justify-center gap-1.5"
               >
                 {createInvitationMutation.isPending ? (
                   <>

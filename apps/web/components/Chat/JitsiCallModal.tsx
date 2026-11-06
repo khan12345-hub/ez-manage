@@ -205,7 +205,7 @@ export function JitsiCallModal({ roomName, displayName, startWithVideoMuted, sta
         <div className="flex w-full gap-2">
           <button
             onClick={handleFocusPopup}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
           >
             <Maximize2 className="h-3.5 w-3.5" />
             {popupOpen ? "Return to Call" : "Rejoin Call"}

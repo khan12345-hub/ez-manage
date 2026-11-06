@@ -23,11 +23,11 @@ export function TaskDistribution() {
     <div
       className="rounded-2xl bg-card p-5"
       style={{
-        border: "1px solid rgba(99, 102, 241, 0.1)",
+        border: "1px solid rgba(4,120,87,0.1)",
         boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }}
     >
-      <h3 className="text-base font-semibold text-foreground">Task Distribution</h3>
+      <h3 className="font-serif text-[21px] font-normal leading-none text-foreground">Task Distribution</h3>
       <p className="text-sm text-muted-foreground">By status across your tasks</p>
 
       {isLoading ? (

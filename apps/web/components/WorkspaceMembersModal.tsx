@@ -124,7 +124,7 @@ export function WorkspaceMembersModal({
         aria-modal="true"
       >
         {/* top accent bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-brass" />
 
         <button
           onClick={onClose}
@@ -136,7 +136,7 @@ export function WorkspaceMembersModal({
 
         {/* header */}
         <div className="flex items-start gap-3.5 px-6 pt-6 pb-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-primary dark:bg-primary/10 dark:text-accent-foreground">
             <Users className="h-5 w-5" />
           </div>
           <div>
@@ -157,7 +157,7 @@ export function WorkspaceMembersModal({
             onClick={() => setActiveTab("members")}
             className={`flex items-center gap-1.5 pb-2.5 pt-1 text-xs font-semibold border-b-2 mr-5 transition-colors ${
               activeTab === "members"
-                ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                ? "border-primary/60 text-primary dark:text-accent-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -171,7 +171,7 @@ export function WorkspaceMembersModal({
             onClick={() => setActiveTab("invitations")}
             className={`flex items-center gap-1.5 pb-2.5 pt-1 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === "invitations"
-                ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                ? "border-primary/60 text-primary dark:text-accent-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -206,7 +206,7 @@ export function WorkspaceMembersModal({
                         className="h-8 w-8 shrink-0 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground dark:bg-primary/10 dark:text-accent-foreground">
                         {avatarInitials(m.user.firstName, m.user.lastName)}
                       </div>
                     )}
@@ -235,7 +235,7 @@ export function WorkspaceMembersModal({
                             role: e.target.value,
                           })
                         }
-                        className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                       >
                         {ASSIGNABLE_ROLES.map((r) => (
                           <option key={r} value={r}>

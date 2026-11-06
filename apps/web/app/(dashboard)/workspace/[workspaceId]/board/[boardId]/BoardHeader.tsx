@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, ChevronDown, ChevronLeft, MoreHorizontal, Plus, Settings, Users } from "lucide-react";
+import { Bot, ChevronDown, MoreHorizontal, Plus, Settings, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { resolveUrl } from "@/lib/resolveUrl";
 
@@ -233,47 +233,35 @@ export function BoardHeader({ board }: BoardHeaderProps) {
     <>
       <div
         ref={bannerRef}
-        className="relative -mx-3 -mt-3 overflow-hidden border-b px-3 py-3.5 sm:-mx-6 sm:-mt-6 sm:px-6"
-        style={{
-          background:
-            "linear-gradient(120deg, #eff6ff 0%, #f1f5ff 50%, #f1f6fd 100%)",
-          borderColor: "#DDE6FA",
-        }}
+        className="relative -mx-3 -mt-3 overflow-hidden border-b border-border bg-card px-3 pb-3.5 pt-3 sm:-mx-6 sm:-mt-6 sm:px-6"
       >
-        {/* decorative glow + handwritten tagline (non-interactive) */}
+        {/* Ledger rule: thin emerald → brass hairline across the top */}
         <div
-          className="pointer-events-none absolute -right-10 -top-12 h-44 w-44 rounded-full blur-2xl"
-          style={{ background: "rgba(139,92,246,0.12)" }}
+          className="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
+          style={{ background: "linear-gradient(90deg, var(--primary) 0%, var(--brass) 60%, transparent 100%)" }}
           aria-hidden
         />
-        <span
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 top-6 hidden -translate-x-1/2 select-none text-center text-[15px] italic leading-tight xl:block"
-          style={{
-            color: "rgba(139,92,246,0.8)",
-            fontFamily: "'Segoe Script','Brush Script MT',cursive",
-          }}
-        >
-          Organize. Collaborate.
-          <br />
-          Get things done.
-        </span>
 
         {/* breadcrumb */}
         <nav
-          className="relative mb-1.5 flex items-center gap-1 text-xs font-medium"
-          style={{ color: "#8292B5" }}
+          className="relative mb-1 flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground"
           aria-label="Breadcrumb"
         >
-          <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+          <span className="h-1.5 w-1.5 rounded-full bg-product-boards" aria-hidden />
           Boards
+          {board?.workspace?.name && (
+            <>
+              <span aria-hidden>/</span>
+              <span className="truncate normal-case tracking-normal">{board.workspace.name}</span>
+            </>
+          )}
         </nav>
 
         <header className="relative flex w-full items-center justify-between gap-2">
         {/* Board name + budget */}
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
           <button type="button" className="flex min-w-0 items-center gap-1.5 text-left">
-            <span className="truncate text-xl font-semibold capitalize tracking-[-0.02em] sm:text-2xl">
+            <span className="truncate font-serif text-[26px] font-normal leading-tight tracking-tight sm:text-[32px]">
               {board.name}
             </span>
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -307,7 +295,7 @@ export function BoardHeader({ board }: BoardHeaderProps) {
               type="button"
               variant="outline"
               size="sm"
-              className="hidden h-9 gap-2 bg-white/70 font-medium sm:inline-flex"
+              className="hidden h-9 gap-2 font-medium sm:inline-flex"
               onClick={() => setManageAccessOpen(true)}
             >
               <Settings className="h-4 w-4" />
@@ -319,11 +307,7 @@ export function BoardHeader({ board }: BoardHeaderProps) {
           <Button
             type="button"
             size="sm"
-            className="h-9 gap-2 border-0 font-semibold text-white"
-            style={{
-              background: "linear-gradient(135deg, #6366F1 0%, #7C3AED 100%)",
-              boxShadow: "0 4px 12px rgba(99,102,241,0.3)",
-            }}
+            className="h-9 gap-2 border-0 bg-forest font-semibold text-forest-foreground shadow-sm hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
             onClick={() =>
               window.dispatchEvent(new CustomEvent("ez:create-task"))
             }
@@ -337,7 +321,7 @@ export function BoardHeader({ board }: BoardHeaderProps) {
             type="button"
             onClick={() => setActivityOpen(true)}
             title="Board activity log"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[11px] font-bold text-white transition-all hover:ring-2 hover:ring-orange-400 hover:ring-offset-1"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forest text-[11px] font-semibold text-brass-soft ring-1 ring-brass/40 transition-all hover:ring-2 hover:ring-brass hover:ring-offset-1 hover:ring-offset-card"
           >
             {user?.avatarUrl && !avatarError ? (
               <img
@@ -400,27 +384,18 @@ export function BoardHeader({ board }: BoardHeaderProps) {
 
         {/* description + metadata */}
         {board?.description && (
-          <p className="relative mt-1.5 max-w-2xl text-[13px]" style={{ color: "#536A9A" }}>
+          <p className="relative mt-1.5 max-w-2xl text-[13px] text-muted-foreground">
             {board.description}
           </p>
         )}
-        <div className="relative mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: "#536A9A" }}>
-          {board?.workspace?.name && (
-            <span
-              className="inline-flex items-center gap-1 rounded-md bg-white/70 px-2 py-0.5"
-              style={{ border: "1px solid #DDE6FA" }}
-            >
-              Workspace:
-              <b style={{ color: "#635BFF" }}>{board.workspace.name}</b>
-            </span>
-          )}
-          {Array.isArray(board?.members) && (
-            <span className="inline-flex items-center gap-1">
+        {Array.isArray(board?.members) && (
+          <div className="relative mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5" aria-hidden />
               {board.members.length} {board.members.length === 1 ? "member" : "members"}
             </span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <ManageBoardAccessModal

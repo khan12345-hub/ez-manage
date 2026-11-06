@@ -191,7 +191,7 @@ export function WorkspaceChannelsCard({ workspaceId }: Props) {
                 >
                   <Avatar className="h-7 w-7 shrink-0">
                     <AvatarImage src={av(url)} />
-                    <AvatarFallback className="text-[10px] font-semibold bg-violet-100 text-violet-600">
+                    <AvatarFallback className="text-[10px] font-semibold bg-accent text-primary">
                       {initials}
                     </AvatarFallback>
                   </Avatar>

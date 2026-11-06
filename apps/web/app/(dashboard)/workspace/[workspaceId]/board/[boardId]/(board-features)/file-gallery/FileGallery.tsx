@@ -124,14 +124,14 @@ export function FileGallery() {
   });
 
   return (
-    <div className="overflow-hidden rounded-md border bg-background">
+    <div className="overflow-hidden rounded-xl border bg-card shadow-[0_1px_2px_rgb(11_42_31/0.04)]">
       {/* Header */}
       <div className="flex h-10 items-center justify-between border-b px-2">
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center text-muted-foreground">
             <span className="text-[16px] leading-none">⠿</span>
           </div>
-          <h2 className="truncate text-sm font-medium">Files Gallery</h2>
+          <h2 className="truncate font-serif text-[19px] font-normal leading-none">Files Gallery</h2>
           <button
             type="button"
             className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

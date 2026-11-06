@@ -91,12 +91,12 @@ export function NewTaskRow({
       />
 
       {/* Checkbox */}
-      <th className="sticky left-2 h-12 flex justify-end items-center px-5 bg-background min-w-[150px]">
+      <th className="sticky left-2 h-12 flex justify-end items-center px-5 bg-card min-w-[150px]">
         <Checkbox />
       </th>
 
       {/* Task / Subtask name */}
-      <td className="sticky left-[150px] z-20 bg-background border px-2 py-1">
+      <td className="sticky left-[150px] z-20 bg-card border px-2 py-1">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Plus className="h-4 w-4" />
 
@@ -113,7 +113,7 @@ export function NewTaskRow({
             }}
             onBlur={submit}
             disabled={createMutation.isPending}
-            className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+            className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
           />
         </div>
       </td>

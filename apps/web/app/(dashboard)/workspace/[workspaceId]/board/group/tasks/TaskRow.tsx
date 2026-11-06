@@ -97,7 +97,7 @@ export const TaskRow = forwardRef<
       <tr
         ref={ref}
         style={style}
-        className="group h-[41px] border-b hover:bg-muted/30"
+        className="group h-[41px] border-b border-border/70 hover:bg-accent/30"
       >
         <td
           style={{
@@ -106,7 +106,7 @@ export const TaskRow = forwardRef<
           className="sticky left-0 z-20 w-1 min-w-1"
         />
 
-        <td className="sticky left-1 z-20 min-w-[150px] bg-background">
+        <td className="sticky left-1 z-20 min-w-[150px] bg-card">
           <div className="flex items-center gap-2 px-3">
             {showSelection && (
               <button

@@ -202,7 +202,7 @@ export function ChatSidebar({ onClose }: Props) {
                   if (e.key === "Enter") handleCreateChannel();
                   if (e.key === "Escape") setShowNewChannel(false);
                 }}
-                className="flex-1 rounded border border-slate-300 px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                className="flex-1 rounded border border-slate-300 px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/30"
               />
             </div>
           )}
@@ -215,14 +215,14 @@ export function ChatSidebar({ onClose }: Props) {
                 onClick={() => handleSelectChannel(ch)}
                 className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors ${
                   activeChannelId === ch.id
-                    ? "bg-indigo-50 text-indigo-700"
+                    ? "bg-accent text-accent-foreground"
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 <Hash className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                 <span className="flex-1 truncate">{ch.name}</span>
                 {unread > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-bold text-white">
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
                     {unread > 9 ? "9+" : unread}
                   </span>
                 )}
@@ -277,14 +277,14 @@ export function ChatSidebar({ onClose }: Props) {
                 key={dm.id}
                 className={`group flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
                   activeChannelId === dm.id
-                    ? "bg-indigo-50 text-indigo-700"
+                    ? "bg-accent text-accent-foreground"
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 {/* Avatar → open profile */}
                 <button
                   onClick={() => openProfile(dm)}
-                  className="relative shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="relative shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/30"
                   title="View profile"
                 >
                   <Avatar className="h-5 w-5">
@@ -313,7 +313,7 @@ export function ChatSidebar({ onClose }: Props) {
                     {other.user.firstName} {other.user.lastName}
                   </span>
                   {unread > 0 && (
-                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-bold text-white">
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
                       {unread > 9 ? "9+" : unread}
                     </span>
                   )}
@@ -344,7 +344,7 @@ export function ChatSidebar({ onClose }: Props) {
                   onClick={() => { setStatusEmoji(p.emoji); setStatusText(p.text); }}
                   className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
                     statusEmoji === p.emoji && statusText === p.text
-                      ? "bg-indigo-50 text-indigo-700"
+                      ? "bg-accent text-accent-foreground"
                       : "hover:bg-slate-50 text-slate-700"
                   }`}
                 >
@@ -364,14 +364,14 @@ export function ChatSidebar({ onClose }: Props) {
                 onChange={(e) => setStatusEmoji(e.target.value)}
                 placeholder="😊"
                 maxLength={2}
-                className="w-12 rounded-lg border border-slate-200 px-2 py-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-12 rounded-lg border border-slate-200 px-2 py-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
               <input
                 value={statusText}
                 onChange={(e) => setStatusText(e.target.value)}
                 placeholder="What's your status?"
                 maxLength={100}
-                className="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
           </div>
@@ -386,7 +386,7 @@ export function ChatSidebar({ onClose }: Props) {
                   onClick={() => setClearAfter(opt.value as any)}
                   className={`rounded-full px-2.5 py-1 text-[11px] transition-colors ${
                     clearAfter === opt.value
-                      ? "bg-indigo-100 text-indigo-700 font-semibold"
+                      ? "bg-accent text-accent-foreground font-semibold"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
@@ -407,7 +407,7 @@ export function ChatSidebar({ onClose }: Props) {
             <button
               onClick={handleSaveStatus}
               disabled={savingStatus}
-              className="flex-1 rounded-lg bg-indigo-600 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-60"
+              className="flex-1 rounded-lg bg-primary py-1.5 text-xs font-semibold text-white hover:bg-primary/90 transition-colors disabled:opacity-60"
             >
               {savingStatus ? "Saving…" : "Save"}
             </button>

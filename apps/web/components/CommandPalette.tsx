@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Layout,
+  Home,
+  LayoutDashboard,
+  LayoutGrid,
+  ListChecks,
   MessageSquare,
   Plus,
+  Search,
   Settings,
+  SquareKanban,
+  TrendingUp,
   UserPlus,
-  Zap,
-  LayoutDashboard,
-  Keyboard,
+  Building2,
+  CalendarDays,
+  Clock,
 } from "lucide-react";
 
 import {
@@ -25,87 +31,153 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { useShortcuts } from "@/providers/ShortcutsProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import { getAllWorkspaces } from "@/services/workspace.api";
 import { getBoards } from "@/services/boards.api";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { useGroupStore } from "@/store/create-group-store";
+import { useCommandPalette } from "@/store/command-palette";
+
+/** Product dot — same colours as the sidebar switcher and the home cards. */
+function Dot({ className }: { className: string }) {
+  return <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${className}`} />;
+}
 
 export function CommandPalette() {
-  const [open, setOpen] = useState(false);
-  const [workspaceId, setWorkspaceId] = useState<number | null>(null);
+  const open = useCommandPalette((s) => s.paletteOpen);
+  const setOpen = useCommandPalette((s) => s.setPaletteOpen);
+  const setTaskSearchOpen = useCommandPalette((s) => s.setTaskSearchOpen);
+
   const router = useRouter();
+  const pathname = usePathname();
+  const { user } = useAuth();
   const { register } = useShortcuts();
   const { open: openInvite } = useInviteModalStore();
   const addNewGroup = useGroupStore((s) => s.addNewGroup);
 
-  // Register ⌘K / Ctrl+K
-  useEffect(() => {
-    const unMeta = register("meta+k", () => setOpen(true));
-    const unCtrl = register("ctrl+k", () => setOpen(true));
-    return () => { unMeta(); unCtrl(); };
-  }, [register]);
+  const isSuperAdmin = user?.systemRole === "SUPER_ADMIN";
 
-  // Detect current workspaceId from URL
+  // Workspace and board URLs carry uid strings, not numeric ids.
+  const workspaceUid = pathname?.match(/\/workspace\/([^/]+)/)?.[1] ?? null;
+  const onBoard = /\/board\/[^/]+/.test(pathname ?? "");
+
   useEffect(() => {
-    const match = window.location.pathname.match(/\/workspace\/(\d+)/);
-    if (match) setWorkspaceId(Number(match[1]));
-  }, [open]);
+    const toggle = () => setOpen(!useCommandPalette.getState().paletteOpen);
+    const unMeta = register("meta+k", toggle);
+    const unCtrl = register("ctrl+k", toggle);
+    return () => { unMeta(); unCtrl(); };
+  }, [register, setOpen]);
 
   const { data: workspaces = [] } = useQuery({
     queryKey: ["workspaces"],
     queryFn: getAllWorkspaces,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 60_000,
   });
 
   const { data: boards = [] } = useQuery({
-    queryKey: ["boards", workspaceId],
-    queryFn: () => getBoards(workspaceId!),
-    enabled: !!workspaceId,
-    staleTime: 1000 * 60 * 5,
+    queryKey: ["boards", workspaceUid],
+    queryFn: () => getBoards(workspaceUid!),
+    enabled: !!workspaceUid,
+    staleTime: 60_000,
   });
+
+  const firstWorkspaceUid = (workspaces as any[])[0]?.uid ?? (workspaces as any[])[0]?.id;
+  const boardsHome = workspaceUid ?? firstWorkspaceUid;
 
   const run = (fn: () => void) => {
     setOpen(false);
-    setTimeout(fn, 80); // let dialog close before navigating
+    setTimeout(fn, 80); // let the dialog close before navigating
   };
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Search boards, workspaces, actions…" autoFocus />
-      <CommandList>
+    <CommandDialog
+      open={open}
+      onOpenChange={setOpen}
+      title="Command palette"
+      description="Jump to a product, board or action"
+    >
+      <CommandInput placeholder="Jump to a board, workspace or action…" autoFocus />
+      <CommandList className="max-h-[420px]">
         <CommandEmpty>No results found.</CommandEmpty>
 
-        {/* Navigation */}
-        <CommandGroup heading="Go to">
-          <CommandItem onSelect={() => run(() => router.push("/dashboard"))}>
-            <LayoutDashboard />
-            Dashboard
+        {workspaceUid && (
+          <CommandGroup heading="Search">
+            <CommandItem
+              value="search tasks in this workspace"
+              onSelect={() => run(() => setTaskSearchOpen(true))}
+            >
+              <Search />
+              Search tasks in this workspace…
+            </CommandItem>
+          </CommandGroup>
+        )}
+
+        <CommandGroup heading="Products">
+          <CommandItem
+            value="product boards"
+            disabled={!boardsHome}
+            onSelect={() => run(() => router.push(`/workspace/${boardsHome}`))}
+          >
+            <Dot className="bg-product-boards" />
+            Boards
+            <CommandShortcut>Workspaces</CommandShortcut>
           </CommandItem>
-          <CommandItem onSelect={() => run(() => router.push("/dashboard/settings"))}>
-            <Settings />
-            Settings
-            <CommandShortcut>⚙</CommandShortcut>
+          <CommandItem value="product work" disabled>
+            <Dot className="bg-product-work" />
+            Work
+            <CommandShortcut>Soon</CommandShortcut>
           </CommandItem>
-          {workspaceId && (
-            <CommandItem onSelect={() => run(() => router.push(`/workspace/${workspaceId}/chat`))}>
-              <MessageSquare />
-              Chat
+          {isSuperAdmin && (
+            <CommandItem value="product ceo control tower" onSelect={() => run(() => router.push("/ceo-assistant"))}>
+              <Dot className="bg-product-ceo" />
+              CEO Control Tower
             </CommandItem>
           )}
         </CommandGroup>
 
-        {/* Boards in current workspace */}
+        <CommandSeparator />
+        <CommandGroup heading="Go to">
+          <CommandItem value="home" onSelect={() => run(() => router.push("/home"))}>
+            <Home />
+            Home
+          </CommandItem>
+          <CommandItem value="dashboard my work" onSelect={() => run(() => router.push("/dashboard"))}>
+            <LayoutDashboard />
+            Dashboard
+          </CommandItem>
+          {workspaceUid && (
+            <>
+              <CommandItem value="workspace calendar" onSelect={() => run(() => router.push(`/workspace/${workspaceUid}/calendar`))}>
+                <CalendarDays />
+                Workspace calendar
+              </CommandItem>
+              <CommandItem value="my timesheet" onSelect={() => run(() => router.push(`/workspace/${workspaceUid}/timesheet`))}>
+                <Clock />
+                My timesheet
+              </CommandItem>
+              <CommandItem value="team chat" onSelect={() => run(() => router.push(`/workspace/${workspaceUid}/chat`))}>
+                <MessageSquare />
+                Team chat
+              </CommandItem>
+            </>
+          )}
+          <CommandItem value="settings profile" onSelect={() => run(() => router.push("/settings"))}>
+            <Settings />
+            Settings
+          </CommandItem>
+        </CommandGroup>
+
         {(boards as any[]).length > 0 && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Boards">
+            <CommandGroup heading="Boards in this workspace">
               {(boards as any[]).map((board: any) => (
                 <CommandItem
                   key={board.id}
-                  value={`board-${board.id}-${board.name}`}
-                  onSelect={() => run(() => router.push(`/workspace/${workspaceId}/board/${board.uid ?? board.id}`))}
+                  value={`board ${board.name} ${board.id}`}
+                  onSelect={() => run(() => router.push(`/workspace/${workspaceUid}/board/${board.uid ?? board.id}`))}
                 >
-                  <Layout />
+                  <SquareKanban />
                   {board.name}
                 </CommandItem>
               ))}
@@ -113,7 +185,6 @@ export function CommandPalette() {
           </>
         )}
 
-        {/* Workspaces */}
         {(workspaces as any[]).length > 1 && (
           <>
             <CommandSeparator />
@@ -121,10 +192,10 @@ export function CommandPalette() {
               {(workspaces as any[]).map((ws: any) => (
                 <CommandItem
                   key={ws.id}
-                  value={`ws-${ws.id}-${ws.name}`}
+                  value={`workspace ${ws.name} ${ws.id}`}
                   onSelect={() => run(() => router.push(`/workspace/${ws.uid ?? ws.id}`))}
                 >
-                  <LayoutDashboard />
+                  <Building2 />
                   {ws.name}
                 </CommandItem>
               ))}
@@ -132,43 +203,32 @@ export function CommandPalette() {
           </>
         )}
 
-        {/* Actions */}
         <CommandSeparator />
         <CommandGroup heading="Actions">
-          <CommandItem onSelect={() => run(() => openInvite())}>
+          <CommandItem value="invite team member" onSelect={() => run(() => openInvite())}>
             <UserPlus />
             Invite team member
-            <CommandShortcut>I</CommandShortcut>
           </CommandItem>
-          {workspaceId && (
-            <CommandItem onSelect={() => run(() => addNewGroup())}>
+          {onBoard && (
+            <CommandItem value="add new group to board" onSelect={() => run(() => addNewGroup())}>
               <Plus />
-              Add new group to board
-              <CommandShortcut>G</CommandShortcut>
+              Add a group to this board
             </CommandItem>
           )}
-        </CommandGroup>
-
-        {/* Shortcuts reference */}
-        <CommandSeparator />
-        <CommandGroup heading="Keyboard shortcuts">
-          <CommandItem disabled>
-            <Keyboard />
-            Open command palette
-            <CommandShortcut>⌘K</CommandShortcut>
-          </CommandItem>
-          <CommandItem disabled>
-            <Zap />
-            New group
-            <CommandShortcut>G</CommandShortcut>
-          </CommandItem>
-          <CommandItem disabled>
-            <UserPlus />
-            Invite member
-            <CommandShortcut>I</CommandShortcut>
+          <CommandItem value="open home launcher" onSelect={() => run(() => router.push("/home"))}>
+            <LayoutGrid />
+            Open product launcher
           </CommandItem>
         </CommandGroup>
       </CommandList>
+
+      <div className="flex items-center justify-between border-t border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <ListChecks className="h-3.5 w-3.5" />
+          ↑↓ to move · Enter to open
+        </span>
+        <span className="font-mono">⌘K / Ctrl K</span>
+      </div>
     </CommandDialog>
   );
 }

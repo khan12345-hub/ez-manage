@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/providers/AuthProvider";
-import { CalendarDays } from "lucide-react";
 import { motion } from "framer-motion";
 
 function getGreeting() {
@@ -20,89 +19,73 @@ function getFormattedDate() {
   });
 }
 
-
+/** Ledger header: card with a fine grid, mono date, serif greeting. */
 export function DashboardHeader() {
   const { user } = useAuth();
   const firstName = user?.firstName || "there";
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -16 }}
+      initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="relative overflow-hidden rounded-2xl"
-      style={{
-        background: "linear-gradient(120deg, #eef0ff 0%, #f1edff 55%, #eae7ff 100%)",
-        border: "1px solid rgba(99,102,241,0.12)",
-        boxShadow: "0 4px 24px rgba(99,102,241,0.1)",
-      }}
+      className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgb(11_42_31/0.04),0_12px_32px_-18px_rgb(11_42_31/0.25)]"
     >
-      {/* soft blobs */}
+      {/* emerald → brass hairline, fine ledger grid, soft glow */}
       <div
-        className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full blur-3xl"
-        style={{ background: "rgba(139,92,246,0.18)" }}
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
+        style={{ background: "linear-gradient(90deg, var(--primary) 0%, var(--brass) 60%, transparent 100%)" }}
       />
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.5]"
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-40"
         style={{
-          backgroundImage: "radial-gradient(circle, rgba(99,102,241,0.08) 1px, transparent 1px)",
-          backgroundSize: "22px 22px",
+          backgroundImage:
+            "linear-gradient(rgb(4 120 87 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(4 120 87 / 0.05) 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+          maskImage: "linear-gradient(90deg, transparent, black 55%)",
+          WebkitMaskImage: "linear-gradient(90deg, transparent, black 55%)",
         }}
       />
+      <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
 
-      <div className="relative flex items-center justify-between gap-4 px-6 py-6">
-        {/* Left — greeting */}
+      <div className="relative flex items-center justify-between gap-4 px-6 py-6 sm:px-7">
         <div className="min-w-0">
-          <motion.h1
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.12, duration: 0.5 }}
-            className="flex items-center gap-2 text-2xl font-bold text-slate-800"
-          >
-            <span className="text-2xl">👋</span>
-            {getGreeting()}, {firstName}
-          </motion.h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Here&apos;s what&apos;s happening in your workspace today.
-          </p>
-          <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-primary">
-            <CalendarDays className="h-4 w-4" />
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
             {getFormattedDate()}
           </p>
-
-          {/* progress accent */}
-          <div className="mt-4 h-1.5 w-40 overflow-hidden rounded-full bg-primary/10">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: "70%" }}
-              transition={{ delay: 0.5, duration: 0.9, ease: "easeOut" }}
-              className="h-full rounded-full"
-              style={{ background: "linear-gradient(90deg, #6366f1, #8b5cf6)" }}
-            />
-          </div>
-        </div>
-
-        {/* Middle — quote (hidden on small) */}
-        <div className="hidden shrink-0 text-right lg:block">
-          <p className="max-w-[180px] text-sm italic leading-snug text-slate-400">
-            &ldquo;Great teams don&apos;t just work, they make progress.&rdquo;
+          <motion.h1
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
+            className="mt-2 font-serif text-[34px] font-normal leading-[1.05] tracking-tight text-foreground sm:text-[42px]"
+          >
+            {getGreeting()},{" "}
+            <span
+              className="bg-clip-text italic text-transparent"
+              style={{ backgroundImage: "linear-gradient(120deg, var(--primary) 0%, var(--accent-foreground) 50%, var(--brass) 100%)" }}
+            >
+              {firstName}.
+            </span>
+          </motion.h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Here&apos;s what&apos;s happening across your workspaces today.
           </p>
         </div>
 
-        {/* Right — illustration */}
-        <div className="hidden shrink-0 sm:block">
-          <motion.img
-            src="/images/ezmanage/01_dashboard_illustration.png"
-            alt=""
-            aria-hidden
-            width={236}
-            height={164}
-            className="h-[150px] w-auto select-none object-contain"
-            initial={{ opacity: 0, scale: 0.92 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.25, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          />
-        </div>
+        <motion.img
+          src="/images/ezmanage/ledger/hero.svg"
+          alt=""
+          aria-hidden
+          width={240}
+          height={150}
+          className="hidden h-[150px] w-auto shrink-0 select-none sm:block"
+          initial={{ opacity: 0, scale: 0.94 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          draggable={false}
+        />
       </div>
     </motion.div>
   );

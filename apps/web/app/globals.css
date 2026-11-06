@@ -69,9 +69,13 @@ body {
   -webkit-font-smoothing: subpixel-antialiased;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* In the base layer so a link's own text-* / underline utilities can win
+   (unlayered, this rule silently overrode e.g. text-primary on every link). */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 .imgDark {
@@ -93,8 +97,21 @@ a {
 
 /* ── Tailwind v4 design token bridge ─────────────────────────────────── */
 @theme inline {
-  --font-heading: var(--font-figtree), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
+  --font-heading: var(--font-poppins), var(--font-figtree), Roboto, sans-serif;
   --font-sans:    var(--font-figtree), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
+  /* Ledger type roles: font-serif (luxury headlines), font-mono (numbers, labels) */
+  --font-serif:   var(--font-serif-display), Georgia, "Times New Roman", serif;
+  --font-mono:    var(--font-mono-display), ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+
+  /* Ledger brand colours (bg-forest, text-brass, bg-product-work, …) */
+  --color-forest:          var(--forest);
+  --color-forest-foreground: var(--forest-foreground);
+  --color-brass:           var(--brass);
+  --color-brass-soft:      var(--brass-soft);
+  --color-table-head:      var(--table-head);
+  --color-product-boards:  var(--product-boards);
+  --color-product-work:    var(--product-work);
+  --color-product-ceo:     var(--product-ceo);
 
   /* Core palette — maps CSS vars to Tailwind utility classes */
   --color-background:         var(--background);
@@ -154,62 +171,74 @@ a {
 
 /* ── Light theme ─────────────────────────────────────────────────────── */
 :root {
-  /* Core surfaces */
-  --background:         oklch(0.99 0 0);
-  --foreground:         oklch(0.14 0.012 268);
-  --card:               oklch(1 0 0);
-  --card-foreground:    oklch(0.14 0.012 268);
-  --popover:            oklch(1 0 0);
-  --popover-foreground: oklch(0.14 0.012 268);
-
-  /* ── EzManage brand ───────────────────────────────────────────────────
-   * Indigo-violet accent, distinct from Monday.com's cobalt #0073EA.
-   * oklch(0.52 0.23 267) ≈ #4B48E8 — confident, premium, readable.
+  /* ── EZ Manage "Ledger" palette (Phase 0, Option D) ──────────────────
+   * Calm green-grey surfaces, one emerald accent, forest + brass reserved
+   * for the luxury moments (login, home, CEO Tower).
    * ─────────────────────────────────────────────────────────────────── */
-  --primary:            oklch(0.52 0.23 267);
-  --primary-foreground: oklch(0.985 0 0);
 
-  /* Secondary / muted — very slight indigo tint for cohesion */
-  --secondary:            oklch(0.965 0.005 268);
-  --secondary-foreground: oklch(0.20 0.012 268);
-  --muted:                oklch(0.965 0.005 268);
-  --muted-foreground:     oklch(0.50 0.012 268);
-  --accent:               oklch(0.965 0.005 268);
-  --accent-foreground:    oklch(0.20 0.012 268);
+  /* Core surfaces */
+  --background:         #f4f6f5;
+  --foreground:         #0e1a14;
+  --card:               #ffffff;
+  --card-foreground:    #0e1a14;
+  --popover:            #ffffff;
+  --popover-foreground: #0e1a14;
+
+  /* Brand: emerald */
+  --primary:            #047857;
+  --primary-foreground: #ffffff;
+
+  /* Secondary / muted — green-grey */
+  --secondary:            #eaefec;
+  --secondary-foreground: #1d2a23;
+  --muted:                #eef2ef;
+  --muted-foreground:     #56655d;   /* 5.4:1 on --background */
+  --accent:               #dcefe5;
+  --accent-foreground:    #065f46;
 
   /* Semantic status tokens */
-  --destructive:           oklch(0.577 0.245 27.325);
-  --success:               oklch(0.53 0.17 160);
-  --success-foreground:    oklch(0.985 0 0);
-  --warning:               oklch(0.72 0.17 65);
-  --warning-foreground:    oklch(0.15 0 0);
-  --info:                  oklch(0.58 0.16 220);
-  --info-foreground:       oklch(0.985 0 0);
+  --destructive:           #b91c1c;
+  --success:               #15803d;
+  --success-foreground:    #ffffff;
+  --warning:               #b45309;
+  --warning-foreground:    #ffffff;
+  --info:                  #1d4ed8;
+  --info-foreground:       #ffffff;
 
-  /* Borders — subtle indigo tint */
-  --border: oklch(0.905 0.006 268);
-  --input:  oklch(0.905 0.006 268);
-  --ring:   oklch(0.52 0.23 267);
+  /* Borders */
+  --border: #dde5e0;
+  --input:  #c9d6ce;
+  --ring:   #047857;
 
-  /* Chart — colorful and semantically meaningful */
-  --chart-1: oklch(0.52 0.23 267);   /* brand indigo */
-  --chart-2: oklch(0.53 0.17 160);   /* success green */
-  --chart-3: oklch(0.72 0.17 65);    /* warning amber */
-  --chart-4: oklch(0.577 0.245 27);  /* destructive red */
-  --chart-5: oklch(0.58 0.16 220);   /* info sky */
+  /* Chart */
+  --chart-1: #047857;   /* emerald */
+  --chart-2: #4f46e5;   /* indigo */
+  --chart-3: #b45309;   /* amber */
+  --chart-4: #b91c1c;   /* red */
+  --chart-5: #0e7490;   /* teal */
 
-  /* Border radius base */
-  --radius: 0.625rem;
+  /* Border radius base: 8px */
+  --radius: 0.5rem;
 
-  /* Sidebar — clean off-white with subtle indigo hint */
-  --sidebar:                    oklch(0.985 0.005 268);
-  --sidebar-foreground:         oklch(0.20 0.012 268);
-  --sidebar-primary:            oklch(0.52 0.23 267);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent:             oklch(0.94 0.008 268);
-  --sidebar-accent-foreground:  oklch(0.20 0.012 268);
-  --sidebar-border:             oklch(0.905 0.006 268);
-  --sidebar-ring:               oklch(0.52 0.23 267);
+  /* Sidebar */
+  --sidebar:                    #eaefec;
+  --sidebar-foreground:         #2c3a33;
+  --sidebar-primary:            #047857;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:             #dcefe5;
+  --sidebar-accent-foreground:  #065f46;
+  --sidebar-border:             #d7e1db;
+  --sidebar-ring:               #047857;
+
+  /* Luxury + product colours */
+  --forest:            #0b2a1f;
+  --forest-foreground: #e9efe9;
+  --brass:             #b08d57;
+  --brass-soft:        #d9bd8c;
+  --table-head:        #f8faf9;
+  --product-boards:    #4f46e5;
+  --product-work:      #047857;
+  --product-ceo:       #b45309;
 
   /* ── Named z-index scale ─────────────────────────────────────────────
    * Reference in components via: style={{ zIndex: 'var(--z-dialog)' }}
@@ -232,56 +261,59 @@ a {
 .dark {
   color-scheme: dark;
 
-  /* Core surfaces — deep navy palette for premium enterprise feel */
-  --background:         oklch(0.135 0.025 272);
-  --foreground:         oklch(0.94 0.005 268);
-  --card:               oklch(0.175 0.022 268);
-  --card-foreground:    oklch(0.94 0.005 268);
-  --popover:            oklch(0.175 0.022 268);
-  --popover-foreground: oklch(0.94 0.005 268);
+  /* Ledger dark: deep forest surfaces, mint accent */
+  --background:         #0d1411;
+  --foreground:         #e7efea;
+  --card:               #141d18;
+  --card-foreground:    #e7efea;
+  --popover:            #18231d;
+  --popover-foreground: #e7efea;
 
-  /* EzManage brand — lighter indigo for dark mode readability */
-  --primary:            oklch(0.68 0.18 267);
-  --primary-foreground: oklch(0.10 0.015 268); /* dark navy — maintains 6:1 contrast on L=0.68 primary */
+  --primary:            #34d399;
+  --primary-foreground: #052e1f;   /* 9:1 on the mint primary */
 
-  /* Secondary / muted */
-  --secondary:            oklch(0.225 0.018 268);
-  --secondary-foreground: oklch(0.94 0.005 268);
-  --muted:                oklch(0.225 0.018 268);
-  --muted-foreground:     oklch(0.64 0.012 268);
-  --accent:               oklch(0.225 0.018 268);
-  --accent-foreground:    oklch(0.94 0.005 268);
+  --secondary:            #1b2620;
+  --secondary-foreground: #e7efea;
+  --muted:                #1b2620;
+  --muted-foreground:     #93a89b;
+  --accent:               #123326;
+  --accent-foreground:    #a7f3d0;
 
-  /* Semantic status */
-  --destructive:           oklch(0.65 0.22 25);
-  --success:               oklch(0.60 0.15 160);
-  --success-foreground:    oklch(0.985 0 0);
-  --warning:               oklch(0.78 0.15 65);
-  --warning-foreground:    oklch(0.15 0 0);
-  --info:                  oklch(0.65 0.14 220);
-  --info-foreground:       oklch(0.985 0 0);
+  --destructive:           #f87171;
+  --success:               #4ade80;
+  --success-foreground:    #052e1f;
+  --warning:               #fbbf24;
+  --warning-foreground:    #1c1305;
+  --info:                  #60a5fa;
+  --info-foreground:       #0b1730;
 
-  /* Borders */
-  --border: oklch(1 0 0 / 9%);
-  --input:  oklch(1 0 0 / 12%);
-  --ring:   oklch(0.68 0.18 267);
+  --border: rgb(255 255 255 / 9%);
+  --input:  rgb(255 255 255 / 14%);
+  --ring:   #34d399;
 
-  /* Chart */
-  --chart-1: oklch(0.68 0.18 267);
-  --chart-2: oklch(0.60 0.15 160);
-  --chart-3: oklch(0.78 0.15 65);
-  --chart-4: oklch(0.65 0.22 25);
-  --chart-5: oklch(0.65 0.14 220);
+  --chart-1: #34d399;
+  --chart-2: #a5b4fc;
+  --chart-3: #fbbf24;
+  --chart-4: #f87171;
+  --chart-5: #22d3ee;
 
-  /* Sidebar — deepest navy layer, darker than main background */
-  --sidebar:                    oklch(0.12 0.028 272);
-  --sidebar-foreground:         oklch(0.86 0.007 268);
-  --sidebar-primary:            oklch(0.68 0.18 267);
-  --sidebar-primary-foreground: oklch(0.10 0.015 268); /* dark navy — matches --primary-foreground fix */
-  --sidebar-accent:             oklch(0.205 0.022 268);
-  --sidebar-accent-foreground:  oklch(0.90 0.005 268);
-  --sidebar-border:             oklch(1 0 0 / 8%);
-  --sidebar-ring:               oklch(0.68 0.18 267);
+  --sidebar:                    #0a100d;
+  --sidebar-foreground:         #c4d1c9;
+  --sidebar-primary:            #34d399;
+  --sidebar-primary-foreground: #052e1f;
+  --sidebar-accent:             #16241d;
+  --sidebar-accent-foreground:  #a7f3d0;
+  --sidebar-border:             rgb(255 255 255 / 8%);
+  --sidebar-ring:               #34d399;
+
+  --forest:            #0b2a1f;
+  --forest-foreground: #e9efe9;
+  --brass:             #c9a66b;
+  --brass-soft:        #e0c79b;
+  --table-head:        #18221d;
+  --product-boards:    #a5b4fc;
+  --product-work:      #34d399;
+  --product-ceo:       #fbbf24;
 }
 
 /* ── Base layer ──────────────────────────────────────────────────────── */
@@ -310,8 +342,8 @@ a {
     font-family: var(--font-figtree), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-figtree), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
-    font-weight: 500;
+    font-family: var(--font-poppins), var(--font-figtree), Roboto, sans-serif;
+    font-weight: 600;
     letter-spacing: -0.1px;
     -webkit-font-smoothing: antialiased;
   }
@@ -592,20 +624,61 @@ a {
   pointer-events: none;
 }
 
-/* Sidebar surface gradient (light only; dark falls back to --background) */
+/* Sidebar / page surfaces — Ledger is flat: solid token colours, no gradients */
 .ez-sidebar-surface {
-  background-image: linear-gradient(180deg, #f7f8fd 0%, #fafbff 45%, #eef2fc 100%);
+  background-image: none;
+  background-color: var(--sidebar);
 }
 .dark .ez-sidebar-surface {
   background-image: none;
 }
 
-/* Shared page surface gradient (light only; dark falls back to --background) */
 .ez-page-surface {
-  background-image: linear-gradient(180deg, #f6fafd 0%, #fbfcfe 100%);
+  background-image: none;
+  background-color: var(--background);
 }
 .dark .ez-page-surface {
   background-image: none;
+}
+
+/* ─── Ledger glass ───────────────────────────────────────────────────────────
+   Frosted panels for pages with a graphic backdrop (Home). In a layer so
+   utilities can still override padding/radius/etc. */
+@layer components {
+  .ez-glass {
+    background-color: rgb(255 255 255 / 0.58);
+    border: 1px solid rgb(255 255 255 / 0.75);
+    -webkit-backdrop-filter: blur(22px) saturate(1.6);
+    backdrop-filter: blur(22px) saturate(1.6);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      0 1px 2px rgb(11 42 31 / 0.04),
+      0 18px 40px -18px rgb(11 42 31 / 0.22);
+  }
+  .dark .ez-glass {
+    background-color: rgb(20 29 24 / 0.55);
+    border-color: rgb(255 255 255 / 0.08);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.06),
+      0 18px 40px -18px rgb(0 0 0 / 0.6);
+  }
+  /* Deep forest glass — executive / AI panels */
+  .ez-glass-forest {
+    color: #e9efe9;
+    background-image:
+      radial-gradient(420px 220px at 100% 0%, rgb(217 189 140 / 0.16), transparent 70%),
+      radial-gradient(360px 240px at 0% 100%, rgb(52 211 153 / 0.14), transparent 70%),
+      linear-gradient(160deg, rgb(18 64 47 / 0.94), rgb(11 42 31 / 0.92));
+    border: 1px solid rgb(217 189 140 / 0.28);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    backdrop-filter: blur(22px) saturate(1.4);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      0 24px 48px -20px rgb(11 42 31 / 0.55);
+  }
+  .dark .ez-glass-forest {
+    border-color: rgb(217 189 140 / 0.2);
+  }
 }
 
 /* ─── CEO executive surfaces (indigo→violet, dark-aware) ─────────────────── */

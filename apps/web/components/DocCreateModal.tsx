@@ -52,7 +52,7 @@ export function DocCreateModal({ open, onClose, workspaceId }: Props) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
-            <FileText className="h-5 w-5 text-indigo-500" />
+            <FileText className="h-5 w-5 text-primary" />
             Create Doc
           </DialogTitle>
         </DialogHeader>
@@ -83,7 +83,7 @@ export function DocCreateModal({ open, onClose, workspaceId }: Props) {
                   onClick={() => setPrivacy(opt.value)}
                   className={`flex flex-1 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
                     privacy === opt.value
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                      ? "border-primary/60 bg-accent text-accent-foreground"
                       : "border-border text-muted-foreground hover:border-border hover:bg-muted"
                   }`}
                 >
@@ -106,7 +106,7 @@ export function DocCreateModal({ open, onClose, workspaceId }: Props) {
               onClick={handleCreate}
               disabled={loading || !name.trim()}
               size="sm"
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-primary hover:bg-primary/90"
             >
               {loading ? "Creating…" : "Create Doc"}
             </Button>

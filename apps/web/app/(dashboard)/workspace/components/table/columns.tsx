@@ -35,7 +35,7 @@ export function createColumns(
           className="flex items-center gap-3 text-left w-full"
           onClick={() => onNavigate(row.original)}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-sm">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-sm">
             📋
           </div>
           <div className="min-w-0">

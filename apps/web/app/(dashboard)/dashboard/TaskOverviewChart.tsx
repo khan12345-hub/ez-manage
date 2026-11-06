@@ -6,7 +6,7 @@ import { useDashboardAggregates } from "./useDashboardData";
 
 const SERIES = [
   { key: "done" as const, label: "Completed", color: "#10b981" },
-  { key: "inProgress" as const, label: "In Progress", color: "#8b5cf6" },
+  { key: "inProgress" as const, label: "In Progress", color: "#b08d57" },
   { key: "overdue" as const, label: "Overdue", color: "#f43f5e" },
 ];
 
@@ -27,13 +27,13 @@ export function TaskOverviewChart() {
     <div
       className="rounded-2xl bg-card p-5"
       style={{
-        border: "1px solid rgba(99, 102, 241, 0.1)",
+        border: "1px solid rgba(4,120,87,0.1)",
         boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }}
     >
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Task Overview</h3>
+          <h3 className="font-serif text-[21px] font-normal leading-none text-foreground">Task Overview</h3>
           <p className="text-sm text-muted-foreground">Your tasks by due date · last 7 days</p>
         </div>
         <div className="flex items-center gap-4">

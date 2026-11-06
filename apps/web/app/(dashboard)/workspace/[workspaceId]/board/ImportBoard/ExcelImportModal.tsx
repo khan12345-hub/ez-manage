@@ -123,7 +123,7 @@ function ExcelImportProgress({
 
         <div className="h-2 overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-600 transition-all duration-700 ease-out"
+            className="h-full rounded-full bg-gradient-to-r from-primary via-primary/60 to-brass transition-all duration-700 ease-out"
             style={{
               width: `${progress}%`,
             }}
@@ -338,7 +338,7 @@ export function ExcelImportModal({
           }}
         >
           {/* Top gradient */}
-          <div className="absolute top-0 right-0 left-0 z-10 h-1 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-600" />
+          <div className="absolute top-0 right-0 left-0 z-10 h-1 bg-gradient-to-r from-primary via-primary/60 to-brass" />
 
           {isImporting ? (
             <>

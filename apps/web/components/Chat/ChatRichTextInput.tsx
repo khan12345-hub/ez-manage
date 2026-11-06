@@ -188,7 +188,7 @@ function ToolBtn({
       }}
       className={`rounded p-1 transition-colors ${
         active
-          ? "bg-indigo-100 text-indigo-700"
+          ? "bg-accent text-accent-foreground"
           : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >

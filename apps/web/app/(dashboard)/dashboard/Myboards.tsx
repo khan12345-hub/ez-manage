@@ -42,9 +42,9 @@ export function MyBoards() {
       <div className="space-y-3">
         <div className="h-5 w-24 rounded bg-muted animate-pulse" />
         <div
-          className="overflow-hidden rounded-2xl bg-white divide-y"
+          className="overflow-hidden rounded-2xl bg-card divide-y"
           style={{
-            border: "1px solid rgba(99, 102, 241, 0.1)",
+            border: "1px solid rgba(4,120,87,0.1)",
             boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
           }}
         >
@@ -69,12 +69,11 @@ export function MyBoards() {
     <section>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold">My Boards</h2>
+          <h2 className="font-serif text-[21px] font-normal leading-none">My Boards</h2>
           <p className="text-sm text-muted-foreground">All boards you have access to</p>
         </div>
         <span
-          className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-          style={{ background: "rgba(99,102,241,0.1)", color: "#6366f1" }}
+          className="rounded-full bg-accent px-2.5 py-0.5 font-mono text-xs font-medium text-accent-foreground"
         >
           {memberships.length}
         </span>
@@ -82,8 +81,8 @@ export function MyBoards() {
 
       {memberships.length === 0 ? (
         <div
-          className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-white py-14 text-center"
-          style={{ borderColor: "rgba(99, 102, 241, 0.25)" }}
+          className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-card py-14 text-center"
+          style={{ borderColor: "rgba(4,120,87,0.25)" }}
         >
           <LayoutDashboard className="h-10 w-10 text-muted-foreground/40" />
           <p className="mt-3 text-sm font-medium text-muted-foreground">No boards yet</p>
@@ -96,9 +95,9 @@ export function MyBoards() {
           variants={container}
           initial="hidden"
           animate="show"
-          className="overflow-hidden rounded-2xl bg-white"
+          className="overflow-hidden rounded-2xl bg-card"
           style={{
-            border: "1px solid rgba(99, 102, 241, 0.1)",
+            border: "1px solid rgba(4,120,87,0.1)",
             boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
           }}
         >
@@ -113,7 +112,7 @@ export function MyBoards() {
                 <Link
                   href={`/workspace/${(workspace as any).uid ?? workspace.id}/board/${(board as any).uid ?? board.id}`}
                   className="group flex w-full items-center gap-4 border-b px-5 py-3.5 text-left transition-colors last:border-0 hover:bg-primary/5"
-                  style={{ borderColor: "rgba(99,102,241,0.07)" }}
+                  style={{ borderColor: "rgba(4,120,87,0.07)" }}
                 >
                   <div
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${dotColor}`}

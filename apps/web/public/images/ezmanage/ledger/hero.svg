@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" fill="none" role="img" aria-label="EZ Manage: boards, calendar, team and reports around one workspace">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="55%">
+      <stop offset="0" stop-color="#34d399" stop-opacity="0.28"/>
+      <stop offset="0.55" stop-color="#047857" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#047857" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f4a35"/>
+      <stop offset="1" stop-color="#0b2a1f"/>
+    </linearGradient>
+    <linearGradient id="coreEdge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0c79b"/>
+      <stop offset="1" stop-color="#b08d57"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f1f6f3"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0b2a1f" flood-opacity="0.16"/>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0b2a1f" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- ambient glow -->
+  <ellipse cx="240" cy="150" rx="230" ry="150" fill="url(#glow)"/>
+
+  <!-- brass orbit -->
+  <ellipse cx="240" cy="160" rx="182" ry="74" stroke="#b08d57" stroke-opacity="0.55" stroke-width="1.5" stroke-dasharray="4 7" transform="rotate(-12 240 160)"/>
+  <ellipse cx="240" cy="160" rx="132" ry="52" stroke="#047857" stroke-opacity="0.25" stroke-width="1" transform="rotate(-12 240 160)"/>
+
+  <!-- stacked base plates -->
+  <rect x="168" y="118" width="144" height="110" rx="26" fill="#d9ece2" opacity="0.7" transform="rotate(-8 240 173)"/>
+  <rect x="176" y="104" width="128" height="104" rx="24" fill="#eef6f1" opacity="0.9" transform="rotate(-4 240 156)"/>
+
+  <!-- core tile -->
+  <g filter="url(#shadow)">
+    <rect x="186" y="86" width="108" height="108" rx="26" fill="url(#core)"/>
+    <rect x="186.75" y="86.75" width="106.5" height="106.5" rx="25.25" stroke="url(#coreEdge)" stroke-opacity="0.7" stroke-width="1.5"/>
+    <text x="240" y="155" text-anchor="middle" font-family="'Instrument Serif', Georgia, serif" font-size="46" fill="#e0c79b">EZ</text>
+  </g>
+
+  <!-- board tile (top-left) -->
+  <g filter="url(#soft)">
+    <rect x="70" y="52" width="86" height="72" rx="18" fill="url(#tile)" stroke="#d7e5dc"/>
+    <rect x="84" y="68" width="16" height="40" rx="4" fill="#047857" opacity="0.9"/>
+    <rect x="105" y="68" width="16" height="28" rx="4" fill="#34d399" opacity="0.85"/>
+    <rect x="126" y="68" width="16" height="34" rx="4" fill="#b08d57" opacity="0.8"/>
+  </g>
+
+  <!-- team tile (top-right) -->
+  <g filter="url(#soft)">
+    <rect x="330" y="40" width="80" height="72" rx="18" fill="url(#tile)" stroke="#d7e5dc"/>
+    <circle cx="358" cy="70" r="9" stroke="#047857" stroke-width="2.4"/>
+    <path d="M343 96c2-9 8-13 15-13s13 4 15 13" stroke="#047857" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="384" cy="72" r="7" stroke="#b08d57" stroke-width="2.2"/>
+    <path d="M378 85c2-1 4-1.5 6-1.5 6 0 11 3.5 12 11" stroke="#b08d57" stroke-width="2.2" stroke-linecap="round"/>
+  </g>
+
+  <!-- calendar tile (bottom-left) -->
+  <g filter="url(#soft)">
+    <rect x="96" y="186" width="76" height="70" rx="18" fill="url(#tile)" stroke="#d7e5dc"/>
+    <rect x="112" y="204" width="44" height="38" rx="6" stroke="#047857" stroke-width="2.2"/>
+    <path d="M112 215h44M123 199v9M145 199v9" stroke="#047857" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M124 228l5 5 10-10" stroke="#b08d57" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- report tile (bottom-right) -->
+  <g filter="url(#soft)">
+    <rect x="320" y="176" width="92" height="80" rx="18" fill="url(#tile)" stroke="#d7e5dc"/>
+    <path d="M336 236l18-18 12 10 26-28" stroke="#047857" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M384 200h8v8" stroke="#047857" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="354" cy="218" r="3.5" fill="#b08d57"/>
+    <circle cx="366" cy="228" r="3.5" fill="#b08d57"/>
+  </g>
+
+  <!-- sparkles -->
+  <path d="M300 64l3 8 8 3-8 3-3 8-3-8-8-3 8-3z" fill="#b08d57" opacity="0.8"/>
+  <path d="M176 64l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#34d399" opacity="0.8"/>
+  <circle cx="436" cy="150" r="3" fill="#047857" opacity="0.5"/>
+  <circle cx="48" cy="160" r="3" fill="#b08d57" opacity="0.6"/>
+</svg>

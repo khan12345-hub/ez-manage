@@ -254,7 +254,7 @@ export function CreateBoardModal({
           aria-modal="true"
         >
           {/* Top accent */}
-          <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600" />
+          <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-brass" />
 
           {/* Close */}
           <button

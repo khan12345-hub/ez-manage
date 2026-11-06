@@ -113,7 +113,7 @@ export function Cell({
         "group/cell relative border px-3 py-2.5",
 
         isPrimary &&
-          "sticky left-36 z-20 min-w-[300px] bg-background",
+          "sticky left-36 z-20 min-w-[300px] bg-card",
       )}
     >
       <div className="flex items-center gap-2">
@@ -238,7 +238,7 @@ export function Cell({
         {isPrimary && task?.isFormSubmission && (
           <span
             title="Submitted via form"
-            className="flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground dark:bg-primary/10 dark:text-accent-foreground"
           >
             <FileInput className="h-3 w-3" />
             Form

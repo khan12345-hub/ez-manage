@@ -230,7 +230,7 @@ export function AskAiWidget() {
             onClick={handleOpen}
             aria-label="Ask AI"
             style={{
-              background: "linear-gradient(135deg, #2563EB 0%, #6366F1 100%)",
+              background: "linear-gradient(135deg, #14513b 0%, #0b2a1f 100%)",
               boxShadow:
                 "0 4px 24px rgba(99,102,241,0.45), 0 1px 4px rgba(0,0,0,0.12)",
             }}
@@ -241,8 +241,8 @@ export function AskAiWidget() {
               className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center"
               aria-hidden="true"
             >
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-60"></span>
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-300"></span>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brass opacity-60"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-brass-soft"></span>
             </span>
           </button>
         )}
@@ -265,7 +265,7 @@ export function AskAiWidget() {
           {/* Header */}
           <div
             style={{
-              background: "linear-gradient(135deg, #2563EB 0%, #6366F1 100%)",
+              background: "linear-gradient(135deg, #14513b 0%, #0b2a1f 100%)",
             }}
             className="relative flex items-center justify-between px-4 py-3"
           >
@@ -307,8 +307,8 @@ export function AskAiWidget() {
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-muted/30">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-5 select-none">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10">
-                  <Sparkles className="h-7 w-7 text-indigo-500" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                  <Sparkles className="h-7 w-7 text-primary" />
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-semibold text-foreground">
@@ -323,7 +323,7 @@ export function AskAiWidget() {
                     <button
                       key={s}
                       onClick={() => sendMessage(s)}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-left text-xs text-foreground hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-300 transition-all duration-150"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-left text-xs text-foreground hover:border-primary/40 hover:bg-accent hover:text-accent-foreground transition-all duration-150"
                     >
                       {s}
                     </button>
@@ -343,7 +343,7 @@ export function AskAiWidget() {
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full mt-0.5"
                       style={{
                         background:
-                          "linear-gradient(135deg, #2563EB 0%, #6366F1 100%)",
+                          "linear-gradient(135deg, #14513b 0%, #0b2a1f 100%)",
                       }}
                     >
                       <Sparkles className="h-3.5 w-3.5 text-white" />
@@ -353,16 +353,16 @@ export function AskAiWidget() {
                   <div
                     className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                       msg.role === "user"
-                        ? "rounded-tr-sm bg-blue-600 text-white"
+                        ? "rounded-tr-sm bg-forest text-forest-foreground"
                         : "rounded-tl-sm bg-background text-foreground shadow-sm border border-border"
                     }`}
                     style={{ wordBreak: "break-word" }}
                   >
                     {msg.content === "" && msg.role === "assistant" ? (
                       <span className="flex gap-1 items-center py-0.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                        <span className="h-1.5 w-1.5 rounded-full bg-brass animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="h-1.5 w-1.5 rounded-full bg-brass animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="h-1.5 w-1.5 rounded-full bg-brass animate-bounce" style={{ animationDelay: "300ms" }} />
                       </span>
                     ) : msg.role === "assistant" && msg.content === "__error__" ? (
                       <div className="flex flex-col gap-2">
@@ -370,7 +370,7 @@ export function AskAiWidget() {
                         {lastFailedMsg && (
                           <button
                             onClick={() => sendMessage(lastFailedMsg)}
-                            className="self-start rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+                            className="self-start rounded-lg border border-primary/25 bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent/70 transition-colors"
                           >
                             ↺ Retry
                           </button>
@@ -402,7 +402,7 @@ export function AskAiWidget() {
                 placeholder="Ask anything about EzManage…"
                 rows={1}
                 disabled={isLoading}
-                className="flex-1 resize-none rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-50 transition-colors"
+                className="flex-1 resize-none rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:opacity-50 transition-colors"
                 style={{ maxHeight: "100px", minHeight: "40px" }}
                 onInput={(e) => {
                   const el = e.currentTarget;
@@ -417,7 +417,7 @@ export function AskAiWidget() {
                   background:
                     !input.trim() || isLoading
                       ? undefined
-                      : "linear-gradient(135deg, #2563EB 0%, #6366F1 100%)",
+                      : "linear-gradient(135deg, #14513b 0%, #0b2a1f 100%)",
                 }}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-all duration-200 disabled:opacity-50 enabled:hover:scale-105 enabled:active:scale-95 enabled:text-white"
               >

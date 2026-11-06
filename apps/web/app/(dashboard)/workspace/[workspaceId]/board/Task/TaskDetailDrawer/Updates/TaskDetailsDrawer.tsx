@@ -39,17 +39,25 @@ export function TaskDetailsSheet() {
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
       <SheetContent side="right" className="w-full p-0 sm:min-w-xl sm:w-auto">
-        <SheetHeader className="flex flex-row items-center justify-between border-b px-6 py-5">
-          <SheetTitle className="text-2xl font-semibold">
-            {task?.name}
-          </SheetTitle>
+        <SheetHeader className="relative flex flex-row items-start justify-between gap-3 border-b bg-card pb-4 pl-6 pr-14 pt-5">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
+            style={{ background: "linear-gradient(90deg, var(--primary) 0%, var(--brass) 60%, transparent 100%)" }}
+          />
+          <div className="min-w-0">
+            <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">Task</p>
+            <SheetTitle className="mt-1 font-serif text-[28px] font-normal leading-tight tracking-tight">
+              {task?.name}
+            </SheetTitle>
+          </div>
           {context.taskId && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={handleCopyLink}
-              className="shrink-0 gap-1.5 text-xs text-muted-foreground"
+              className="mt-1 shrink-0 gap-1.5 text-xs text-muted-foreground"
             >
               <Link2 className="h-3.5 w-3.5" />
               Copy link

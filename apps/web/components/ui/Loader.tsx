@@ -16,13 +16,13 @@ export const FullScreenLoader = () => {
       {/* Subtle top progress bar */}
       <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden">
         <div
-          className="h-full w-1/3 rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500"
+          className="h-full w-1/3 rounded-full bg-gradient-to-r from-forest via-primary to-forest"
           style={{ animation: "ezSlide 1.6s ease-in-out infinite" }}
         />
       </div>
 
       {/* Brand icon */}
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-xl shadow-indigo-500/25">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-forest shadow-xl shadow-primary/25">
         <div className="grid h-8 w-8 grid-cols-2 gap-[3px] rotate-45">
           <div
             className="rounded-[2px] bg-[#FF3D57]"
@@ -54,7 +54,7 @@ export const FullScreenLoader = () => {
         {[0, 160, 320].map((delay) => (
           <span
             key={delay}
-            className="h-1.5 w-1.5 rounded-full bg-indigo-400/60"
+            className="h-1.5 w-1.5 rounded-full bg-primary/60"
             style={{ animation: "ezBounce 1.2s ease-in-out infinite", animationDelay: `${delay}ms` }}
           />
         ))}

@@ -20,6 +20,22 @@ import {
 import { GroupActions } from "./GroupActions";
 import { useCanManageGroups } from "../hooks/useCanManageGroups";
 
+/** Dark or light text for a pill on `hex` (WCAG relative luminance). */
+function pillText(hex?: string | null): { fg: string; placeholder: string } {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex ?? "");
+  if (!m) return { fg: "#ffffff", placeholder: "rgb(255 255 255 / 0.7)" };
+  const n = parseInt(m[1]!, 16);
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  // white wins when its contrast beats near-black's
+  return (1.05 / (L + 0.05)) >= ((L + 0.05) / 0.06)
+    ? { fg: "#ffffff", placeholder: "rgb(255 255 255 / 0.7)" }
+    : { fg: "#0e1a14", placeholder: "rgb(14 26 20 / 0.55)" };
+}
+
 // ── collapsed summary helpers ─────────────────────────────────────────────────
 
 function getStoredAgg(columnId: number): string {
@@ -280,14 +296,14 @@ export function GroupHeader({
   };
 
   return (
-    <div className="border-b">
-    <div className="flex items-center justify-between p-3">
-      <div className="flex items-center gap-3">
+    <div className="border-b border-border bg-table-head">
+    <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
         {!activeGroup.isNew && (
           <button
             type="button"
             onClick={onToggleCollapse ?? (() => {})}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
             title={isCollapsed ? "Expand group" : "Collapse group"}
           >
             {isCollapsed ? (
@@ -306,7 +322,7 @@ export function GroupHeader({
           >
             <button
               type="button"
-              className="h-8 w-8 shrink-0 rounded-md border transition hover:scale-105"
+              className="h-3.5 w-3.5 shrink-0 rounded-full ring-2 ring-card ring-offset-1 ring-offset-border transition hover:scale-125"
               style={{
                 backgroundColor: activeGroup.color ?? undefined,
               }}
@@ -315,39 +331,48 @@ export function GroupHeader({
           </ColorPicker>
         ) : (
           <div
-            className="h-8 w-8 shrink-0 rounded-md border"
+            className="h-3.5 w-3.5 shrink-0 rounded-full"
             style={{ backgroundColor: activeGroup.color ?? undefined }}
           />
         )}
 
-        <Input
-          ref={inputRef}
-          value={activeGroup.name ?? ""}
-          // Only board/workspace OWNER & ADMIN may rename groups.
-          readOnly={!canManageGroups}
-          onChange={canManageGroups ? handleNameChange : undefined}
-          onBlur={canManageGroups ? handleNameBlur : undefined}
-          className="font-title w-64 border-none p-0 text-lg shadow-none focus-visible:ring-0"
+        {/* Group name as a coloured pill (Option D); still an editable input */}
+        <span
+          className="inline-flex max-w-[min(60vw,420px)] items-center rounded-md px-2.5 py-0.5 shadow-sm"
           style={{
-            color: activeGroup.color ?? undefined,
+            backgroundColor: activeGroup.color ?? "var(--primary)",
+            color: pillText(activeGroup.color).fg,
           }}
-        />
+        >
+          <Input
+            ref={inputRef}
+            value={activeGroup.name ?? ""}
+            // Only board/workspace OWNER & ADMIN may rename groups.
+            readOnly={!canManageGroups}
+            onChange={canManageGroups ? handleNameChange : undefined}
+            onBlur={canManageGroups ? handleNameBlur : undefined}
+            placeholder="Group name"
+            aria-label="Group name"
+            size={Math.max(6, (activeGroup.name ?? "").length + 1)}
+            className="h-7 w-auto min-w-0 border-none bg-transparent p-0 text-[14px] font-semibold text-inherit shadow-none placeholder:text-current/70 focus-visible:ring-0 md:text-[14px] dark:bg-transparent"
+          />
+        </span>
 
         {taskCount !== undefined && (
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            {taskCount} {taskCount === 1 ? "item" : "items"}
+          <span className="font-mono text-[12px] text-muted-foreground">
+            {taskCount} {taskCount === 1 ? "task" : "tasks"}
           </span>
         )}
 
         {completedTaskCount !== undefined && taskCount !== undefined && taskCount > 0 && (
           <div className="flex items-center gap-2">
-            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-border">
               <div
-                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                className="h-full rounded-full bg-primary transition-all duration-500"
                 style={{ width: `${Math.round((completedTaskCount / taskCount) * 100)}%` }}
               />
             </div>
-            <span className="text-xs text-muted-foreground">
+            <span className="font-mono text-[11.5px] text-muted-foreground">
               {completedTaskCount}/{taskCount} done
             </span>
           </div>
@@ -370,7 +395,7 @@ export function GroupHeader({
         {collapsedSummaries.map((s) => (
           <div
             key={s.name}
-            className="flex items-center gap-1 rounded-full border bg-muted/50 px-2.5 py-0.5 text-xs"
+            className="flex items-center gap-1 rounded-full border bg-card px-2.5 py-0.5 text-xs"
           >
             <span className="font-medium text-muted-foreground">{s.name}:</span>
             <span className="font-semibold text-foreground">{s.display}</span>

@@ -57,7 +57,7 @@ export function FormRadio({
                   className={cn(
                     "flex cursor-pointer flex-col gap-2 rounded-lg border p-3 text-left transition-colors",
                     isSelected
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/70 dark:bg-indigo-950/40 dark:text-indigo-300"
+                      ? "border-primary/60 bg-accent text-accent-foreground dark:border-primary/40 dark:bg-primary/10 dark:text-accent-foreground"
                       : "border-border bg-background text-muted-foreground hover:border-border hover:bg-muted",
                     disabled && "cursor-not-allowed opacity-50"
                   )}

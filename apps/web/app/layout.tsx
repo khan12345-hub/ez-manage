@@ -1,37 +1,54 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import {
+  IBM_Plex_Sans,
+  IBM_Plex_Mono,
+  Bricolage_Grotesque,
+  Instrument_Serif,
+} from "next/font/google";
 import { cn } from "@/lib/utils";
 import Providers from "@/providers/providers";
 
-// Body / UI font everywhere — Plus Jakarta Sans (keeps the --font-figtree var
-// name so every existing style picks it up with zero other changes)
-const figtree = Plus_Jakarta_Sans({
+/*
+ * EZ Manage "Ledger" type system (Phase 0 design tokens).
+ * The CSS variable names are kept from the previous fonts so every existing
+ * style picks up the new faces with no other changes:
+ *   --font-figtree       → body / UI       (IBM Plex Sans)
+ *   --font-poppins       → titles          (Bricolage Grotesque, .font-title)
+ *   --font-mono-display  → numbers, labels (IBM Plex Mono)
+ *   --font-serif-display → luxury headlines on login / home / CEO (Instrument Serif)
+ */
+const figtree = IBM_Plex_Sans({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-figtree",
   display: "swap",
 });
 
-// Titles (.font-title) — same family, heavier weights (keeps --font-poppins var)
-const poppins = Plus_Jakarta_Sans({
+const poppins = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
   variable: "--font-poppins",
   display: "swap",
 });
 
-// CEO dashboard KPI numbers — data-terminal feel
-const jetbrainsMono = JetBrains_Mono({
+const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  weight: ["700", "800"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-mono-display",
   display: "swap",
 });
 
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-serif-display",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "EzManage",
-  description: "Task Management Platform",
+  title: "EZ Manage",
+  description: "Boards, Work and the CEO Tower for every company you run.",
 };
 
 export default function RootLayout({
@@ -42,7 +59,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn(figtree.variable, poppins.variable, jetbrainsMono.variable)}
+      className={cn(
+        figtree.variable,
+        poppins.variable,
+        plexMono.variable,
+        instrumentSerif.variable,
+      )}
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>

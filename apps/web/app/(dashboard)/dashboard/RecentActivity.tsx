@@ -47,15 +47,15 @@ export function RecentActivity() {
     <div
       className="rounded-2xl bg-card"
       style={{
-        border: "1px solid rgba(99, 102, 241, 0.1)",
+        border: "1px solid rgba(4,120,87,0.1)",
         boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }}
     >
-      <div className="flex items-center gap-2 px-5 py-4" style={{ borderBottom: "1px solid rgba(99,102,241,0.07)" }}>
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(99,102,241,0.1)" }}>
+      <div className="flex items-center gap-2 px-5 py-4" style={{ borderBottom: "1px solid rgba(4,120,87,0.07)" }}>
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(4,120,87,0.1)" }}>
           <Clock className="h-4 w-4 text-primary" />
         </div>
-        <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
+        <h3 className="font-serif text-[19px] font-normal leading-none text-foreground">Recent Activity</h3>
       </div>
 
       <div className="px-5 py-4">
@@ -92,11 +92,11 @@ export function RecentActivity() {
                   <div
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
                     style={{
-                      background: d.icon === "comment" ? "rgba(217,70,239,0.1)" : "rgba(99,102,241,0.1)",
+                      background: d.icon === "comment" ? "rgba(176,141,87,0.14)" : "rgba(4,120,87,0.1)",
                     }}
                   >
                     {d.icon === "comment" ? (
-                      <MessageSquare className="h-3.5 w-3.5 text-fuchsia-500" />
+                      <MessageSquare className="h-3.5 w-3.5 text-brass" />
                     ) : (
                       <ActivityIcon className="h-3.5 w-3.5 text-primary" />
                     )}

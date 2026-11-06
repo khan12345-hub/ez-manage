@@ -111,9 +111,9 @@ function WorkspaceAISection({
   ];
 
   return (
-    <div className="mt-6 overflow-hidden rounded-2xl border border-primary/20 dark:border-primary/40 bg-gradient-to-br from-primary/5 via-violet-50 to-fuchsia-50 dark:from-primary/10 dark:via-violet-950/50 dark:to-fuchsia-950/50 shadow-sm">
+    <div className="mt-6 overflow-hidden rounded-2xl border border-primary/20 dark:border-primary/40 bg-gradient-to-br from-primary/5 via-card to-brass/10 dark:from-primary/10 dark:via-card dark:to-brass/10 shadow-sm">
       <div className="flex items-start gap-4 px-6 py-5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-violet-600 shadow-md">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-forest shadow-md">
           <Sparkles className="h-5 w-5 text-white" />
         </div>
         <div className="min-w-0 flex-1">

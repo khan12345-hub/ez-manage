@@ -21,15 +21,15 @@ export function UpcomingMeetings() {
     <div
       className="rounded-2xl bg-card"
       style={{
-        border: "1px solid rgba(99, 102, 241, 0.1)",
+        border: "1px solid rgba(4,120,87,0.1)",
         boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }}
     >
-      <div className="flex items-center gap-2 px-5 py-4" style={{ borderBottom: "1px solid rgba(99,102,241,0.07)" }}>
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(99,102,241,0.1)" }}>
+      <div className="flex items-center gap-2 px-5 py-4" style={{ borderBottom: "1px solid rgba(4,120,87,0.07)" }}>
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(4,120,87,0.1)" }}>
           <CalendarClock className="h-4 w-4 text-primary" />
         </div>
-        <h3 className="text-base font-semibold text-foreground">Upcoming Meetings</h3>
+        <h3 className="font-serif text-[21px] font-normal leading-none text-foreground">Upcoming Meetings</h3>
       </div>
 
       <div className="px-3 py-2">
@@ -46,7 +46,7 @@ export function UpcomingMeetings() {
             <p className="text-xs text-muted-foreground">Meetings you&apos;re invited to appear here.</p>
           </div>
         ) : (
-          <ul className="divide-y" style={{ borderColor: "rgba(99,102,241,0.06)" }}>
+          <ul className="divide-y" style={{ borderColor: "rgba(4,120,87,0.06)" }}>
             {meetings.map((m, idx) => (
               <MeetingRow key={m.id} meeting={m} index={idx} />
             ))}
@@ -65,7 +65,7 @@ function MeetingRow({ meeting, index }: { meeting: Meeting; index: number }) {
     <>
       <div
         className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl"
-        style={{ background: "rgba(99,102,241,0.08)" }}
+        style={{ background: "rgba(4,120,87,0.08)" }}
       >
         <span className="text-[10px] font-bold leading-none text-primary">{t.date}</span>
         <span className="mt-0.5 text-[10px] font-semibold leading-none text-muted-foreground">{t.time}</span>

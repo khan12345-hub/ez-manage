@@ -113,7 +113,7 @@ export function CommentContent({ html }: Props) {
             className="w-60 overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
           >
             {/* Header strip */}
-            <div className="h-10 bg-gradient-to-r from-indigo-500 to-violet-500" />
+            <div className="h-10 bg-gradient-to-r from-forest to-primary" />
 
             {/* Avatar + info */}
             <div className="-mt-6 flex flex-col items-center px-4 pb-3 text-center">
@@ -126,7 +126,7 @@ export function CommentContent({ html }: Props) {
                         : undefined
                     }
                   />
-                  <AvatarFallback className="bg-indigo-100 text-sm font-semibold text-indigo-700">
+                  <AvatarFallback className="bg-accent text-sm font-semibold text-accent-foreground">
                     {mentionUser?.user.firstName?.[0]}
                     {mentionUser?.user.lastName?.[0]}
                   </AvatarFallback>
@@ -174,7 +174,7 @@ export function CommentContent({ html }: Props) {
                   );
                   setHover(null);
                 }}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-1.5 text-xs font-medium text-white hover:bg-primary/90 transition-colors"
               >
                 <UserCircle2 className="h-3.5 w-3.5" />
                 Profile

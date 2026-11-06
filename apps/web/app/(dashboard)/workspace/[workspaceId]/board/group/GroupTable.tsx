@@ -174,7 +174,7 @@ export function GroupTable({
 
       <table className="w-full min-w-[1200px] border-collapse">
         {showHeaders && (
-          <thead className="sticky top-0 z-30 bg-background">
+          <thead className="sticky top-0 z-30 bg-table-head">
             <tr className="border">
               <th
                 className="sticky left-0 z-30 w-1.5"
@@ -183,7 +183,7 @@ export function GroupTable({
                 }}
               />
 
-              <th className="sticky left-1.5 z-30 w-[200px] bg-background sm:w-[450px]">
+              <th className="sticky left-1.5 z-30 w-[200px] bg-table-head sm:w-[450px]">
                 <div className="flex justify-end">
                   {!!selection && (
                     <Checkbox
@@ -219,11 +219,11 @@ export function GroupTable({
 
               <th
                 onClick={() => setOpen(true)}
-                className="h-[41px] w-44 cursor-pointer px-0 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="h-[38px] w-44 cursor-pointer px-0 font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:text-primary"
               >
                 <div className="flex h-full items-center gap-2 px-4">
-                  <Plus className="h-4 w-4" />
-                  Add Column
+                  <Plus className="h-3.5 w-3.5" />
+                  Add column
                 </div>
               </th>
             </tr>
@@ -274,7 +274,7 @@ export function GroupTable({
               Array.from({ length: 3 }).map((_, i) => (
                 <tr key={`skeleton-${i}`} className="border-b border-border/40">
                   <td className="w-1.5 p-0" style={{ backgroundColor: group.color }} />
-                  <td className="sticky left-1.5 z-20 w-[200px] bg-background px-3 py-2.5 sm:w-[450px]">
+                  <td className="sticky left-1.5 z-20 w-[200px] bg-card px-3 py-2.5 sm:w-[450px]">
                     <Skeleton className={`h-3.5 ${(["w-48","w-36","w-56","w-28","w-44"])[i % 5]}`} />
                   </td>
                   {columns.map((col: any, ci: number) => (

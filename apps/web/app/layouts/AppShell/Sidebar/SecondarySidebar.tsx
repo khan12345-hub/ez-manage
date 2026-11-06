@@ -50,15 +50,95 @@ import {
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 
-/* Reference spec — active nav link: gradient wash + purple text + left accent bar */
+/* Ledger active nav link: accent wash + emerald text + left rule (theme tokens) */
 const NAV_ACTIVE_STYLE: React.CSSProperties = {
-  color: "#4435F5",
-  background:
-    "linear-gradient(100deg, rgba(104,83,255,0.12), rgba(137,111,255,0.07))",
-  boxShadow: "inset 3px 0 0 #6953FF",
+  color: "var(--accent-foreground)",
+  background: "var(--accent)",
+  boxShadow: "inset 3px 0 0 var(--primary)",
 };
-/* Base (inactive) nav text color per spec */
-const NAV_BASE_COLOR = "#40547F";
+
+/** Forest tile with a serif brass "EZ": the Ledger brand mark. */
+function BrandMark({ size = 32 }: { size?: number }) {
+  return (
+    <span
+      aria-hidden
+      className="flex shrink-0 items-center justify-center rounded-[8px] bg-forest font-serif leading-none text-brass-soft ring-1 ring-brass/40"
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.56) }}
+    >
+      EZ
+    </span>
+  );
+}
+
+type ProductKey = "boards" | "work" | "ceo";
+
+/** Product switcher: Boards / Work / CEO Tower, matching the home cards. */
+function ProductSwitcher({
+  active,
+  boardsHref,
+  showCeo,
+  onNavigate,
+}: {
+  active: ProductKey;
+  boardsHref: string;
+  showCeo: boolean;
+  onNavigate?: () => void;
+}) {
+  const items: { key: ProductKey; label: string; dot: string; href?: string; note?: string }[] = [
+    { key: "boards", label: "Boards", dot: "bg-product-boards", href: boardsHref },
+    { key: "work", label: "Work", dot: "bg-product-work", note: "Soon" },
+    ...(showCeo
+      ? [{ key: "ceo" as const, label: "CEO Tower", dot: "bg-product-ceo", href: "/ceo-assistant" }]
+      : []),
+  ];
+
+  return (
+    <nav aria-label="Products" className="px-4 pt-3">
+      <p className="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+        Products
+      </p>
+      <div className="flex flex-col gap-0.5">
+        {items.map((item) => {
+          const isActive = item.key === active;
+          const cls = cn(
+            "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+            isActive
+              ? "bg-card text-foreground shadow-sm ring-1 ring-border"
+              : item.href
+                ? "text-muted-foreground hover:bg-accent hover:text-foreground"
+                : "cursor-not-allowed text-muted-foreground/60",
+          );
+          const body = (
+            <>
+              <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", item.dot, !item.href && "opacity-50")} />
+              <span className="flex-1 truncate">{item.label}</span>
+              {item.note && (
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {item.note}
+                </span>
+              )}
+            </>
+          );
+          return item.href ? (
+            <Link
+              key={item.key}
+              href={item.href}
+              onClick={onNavigate}
+              aria-current={isActive ? "page" : undefined}
+              className={cls}
+            >
+              {body}
+            </Link>
+          ) : (
+            <span key={item.key} aria-disabled="true" title="Being built" className={cls}>
+              {body}
+            </span>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
 
 function ChatNavLink({ workspaceId }: { workspaceId: string }) {
   const { unreadCounts } = useChatStore();
@@ -66,7 +146,7 @@ function ChatNavLink({ workspaceId }: { workspaceId: string }) {
   return (
     <Link
       href={`/workspace/${workspaceId}/chat`}
-      className="relative flex items-center gap-2 mx-3 mt-0.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      className="relative flex items-center gap-2 mx-3 mt-0.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
     >
       <MessageSquare strokeWidth={1.5} className="h-4 w-4" />
       Team Chat
@@ -224,6 +304,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
   };
 
   const { user } = useAuth();
+  const firstWorkspaceUid = (workspaces[0] as any)?.uid as string | undefined;
 
   return (
     <div
@@ -244,18 +325,11 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
       >
         {/* Header — EzManage brand */}
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
-          <Link href="/dashboard" className="flex min-w-0 items-center gap-2.5" aria-label="EzManage — Dashboard">
-            <span
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
-              style={{ background: "linear-gradient(135deg, #6361F0 0%, #4845E4 100%)" }}
-            >
-              <svg width="18" height="14" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="0" y="0" width="18" height="2.5" rx="1.25" fill="white" fillOpacity="0.92" />
-                <rect x="0" y="6.5" width="13" height="2.5" rx="1.25" fill="white" fillOpacity="0.70" />
-                <rect x="0" y="13" width="8" height="2.5" rx="1.25" fill="white" fillOpacity="0.48" />
-              </svg>
+          <Link href="/home" className="flex min-w-0 items-center gap-2.5" aria-label="EZ Manage — Home">
+            <BrandMark />
+            <span className="truncate font-heading text-base font-semibold tracking-tight text-foreground">
+              EZ Manage
             </span>
-            <span className="truncate text-base font-bold tracking-tight text-foreground">EzManage</span>
           </Link>
           <div className="flex items-center gap-1">
             {workspace?.id && (
@@ -283,8 +357,15 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
           </div>
         </div>
 
+        <ProductSwitcher
+          active={pathname?.startsWith("/ceo-assistant") ? "ceo" : "boards"}
+          boardsHref={workspaceId ? `/workspace/${workspaceId}` : firstWorkspaceUid ? `/workspace/${firstWorkspaceUid}` : "/home"}
+          showCeo={user?.systemRole === "SUPER_ADMIN"}
+          onNavigate={onMobileClose}
+        />
+
         {/* Workspace switcher + create */}
-        <div className="flex items-center gap-2.5 px-4 py-4">
+        <div className="flex items-center gap-2.5 px-4 pb-4 pt-3">
           <div data-tour="workspace-switcher" className="flex-1 min-w-0">
             <WorkspaceSwitcher
               workspaces={workspaces}
@@ -331,7 +412,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
             <div className="flex items-center justify-between px-2 py-1.5">
               <button
                 onClick={() => setIsContentExpanded(!isContentExpanded)}
-                className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground/60 hover:text-foreground"
+                className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70 hover:text-foreground"
               >
                 <ChevronDown
                   className={cn(
@@ -380,7 +461,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                         <div
                           key={`board-${item.id}`}
                           className={cn(
-                            "group flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                            "group flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
                             isActive && "font-semibold",
                           )}
                           style={isActive ? NAV_ACTIVE_STYLE : undefined}
@@ -406,7 +487,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                             <SquareKanban className="h-4 w-4 shrink-0 opacity-50" />
                             <span className="truncate">{item.name}</span>
                             {navigatingBoardId === item.id && isNavigating && (
-                              <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                              <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
                             )}
                           </button>
                           {(item.role === "OWNER" || item.role === "ADMIN") && workspace && (
@@ -428,7 +509,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                         <div
                           key={`doc-${doc.id}`}
                           className={cn(
-                            "group flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                            "group flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
                             isActive && "font-semibold",
                           )}
                           style={isActive ? NAV_ACTIVE_STYLE : undefined}
@@ -517,7 +598,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                   href={`/workspace/${workspaceId}`}
                   onClick={() => onMobileClose?.()}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     !boardUid && !activeDocId && !pathname?.includes("/calendar") && !pathname?.includes("/timesheet") && !pathname?.includes("/capacity")
                       ? "font-semibold"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -535,7 +616,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                   href={`/workspace/${workspaceId}/calendar`}
                   onClick={() => onMobileClose?.()}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     pathname?.endsWith("/calendar")
                       ? "font-semibold"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -553,7 +634,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                   href={`/workspace/${workspaceId}/timesheet`}
                   onClick={() => onMobileClose?.()}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     pathname?.endsWith("/timesheet")
                       ? "font-semibold"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -571,7 +652,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                   href={`/workspace/${workspaceId}/capacity`}
                   onClick={() => onMobileClose?.()}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     pathname?.endsWith("/capacity")
                       ? "font-semibold"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -591,7 +672,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         {false && (
         <Link
           href="/home"
-          className="flex items-center gap-2 mx-3 mt-0.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-2 mx-3 mt-0.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <Home strokeWidth={1.5} className="h-4 w-4" />
           Home
@@ -600,7 +681,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         <Link
           href="/help"
           data-tour="help-link"
-          className="flex items-center gap-2 mx-3 mt-0.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-2 mx-3 mt-0.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <HelpCircle strokeWidth={1.5} className="h-4 w-4" />
           Help & Guide
@@ -608,7 +689,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         {false && user?.systemRole === "SUPER_ADMIN" && (
           <Link
             href="/ceo-assistant"
-            className="flex items-center gap-2 mx-3 mt-0.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex items-center gap-2 mx-3 mt-0.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <BrainCircuit strokeWidth={1.5} className="h-4 w-4" />
             CEO AI
@@ -617,7 +698,7 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         {user?.systemRole === "SUPER_ADMIN" && (
           <Link
             href="/system-settings"
-            className="flex items-center gap-2 mx-3 mt-0.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex items-center gap-2 mx-3 mt-0.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <Cog strokeWidth={1.5} className="h-4 w-4" />
             System Settings
@@ -626,19 +707,10 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
 
         {/* Brand footer */}
         <div className="flex items-center gap-2.5 border-t border-border px-4 py-3.5">
-          <span
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px]"
-            style={{ background: "linear-gradient(135deg, #6361F0 0%, #4845E4 100%)" }}
-          >
-            <svg width="15" height="12" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="0" y="0" width="18" height="2.5" rx="1.25" fill="white" fillOpacity="0.92" />
-              <rect x="0" y="6.5" width="13" height="2.5" rx="1.25" fill="white" fillOpacity="0.70" />
-              <rect x="0" y="13" width="8" height="2.5" rx="1.25" fill="white" fillOpacity="0.48" />
-            </svg>
-          </span>
+          <BrandMark size={26} />
           <div className="min-w-0 leading-tight">
-            <p className="text-xs font-bold text-foreground">EzManage</p>
-            <p className="truncate text-[10px] text-muted-foreground">Work Smarter. Achieve More.</p>
+            <p className="text-xs font-semibold text-foreground">EZ Manage</p>
+            <p className="truncate font-serif text-[13px] italic text-muted-foreground">One desk for every company.</p>
           </div>
         </div>
       </div>

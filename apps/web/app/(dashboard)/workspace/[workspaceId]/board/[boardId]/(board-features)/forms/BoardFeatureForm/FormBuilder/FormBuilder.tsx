@@ -238,7 +238,7 @@ export function FormBuilder({ board }: FormBuilderProps) {
         {/* ── Preview mode ── */}
         {mode === "preview" && (
           <div className="relative flex-1 overflow-y-auto">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white/90 px-6 py-2.5 backdrop-blur dark:bg-[#1e1f22]/90">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-card/90 px-6 py-2.5 backdrop-blur">
               <span className="text-sm font-medium text-muted-foreground">
                 Preview — this is how your form looks to users
               </span>
