@@ -22,8 +22,8 @@ export class InvitationsController {
   }
 
   @Get('pending')
-  getPending(@Query('workspaceId', ParseIntPipe) workspaceId: number) {
-    return this.invitationsService.getPendingInvitations(workspaceId);
+  getPending(@Query('workspaceId', ParseIntPipe) workspaceId: number, @CurrentUser() user) {
+    return this.invitationsService.getPendingInvitations(workspaceId, user.id);
   }
 
   @Delete(':id/revoke')

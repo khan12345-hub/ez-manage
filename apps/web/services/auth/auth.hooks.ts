@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe, login, logout } from "./auth.api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { postLoginPath } from "@/lib/post-login-path";
 import { useChatStore } from "@/store/chat-store";
 import { useTaskDetailsStore } from "@/store/task-details-store";
 import { useInviteModalStore } from "@/store/invite-modal";
@@ -16,12 +17,9 @@ export function useLogin() {
 
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["me"] });
-      const redirect = searchParams.get("redirect");
-      const isSafe = redirect && redirect.startsWith("/") && !redirect.startsWith("//");
-      if (isSafe) { router.push(redirect!); return; }
-      // After login go straight to the task-management dashboard
-      // (must match LoginAuthGuard / GuestWrapper, otherwise they race).
-      router.push("/dashboard");
+      // Same rule as LoginAuthGuard / GuestWrapper (shared helper) so they
+      // can't race to different pages: safe ?redirect= target, else /dashboard.
+      router.push(postLoginPath(`?${searchParams.toString()}`));
     },
     onError: (error: any) => {
       if (error?.response?.status === 429) {

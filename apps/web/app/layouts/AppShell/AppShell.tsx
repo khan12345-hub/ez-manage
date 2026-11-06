@@ -229,7 +229,9 @@ export function AppShell({ children }: AppShellProps) {
   const { user } = useAuth();
   const pathname = usePathname();
   // Board pages render their own TaskDetailsSheet; all other pages need it globally
-  const isBoardPage = /\/board\/\d+/.test(pathname ?? "");
+  // Board URLs carry uid strings (e.g. /board/Xr9…), not numeric ids — the old
+  // /\d+/ check never matched, so every board page rendered a second drawer.
+  const isBoardPage = /\/workspace\/[^/]+\/board\/[^/]+/.test(pathname ?? "");
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground antialiased font-sans">

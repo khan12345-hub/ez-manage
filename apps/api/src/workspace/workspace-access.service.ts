@@ -12,7 +12,7 @@ import {
 
 import { SystemRole, WorkspaceMemberRole } from 'generated/prisma/enums';
 
-import { WORKSPACE_ROLE_PERMISSIONS } from '../auth/permissions/workspace-permissions';
+import { WORKSPACE_ROLE_WORKSPACE_PERMISSIONS } from '../auth/permissions/workspace-permissions';
 
 @Injectable()
 export class WorkspaceAccessService {
@@ -61,7 +61,7 @@ export class WorkspaceAccessService {
     // Workspace permissions
     if (
       workspaceRole &&
-      WORKSPACE_ROLE_PERMISSIONS[workspaceRole]?.includes(permission)
+      WORKSPACE_ROLE_WORKSPACE_PERMISSIONS[workspaceRole]?.includes(permission)
     ) {
       return true;
     }

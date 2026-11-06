@@ -32,7 +32,13 @@ export class WorkspacePermissionGuard
       );
 
     if (!permission) {
-      return true;
+      // A route that declares @RequireWorkspacePermission(...) but resolves to
+      // undefined (e.g. a permission name that doesn't exist) must not fall
+      // through to "allow everyone".
+      const declared =
+        Reflect.getMetadataKeys(context.getHandler()).includes(WORKSPACE_PERMISSION_KEY) ||
+        Reflect.getMetadataKeys(context.getClass()).includes(WORKSPACE_PERMISSION_KEY);
+      return !declared;
     }
 
     const request =

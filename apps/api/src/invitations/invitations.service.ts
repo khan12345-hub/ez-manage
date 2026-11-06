@@ -387,6 +387,21 @@ export class InvitationsService {
       throw new BadRequestException('Invitation has expired.');
     }
 
+    // Revoked invitations used to stay acceptable (only acceptedAt/expiry were checked).
+    if (invitation.status !== InvitationStatus.PENDING) {
+      throw new BadRequestException('This invitation is no longer valid.');
+    }
+
+    // An email invitation belongs to that email: a forwarded/leaked token must not
+    // let a different account join the workspace with the invited role.
+    const accepter = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { email: true },
+    });
+    if (!accepter || accepter.email.trim().toLowerCase() !== invitation.email.trim().toLowerCase()) {
+      throw new ForbiddenException('This invitation was sent to a different email address.');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       // Mark invitation as used so it cannot be accepted a second time
       await tx.invitation.update({
@@ -481,7 +496,9 @@ export class InvitationsService {
     return { joined: true, workspace: link.workspace };
   }
 
-  async getPendingInvitations(workspaceId: number) {
+  async getPendingInvitations(workspaceId: number, requesterId: number) {
+    // Pending invites expose email addresses: only workspace OWNER/ADMIN (or super admin).
+    await this.assertWorkspaceInviter(workspaceId, requesterId, WorkspaceMemberRole.MEMBER);
     return this.prisma.invitation.findMany({
       where: {
         workspaceId,
@@ -504,6 +521,8 @@ export class InvitationsService {
   async revokeInvitation(invitationId: number, requesterId: number) {
     const inv = await this.prisma.invitation.findUnique({ where: { id: invitationId } });
     if (!inv) throw new NotFoundException('Invitation not found');
+    // Previously unchecked: any signed-in user could revoke any invitation by id.
+    await this.assertWorkspaceInviter(inv.workspaceId, requesterId, WorkspaceMemberRole.MEMBER);
     if (inv.status !== InvitationStatus.PENDING) {
       throw new BadRequestException('Only pending invitations can be revoked');
     }

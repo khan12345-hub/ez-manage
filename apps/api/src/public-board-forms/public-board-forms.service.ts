@@ -434,6 +434,31 @@ export class PublicBoardFormsService {
     }
 
     /**
+     * Enforce required fields server-side (previously only the browser checked,
+     * so a direct POST could skip them). Hidden fields are never required; the
+     * primary (name) field is satisfied by dto.taskName.
+     */
+    const isBlank = (v: unknown): boolean =>
+      v === undefined ||
+      v === null ||
+      (typeof v === "string" && v.trim() === "") ||
+      (Array.isArray(v) && v.length === 0) ||
+      (typeof v === "object" && !Array.isArray(v) && Object.keys(v as object).length === 0);
+    const submittedByColumn = new Map(dto.values.map((v) => [v.columnId, v.value]));
+    const missing = form.fields.filter((field) => {
+      if (!field.required || field.hidden) return false;
+      if (field.column.isPrimary && dto.taskName?.trim()) return false;
+      return isBlank(submittedByColumn.get(field.columnId));
+    });
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Please fill in the required field${missing.length > 1 ? "s" : ""}: ${missing
+          .map((f) => f.label || f.column.name || `#${f.columnId}`)
+          .join(", ")}`,
+      );
+    }
+
+    /**
      * columnId -> submitted value
      *
      * This avoids repeatedly calling .find() while

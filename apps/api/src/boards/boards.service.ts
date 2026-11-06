@@ -669,7 +669,7 @@ export class BoardsService {
           ...(updateBoardDto.name !== undefined ? { oldName: board.name, newName: updateBoardDto.name.trim() } : {}),
           ...(updateBoardDto.visibility !== undefined ? { visibility: updateBoardDto.visibility } : {}),
         },
-      });
+      }, tx); // must use the transaction client: logging through this.prisma waited on this tx and hit the 5s timeout
 
       return updated;
     });

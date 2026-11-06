@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import { FullScreenLoader } from "@/components/ui/Loader";
+import { postLoginPath } from "@/lib/post-login-path";
 import { GuestHeader } from "./GuestHeader";
 import { GuestFooter } from "./GuestFooter";
 
@@ -13,7 +14,7 @@ export function GuestWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace("/dashboard");
+      router.replace(postLoginPath());
     }
     // router is intentionally excluded — stable reference but listing it re-fires
     // this effect on navigation and can cause a loop.

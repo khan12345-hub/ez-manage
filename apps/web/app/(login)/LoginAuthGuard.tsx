@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import { FullScreenLoader } from "@/components/ui/Loader";
+import { postLoginPath } from "@/lib/post-login-path";
 
 export function LoginAuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -11,7 +12,7 @@ export function LoginAuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace("/dashboard");
+      router.replace(postLoginPath());
     }
     // router intentionally omitted — stable ref, including it re-fires on every navigation
     // eslint-disable-next-line react-hooks/exhaustive-deps

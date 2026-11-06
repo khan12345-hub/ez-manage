@@ -44,7 +44,7 @@ export class WorkspaceDocsController {
   }
 
   @Post()
-  @RequireWorkspacePermission(WorkspacePermission.EDIT)
+  @RequireWorkspacePermission(WorkspacePermission.CREATE_BOARD)
   async create(
     @Param('workspaceId') workspaceId: string,
     @Body() dto: CreateWorkspaceDocDto,
