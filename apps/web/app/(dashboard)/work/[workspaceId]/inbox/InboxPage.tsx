@@ -439,7 +439,7 @@ function EventText({ n }: { n: InboxNotification }) {
     case "status":
       return (
         <span className="truncate">
-          <b className="font-semibold">{actor || "Someone"}</b> changed status:{" "}
+          <span className="font-medium">{actor || "Someone"}</span> changed status:{" "}
           <span className="inline-flex items-center gap-1 align-middle"><i className="h-2 w-2 rounded-[2px]" style={{ background: n.metadata?.fromColor ?? "#9CA3AF" }} />{n.metadata?.from ?? "none"}</span>
           <ArrowRight className="mx-1 inline h-3 w-3" />
           <span className="inline-flex items-center gap-1 align-middle font-medium"><i className="h-2 w-2 rounded-[2px]" style={{ background: n.metadata?.toColor ?? "#9CA3AF" }} />{n.metadata?.to ?? "none"}</span>
@@ -448,17 +448,17 @@ function EventText({ n }: { n: InboxNotification }) {
     case "overdue":
       return <span className="truncate text-muted-foreground">Task is overdue. Due date was <b className="font-semibold text-destructive">{relDays(n.metadata?.dueDate ?? n.createdAt)}</b></span>;
     case "assigned":
-      return <span className="truncate"><b className="font-semibold">{actor || "Someone"}</b> assigned this task to you</span>;
+      return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> assigned this task to you</span>;
     case "added":
       return <span className="truncate text-muted-foreground">{n.message}</span>;
     case "mention":
-      return <span className="truncate"><b className="font-semibold">{actor || "Someone"}</b> mentioned you:{chip(n.message)}</span>;
+      return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> mentioned you:{chip(n.message)}</span>;
     case "assigned_comment":
-      return <span className="truncate"><b className="font-semibold">{actor || "Someone"}</b> assigned you a comment:{chip(n.message)}</span>;
+      return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> assigned you a comment:{chip(n.message)}</span>;
     case "reply":
-      return <span className="truncate"><b className="font-semibold">{actor || "Someone"}</b> replied:{chip(n.message)}</span>;
+      return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> replied:{chip(n.message)}</span>;
     default:
-      return <span className="truncate"><b className="font-semibold">{actor || "Someone"}</b> commented:{chip(n.message)}</span>;
+      return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> commented:{chip(n.message)}</span>;
   }
 }
 
@@ -487,7 +487,7 @@ function Row({
     <li
       data-focused={focused || undefined}
       className={cn(
-        "group relative flex cursor-pointer items-center gap-3 border-b border-border/70 px-4 py-2.5 text-[13.5px] transition-colors last:border-b-0 hover:bg-accent/40",
+        "group relative flex cursor-pointer items-center gap-3 border-b border-border/70 px-4 py-[11px] text-[14px] leading-5 transition-colors last:border-b-0 hover:bg-accent/40",
         row.unread ? "bg-card" : "bg-muted/25",
         focused && "ring-1 ring-inset ring-primary/40",
         selected && "bg-accent/60",
@@ -495,20 +495,19 @@ function Row({
       onClick={onOpen}
     >
       {/* task */}
-      <span className={cn("flex min-w-0 items-center gap-2.5", compact ? "w-1/2" : "w-[34%] shrink-0")}>
+      <span className={cn("flex min-w-0 items-center gap-2.5", compact ? "w-1/2" : "w-[clamp(240px,30vw,460px)] shrink-0")}>
         {n.task?.status ? <StatusGlyph status={n.task.status} size={15} /> : k === "added" ? <UserPlus className="h-4 w-4 text-muted-foreground" /> : <ListChecks className="h-4 w-4 text-muted-foreground" />}
-        <span className={cn("truncate", row.unread ? "font-semibold text-foreground" : "text-foreground/75", n.task?.completedAt && "line-through decoration-muted-foreground/50")}>{name}</span>
+        <span className={cn("truncate", row.unread ? "text-foreground" : "text-foreground/65", n.task?.completedAt && "line-through decoration-muted-foreground/50")}>{name}</span>
       </span>
       {/* event */}
-      <span className={cn("flex min-w-0 flex-1 items-center gap-2.5", row.unread ? "text-foreground" : "text-muted-foreground")}>
-        <I className={cn("h-4 w-4 shrink-0", k === "overdue" ? "text-destructive" : k === "mention" ? "text-[#7C3AED]" : "text-muted-foreground")} />
+      <span className={cn("flex min-w-0 flex-1 items-center gap-2.5", row.unread ? "text-foreground/80" : "text-muted-foreground")}>
+        <I className={cn("h-4 w-4 shrink-0", k === "mention" ? "text-[#7C3AED]" : "text-muted-foreground")} />
         {!compact && <EventText n={n} />}
         {compact && <span className="truncate text-[12.5px] text-muted-foreground">{KIND_META[k].label}</span>}
       </span>
       {tab === "later" && n.snoozedUntil && <span className="hidden shrink-0 items-center gap-1 text-[11.5px] text-[#8a6a3a] sm:flex dark:text-brass-soft"><AlarmClock className="h-3 w-3" />{new Date(n.snoozedUntil).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}</span>}
       {row.events.length > 1 && <span className="shrink-0 rounded-full border border-border px-1.5 font-mono text-[10.5px] text-muted-foreground" title={`${row.events.length} updates`}>{row.events.length}</span>}
-      <span className="w-16 shrink-0 text-right text-[12px] text-muted-foreground group-hover:invisible">{timeLabel(row.at)}</span>
-      {row.unread && <span aria-label="Unread" className="absolute left-1.5 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-primary" />}
+      <span className="w-20 shrink-0 text-right text-[12.5px] text-muted-foreground group-hover:invisible">{timeLabel(row.at)}</span>
 
       {/* hover actions */}
       <span className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 group-hover:flex" onClick={(e) => e.stopPropagation()}>
