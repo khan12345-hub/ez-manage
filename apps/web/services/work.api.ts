@@ -296,6 +296,7 @@ export const workApi = {
   spaceMembers: (spaceId: number) => get<{ userIds: number[] }>(`/work/spaces/${spaceId}/members`),
 
   tree: (workspace: string | number) => get<WorkTree>(`/work/workspaces/${workspace}/tree`),
+  allTasks: (workspace: string | number) => get<MyWorkTask[]>(`/work/workspaces/${workspace}/all-tasks`),
   myTasks: (workspace: string | number) => get<MyWorkTask[]>(`/work/workspaces/${workspace}/my-tasks`),
 
   createSpace: (workspace: string | number, body: { name: string; color?: string; isPrivate?: boolean }) =>

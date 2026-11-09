@@ -39,6 +39,7 @@ import {
 import { Avatar, StatusGlyph } from "./primitives";
 import { FileChip } from "./TaskFiles";
 import { Reactions } from "./Reactions";
+import { Thread } from "./Thread";
 import { AssigneePicker } from "./pickers";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
@@ -548,7 +549,7 @@ export function Timeline({
   const [showHistory, setShowHistory] = useState(true);
   const items = useMemo(() => {
     const a = showHistory || mode === "activity" ? activity.map((x) => ({ kind: "activity" as const, at: x.createdAt, x })) : [];
-    const c = mode === "activity" ? [] : comments.map((x) => ({ kind: "comment" as const, at: x.createdAt, x }));
+    const c = mode === "activity" ? [] : comments.filter((x) => !x.parentId).map((x) => ({ kind: "comment" as const, at: x.createdAt, x }));
     return [...a, ...c].sort((p, q) => new Date(p.at).getTime() - new Date(q.at).getTime());
   }, [activity, comments, showHistory, mode]);
 
@@ -595,6 +596,7 @@ export function Timeline({
                   </div>
                 )}
                 <Reactions comment={it.x} currentUserId={currentUserId} />
+                <Thread task={task} parent={it.x} replies={comments.filter((r) => r.parentId === it.x.id)} currentUserId={currentUserId} onDelete={onDeleteComment} />
                 {it.x.assignee && (
                   <div className="mt-2 flex items-center gap-2 border-t border-border/70 pt-2 text-[12px]">
                     {it.x.resolvedAt ? <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> : <CircleDashed className="h-3.5 w-3.5 text-[#b08d57]" />}

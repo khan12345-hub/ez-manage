@@ -57,6 +57,11 @@ export class WorkController {
     return this.work.tree(await this.work.resolveWorkspaceId(ws), u.id);
   }
 
+  @Get('workspaces/:workspaceId/all-tasks')
+  async allTasks(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.work.allTasks(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
   @Get('workspaces/:workspaceId/my-tasks')
   async myTasks(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
     return this.work.myTasks(await this.work.resolveWorkspaceId(ws), u.id);

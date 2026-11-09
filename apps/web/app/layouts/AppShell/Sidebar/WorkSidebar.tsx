@@ -5,12 +5,20 @@
  * Shares the brand mark + product switcher with the Boards sidebar.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
+  Asterisk,
+  AtSign,
+  ListChecks,
+  Megaphone,
+  Pin,
+  Send,
+  CheckCheck,
+  MessageSquareReply,
   Bell,
   CalendarClock,
   CheckCircle2,
@@ -84,6 +92,16 @@ const SOON_CREATE = [
   { label: "Clip", icon: Video, color: "#DB2777" },
 ];
 
+const MORE_SOON = [
+  { label: "Chat Activity", icon: AtSign },
+  { label: "Drafts & Sent", icon: Send },
+  { label: "All Channels", icon: LayoutGrid },
+];
+const MORE_PAGES = [
+  { id: "spaces", label: "All Spaces", path: "spaces", icon: Orbit },
+  { id: "all-tasks", label: "All Tasks", path: "all-tasks", icon: ListChecks },
+];
+
 const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13.5px] transition-colors";
 
 export function WorkSidebar({
@@ -123,6 +141,16 @@ export function WorkSidebar({
   const [searchOpen, setSearchOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [myOpen, setMyOpen] = useState(true);
+  const [pins, setPins] = useState<string[]>([]);
+  useEffect(() => {
+    try { setPins(JSON.parse(localStorage.getItem("ez:work:sidebarPins") ?? "[]")); } catch {}
+  }, []);
+  const togglePin = (id: string) => {
+    const next = pins.includes(id) ? pins.filter((x) => x !== id) : [...pins, id];
+    setPins(next);
+    try { localStorage.setItem("ez:work:sidebarPins", JSON.stringify(next)); } catch {}
+  };
+  const wsName = (workspaces as any[]).find((w) => w.uid === wsParam)?.name ?? "";
   const searchParams = useSearchParams();
   const myView = searchParams.get("view");
   const { data: myTasks = [] } = useQuery({ queryKey: workKeys.my(wsParam), queryFn: () => workApi.myTasks(wsParam), enabled: !!wsParam, staleTime: 30_000 });
@@ -338,6 +366,26 @@ export function WorkSidebar({
                 {inbox.primaryUnread > 0 && <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{inbox.primaryUnread}</span>}
               </Link>
 
+              <Link
+                href={wsParam ? `/work/${wsParam}/replies` : "#"}
+                onClick={onMobileClose}
+                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/replies` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+              >
+                <MessageSquareReply className="h-4 w-4 shrink-0" /> Replies
+              </Link>
+              <Link
+                href={wsParam ? `/work/${wsParam}/assigned-comments` : "#"}
+                onClick={onMobileClose}
+                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/assigned-comments` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+              >
+                <CheckCheck className="h-4 w-4 shrink-0" /> Assigned Comments
+              </Link>
+
+              <span title="Coming soon" className={cn(ROW, "cursor-not-allowed py-[7px] text-foreground/45")}>
+                <Megaphone className="h-4 w-4 shrink-0" /> <span className="flex-1">Posts</span>
+                <span className="rounded bg-muted px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Soon</span>
+              </span>
+
               {/* My Tasks */}
               <div className={cn(ROW, "py-[7px] text-foreground/80 hover:bg-accent/60")}>
                 <button type="button" aria-label={myOpen ? "Collapse My Tasks" : "Expand My Tasks"} aria-expanded={myOpen} onClick={() => setMyOpen(!myOpen)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
@@ -367,19 +415,45 @@ export function WorkSidebar({
                 </>
               )}
 
-              {/* More */}
+              {/* pinned or currently open "More" pages show here, like ClickUp */}
+              {MORE_PAGES.filter((m) => pins.includes(m.id) || pathname === `/work/${wsParam}/${m.path}`).map((m) => (
+                <Link
+                  key={m.id}
+                  href={`/work/${wsParam}/${m.path}`}
+                  onClick={onMobileClose}
+                  className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/${m.path}` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+                >
+                  <m.icon className="h-4 w-4 shrink-0" /> {m.label}
+                </Link>
+              ))}
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button type="button" className={cn(ROW, "py-[7px] text-foreground/80 hover:bg-accent/60")}>
                     <MoreHorizontal className="h-4 w-4 shrink-0" /> More
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent side="right" align="start" className="w-56">
-                  <DropdownMenuItem onClick={() => go(`/work/${wsParam}/people`)}><Users className="mr-2 h-4 w-4 text-muted-foreground" />People</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCollapsed({})}><Orbit className="mr-2 h-4 w-4 text-muted-foreground" />All Spaces (expand)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCollapsed(Object.fromEntries((tree?.spaces ?? []).map((sp) => [`s${sp.id}`, true])))}><ChevronsDownUp className="mr-2 h-4 w-4 text-muted-foreground" />Collapse all spaces</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => go(`/work/${wsParam}/notifications`)}><Bell className="mr-2 h-4 w-4 text-muted-foreground" />Notification settings</DropdownMenuItem>
-                  {canManage && <DropdownMenuItem onClick={() => openWorkInvite(true)}><UserPlus className="mr-2 h-4 w-4 text-muted-foreground" />Invite people</DropdownMenuItem>}
+                <DropdownMenuContent side="right" align="start" className="w-60">
+                  {MORE_SOON.map((m) => (
+                    <DropdownMenuItem key={m.label} disabled>
+                      <m.icon className="mr-2 h-4 w-4" />{m.label}
+                      <span className="ml-auto rounded bg-muted px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Soon</span>
+                    </DropdownMenuItem>
+                  ))}
+                  {MORE_PAGES.map((m) => (
+                    <DropdownMenuItem key={m.id} onClick={() => go(`/work/${wsParam}/${m.path}`)} className="group/more">
+                      <m.icon className="mr-2 h-4 w-4 text-muted-foreground" />{m.label}
+                      <button
+                        type="button"
+                        aria-label={pins.includes(m.id) ? `Unpin ${m.label}` : `Pin ${m.label}`}
+                        title={pins.includes(m.id) ? "Unpin from sidebar" : "Pin to sidebar"}
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); togglePin(m.id); }}
+                        className={cn("ml-auto rounded p-0.5 hover:bg-muted", pins.includes(m.id) ? "text-primary" : "text-muted-foreground opacity-0 group-hover/more:opacity-100")}
+                      >
+                        <Pin className={cn("h-3.5 w-3.5", pins.includes(m.id) && "fill-current")} />
+                      </button>
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
@@ -394,6 +468,17 @@ export function WorkSidebar({
             )}
           </div>
 
+          {!term && (tree?.spaces.length ?? 0) > 0 && (
+            <Link
+              href={`/work/${wsParam}/all-tasks`}
+              onClick={onMobileClose}
+              className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/all-tasks` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+            >
+              <Asterisk className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">All Tasks</span>
+              <span className="truncate text-[11.5px] text-muted-foreground">· {wsName}</span>
+            </Link>
+          )}
           {isLoading && <p className="px-2 py-2 text-xs text-muted-foreground">Loading…</p>}
           {!isLoading && tree && tree.spaces.length === 0 && (
             <div className="mx-1 mt-1 rounded-lg border border-dashed border-border bg-card/60 px-3 py-4 text-center">

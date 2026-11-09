@@ -703,7 +703,11 @@ export class WorkService {
       await this.files.notify(taskId, userId, [dto.assigneeId], NotificationType.COMMENT_CREATED, 'A comment was assigned to you', snippet, { ...extra, assignedComment: true, event: 'assigned_comment' });
     }
     const t = await this.prisma.workTask.findUnique({ where: { id: taskId }, select: { createdById: true, assignees: { select: { userId: true } } } });
-    const watchers = [t?.createdById ?? 0, ...(t?.assignees.map((a) => a.userId) ?? [])].filter((u) => !mentioned.includes(u) && u !== dto.assigneeId);
+    // a reply reaches the thread (parent author + everyone who replied) as well as the task's people
+    const thread = dto.parentId
+      ? (await this.prisma.workComment.findMany({ where: { deletedAt: null, OR: [{ id: dto.parentId }, { parentId: dto.parentId }] }, select: { userId: true } })).map((x) => x.userId)
+      : [];
+    const watchers = [...thread, t?.createdById ?? 0, ...(t?.assignees.map((a) => a.userId) ?? [])].filter((u) => !mentioned.includes(u) && u !== dto.assigneeId);
     await this.files.notify(taskId, userId, watchers, dto.parentId ? NotificationType.COMMENT_REPLY : NotificationType.COMMENT_CREATED, dto.parentId ? 'New reply' : 'New comment', snippet, { ...extra, event: dto.parentId ? 'reply' : 'comment' });
     return comment;
   }
@@ -750,6 +754,26 @@ export class WorkService {
       },
       orderBy: [{ dueDate: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
       take: 500,
+      select: {
+        ...TASK_SELECT,
+        status: { select: { id: true, name: true, color: true, category: true } },
+        list: { select: { id: true, uid: true, name: true, space: { select: { name: true, color: true } } } },
+      },
+    });
+    return rows.map((r: any) => ({ ...shapeTask(r), status: r.status, list: r.list }));
+  }
+
+  /** All Tasks (ClickUp): every top-level task the person can see in the workspace. */
+  async allTasks(workspaceId: number, userId: number) {
+    const ws = await this.access.requireWorkspace(workspaceId, userId, 'view');
+    const rows = await this.prisma.workTask.findMany({
+      where: {
+        archivedAt: null,
+        parentId: null,
+        list: { archivedAt: null, space: { workspaceId, archivedAt: null, ...this.access.visibleSpaces(ws, userId) } },
+      },
+      orderBy: [{ updatedAt: 'desc' }],
+      take: 1000,
       select: {
         ...TASK_SELECT,
         status: { select: { id: true, name: true, color: true, category: true } },
