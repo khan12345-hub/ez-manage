@@ -72,6 +72,7 @@ const KIND_ICON: Record<Kind, typeof Bell> = {
   reaction: SmilePlus,
   status: Activity,
   overdue: CalendarClock,
+  reminder: AlarmClock,
   added: UserPlus,
 };
 
@@ -457,6 +458,8 @@ function EventText({ n }: { n: InboxNotification }) {
       return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> mentioned you:{chip(n.message)}</span>;
     case "assigned_comment":
       return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> assigned you a comment:{chip(n.message)}</span>;
+    case "reminder":
+      return <span className="truncate"><span className="font-medium">Reminder</span>{n.metadata?.actorName ? <> from {n.metadata.actorName}</> : null}: <span className="text-foreground">{n.title}</span>{n.message && n.message !== "Reminder" && !n.message.startsWith("Reminder from") ? <span className="text-muted-foreground"> · {n.message}</span> : null}</span>;
     case "reaction":
       return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> reacted to your comment:{chip(n.message)}</span>;
     case "reply":

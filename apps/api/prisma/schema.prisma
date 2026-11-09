@@ -127,6 +127,8 @@ model User {
   workTasksCreated      WorkTask[]             @relation("WorkTaskCreator")
   workMemberships       WorkMember[]           @relation("WorkMemberUser")
   workReactions         WorkCommentReaction[]
+  workRemindersSet      WorkReminder[]         @relation("WorkReminderCreator")
+  workRemindersFor      WorkReminder[]         @relation("WorkReminderAssignee")
   workNotificationPrefs WorkNotificationPref[]
   workMembersInvited    WorkMember[]           @relation("WorkMemberInviter")
   workTaskAssignments   WorkTaskAssignee[]     @relation("WorkTaskAssigneeUser")
@@ -375,11 +377,12 @@ model Workspace {
   members     WorkspaceMember[]
   invitations Invitation[]
 
-  chatChannels ChatChannel[]
-  docs         WorkspaceDoc[]
-  inviteLinks  WorkspaceInviteLink[]
-  workSpaces   Space[]
-  workMembers  WorkMember[]
+  chatChannels  ChatChannel[]
+  docs          WorkspaceDoc[]
+  inviteLinks   WorkspaceInviteLink[]
+  workSpaces    Space[]
+  workMembers   WorkMember[]
+  workReminders WorkReminder[]
 
   @@unique([createdById, name])
   @@map("workspaces")
@@ -1572,6 +1575,7 @@ model WorkTask {
   attachments WorkAttachment[]
   webLinks    WorkWebLink[]
   fieldValues WorkFieldValue[]
+  reminders   WorkReminder[]
 
   @@index([listId, order])
   @@index([statusId])
@@ -1868,4 +1872,28 @@ model WorkFieldValue {
   @@id([taskId, fieldId])
   @@index([fieldId])
   @@map("work_field_values")
+}
+
+/// "Remind me / someone at <time>" (ClickUp Reminder). Fires into the assignee's Work Inbox.
+model WorkReminder {
+  id          Int       @id @default(autoincrement())
+  workspaceId Int
+  userId      Int
+  assigneeId  Int
+  title       String
+  description String?
+  remindAt    DateTime
+  taskId      Int?
+  firedAt     DateTime?
+  doneAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation("WorkReminderCreator", fields: [userId], references: [id], onDelete: Cascade)
+  assignee  User      @relation("WorkReminderAssignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+  task      WorkTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([assigneeId, firedAt, remindAt])
+  @@index([workspaceId, userId])
+  @@map("work_reminders")
 }

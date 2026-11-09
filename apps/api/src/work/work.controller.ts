@@ -6,7 +6,8 @@ import { WorkPeopleService } from './work-people.service';
 import { WorkInboxService } from './work-inbox.service';
 import { WorkOverviewService } from './work-overview.service';
 import { WorkFieldsService } from './work-fields.service';
-import { CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { WorkRemindersService } from './work-reminders.service';
+import { CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -51,6 +52,7 @@ export class WorkController {
     private readonly inbox: WorkInboxService,
     private readonly overview: WorkOverviewService,
     private readonly fields: WorkFieldsService,
+    private readonly reminders: WorkRemindersService,
   ) {}
 
   // ── workspace level ──
@@ -344,6 +346,27 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── reminders ──
+  @Get('workspaces/:workspaceId/reminders')
+  async myReminders(@Param('workspaceId') ws: string, @Query('done') done: string, @CurrentUser() u: SessionUser) {
+    return this.reminders.mine(await this.work.resolveWorkspaceId(ws), u.id, done === 'true');
+  }
+
+  @Post('workspaces/:workspaceId/reminders')
+  async createReminder(@Param('workspaceId') ws: string, @Body() dto: CreateReminderDto, @CurrentUser() u: SessionUser) {
+    return this.reminders.create(await this.work.resolveWorkspaceId(ws), u.id, dto);
+  }
+
+  @Patch('reminders/:id')
+  updateReminder(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateReminderDto, @CurrentUser() u: SessionUser) {
+    return this.reminders.update(id, u.id, dto);
+  }
+
+  @Delete('reminders/:id')
+  deleteReminder(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.reminders.remove(id, u.id);
+  }
+
   // ── custom fields ──
   @Get('spaces/:id/fields')
   listFields(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {

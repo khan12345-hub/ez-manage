@@ -17,7 +17,7 @@ export interface InboxNotification {
   task: { name: string; status: { name: string; color: string; category: StatusCategory } | null; dueDate: string | null; completedAt: string | null; archived: boolean } | null;
 }
 
-export type Kind = "mention" | "assigned" | "assigned_comment" | "reply" | "comment" | "reaction" | "status" | "overdue" | "added";
+export type Kind = "mention" | "assigned" | "assigned_comment" | "reply" | "comment" | "reaction" | "status" | "overdue" | "reminder" | "added";
 
 export const KIND_META: Record<Kind, { label: string; hint: string }> = {
   mention: { label: "Mentions", hint: "Someone @mentions you" },
@@ -28,6 +28,7 @@ export const KIND_META: Record<Kind, { label: string; hint: string }> = {
   reaction: { label: "Reactions", hint: "Someone reacts to your comment" },
   status: { label: "Status changes", hint: "Status changes on your tasks" },
   overdue: { label: "Overdue tasks", hint: "Your task passed its due date" },
+  reminder: { label: "Reminders", hint: "A reminder you (or someone) set is due" },
   added: { label: "Access", hint: "You were added to Work or a space" },
 };
 export const ALL_KINDS = Object.keys(KIND_META) as Kind[];
@@ -59,7 +60,7 @@ export const DEFAULT_SETTINGS: InboxSettings = {
   groupByDate: true,
   newestFirst: true,
   display: "fullscreen",
-  important: ["mention", "assigned", "assigned_comment", "reply", "reaction", "status", "overdue"],
+  important: ["mention", "assigned", "assigned_comment", "reply", "reaction", "status", "overdue", "reminder"],
 };
 
 const KEY = "ez:work:inbox:settings";
@@ -71,13 +72,14 @@ export function loadSettings(): InboxSettings {
     let important: Kind[] = Array.isArray(v.important) ? v.important.filter((k: string) => k in KIND_META) : DEFAULT_SETTINGS.important;
     // kinds added after the settings were saved start as important (like a fresh default)
     if (!v.kindsV2 && !important.includes("reaction")) important = [...important, "reaction"];
+    if (!v.kindsV3 && !important.includes("reminder")) important = [...important, "reminder"];
     return { ...DEFAULT_SETTINGS, ...v, important };
   } catch {
     return DEFAULT_SETTINGS;
   }
 }
 export function saveSettings(s: InboxSettings) {
-  try { localStorage.setItem(KEY, JSON.stringify({ ...s, kindsV2: true })); } catch {}
+  try { localStorage.setItem(KEY, JSON.stringify({ ...s, kindsV2: true, kindsV3: true })); } catch {}
 }
 
 /** One row = all events on the same task (latest first); non-task events stay single. */

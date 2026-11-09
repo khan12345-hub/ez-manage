@@ -281,7 +281,25 @@ export interface FieldOption { id: string; name: string; color: string }
 export interface WorkField { id: number; spaceId: number; name: string; type: FieldType; config: { options?: FieldOption[]; currency?: string; decimals?: number } | null; order: number }
 export type FieldValues = Record<number, Record<number, unknown>>;
 
+export interface WorkReminder {
+  id: number;
+  title: string;
+  description: string | null;
+  remindAt: string;
+  firedAt: string | null;
+  doneAt: string | null;
+  createdAt: string;
+  user: WorkUser;
+  assignee: WorkUser;
+  task: { uid: string; name: string; list: { uid: string } } | null;
+}
+
 export const workApi = {
+  reminders: (workspace: string | number, done = false) => get<WorkReminder[]>(`/work/workspaces/${workspace}/reminders${done ? "?done=true" : ""}`),
+  createReminder: (workspace: string | number, body: { title: string; description?: string; remindAt: string; assigneeId?: number; taskUid?: string }) =>
+    post<WorkReminder>(`/work/workspaces/${workspace}/reminders`, body),
+  updateReminder: (id: number, body: { done?: boolean; remindAt?: string; title?: string }) => patch<WorkReminder>(`/work/reminders/${id}`, body),
+  deleteReminder: (id: number) => del(`/work/reminders/${id}`),
   fields: (spaceId: number) => get<WorkField[]>(`/work/spaces/${spaceId}/fields`),
   createField: (spaceId: number, body: { name: string; type: FieldType; config?: Record<string, unknown> }) => post<WorkField>(`/work/spaces/${spaceId}/fields`, body),
   updateField: (id: number, body: { name?: string; config?: Record<string, unknown>; order?: number }) => patch<WorkField>(`/work/fields/${id}`, body),

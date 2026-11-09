@@ -10,6 +10,7 @@ import { dayOf, workApi, workKeys, type MyWorkTask } from "@/services/work.api";
 import { DueLabel, PriorityFlag, StatusGlyph } from "../_components/primitives";
 import { TaskDrawer } from "../_components/TaskDrawer";
 import { NameDialog } from "../_components/NameDialog";
+import { RemindersCard } from "../_components/Reminders";
 
 type Bucket = "overdue" | "today" | "week" | "later" | "none";
 const BUCKETS: { id: Bucket; label: string; tone: string }[] = [
@@ -108,6 +109,7 @@ function MyWorkInner() {
 
       {!noSpaces && (
         <div className="mt-8 space-y-5">
+          <RemindersCard ws={workspaceId} currentUserId={user?.id} onOpenTask={(uid) => setTask(uid)} />
           {isLoading && [0, 1].map((i) => <div key={i} className="h-28 animate-pulse rounded-xl border border-border bg-card" />)}
           {!isLoading && grouped.open.length === 0 && (
             <section className="rounded-2xl border border-dashed border-border bg-card/60 p-8 text-center">

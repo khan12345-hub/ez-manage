@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { NotificationType } from 'generated/prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { WorkFilesService } from './work-files.service';
+import { WorkRemindersService } from './work-reminders.service';
 
 export type InboxView = 'active' | 'later' | 'cleared' | 'all';
 export type InboxBulkAction = 'clear' | 'unclear' | 'snooze' | 'unsnooze' | 'read' | 'unread';
@@ -21,10 +22,12 @@ export class WorkInboxService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly files: WorkFilesService,
+    private readonly reminders: WorkRemindersService,
   ) {}
 
   async list(userId: number, view: InboxView) {
     await this.ensureOverdue(userId).catch((e) => this.logger.warn(`overdue scan failed: ${e?.message ?? e}`));
+    await this.reminders.fireDue(userId).catch((e) => this.logger.warn(`reminders failed: ${e?.message ?? e}`));
     const now = new Date();
     const base = { recipientId: userId, product: 'work' };
     const active = { clearedAt: null, OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }] };

@@ -114,6 +114,18 @@ export class CreateCommentDto {
   /** people @mentioned in the comment */
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
 }
+export class CreateReminderDto {
+  @IsString() @IsNotEmpty() @MaxLength(200) title!: string;
+  @IsOptional() @IsString() @MaxLength(2000) description?: string;
+  @IsDateString() remindAt!: string;
+  @IsOptional() @IsInt() assigneeId?: number;
+  @IsOptional() @IsString() @MaxLength(40) taskUid?: string;
+}
+export class UpdateReminderDto {
+  @IsOptional() @IsBoolean() done?: boolean;
+  @IsOptional() @IsDateString() remindAt?: string;
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(200) title?: string;
+}
 export class CreateFieldDto {
   @IsString() @IsNotEmpty() @MaxLength(80) name!: string;
   @IsIn(['text', 'textarea', 'number', 'money', 'date', 'dropdown', 'labels', 'checkbox', 'email', 'phone', 'url', 'rating', 'progress', 'people']) type!: string;

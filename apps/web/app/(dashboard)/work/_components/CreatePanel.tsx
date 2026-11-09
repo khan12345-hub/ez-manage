@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { getRecentLists, pushRecentList, useWorkCreate } from "@/store/work-create";
 import { userName, workApi, workKeys, type WorkPriority, type WorkTree, type WorkUser } from "@/services/work.api";
 import { AssigneePicker, DatePicker, PriorityPicker, StatusPicker } from "./pickers";
+import { ReminderForm } from "./ReminderForm";
 import { AvatarStack, DueLabel, PriorityFlag, StatusGlyph } from "./primitives";
 
 type Mode = "open" | "another" | "duplicate";
@@ -44,7 +45,7 @@ const MODE_KEY = "ez:work:createMode";
 const TABS = [
   { id: "task", label: "Task", icon: ListChecks, ready: true },
   { id: "doc", label: "Doc", icon: FileText, ready: false },
-  { id: "reminder", label: "Reminder", icon: Bell, ready: false },
+  { id: "reminder", label: "Reminder", icon: Bell, ready: true },
   { id: "whiteboard", label: "Whiteboard", icon: PenTool, ready: false },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, ready: false },
 ] as const;
@@ -81,6 +82,7 @@ export function CreatePanel({ ws }: { ws: string }) {
   const [priority, setPriority] = useState<WorkPriority | null>(null);
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [mode, setMode] = useState<Mode>("open");
+  const [tab, setTab] = useState<"task" | "reminder">("task");
 
   useEffect(() => {
     if (!open) return;
@@ -173,12 +175,13 @@ export function CreatePanel({ ws }: { ws: string }) {
               key={t.id}
               role="tab"
               type="button"
-              aria-selected={t.id === "task"}
+              aria-selected={t.id === tab}
               disabled={!t.ready}
+              onClick={() => (t.id === "task" || t.id === "reminder") && setTab(t.id)}
               title={t.ready ? undefined : "Coming soon"}
               className={cn(
                 "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] font-medium",
-                t.id === "task" ? "border-primary text-primary" : "border-transparent text-muted-foreground/60",
+                t.id === tab ? "border-primary text-primary" : t.ready ? "border-transparent text-muted-foreground hover:text-foreground" : "border-transparent text-muted-foreground/60",
               )}
             >
               <t.icon className="h-3.5 w-3.5" /> {t.label}
@@ -187,7 +190,9 @@ export function CreatePanel({ ws }: { ws: string }) {
           ))}
         </div>
 
+        {tab === "reminder" && <ReminderForm ws={ws} onDone={() => setOpen(false)} />}
         <form
+          hidden={tab !== "task"}
           className="px-5 pb-4 pt-4"
           onSubmit={(e) => {
             e.preventDefault();
