@@ -9,37 +9,11 @@ import { REACTION_EMOJIS, workApi, workKeys, type WorkComment } from "@/services
 
 /** Emoji reactions under a comment: chips with counts (mine highlighted) + add. */
 export function Reactions({ comment, currentUserId }: { comment: WorkComment; currentUserId?: number }) {
-  const qc = useQueryClient();
   const list = comment.reactions ?? [];
-  const toggle = useMutation({
-    mutationFn: (emoji: string) => workApi.react(comment.id, emoji),
-    // instant: flip it in the cache, the server confirms after
-    onMutate: async (emoji) => {
-      const key = workKeys.comments(comment.taskId);
-      await qc.cancelQueries({ queryKey: key });
-      const prev = qc.getQueryData<WorkComment[]>(key);
-      qc.setQueryData<WorkComment[]>(key, (old) =>
-        old?.map((c) => {
-          if (c.id !== comment.id) return c;
-          const mine = (c.reactions ?? []).some((r) => r.emoji === emoji && r.userId === currentUserId);
-          return {
-            ...c,
-            reactions: mine
-              ? (c.reactions ?? []).filter((r) => !(r.emoji === emoji && r.userId === currentUserId))
-              : [...(c.reactions ?? []), { emoji, userId: currentUserId ?? 0, user: { id: currentUserId ?? 0, firstName: "You", lastName: "" } }],
-          };
-        }),
-      );
-      return { prev, key };
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx) qc.setQueryData(ctx.key, ctx.prev);
-      toast.error("Couldn't react.");
-    },
-    onSettled: () => qc.invalidateQueries({ queryKey: workKeys.comments(comment.taskId) }),
-  });
+  const toggle = useReact(comment, currentUserId);
 
   const groups = REACTION_EMOJIS.map((e) => ({ emoji: e, people: list.filter((r) => r.emoji === e) })).filter((g) => g.people.length);
+  if (!groups.length) return null; // adding lives in the comment's hover toolbar
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1">
       {groups.map((g) => {
@@ -76,4 +50,36 @@ export function Reactions({ comment, currentUserId }: { comment: WorkComment; cu
       </Popover>
     </div>
   );
+}
+
+/** toggle my reaction on a comment, instantly (cache first, server confirms) */
+export function useReact(comment: WorkComment, currentUserId?: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (emoji: string) => workApi.react(comment.id, emoji),
+    // instant: flip it in the cache, the server confirms after
+    onMutate: async (emoji) => {
+      const key = workKeys.comments(comment.taskId);
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<WorkComment[]>(key);
+      qc.setQueryData<WorkComment[]>(key, (old) =>
+        old?.map((c) => {
+          if (c.id !== comment.id) return c;
+          const mine = (c.reactions ?? []).some((r) => r.emoji === emoji && r.userId === currentUserId);
+          return {
+            ...c,
+            reactions: mine
+              ? (c.reactions ?? []).filter((r) => !(r.emoji === emoji && r.userId === currentUserId))
+              : [...(c.reactions ?? []), { emoji, userId: currentUserId ?? 0, user: { id: currentUserId ?? 0, firstName: "You", lastName: "" } }],
+          };
+        }),
+      );
+      return { prev, key };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx) qc.setQueryData(ctx.key, ctx.prev);
+      toast.error("Couldn't react.");
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: workKeys.comments(comment.taskId) }),
+  });
 }

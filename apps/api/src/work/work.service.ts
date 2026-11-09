@@ -399,7 +399,7 @@ export class WorkService {
   async listTasks(listId: number, userId: number) {
     await this.access.requireList(listId, userId, 'view');
     const tasks = await this.prisma.workTask.findMany({
-      where: { listId, archivedAt: null },
+      where: { archivedAt: null, OR: [{ listId }, { extraLists: { some: { listId } } }] },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
       select: TASK_SELECT,
     });
@@ -476,12 +476,17 @@ export class WorkService {
         },
         dependsOn: { select: { id: true, type: true, to: { select: LINKED_TASK } } },
         dependedBy: { select: { id: true, type: true, from: { select: LINKED_TASK } } },
+        extraLists: {
+          where: { list: { archivedAt: null } },
+          orderBy: { createdAt: 'asc' },
+          select: { list: { select: { id: true, uid: true, name: true, space: { select: { id: true, name: true, color: true } }, folder: { select: { name: true } } } } },
+        },
       },
     });
     if (!row) throw new NotFoundException('Task not found.');
     const access = await this.access.requireSpace(row.list.spaceId, userId, 'view');
     const statuses = await this.effectiveStatuses(row.list);
-    const { subtasks, checklists, dependsOn, dependedBy, ...rest } = row as any;
+    const { subtasks, checklists, dependsOn, dependedBy, extraLists, ...rest } = row as any;
     const visible = (t: any) => !t.archivedAt;
     const links = {
       waitingOn: dependsOn.filter((l: any) => l.type === 'WAITING_ON' && visible(l.to)).map((l: any) => ({ linkId: l.id, task: l.to })),
@@ -503,6 +508,7 @@ export class WorkService {
       parent: row.parent,
       list: row.list,
       subtasks: subtasks.map(shapeTask),
+      otherLists: extraLists.map((x: any) => x.list),
       statuses,
       access: { canEdit: access.canEdit, canManage: access.canManage },
     };
@@ -707,8 +713,12 @@ export class WorkService {
     const thread = dto.parentId
       ? (await this.prisma.workComment.findMany({ where: { deletedAt: null, OR: [{ id: dto.parentId }, { parentId: dto.parentId }] }, select: { userId: true } })).map((x) => x.userId)
       : [];
-    const watchers = [...thread, t?.createdById ?? 0, ...(t?.assignees.map((a) => a.userId) ?? [])].filter((u) => !mentioned.includes(u) && u !== dto.assigneeId);
-    await this.files.notify(taskId, userId, watchers, dto.parentId ? NotificationType.COMMENT_REPLY : NotificationType.COMMENT_CREATED, dto.parentId ? 'New reply' : 'New comment', snippet, { ...extra, event: dto.parentId ? 'reply' : 'comment' });
+    const followers = [
+      ...(await this.prisma.workTaskWatch.findMany({ where: { taskId, muted: false }, select: { userId: true } })).map((x) => x.userId),
+      ...(dto.parentId ? (await this.prisma.workCommentFollow.findMany({ where: { commentId: dto.parentId }, select: { userId: true } })).map((x) => x.userId) : []),
+    ];
+    const watchers = [...thread, ...followers, t?.createdById ?? 0, ...(t?.assignees.map((a) => a.userId) ?? [])].filter((u) => !mentioned.includes(u) && u !== dto.assigneeId);
+    await this.files.notify(taskId, userId, watchers, dto.parentId ? NotificationType.COMMENT_REPLY : NotificationType.COMMENT_CREATED, dto.parentId ? 'New reply' : 'New comment', snippet, { ...extra, ...(dto.parentId ? { threadId: dto.parentId } : {}), event: dto.parentId ? 'reply' : 'comment' });
     return comment;
   }
 

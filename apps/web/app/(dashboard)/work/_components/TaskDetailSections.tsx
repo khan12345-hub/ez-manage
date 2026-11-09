@@ -3,7 +3,7 @@
 /* Task-detail sections for the Work drawer: estimate, time tracking, tags,
    checklists, relationships (dependencies) and the comments + history timeline. */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -34,12 +34,14 @@ import {
   type WorkComment,
   type WorkLinkedTask,
   type WorkTaskDetail,
+  type WorkTaskMine,
   type WorkUser,
 } from "@/services/work.api";
 import { Avatar, StatusGlyph } from "./primitives";
 import { FileChip } from "./TaskFiles";
 import { Reactions } from "./Reactions";
 import { Thread } from "./Thread";
+import { CommentActions } from "./CommentActions";
 import { AssigneePicker } from "./pickers";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
@@ -533,6 +535,9 @@ export function Timeline({
   onDeleteComment,
   mode = "all",
   bare = false,
+  onOpenThread,
+  mine,
+  highlight,
 }: {
   task: WorkTaskDetail;
   comments: WorkComment[];
@@ -543,6 +548,10 @@ export function Timeline({
   mode?: "all" | "activity";
   /** inside the side panel: no heading, day dividers */
   bare?: boolean;
+  /** open a comment's thread in the side panel (else replies show inline) */
+  onOpenThread?: (commentId: number) => void;
+  mine?: WorkTaskMine;
+  highlight?: number;
 }) {
   const refresh = useRefreshTask(task);
   const qc = useQueryClient();
@@ -553,6 +562,15 @@ export function Timeline({
     const c = mode === "activity" ? [] : comments.filter((x) => !x.parentId).map((x) => ({ kind: "comment" as const, at: x.createdAt, x }));
     return [...a, ...c].sort((p, q) => new Date(p.at).getTime() - new Date(q.at).getTime());
   }, [activity, comments, showHistory, mode]);
+
+  // the side panel opens at the newest item (unless a linked comment is being shown)
+  const end = useRef<HTMLDivElement>(null);
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!bare || highlight || settled.current || !items.length) return;
+    settled.current = true;
+    end.current?.scrollIntoView({ block: "end" });
+  }, [bare, highlight, items.length]);
 
   const setResolved = (c: WorkComment, resolved: boolean) =>
     (resolved ? workApi.resolveComment(c.id) : workApi.reopenComment(c.id))
@@ -578,45 +596,19 @@ export function Timeline({
           it.kind === "activity" ? (
             <ActivityRow key={`a${it.x.id}`} a={it.x} members={members} />
           ) : (
-            <li key={`c${it.x.id}`} className="flex gap-2.5">
-              <Avatar user={it.x.user} size={28} />
-              <div className={cn("min-w-0 flex-1 rounded-lg border bg-card px-3 py-2", it.x.assignee && !it.x.resolvedAt ? "border-[#b08d57]/60" : "border-border")}>
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="text-[13px] font-semibold">{userName(it.x.user)}</span>
-                  <span className="text-[11px] text-muted-foreground">{timeAgo(it.x.createdAt)}</span>
-                  {it.x.user.id === currentUserId && (
-                    <button type="button" aria-label="Delete comment" onClick={() => onDeleteComment(it.x.id)} className="ml-auto rounded p-0.5 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">{renderMentions(it.x.content, members)}</p>
-                {!!it.x.attachments?.length && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {it.x.attachments.map((a) => <FileChip key={a.id} a={a} />)}
-                  </div>
-                )}
-                <Reactions comment={it.x} currentUserId={currentUserId} />
-                <Thread task={task} parent={it.x} replies={comments.filter((r) => r.parentId === it.x.id)} currentUserId={currentUserId} onDelete={onDeleteComment} />
-                {it.x.assignee && (
-                  <div className="mt-2 flex items-center gap-2 border-t border-border/70 pt-2 text-[12px]">
-                    {it.x.resolvedAt ? <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> : <CircleDashed className="h-3.5 w-3.5 text-[#b08d57]" />}
-                    <span className="text-muted-foreground">
-                      {it.x.resolvedAt ? "Resolved" : "Assigned to"} <strong className="font-semibold text-foreground">{userName(it.x.assignee)}</strong>
-                    </span>
-                    {(it.x.assignee.id === currentUserId || it.x.user.id === currentUserId || task.access.canManage) && (
-                      <button
-                        type="button"
-                        onClick={() => setResolved(it.x, !it.x.resolvedAt)}
-                        className={cn("ml-auto flex items-center gap-1 rounded-md px-2 py-0.5 font-semibold", it.x.resolvedAt ? "text-muted-foreground hover:bg-muted" : "bg-primary/10 text-primary hover:bg-primary/15")}
-                      >
-                        {it.x.resolvedAt ? <><RotateCcw className="h-3 w-3" /> Reopen</> : <><CheckCircle2 className="h-3 w-3" /> Resolve</>}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </li>
+            <CommentCard
+              key={`c${it.x.id}`}
+              task={task}
+              c={it.x}
+              members={members}
+              currentUserId={currentUserId}
+              mine={mine}
+              highlight={highlight === it.x.id}
+              onDelete={onDeleteComment}
+              onResolve={setResolved}
+              onOpenThread={onOpenThread}
+              replies={comments.filter((r) => r.parentId === it.x.id)}
+            />
           );
           if (!divider) return row;
           return [
@@ -630,7 +622,99 @@ export function Timeline({
         })}
         {items.length === 0 && <li className="text-[13px] text-muted-foreground">{mode === "activity" ? "No history yet." : "No comments yet. Start the conversation below."}</li>}
       </ul>
+      <div ref={end} aria-hidden />
     </section>
+  );
+}
+
+/** One comment: header, text, files, reactions, assigned box, hover toolbar, thread summary. */
+export function CommentCard({
+  task,
+  c,
+  members,
+  currentUserId,
+  mine,
+  highlight,
+  onDelete,
+  onResolve,
+  onOpenThread,
+  replies,
+  inThread = false,
+}: {
+  task: WorkTaskDetail;
+  c: WorkComment;
+  members: WorkUser[];
+  currentUserId?: number;
+  mine?: WorkTaskMine;
+  highlight?: boolean;
+  onDelete: (id: number) => void;
+  onResolve: (c: WorkComment, resolved: boolean) => void;
+  onOpenThread?: (commentId: number) => void;
+  replies?: WorkComment[];
+  /** shown inside the thread view (no thread summary) */
+  inThread?: boolean;
+}) {
+  const ref = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (highlight) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [highlight]);
+  const people = [...new Map((replies ?? []).map((r) => [r.user.id, r.user])).values()].slice(0, 3);
+  return (
+    <li ref={ref} id={`comment-${c.id}`} className="group/c relative flex gap-2.5">
+      <Avatar user={c.user} size={28} />
+      <div className={cn("min-w-0 flex-1 rounded-lg border bg-card px-3 py-2 transition-shadow", c.assignee && !c.resolvedAt ? "border-[#b08d57]/60" : "border-border", highlight && "ring-2 ring-primary/40")}>
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-[13px] font-semibold">{userName(c.user)}</span>
+          <span className="text-[11px] text-muted-foreground">{timeAgo(c.createdAt)}</span>
+          {c.user.id === currentUserId && (
+            <button type="button" aria-label="Delete comment" onClick={() => onDelete(c.id)} className="ml-auto rounded p-0.5 text-muted-foreground opacity-0 hover:text-destructive group-hover/c:opacity-100 focus:opacity-100">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <p className="mt-0.5 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">{renderMentions(c.content, members)}</p>
+        {!!c.attachments?.length && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {c.attachments.map((a) => <FileChip key={a.id} a={a} />)}
+          </div>
+        )}
+        <Reactions comment={c} currentUserId={currentUserId} />
+        {!inThread && onOpenThread && (replies?.length ?? 0) > 0 && (
+          <button type="button" onClick={() => onOpenThread(c.id)} className="mt-1.5 flex items-center gap-1.5 rounded-md py-0.5 text-[12px] font-semibold text-primary hover:underline">
+            <span className="flex -space-x-1.5">{people.map((u) => <Avatar key={u.id} user={u} size={16} />)}</span>
+            {replies!.length} {replies!.length === 1 ? "reply" : "replies"}
+            <span className="font-normal text-muted-foreground">· last reply {timeAgo(replies![replies!.length - 1]!.createdAt)}</span>
+          </button>
+        )}
+        {!inThread && !onOpenThread && <Thread task={task} parent={c} replies={replies ?? []} currentUserId={currentUserId} onDelete={onDelete} />}
+        {c.assignee && (
+          <div className="mt-2 flex items-center gap-2 border-t border-border/70 pt-2 text-[12px]">
+            {c.resolvedAt ? <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> : <CircleDashed className="h-3.5 w-3.5 text-[#b08d57]" />}
+            <span className="text-muted-foreground">
+              {c.resolvedAt ? "Resolved" : "Assigned to"} <strong className="font-semibold text-foreground">{userName(c.assignee)}</strong>
+            </span>
+            {(c.assignee.id === currentUserId || c.user.id === currentUserId || task.access.canManage) && (
+              <button
+                type="button"
+                onClick={() => onResolve(c, !c.resolvedAt)}
+                className={cn("ml-auto flex items-center gap-1 rounded-md px-2 py-0.5 font-semibold", c.resolvedAt ? "text-muted-foreground hover:bg-muted" : "bg-primary/10 text-primary hover:bg-primary/15")}
+              >
+                {c.resolvedAt ? <><RotateCcw className="h-3 w-3" /> Reopen</> : <><CheckCircle2 className="h-3 w-3" /> Resolve</>}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      <CommentActions
+        task={task}
+        comment={c}
+        members={members}
+        currentUserId={currentUserId}
+        mine={mine}
+        onReply={onOpenThread && !inThread ? () => onOpenThread(c.id) : undefined}
+        className="invisible absolute -top-3.5 right-2 z-10 group-hover/c:visible group-focus-within/c:visible has-[[data-state=open]]:visible"
+      />
+    </li>
   );
 }
 

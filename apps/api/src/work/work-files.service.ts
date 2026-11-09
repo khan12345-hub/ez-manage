@@ -220,6 +220,13 @@ export class WorkFilesService {
         ...extra,
       };
       const kind = (extra.event as string | undefined) ?? 'comment';
+      if (kind === 'comment' || kind === 'reply' || kind === 'status') {
+        const muted = new Set((await this.prisma.workTaskWatch.findMany({ where: { taskId, muted: true, userId: { in: ids } }, select: { userId: true } })).map((m) => m.userId));
+        // someone who follows this exact thread still hears about replies
+        const followsThread = kind === 'reply' && extra.threadId ? new Set((await this.prisma.workCommentFollow.findMany({ where: { commentId: extra.threadId as number, userId: { in: ids } }, select: { userId: true } })).map((f) => f.userId)) : new Set<number>();
+        for (let i = ids.length - 1; i >= 0; i--) if (muted.has(ids[i]!) && !followsThread.has(ids[i]!)) ids.splice(i, 1);
+        if (!ids.length) return;
+      }
       const prefs = await this.prisma.workNotificationPref.findMany({ where: { userId: { in: ids }, kind } });
       const byUser = new Map(prefs.map((p) => [p.userId, p]));
       for (const recipientId of ids) {

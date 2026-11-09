@@ -114,6 +114,18 @@ export class CreateCommentDto {
   /** people @mentioned in the comment */
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
 }
+export class ToggleDto {
+  @IsBoolean() on!: boolean;
+}
+export class WatchDto {
+  @IsBoolean() following!: boolean;
+}
+export class AssignCommentDto {
+  @ValidateIf((_, v) => v !== null) @IsInt() assigneeId!: number | null;
+}
+export class ListRefDto {
+  @IsInt() listId!: number;
+}
 export class CreateReminderDto {
   @IsString() @IsNotEmpty() @MaxLength(200) title!: string;
   @IsOptional() @IsString() @MaxLength(2000) description?: string;

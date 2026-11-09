@@ -129,6 +129,9 @@ model User {
   workReactions         WorkCommentReaction[]
   workRemindersSet      WorkReminder[]         @relation("WorkReminderCreator")
   workRemindersFor      WorkReminder[]         @relation("WorkReminderAssignee")
+  workTaskWatches       WorkTaskWatch[]        @relation("WorkTaskWatchUser")
+  workCommentFollows    WorkCommentFollow[]    @relation("WorkCommentFollowUser")
+  workFavorites         WorkFavorite[]         @relation("WorkFavoriteUser")
   workNotificationPrefs WorkNotificationPref[]
   workMembersInvited    WorkMember[]           @relation("WorkMemberInviter")
   workTaskAssignments   WorkTaskAssignee[]     @relation("WorkTaskAssigneeUser")
@@ -1500,11 +1503,12 @@ model WorkList {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  space     Space        @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  folder    WorkFolder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  createdBy User         @relation("WorkListCreator", fields: [createdById], references: [id])
-  tasks     WorkTask[]
-  statuses  WorkStatus[]
+  space      Space          @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  folder     WorkFolder?    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdBy  User           @relation("WorkListCreator", fields: [createdById], references: [id])
+  tasks      WorkTask[]
+  extraTasks WorkTaskList[]
+  statuses   WorkStatus[]
 
   @@index([spaceId])
   @@index([folderId])
@@ -1576,6 +1580,9 @@ model WorkTask {
   webLinks    WorkWebLink[]
   fieldValues WorkFieldValue[]
   reminders   WorkReminder[]
+  watches     WorkTaskWatch[]
+  favorites   WorkFavorite[]
+  extraLists  WorkTaskList[]
 
   @@index([listId, order])
   @@index([statusId])
@@ -1617,6 +1624,7 @@ model WorkComment {
   replies     WorkComment[]         @relation("WorkCommentReplies")
   attachments WorkAttachment[]
   reactions   WorkCommentReaction[]
+  follows     WorkCommentFollow[]
 
   @@index([taskId, createdAt])
   @@index([assigneeId, resolvedAt])
@@ -1896,4 +1904,62 @@ model WorkReminder {
   @@index([assigneeId, firedAt, remindAt])
   @@index([workspaceId, userId])
   @@map("work_reminders")
+}
+
+/// follow / unfollow a task: muted = no comment, reply or status notices for this person
+model WorkTaskWatch {
+  taskId    Int
+  userId    Int
+  muted     Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  task WorkTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User     @relation("WorkTaskWatchUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("work_task_watches")
+}
+
+/// "Get notified about new replies" on one comment thread
+model WorkCommentFollow {
+  commentId Int
+  userId    Int
+  createdAt DateTime @default(now())
+
+  comment WorkComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User        @relation("WorkCommentFollowUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@index([userId])
+  @@map("work_comment_follows")
+}
+
+/// a person's favourite tasks (task ⋯ → Favorite)
+model WorkFavorite {
+  userId    Int
+  taskId    Int
+  createdAt DateTime @default(now())
+
+  user User     @relation("WorkFavoriteUser", fields: [userId], references: [id], onDelete: Cascade)
+  task WorkTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([userId, taskId])
+  @@index([taskId])
+  @@map("work_favorites")
+}
+
+/// Tasks in Multiple Lists: the task lives in its home list (WorkTask.listId) and also shows here
+model WorkTaskList {
+  taskId    Int
+  listId    Int
+  addedById Int?
+  createdAt DateTime @default(now())
+
+  task WorkTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  list WorkList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, listId])
+  @@index([listId])
+  @@map("work_task_lists")
 }

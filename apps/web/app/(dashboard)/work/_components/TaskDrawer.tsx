@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
@@ -13,6 +14,7 @@ import {
   Flag,
   GitBranch,
   Hourglass,
+  LayoutList,
   Link2,
   Loader2,
   Maximize2,
@@ -37,6 +39,10 @@ import { AssigneePicker, DatePicker, PriorityPicker, StatusPicker } from "./pick
 import { AddLinkPanel, AttachmentsSection, FileChip, WebLinksList, attachmentsKey, useUpload } from "./TaskFiles";
 import { Composer } from "./Composer";
 import { CustomFieldsSection } from "./CustomFields";
+import { ThreadView } from "./ThreadView";
+import { TaskMenu } from "./TaskMenu";
+import { TaskListsControl, type PickMode } from "./TaskLists";
+import { mineKey } from "./CommentActions";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
 
@@ -117,6 +123,28 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
   const [tab, setTab] = useState<PanelTab>("comments");
   const [panelOpen, setPanelOpen] = useState(true);
   const wide = layout !== "sidebar";
+  // Sidebar layout: the rail switches the whole body (Details / Comments / Activity / …)
+  const [sideTab, setSideTab] = useState<PanelTab | "details">("details");
+  const [thread, setThread] = useState<number | null>(null);
+  const [picker, setPicker] = useState(false);
+  const [pickMode, setPickMode] = useState<PickMode>("add");
+  const { data: mine } = useQuery({ queryKey: mineKey(task?.id ?? 0), queryFn: () => workApi.taskMine(task!.id), enabled: !!task?.id });
+  const search = useSearchParams();
+  const focusComment = Number(search?.get("comment")) || null;
+  useEffect(() => {
+    setThread(null);
+  }, [task?.id]);
+  // ?comment=ID (copied comment link): open the comments, and the thread when it's a reply
+  useEffect(() => {
+    if (!focusComment) return;
+    const c = comments.find((x) => x.id === focusComment);
+    if (!c) return;
+    setTab("comments");
+    setPanelOpen(true);
+    setSideTab("comments");
+    setThread(c.parentId ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusComment, comments.length]);
   const [name, setName] = useState("");
   const [subName, setSubName] = useState("");
   const members = list?.members ?? [];
@@ -192,12 +220,61 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
     if (e.key === "ArrowRight") setPanelW(Math.max(300, panelW - 24));
   };
   const openTab = (t: PanelTab) => {
+    if (t !== "comments") setThread(null);
+    if (!wide) {
+      setSideTab(t);
+      return;
+    }
     if (panelOpen && tab === t) setPanelOpen(false);
     else {
       setTab(t);
       setPanelOpen(true);
     }
   };
+  const openThread = (id: number) => {
+    setThread(id);
+    if (wide) {
+      setTab("comments");
+      setPanelOpen(true);
+    } else setSideTab("comments");
+  };
+  const active: PanelTab | "details" = wide ? tab : sideTab;
+  const panelBody = (t: PanelTab) =>
+    t === "comments" && thread !== null ? (
+      <ThreadView task={task!} rootId={thread} comments={comments} members={members} currentUserId={user?.id} mine={mine} onBack={() => setThread(null)} onDelete={(id) => delComment.mutate(id)} />
+    ) : (
+      <>
+        <div className="flex items-center gap-2 border-b border-border bg-card px-4 py-3">
+          <h3 className="text-[14px] font-semibold">{PANEL_TABS.find((x) => x.id === t)!.label}</h3>
+          <span className="text-[12px] text-muted-foreground">Created {new Date(task!.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {t === "comments" && <Timeline bare task={task!} comments={comments} currentUserId={user?.id} members={members} mine={mine} highlight={focusComment ?? undefined} onOpenThread={openThread} onDeleteComment={(id) => delComment.mutate(id)} />}
+          {t === "activity" && <Timeline bare mode="activity" task={task!} comments={comments} currentUserId={user?.id} members={members} onDeleteComment={() => {}} />}
+          {t === "related" && <RelatedPanel task={task!} onAdd={() => openTab("links")} />}
+          {t === "links" && <AddLinkPanel task={task!} onRelate={() => openTab("related")} />}
+        </div>
+        {t === "comments" && canEdit && (
+          <div className="border-t border-border bg-card p-3">
+            <Composer task={task!} members={members} />
+          </div>
+        )}
+      </>
+    );
+  const railBtn = (id: PanelTab | "details", label: string, Icon: typeof Activity, badge?: number) => (
+    <button
+      key={id}
+      type="button"
+      aria-label={label}
+      aria-pressed={wide ? panelOpen && tab === id : sideTab === id}
+      title={label}
+      onClick={() => (id === "details" ? (setSideTab("details"), setThread(null)) : openTab(id))}
+      className={cn("relative flex h-8 w-8 items-center justify-center rounded-md transition-colors", (wide ? panelOpen && tab === id : sideTab === id) ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
+    >
+      <Icon className="h-4 w-4" />
+      {!!badge && <span className="absolute -right-0.5 -top-0.5 min-w-[14px] rounded-full bg-primary px-1 text-center font-mono text-[9px] leading-[14px] text-primary-foreground">{badge}</span>}
+    </button>
+  );
 
   return (
     <Sheet open={!!taskUid} onOpenChange={(o) => !o && onClose()}>
@@ -214,10 +291,11 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
 
         {task && (
           <>
-            <SheetHeader className="relative gap-0 border-b border-border bg-card px-6 pb-4 pr-24 pt-5 text-left">
+            <SheetHeader className="relative gap-0 border-b border-border bg-card px-6 pb-4 pr-32 pt-5 text-left">
               <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[2px]" style={{ background: "linear-gradient(90deg, var(--primary) 0%, var(--brass) 60%, transparent 100%)" }} />
               <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-                {task.list.space.name} <span aria-hidden>/</span> {task.list.name}
+                {task.list.space.name} <span aria-hidden>/</span> {task.list.name}{" "}
+                <TaskListsControl task={task} picker={picker} setPicker={setPicker} mode={pickMode} setMode={setPickMode} />
                 {task.parent && (
                   <>
                     {" "}<span aria-hidden>/</span>{" "}
@@ -225,6 +303,16 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                   </>
                 )}
               </p>
+              <div className="absolute right-[5.25rem] top-3">
+                <TaskMenu
+                  task={task}
+                  mine={mine}
+                  onPickList={(m) => { setPickMode(m); setPicker(true); }}
+                  onOpenRelated={() => openTab("related")}
+                  onArchive={() => window.confirm("Archive this task (and its subtasks)?") && archive.mutate()}
+                  onOpenTask={onOpenTask}
+                />
+              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button type="button" aria-label="Switch layout" title="Switch layout" className="absolute right-12 top-3 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
@@ -261,8 +349,8 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
               />
             </SheetHeader>
 
-            <div ref={body} className={cn("flex min-h-0 flex-1", wide ? "flex-col lg:flex-row" : "flex-col")} style={{ ["--panel-w" as any]: `${panelW}px` }}>
-              <div className="min-h-0 flex-1 overflow-y-auto">
+            <div ref={body} className={cn("flex min-h-0 flex-1", wide ? "flex-col lg:flex-row" : "flex-row")} style={{ ["--panel-w" as any]: `${panelW}px` }}>
+              <div hidden={!wide && active !== "details"} className="min-h-0 flex-1 overflow-y-auto">
                 {/* properties */}
                 <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-1 border-b border-border px-6 py-4 sm:grid-cols-2", layout === "full" && !panelOpen && "xl:grid-cols-3")}>
                   <Prop icon={CircleDot} label="Status">
@@ -312,6 +400,7 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                 </dl>
 
                 <DescriptionSection task={task} onSave={(d) => update({ description: d })} />
+                <div id="task-custom-fields" />
                 <CustomFieldsSection taskId={task.id} listId={task.listId} spaceId={task.list.spaceId} members={members} canEdit={canEdit} canManage={task.access.canManage} />
 
                 {/* subtasks */}
@@ -355,11 +444,20 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                 <ChecklistsSection task={task} members={members} />
                 <RelationshipsSection task={task} />
                 <AttachmentsSection task={task} />
-
-                {!wide && (
-                  <Timeline task={task} comments={comments} currentUserId={user?.id} members={members} onDeleteComment={(id) => delComment.mutate(id)} />
-                )}
               </div>
+
+              {!wide && active !== "details" && (
+                <aside aria-label={PANEL_TABS.find((t) => t.id === active)!.label} className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/25">
+                  {panelBody(active)}
+                </aside>
+              )}
+              {!wide && (
+                <nav aria-label="Task panels" className="flex shrink-0 flex-col items-center gap-1 border-l border-border bg-card px-1.5 py-2">
+                  {railBtn("details", "Details", LayoutList)}
+                  <span aria-hidden className="my-1 h-px w-5 bg-border" />
+                  {PANEL_TABS.map((t) => railBtn(t.id, t.label, t.icon, t.id === "comments" ? comments.length : undefined))}
+                </nav>
+              )}
 
               {wide && (
                 <>
@@ -371,19 +469,7 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                     {PANEL_TABS.map((t, i) => (
                       <div key={t.id} className="flex flex-col items-center">
                         {i === 2 && <span aria-hidden className="my-1 h-px w-5 bg-border" />}
-                        <button
-                          type="button"
-                          aria-label={t.label}
-                          aria-pressed={panelOpen && tab === t.id}
-                          title={t.label}
-                          onClick={() => openTab(t.id)}
-                          className={cn("relative flex h-8 w-8 items-center justify-center rounded-md transition-colors", panelOpen && tab === t.id ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
-                        >
-                          <t.icon className="h-4 w-4" />
-                          {t.id === "comments" && comments.length > 0 && (
-                            <span className="absolute -right-0.5 -top-0.5 min-w-[14px] rounded-full bg-primary px-1 text-center font-mono text-[9px] leading-[14px] text-primary-foreground">{comments.length}</span>
-                          )}
-                        </button>
+                        {railBtn(t.id, t.label, t.icon, t.id === "comments" ? comments.length : undefined)}
                       </div>
                     ))}
                   </nav>
@@ -403,21 +489,7 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                       >
                         <span className="mx-auto block h-full w-0.5 bg-transparent transition-colors" />
                       </div>
-                      <div className="flex items-center gap-2 border-b border-border bg-card px-4 py-3">
-                        <h3 className="text-[14px] font-semibold">{PANEL_TABS.find((t) => t.id === tab)!.label}</h3>
-                        <span className="text-[12px] text-muted-foreground">Created {new Date(task.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                      </div>
-                      <div className="min-h-0 flex-1 overflow-y-auto">
-                        {tab === "comments" && <Timeline bare task={task} comments={comments} currentUserId={user?.id} members={members} onDeleteComment={(id) => delComment.mutate(id)} />}
-                        {tab === "activity" && <Timeline bare mode="activity" task={task} comments={comments} currentUserId={user?.id} members={members} onDeleteComment={() => {}} />}
-                        {tab === "related" && <RelatedPanel task={task} onAdd={() => setTab("links")} />}
-                        {tab === "links" && <AddLinkPanel task={task} onRelate={() => setTab("related")} />}
-                      </div>
-                      {tab === "comments" && canEdit && (
-                        <div className="border-t border-border bg-card p-3">
-                          <Composer task={task} members={members} />
-                        </div>
-                      )}
+                      {panelBody(tab)}
                     </aside>
                   )}
                 </>
@@ -425,9 +497,8 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
             </div>
 
             {/* footer */}
-            <footer className={cn("border-t border-border bg-card px-6", wide ? "py-1.5" : "py-3")}>
-              {!wide && canEdit && <Composer task={task} members={members} />}
-              <div className={cn("flex items-center gap-1 text-xs text-muted-foreground", !wide && canEdit && "mt-2")}>
+            <footer className="border-t border-border bg-card px-6 py-1.5">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <span>Created by {userName(task.createdBy)} · {timeAgo(task.createdAt)}</span>
                 <span className="flex-1" />
                 <button type="button" onClick={copyLink} className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent hover:text-foreground"><Link2 className="h-3.5 w-3.5" />Copy link</button>

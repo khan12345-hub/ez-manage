@@ -7,7 +7,8 @@ import { WorkInboxService } from './work-inbox.service';
 import { WorkOverviewService } from './work-overview.service';
 import { WorkFieldsService } from './work-fields.service';
 import { WorkRemindersService } from './work-reminders.service';
-import { CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { WorkExtrasService } from './work-extras.service';
+import { ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -53,6 +54,7 @@ export class WorkController {
     private readonly overview: WorkOverviewService,
     private readonly fields: WorkFieldsService,
     private readonly reminders: WorkRemindersService,
+    private readonly extras: WorkExtrasService,
   ) {}
 
   // ── workspace level ──
@@ -346,6 +348,68 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── comment extras ──
+  @Post('comments/:id/assign')
+  assignComment(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignCommentDto, @CurrentUser() u: SessionUser) {
+    return this.extras.assignComment(id, u.id, dto.assigneeId);
+  }
+
+  @Post('comments/:id/unread')
+  commentUnread(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.extras.markCommentUnread(id, u.id);
+  }
+
+  @Put('comments/:id/follow')
+  followComment(@Param('id', ParseIntPipe) id: number, @Body() dto: ToggleDto, @CurrentUser() u: SessionUser) {
+    return this.extras.followComment(id, u.id, dto.on);
+  }
+
+  // ── task extras ──
+  @Get('tasks/:id/me')
+  taskMine(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.extras.mine(id, u.id);
+  }
+
+  @Put('tasks/:id/watch')
+  watchTask(@Param('id', ParseIntPipe) id: number, @Body() dto: WatchDto, @CurrentUser() u: SessionUser) {
+    return this.extras.setWatch(id, u.id, dto.following);
+  }
+
+  @Put('tasks/:id/favorite')
+  favoriteTask(@Param('id', ParseIntPipe) id: number, @Body() dto: ToggleDto, @CurrentUser() u: SessionUser) {
+    return this.extras.setFavorite(id, u.id, dto.on);
+  }
+
+  @Get('workspaces/:workspaceId/favorites')
+  async favorites(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.extras.favorites(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Post('tasks/:id/duplicate')
+  duplicateTask(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.extras.duplicate(id, u.id);
+  }
+
+  @Get('tasks/:id/lists')
+  taskLists(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.extras.otherLists(id, u.id);
+  }
+
+  @Post('tasks/:id/lists')
+  addTaskToList(@Param('id', ParseIntPipe) id: number, @Body() dto: ListRefDto, @CurrentUser() u: SessionUser) {
+    return this.extras.addToList(id, u.id, dto.listId);
+  }
+
+  @Delete('tasks/:id/lists/:listId')
+  removeTaskFromList(@Param('id', ParseIntPipe) id: number, @Param('listId', ParseIntPipe) listId: number, @CurrentUser() u: SessionUser) {
+    return this.extras.removeFromList(id, u.id, listId);
+  }
+
+  @Post('tasks/:id/lists/:listId/home')
+  setTaskHome(@Param('id', ParseIntPipe) id: number, @Param('listId', ParseIntPipe) listId: number, @CurrentUser() u: SessionUser) {
+    return this.extras.setHome(id, u.id, listId);
+  }
+
   // ── reminders ──
   @Get('workspaces/:workspaceId/reminders')
   async myReminders(@Param('workspaceId') ws: string, @Query('done') done: string, @CurrentUser() u: SessionUser) {

@@ -166,7 +166,11 @@ export interface WorkTaskDetail extends WorkTask {
   checklists: WorkChecklist[];
   links: { waitingOn: WorkLinkedTask[]; blocking: WorkLinkedTask[]; linked: WorkLinkedTask[] };
   time: { totalSeconds: number; myRunning: { id: number; startedAt: string } | null };
+  /** Tasks in Multiple Lists: the other lists this task also shows in */
+  otherLists?: WorkOtherList[];
 }
+export interface WorkOtherList { id: number; uid: string; name: string; space: { id: number; name: string; color: string }; folder: { name: string } | null }
+export interface WorkTaskMine { following: boolean; favorite: boolean; followedComments: number[] }
 
 export interface WorkComment {
   id: number;
@@ -309,6 +313,17 @@ export const workApi = {
   setFieldValue: (taskId: number, fieldId: number, value: unknown) => put<{ fieldId: number; value: unknown }>(`/work/tasks/${taskId}/fields/${fieldId}`, { value }),
   spaceOverview: (uid: string) => get<WorkOverview>(`/work/spaces/${uid}/overview`),
   folderOverview: (uid: string) => get<WorkOverview>(`/work/folders/${uid}/overview`),
+  assignComment: (commentId: number, assigneeId: number | null) => post<{ id: number; assigneeId: number | null }>(`/work/comments/${commentId}/assign`, { assigneeId }),
+  commentUnread: (commentId: number) => post<{ ok: true }>(`/work/comments/${commentId}/unread`),
+  followComment: (commentId: number, on: boolean) => put<{ commentId: number; following: boolean }>(`/work/comments/${commentId}/follow`, { on }),
+  taskMine: (taskId: number) => get<WorkTaskMine>(`/work/tasks/${taskId}/me`),
+  watchTask: (taskId: number, following: boolean) => put<WorkTaskMine>(`/work/tasks/${taskId}/watch`, { following }),
+  favoriteTask: (taskId: number, on: boolean) => put<WorkTaskMine>(`/work/tasks/${taskId}/favorite`, { on }),
+  favorites: (workspace: string | number) => get<{ id: number; uid: string; name: string; list: { uid: string; name: string } }[]>(`/work/workspaces/${workspace}/favorites`),
+  duplicateTask: (taskId: number) => post<WorkTask>(`/work/tasks/${taskId}/duplicate`),
+  addTaskToList: (taskId: number, listId: number) => post<WorkOtherList[]>(`/work/tasks/${taskId}/lists`, { listId }),
+  removeTaskFromList: (taskId: number, listId: number) => del(`/work/tasks/${taskId}/lists/${listId}`),
+  setTaskHome: (taskId: number, listId: number) => post<WorkOtherList[]>(`/work/tasks/${taskId}/lists/${listId}/home`),
   react: (commentId: number, emoji: string) => post<WorkReaction[]>(`/work/comments/${commentId}/reactions`, { emoji }),
   notificationSettings: () => get<NotificationPref[]>(`/work/notification-settings`),
   setNotificationSetting: (p: NotificationPref) => put<NotificationPref[]>(`/work/notification-settings`, p),

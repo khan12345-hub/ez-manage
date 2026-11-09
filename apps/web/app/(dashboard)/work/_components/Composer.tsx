@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AtSign, Loader2, Paperclip, SendHorizontal, Smile, UserCheck } from "lucide-react";
@@ -10,14 +10,27 @@ import { userName, workApi, workKeys, type WorkAttachment, type WorkTaskDetail, 
 import { Avatar } from "./primitives";
 import { AssigneePicker } from "./pickers";
 import { FileChip, attachmentsKey } from "./TaskFiles";
+import { QUOTE_EVENT } from "./CommentActions";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
 const EMOJIS = ["👍", "🎉", "✅", "🔥", "👀", "🙏", "❤️", "😂", "🚀", "⚠️", "💡", "⏳"];
 
 /** Comment composer: text, @mentions, files, assign-to, emoji. Ctrl+Enter sends. */
-export function Composer({ task, members, onPosted }: { task: WorkTaskDetail; members: WorkUser[]; onPosted?: () => void }) {
+export function Composer({
+  task,
+  members,
+  onPosted,
+  parentId,
+}: {
+  task: WorkTaskDetail;
+  members: WorkUser[];
+  onPosted?: () => void;
+  /** reply inside a thread */
+  parentId?: number;
+}) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
+  const [outside, setOutside] = useState(false);
   const [files, setFiles] = useState<WorkAttachment[]>([]);
   const [mentions, setMentions] = useState<WorkUser[]>([]);
   const [assignee, setAssignee] = useState<WorkUser | null>(null);
@@ -39,7 +52,9 @@ export function Composer({ task, members, onPosted }: { task: WorkTaskDetail; me
     mutationFn: () => {
       const body = text.trim() || (files.length ? `Attached ${files.length === 1 ? "a file" : `${files.length} files`}` : "");
       const mentionIds = mentions.filter((m) => body.includes(`@${userName(m)}`)).map((m) => m.id);
-      return workApi.addComment(task.id, body, { assigneeId: assignee?.id, attachmentIds: files.map((f) => f.id), mentionIds });
+      const sent = workApi.addComment(task.id, body, { parentId, assigneeId: assignee?.id, attachmentIds: files.map((f) => f.id), mentionIds });
+      // "Also send outside of thread": the reply shows in the main feed too
+      return parentId && outside ? sent.then((r) => workApi.addComment(task.id, body, { mentionIds }).then(() => r)) : sent;
     },
     onSuccess: () => {
       setText("");
@@ -53,6 +68,24 @@ export function Composer({ task, members, onPosted }: { task: WorkTaskDetail; me
     },
     onError: (e) => toast.error(errMsg(e)),
   });
+
+  // Quote (comment toolbar) drops "> text" into the main composer
+  useEffect(() => {
+    if (parentId) return;
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ taskId: number; text: string; author: string }>).detail;
+      if (d?.taskId !== task.id) return;
+      const q = `${d.text.split("\n").map((l) => `> ${l}`).join("\n")}\n— ${d.author}\n\n`;
+      setText((t) => q + t);
+      requestAnimationFrame(() => {
+        const el = area.current;
+        el?.focus();
+        el?.setSelectionRange(el.value.length, el.value.length);
+      });
+    };
+    window.addEventListener(QUOTE_EVENT, on);
+    return () => window.removeEventListener(QUOTE_EVENT, on);
+  }, [parentId, task.id]);
 
   const insert = (s: string) => {
     const el = area.current;
@@ -116,8 +149,8 @@ export function Composer({ task, members, onPosted }: { task: WorkTaskDetail; me
                 send.mutate();
               }
             }}
-            placeholder="Write a comment… @ to mention, Ctrl+Enter to send"
-            aria-label="Comment"
+            placeholder={parentId ? "Reply… (Ctrl+Enter to send)" : "Write a comment… @ to mention, Ctrl+Enter to send"}
+            aria-label={parentId ? "Reply" : "Comment"}
             rows={2}
             className="block max-h-48 min-h-[56px] w-full resize-none bg-transparent px-3 pt-2.5 text-[13.5px] outline-none [field-sizing:content]"
           />
@@ -141,6 +174,12 @@ export function Composer({ task, members, onPosted }: { task: WorkTaskDetail; me
         </div>
       )}
 
+      {parentId && (
+        <label className="flex cursor-pointer items-center gap-2 px-3 pt-1 text-[12.5px] text-muted-foreground">
+          <input type="checkbox" checked={outside} onChange={(e) => setOutside(e.target.checked)} className="accent-[var(--primary)]" />
+          Also send outside of thread
+        </label>
+      )}
       <div className="flex items-center gap-0.5 px-1.5 pb-1.5 pt-1">
         <input ref={fileInput} type="file" multiple hidden aria-label="Attach files to comment" onChange={(e) => { if (e.target.files?.length) upload.mutate(Array.from(e.target.files)); e.target.value = ""; }} />
         <ToolBtn label="Attach files" onClick={() => fileInput.current?.click()}>
@@ -178,7 +217,7 @@ export function Composer({ task, members, onPosted }: { task: WorkTaskDetail; me
           onClick={() => send.mutate()}
           className="flex h-8 items-center gap-1.5 rounded-lg bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-40 dark:bg-primary dark:text-primary-foreground"
         >
-          {send.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SendHorizontal className="h-3.5 w-3.5" />} Comment
+          {send.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SendHorizontal className="h-3.5 w-3.5" />} {parentId ? "Reply" : "Comment"}
         </button>
       </div>
     </div>
