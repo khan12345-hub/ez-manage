@@ -492,6 +492,7 @@ const ACTION_TEXT: Record<string, string> = {
   attachment_removed: "removed the file",
   link_added: "added the link",
   link_removed: "removed the link",
+  field: "updated",
 };
 
 function fmtValue(action: string, v: unknown, members: WorkUser[] = []) {
@@ -653,7 +654,7 @@ function renderMentions(text: string, members: WorkUser[]) {
 
 function ActivityRow({ a, members }: { a: WorkActivity; members: WorkUser[] }) {
   const text = ACTION_TEXT[a.action] ?? a.action;
-  if (["attachment_added", "attachment_removed", "link_added", "link_removed"].includes(a.action)) {
+  if (["attachment_added", "attachment_removed", "link_added", "link_removed", "field"].includes(a.action)) {
     const v = a.action.endsWith("added") ? a.toValue : a.fromValue;
     return (
       <li className="flex items-start gap-2.5 pl-1.5 text-[12.5px] text-muted-foreground">

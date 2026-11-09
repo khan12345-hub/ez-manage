@@ -15,7 +15,8 @@ import { CalendarView } from "../../../_components/CalendarView";
 import { TaskDrawer } from "../../../_components/TaskDrawer";
 import { useListTasks, useWorkList } from "../../../_components/hooks";
 import { ListToolbar } from "../../../_components/ListToolbar";
-import { ALL_COLUMNS, DEFAULT_VIEW, filterTasks, loadView, sameView, saveView, type ViewSettings } from "../../../_components/viewSettings";
+import { ALL_COLUMNS, DEFAULT_VIEW, cfCol, filterTasks, loadView, sameView, saveView, type ViewSettings } from "../../../_components/viewSettings";
+import { CreateFieldDialog, useListFieldValues, useSetFieldValue, useSpaceFields } from "../../../_components/CustomFields";
 
 type View = WorkView;
 const VIEW_META: Record<View, { label: string; icon: typeof ListIcon }> = {
@@ -58,6 +59,11 @@ function ListPageInner() {
     if (list) pushRecentList(workspaceId, list.uid);
   }, [list?.uid, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
   const { data: tasks = [], isLoading: tasksLoading } = useListTasks(list?.id);
+  const { data: fields = [] } = useSpaceFields(list?.spaceId);
+  const { data: fieldValues = {} } = useListFieldValues(list?.id);
+  const setField = useSetFieldValue(list?.id ?? 0);
+  const [creatingField, setCreatingField] = useState(false);
+  const onFieldChange = (taskId: number, fieldId: number, value: unknown) => setField.mutate({ taskId, fieldId, value });
   const [q, setQ] = useState("");
   const [meMode, setMeMode] = useState(false);
   // view settings: the saved copy (localStorage) and the working copy
@@ -208,6 +214,8 @@ function ListPageInner() {
             meMode={meMode}
             onMeMode={setMeMode}
             showListControls={view === "list"}
+            fields={fields}
+            onCreateField={list.access.canManage ? () => setCreatingField(true) : undefined}
           />
         </div>
       )}
@@ -225,13 +233,21 @@ function ListPageInner() {
           <GalleryView list={list} tasks={shown} onOpenTask={openTask} />
         ) : view === "table" ? (
           // Table: one flat sheet with every column, subtasks shown
-          <ListView list={list} tasks={shown} view={{ ...vs, groupBy: "none", columns: ALL_COLUMNS, subtasks: "expanded" }} onView={(v) => setVs({ ...vs, sort: v.sort })} onOpenTask={openTask} />
+          <ListView list={list} tasks={shown} view={{ ...vs, groupBy: "none", columns: [...ALL_COLUMNS, ...fields.map((f) => cfCol(f.id))], subtasks: "expanded" }} onView={(v) => setVs({ ...vs, sort: v.sort })} onOpenTask={openTask} fields={fields} fieldValues={fieldValues} onFieldChange={onFieldChange} />
         ) : (
-          <ListView list={list} tasks={shown} view={vs} onView={setVs} onOpenTask={openTask} />
+          <ListView list={list} tasks={shown} view={vs} onView={setVs} onOpenTask={openTask} fields={fields} fieldValues={fieldValues} onFieldChange={onFieldChange} />
         )}
       </div>
 
       <TaskDrawer taskUid={taskUid} onClose={() => setParam("task", null)} onOpenTask={openTask} />
+      {list && (
+        <CreateFieldDialog
+          open={creatingField}
+          onOpenChange={setCreatingField}
+          spaceId={list.spaceId}
+          onCreated={(f) => setVs({ ...vs, columns: [...vs.columns, cfCol(f.id)] })}
+        />
+      )}
     </div>
   );
 }

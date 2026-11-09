@@ -36,6 +36,7 @@ import { AvatarStack, DueLabel, PriorityFlag, StatusGlyph, StatusPill, dueText }
 import { AssigneePicker, DatePicker, PriorityPicker, StatusPicker } from "./pickers";
 import { AddLinkPanel, AttachmentsSection, FileChip, WebLinksList, attachmentsKey, useUpload } from "./TaskFiles";
 import { Composer } from "./Composer";
+import { CustomFieldsSection } from "./CustomFields";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
 
@@ -311,6 +312,7 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                 </dl>
 
                 <DescriptionSection task={task} onSave={(d) => update({ description: d })} />
+                <CustomFieldsSection taskId={task.id} listId={task.listId} spaceId={task.list.spaceId} members={members} canEdit={canEdit} canManage={task.access.canManage} />
 
                 {/* subtasks */}
                 {!task.parentId && (

@@ -7,13 +7,25 @@ import { PRIORITY_META, dayOf, isTaskOverdue, userName, type WorkListDetail, typ
 
 export type GroupBy = "status" | "assignee" | "priority" | "due" | "none";
 export type ColumnKey = "assignee" | "due" | "priority" | "start" | "estimate" | "tags" | "created";
+/** a built-in column, or a custom field column "cf:<fieldId>" */
+export type Col = ColumnKey | `cf:${number}`;
+export const isCf = (c: Col): c is `cf:${number}` => c.startsWith("cf:");
+export const cfId = (c: `cf:${number}`) => Number(c.slice(3));
+export const cfCol = (id: number) => `cf:${id}` as const;
+const CF_WIDTH: Record<string, number> = { textarea: 200, labels: 170, people: 120, checkbox: 90, rating: 110, progress: 140, url: 170 };
+/** label + width of any column; custom fields need the space's field list */
+export function colMeta(c: Col, fields: { id: number; name: string; type: string }[] = []): { label: string; width: number; sort?: SortKey } {
+  if (!isCf(c)) return COLUMN_META[c];
+  const f = fields.find((x) => x.id === cfId(c));
+  return { label: f?.name ?? "Field", width: CF_WIDTH[f?.type ?? ""] ?? 150 };
+}
 export type SortKey = "name" | "due" | "priority" | "start" | "estimate" | "created";
 export type DueBucket = "overdue" | "today" | "week" | "later" | "none";
 
 export interface ViewSettings {
   groupBy: GroupBy;
   subtasks: "collapsed" | "expanded";
-  columns: ColumnKey[];
+  columns: Col[];
   showClosed: boolean;
   sort: { key: SortKey; dir: "asc" | "desc" } | null;
   filters: {

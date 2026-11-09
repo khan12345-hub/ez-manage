@@ -15,6 +15,8 @@ import {
   Matches,
   MaxLength,
   ValidateIf,
+  IsObject,
+  Allow,
 } from 'class-validator';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -111,6 +113,20 @@ export class CreateCommentDto {
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsInt({ each: true }) attachmentIds?: number[];
   /** people @mentioned in the comment */
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
+}
+export class CreateFieldDto {
+  @IsString() @IsNotEmpty() @MaxLength(80) name!: string;
+  @IsIn(['text', 'textarea', 'number', 'money', 'date', 'dropdown', 'labels', 'checkbox', 'email', 'phone', 'url', 'rating', 'progress', 'people']) type!: string;
+  @IsOptional() @IsObject() config?: Record<string, unknown>;
+}
+export class UpdateFieldDto {
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(80) name?: string;
+  @IsOptional() @IsObject() config?: Record<string, unknown>;
+  @IsOptional() @IsNumber() order?: number;
+}
+export class FieldValueDto {
+  /** any JSON; validated per field type in the service */
+  @Allow() value!: unknown;
 }
 export class ReactionDto {
   @IsString() @IsNotEmpty() @MaxLength(16) emoji!: string;

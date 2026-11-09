@@ -30,12 +30,14 @@ import { formatMinutes, workApi, workKeys, type WorkListDetail, type WorkTask } 
 import { DueLabel, PriorityFlag, StatusGlyph, dueText } from "./primitives";
 import { AssigneeCell, AssigneePicker, DatePicker, PriorityPicker, StatusPicker } from "./pickers";
 import { useCreateTask, useUpdateTask } from "./hooks";
-import { COLUMN_META, groupTasks, sortTasks, type ColumnKey, type SortKey, type TaskGroup, type ViewSettings } from "./viewSettings";
+import { cfId, colMeta, groupTasks, isCf, sortTasks, type Col, type SortKey, type TaskGroup, type ViewSettings } from "./viewSettings";
+import { FieldEditor } from "./CustomFields";
+import type { FieldValues, WorkField } from "@/services/work.api";
 import { NameDialog } from "./NameDialog";
 import { StatusesDialog } from "./StatusesDialog";
 
-const gridFor = (cols: ColumnKey[]) => ({
-  gridTemplateColumns: `minmax(240px,1fr) ${cols.map((c) => `${COLUMN_META[c].width}px`).join(" ")}`,
+const gridFor = (cols: Col[], fields: WorkField[]) => ({
+  gridTemplateColumns: `minmax(240px,1fr) ${cols.map((c) => `${colMeta(c, fields).width}px`).join(" ")}`,
 });
 
 /** ClickUp-style List view: grouped cards, configurable columns, editable rows. */
@@ -45,13 +47,21 @@ export function ListView({
   view,
   onView,
   onOpenTask,
+  fields = [],
+  fieldValues = {},
+  onFieldChange,
 }: {
   list: WorkListDetail;
   tasks: WorkTask[];
   view: ViewSettings;
   onView: (v: ViewSettings) => void;
   onOpenTask: (uid: string) => void;
+  fields?: WorkField[];
+  fieldValues?: FieldValues;
+  onFieldChange?: (taskId: number, fieldId: number, value: unknown) => void;
 }) {
+  // drop columns of deleted custom fields
+  const columns = view.columns.filter((c) => !isCf(c) || fields.some((f) => f.id === cfId(c)));
   const canEdit = list.access.canEdit;
   const canManage = list.access.canManage;
   const update = useUpdateTask(list.id, list.statuses);
@@ -72,7 +82,10 @@ export function ListView({
   const ctx: RowCtx = {
     list,
     canEdit,
-    columns: view.columns,
+    columns,
+    fields,
+    fieldValues,
+    onFieldChange,
     childrenOf,
     expanded: (id) => (view.subtasks === "expanded" ? expanded[id] !== false : !!expanded[id]),
     setExpanded: (id, open) => setExpanded((e) => ({ ...e, [id]: open })),
@@ -138,11 +151,11 @@ export function ListView({
           {!collapsed[g.key] && (
             <div className="overflow-x-auto">
               <div className="min-w-max">
-                <div className="grid items-center border-t border-border bg-table-head px-3 py-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground" style={gridFor(view.columns)}>
+                <div className="grid items-center border-t border-border bg-table-head px-3 py-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground" style={gridFor(columns, fields)}>
                   <SortHeader label="Name" k="name" view={view} onSort={sortBy} className="pl-[26px]" />
-                  {view.columns.map((c) => {
-                    const sk = COLUMN_META[c].sort;
-                    return sk ? <SortHeader key={c} label={COLUMN_META[c].label} k={sk} view={view} onSort={sortBy} /> : <span key={c}>{COLUMN_META[c].label}</span>;
+                  {columns.map((c) => {
+                    const m = colMeta(c, fields);
+                    return m.sort ? <SortHeader key={c} label={m.label} k={m.sort} view={view} onSort={sortBy} /> : <span key={c} className="truncate">{m.label}</span>;
                   })}
                 </div>
                 {g.tasks.map((t) => <Row key={t.id} task={t} ctx={ctx} />)}
@@ -202,7 +215,10 @@ function SortHeader({ label, k, view, onSort, className }: { label: string; k: S
 type RowCtx = {
   list: WorkListDetail;
   canEdit: boolean;
-  columns: ColumnKey[];
+  columns: Col[];
+  fields: WorkField[];
+  fieldValues: FieldValues;
+  onFieldChange?: (taskId: number, fieldId: number, value: unknown) => void;
   childrenOf: Map<number, WorkTask[]>;
   expanded: (id: number) => boolean;
   setExpanded: (id: number, open: boolean) => void;
@@ -215,7 +231,15 @@ function Row({ task, depth = 0, ctx }: { task: WorkTask; depth?: number; ctx: Ro
   const status = list.statuses.find((s) => s.id === task.statusId);
   const kids = childrenOf.get(task.id) ?? [];
   const isOpen = kids.length > 0 && ctx.expanded(task.id);
-  const cell = (c: ColumnKey) => {
+  const cell = (c: Col) => {
+    if (isCf(c)) {
+      const f = ctx.fields.find((x) => x.id === cfId(c))!;
+      return (
+        <div key={c} className="min-w-0 pr-2" onClick={(e) => e.stopPropagation()}>
+          <FieldEditor compact field={f} value={ctx.fieldValues[task.id]?.[f.id]} members={list.members} disabled={!canEdit || !ctx.onFieldChange} onChange={(v) => ctx.onFieldChange?.(task.id, f.id, v)} />
+        </div>
+      );
+    }
     switch (c) {
       case "assignee":
         return (
@@ -269,7 +293,7 @@ function Row({ task, depth = 0, ctx }: { task: WorkTask; depth?: number; ctx: Ro
   };
   return (
     <>
-      <div className="group grid min-h-[42px] items-center border-t border-border/70 px-3 transition-colors hover:bg-accent/30" style={gridFor(columns)}>
+      <div className="group grid min-h-[42px] items-center border-t border-border/70 px-3 transition-colors hover:bg-accent/30" style={gridFor(columns, ctx.fields)}>
         <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: depth * 22 }}>
           {kids.length > 0 ? (
             <button type="button" aria-label={isOpen ? "Hide subtasks" : "Show subtasks"} onClick={() => ctx.setExpanded(task.id, !isOpen)} className="-ml-1 rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground">

@@ -276,7 +276,19 @@ export interface WorkOverview {
   access: WorkAccessFlags;
 }
 
+export type FieldType = "text" | "textarea" | "number" | "money" | "date" | "dropdown" | "labels" | "checkbox" | "email" | "phone" | "url" | "rating" | "progress" | "people";
+export interface FieldOption { id: string; name: string; color: string }
+export interface WorkField { id: number; spaceId: number; name: string; type: FieldType; config: { options?: FieldOption[]; currency?: string; decimals?: number } | null; order: number }
+export type FieldValues = Record<number, Record<number, unknown>>;
+
 export const workApi = {
+  fields: (spaceId: number) => get<WorkField[]>(`/work/spaces/${spaceId}/fields`),
+  createField: (spaceId: number, body: { name: string; type: FieldType; config?: Record<string, unknown> }) => post<WorkField>(`/work/spaces/${spaceId}/fields`, body),
+  updateField: (id: number, body: { name?: string; config?: Record<string, unknown>; order?: number }) => patch<WorkField>(`/work/fields/${id}`, body),
+  deleteField: (id: number) => del(`/work/fields/${id}`),
+  listFieldValues: (listId: number) => get<FieldValues>(`/work/lists/${listId}/field-values`),
+  taskFieldValues: (taskId: number) => get<Record<number, unknown>>(`/work/tasks/${taskId}/field-values`),
+  setFieldValue: (taskId: number, fieldId: number, value: unknown) => put<{ fieldId: number; value: unknown }>(`/work/tasks/${taskId}/fields/${fieldId}`, { value }),
   spaceOverview: (uid: string) => get<WorkOverview>(`/work/spaces/${uid}/overview`),
   folderOverview: (uid: string) => get<WorkOverview>(`/work/folders/${uid}/overview`),
   react: (commentId: number, emoji: string) => post<WorkReaction[]>(`/work/comments/${commentId}/reactions`, { emoji }),

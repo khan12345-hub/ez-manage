@@ -5,7 +5,8 @@ import { WorkFilesService, type AttachmentSource } from './work-files.service';
 import { WorkPeopleService } from './work-people.service';
 import { WorkInboxService } from './work-inbox.service';
 import { WorkOverviewService } from './work-overview.service';
-import { InboxBulkDto, NotificationPrefDto, ReactionDto } from './dto/work.dto';
+import { WorkFieldsService } from './work-fields.service';
+import { CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -49,6 +50,7 @@ export class WorkController {
     private readonly people: WorkPeopleService,
     private readonly inbox: WorkInboxService,
     private readonly overview: WorkOverviewService,
+    private readonly fields: WorkFieldsService,
   ) {}
 
   // ── workspace level ──
@@ -342,6 +344,42 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── custom fields ──
+  @Get('spaces/:id/fields')
+  listFields(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.fields.list(id, u.id);
+  }
+
+  @Post('spaces/:id/fields')
+  createField(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateFieldDto, @CurrentUser() u: SessionUser) {
+    return this.fields.create(id, u.id, dto);
+  }
+
+  @Patch('fields/:id')
+  updateField(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateFieldDto, @CurrentUser() u: SessionUser) {
+    return this.fields.update(id, u.id, dto);
+  }
+
+  @Delete('fields/:id')
+  deleteField(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.fields.remove(id, u.id);
+  }
+
+  @Get('lists/:id/field-values')
+  listFieldValues(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.fields.valuesForList(id, u.id);
+  }
+
+  @Get('tasks/:id/field-values')
+  taskFieldValues(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.fields.valuesForTask(id, u.id);
+  }
+
+  @Put('tasks/:id/fields/:fieldId')
+  setFieldValue(@Param('id', ParseIntPipe) id: number, @Param('fieldId', ParseIntPipe) fieldId: number, @Body() dto: FieldValueDto, @CurrentUser() u: SessionUser) {
+    return this.fields.setValue(id, fieldId, u.id, dto.value);
+  }
+
   // ── space / folder overview ──
   @Get('spaces/:idOrUid/overview')
   spaceOverview(@Param('idOrUid') id: string, @CurrentUser() u: SessionUser) {

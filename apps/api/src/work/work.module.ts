@@ -7,6 +7,7 @@ import { WorkFilesService } from './work-files.service';
 import { WorkPeopleService } from './work-people.service';
 import { WorkInboxService } from './work-inbox.service';
 import { WorkOverviewService } from './work-overview.service';
+import { WorkFieldsService } from './work-fields.service';
 import { MailModule } from 'src/mail/mail.module';
 import { StorageModule } from 'src/storage/storage.module';
 import { NotificationsModule } from 'src/notifications/notifications.module';
@@ -15,6 +16,6 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
 @Module({
   imports: [StorageModule, NotificationsModule, MailModule],
   controllers: [WorkController],
-  providers: [WorkService, WorkAccessService, WorkDetailService, WorkFilesService, WorkPeopleService, WorkInboxService, WorkOverviewService],
+  providers: [WorkService, WorkAccessService, WorkDetailService, WorkFilesService, WorkPeopleService, WorkInboxService, WorkOverviewService, WorkFieldsService],
 })
 export class WorkModule {}

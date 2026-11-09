@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Check, CheckCircle2, ChevronDown, Columns3, Filter, Layers, ListTree, RotateCcw, Save, Search, User, X } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, Columns3, Filter, Layers, ListTree, Plus, RotateCcw, Save, Search, User, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,8 @@ import {
   COLUMN_META,
   DEFAULT_VIEW,
   activeFilterCount,
+  cfCol,
+  isCf,
   type DueBucket,
   type GroupBy,
   type ViewSettings,
@@ -67,6 +69,8 @@ export function ListToolbar({
   meMode,
   onMeMode,
   showListControls,
+  fields = [],
+  onCreateField,
 }: {
   list: WorkListDetail;
   tasks: WorkTask[];
@@ -81,6 +85,9 @@ export function ListToolbar({
   onMeMode: (m: boolean) => void;
   /** group/subtasks/columns only apply to the List view */
   showListControls: boolean;
+  fields?: { id: number; name: string; type: string }[];
+  /** managers only: open the "Create field" dialog */
+  onCreateField?: () => void;
 }) {
   const f = view.filters;
   const setFilters = (patch: Partial<ViewSettings["filters"]>) => onView({ ...view, filters: { ...f, ...patch } });
@@ -143,11 +150,30 @@ export function ListToolbar({
                   key={c}
                   checked={view.columns.includes(c)}
                   // keep the natural column order whatever the click order
-                  onClick={() => onView({ ...view, columns: ALL_COLUMNS.filter((x) => (x === c ? !view.columns.includes(c) : view.columns.includes(x))) })}
+                  onClick={() => {
+                    const builtIn = ALL_COLUMNS.filter((x) => (x === c ? !view.columns.includes(c) : view.columns.includes(x)));
+                    onView({ ...view, columns: [...builtIn, ...view.columns.filter(isCf)] });
+                  }}
                 >
                   {COLUMN_META[c].label}
                 </MenuRow>
               ))}
+              <p className="mt-1 border-t border-border/70 px-2 pb-1 pt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Custom fields</p>
+              {fields.length === 0 && <p className="px-2 py-1 text-[12px] text-muted-foreground">None in this space yet.</p>}
+              {fields.map((f) => {
+                const key = cfCol(f.id);
+                const on = view.columns.includes(key);
+                return (
+                  <MenuRow key={key} checked={on} onClick={() => onView({ ...view, columns: on ? view.columns.filter((x) => x !== key) : [...view.columns, key] })}>
+                    {f.name}
+                  </MenuRow>
+                );
+              })}
+              {onCreateField && (
+                <button type="button" onClick={onCreateField} className="mt-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] font-medium text-primary hover:bg-accent">
+                  <Plus className="h-3.5 w-3.5" /> Create field
+                </button>
+              )}
             </PopoverContent>
           </Popover>
         </>

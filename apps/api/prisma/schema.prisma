@@ -1436,9 +1436,10 @@ model Space {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy User          @relation("SpaceCreator", fields: [createdById], references: [id])
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User              @relation("SpaceCreator", fields: [createdById], references: [id])
   members   SpaceMember[]
+  fields    WorkCustomField[]
   folders   WorkFolder[]
   lists     WorkList[]
   statuses  WorkStatus[]
@@ -1570,6 +1571,7 @@ model WorkTask {
   comments    WorkComment[]
   attachments WorkAttachment[]
   webLinks    WorkWebLink[]
+  fieldValues WorkFieldValue[]
 
   @@index([listId, order])
   @@index([statusId])
@@ -1831,4 +1833,39 @@ model WorkNotificationPref {
 
   @@id([userId, kind])
   @@map("work_notification_prefs")
+}
+
+/// Custom field defined on a space; every list in the space can show it.
+/// type: text | textarea | number | money | date | dropdown | labels | checkbox | email | phone | url | rating | progress | people
+model WorkCustomField {
+  id          Int       @id @default(autoincrement())
+  spaceId     Int
+  name        String
+  type        String
+  /// dropdown/labels: { options: [{ id, name, color }] }; money: { currency }; number: { decimals }
+  config      Json?
+  order       Float     @default(1000)
+  createdById Int
+  createdAt   DateTime  @default(now())
+  archivedAt  DateTime?
+
+  space  Space            @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  values WorkFieldValue[]
+
+  @@index([spaceId])
+  @@map("work_custom_fields")
+}
+
+model WorkFieldValue {
+  taskId    Int
+  fieldId   Int
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  task  WorkTask        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  field WorkCustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, fieldId])
+  @@index([fieldId])
+  @@map("work_field_values")
 }
