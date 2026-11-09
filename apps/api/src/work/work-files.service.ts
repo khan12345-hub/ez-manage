@@ -133,6 +133,58 @@ export class WorkFilesService {
     return { deleted: true };
   }
 
+  /* ───────────────────────── reactions ───────────────────────── */
+
+  static readonly EMOJIS = ['👍', '❤️', '😂', '🎉', '👀', '🙏', '🔥', '✅', '🚀', '💯', '👏', '😮'];
+
+  /** Toggle one emoji on a comment; the comment's author hears about new reactions. */
+  async toggleReaction(commentId: number, userId: number, emoji: string) {
+    if (!WorkFilesService.EMOJIS.includes(emoji)) throw new BadRequestException('Unsupported reaction.');
+    const c = await this.prisma.workComment.findFirst({ where: { id: commentId, deletedAt: null }, select: { id: true, taskId: true, userId: true, content: true } });
+    if (!c) throw new NotFoundException('Comment not found.');
+    await this.access.requireTask(c.taskId, userId, 'view');
+    const existing = await this.prisma.workCommentReaction.findUnique({ where: { commentId_userId_emoji: { commentId, userId, emoji } } });
+    if (existing) {
+      await this.prisma.workCommentReaction.delete({ where: { id: existing.id } });
+    } else {
+      await this.prisma.workCommentReaction.create({ data: { commentId, userId, emoji } });
+      const snippet = c.content.length > 120 ? `${c.content.slice(0, 120)}…` : c.content;
+      await this.notify(c.taskId, userId, [c.userId], NotificationType.COMMENT_CREATED, 'Reacted to your comment', snippet, { event: 'reaction', emoji, commentId });
+    }
+    return this.reactionsOf(commentId);
+  }
+
+  reactionsOf(commentId: number) {
+    return this.prisma.workCommentReaction.findMany({
+      where: { commentId },
+      orderBy: { createdAt: 'asc' },
+      select: { emoji: true, userId: true, user: { select: { id: true, firstName: true, lastName: true } } },
+    });
+  }
+
+  /* ───────────────────────── notification settings ───────────────────────── */
+
+  static readonly KINDS = ['mention', 'assigned', 'assigned_comment', 'reply', 'comment', 'reaction', 'status', 'overdue'] as const;
+
+  async getSettings(userId: number) {
+    const rows = await this.prisma.workNotificationPref.findMany({ where: { userId } });
+    const by = new Map(rows.map((r) => [r.kind, r]));
+    return WorkFilesService.KINDS.map((kind) => {
+      const r = by.get(kind);
+      return { kind, inbox: r?.inbox ?? true, email: r?.email ?? false, browser: r?.browser ?? true };
+    });
+  }
+
+  async setSetting(userId: number, kind: string, v: { inbox: boolean; email: boolean; browser: boolean }) {
+    if (!(WorkFilesService.KINDS as readonly string[]).includes(kind)) throw new BadRequestException('Unknown notification kind.');
+    await this.prisma.workNotificationPref.upsert({
+      where: { userId_kind: { userId, kind } },
+      update: v,
+      create: { userId, kind, ...v },
+    });
+    return this.getSettings(userId);
+  }
+
   /* ───────────────────────── notifications ───────────────────────── */
 
   /**
@@ -167,8 +219,19 @@ export class WorkFilesService {
         actorAvatar: actor?.avatarUrl ?? null,
         ...extra,
       };
+      const kind = (extra.event as string | undefined) ?? 'comment';
+      const prefs = await this.prisma.workNotificationPref.findMany({ where: { userId: { in: ids }, kind } });
+      const byUser = new Map(prefs.map((p) => [p.userId, p]));
       for (const recipientId of ids) {
-        await this.notifications.notify({ recipientId, type, title, message, entityType: NotificationEntityType.TASK, entityId: taskId, metadata, sendEmail: false, product: 'work' });
+        const pref = byUser.get(recipientId);
+        if (pref && !pref.inbox && !pref.email) continue; // this person turned this kind off
+        await this.notifications.notify({
+          recipientId, type, title, message,
+          entityType: NotificationEntityType.TASK, entityId: taskId,
+          metadata: { ...metadata, push: pref ? pref.browser : true, inboxHidden: pref ? !pref.inbox : false },
+          sendEmail: pref?.email ?? false,
+          product: 'work',
+        });
       }
     } catch (e: any) {
       this.logger.warn(`work notification failed: ${e?.message ?? e}`);

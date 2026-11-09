@@ -97,7 +97,7 @@ export function NotificationStreamProvider({
       (notification: Notification) => {
         const meta = notification.metadata as Record<string, any> | null | undefined;
         if (notification.product === "work" || meta?.product === "work") {
-          fireDesktopRef.current(notification.title, notification.message, typeof meta?.url === "string" ? meta.url : undefined);
+          if (meta?.push !== false) fireDesktopRef.current(notification.title, notification.message, typeof meta?.url === "string" ? meta.url : undefined);
           queryClient.invalidateQueries({ queryKey: ["inbox"] });
           queryClient.invalidateQueries({ queryKey: ["work-inbox"] });
           return;

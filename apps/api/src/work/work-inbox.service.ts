@@ -49,7 +49,7 @@ export class WorkInboxService {
       : [];
     const byUid = new Map(tasks.map((t) => [t.uid, t]));
     return {
-      items: items.map((n) => {
+      items: items.filter((n) => !(n.metadata as any)?.inboxHidden).map((n) => {
         const t = byUid.get((n.metadata as any)?.taskUid);
         return { ...n, task: t ? { name: t.name, status: t.status, dueDate: t.dueDate, completedAt: t.completedAt, archived: !!t.archivedAt } : null };
       }),

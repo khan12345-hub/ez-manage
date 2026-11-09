@@ -112,6 +112,15 @@ export class CreateCommentDto {
   /** people @mentioned in the comment */
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
 }
+export class ReactionDto {
+  @IsString() @IsNotEmpty() @MaxLength(16) emoji!: string;
+}
+export class NotificationPrefDto {
+  @IsString() @MaxLength(40) kind!: string;
+  @IsBoolean() inbox!: boolean;
+  @IsBoolean() email!: boolean;
+  @IsBoolean() browser!: boolean;
+}
 export class InboxBulkDto {
   @IsArray() @ArrayMaxSize(500) @IsString({ each: true }) ids!: string[];
   @IsIn(['clear', 'unclear', 'snooze', 'unsnooze', 'read', 'unread']) action!: 'clear' | 'unclear' | 'snooze' | 'unsnooze' | 'read' | 'unread';

@@ -4,7 +4,7 @@ import { memoryStorage } from 'multer';
 import { WorkFilesService, type AttachmentSource } from './work-files.service';
 import { WorkPeopleService } from './work-people.service';
 import { WorkInboxService } from './work-inbox.service';
-import { InboxBulkDto } from './dto/work.dto';
+import { InboxBulkDto, NotificationPrefDto, ReactionDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -335,6 +335,23 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── comment reactions ──
+  @Post('comments/:id/reactions')
+  react(@Param('id', ParseIntPipe) id: number, @Body() dto: ReactionDto, @CurrentUser() u: SessionUser) {
+    return this.files.toggleReaction(id, u.id, dto.emoji);
+  }
+
+  // ── my Work notification settings (per event: inbox / email / browser) ──
+  @Get('notification-settings')
+  notificationSettings(@CurrentUser() u: SessionUser) {
+    return this.files.getSettings(u.id);
+  }
+
+  @Put('notification-settings')
+  setNotificationSetting(@Body() dto: NotificationPrefDto, @CurrentUser() u: SessionUser) {
+    return this.files.setSetting(u.id, dto.kind, { inbox: dto.inbox, email: dto.email, browser: dto.browser });
+  }
+
   // ── inbox (Work notifications only) ──
   @Get('inbox')
   workInbox(@Query('view') view: string, @CurrentUser() u: SessionUser) {

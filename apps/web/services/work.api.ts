@@ -179,7 +179,17 @@ export interface WorkComment {
   user: WorkUser;
   assignee: WorkUser | null;
   attachments?: WorkAttachment[];
+  reactions?: WorkReaction[];
 }
+
+export interface WorkReaction {
+  emoji: string;
+  userId: number;
+  user: { id: number; firstName: string; lastName: string };
+}
+export const REACTION_EMOJIS = ["👍", "❤️", "😂", "🎉", "👀", "🙏", "🔥", "✅", "🚀", "💯", "👏", "😮"];
+export type NotificationKind = "mention" | "assigned" | "assigned_comment" | "reply" | "comment" | "reaction" | "status" | "overdue";
+export interface NotificationPref { kind: NotificationKind; inbox: boolean; email: boolean; browser: boolean }
 
 export interface WorkAttachment {
   id: number;
@@ -257,6 +267,9 @@ export interface WorkPeople {
 export type InviteResult = { email: string; status: "added" | "invited" | "already_member" | "already_invited" };
 
 export const workApi = {
+  react: (commentId: number, emoji: string) => post<WorkReaction[]>(`/work/comments/${commentId}/reactions`, { emoji }),
+  notificationSettings: () => get<NotificationPref[]>(`/work/notification-settings`),
+  setNotificationSetting: (p: NotificationPref) => put<NotificationPref[]>(`/work/notification-settings`, p),
   workInbox: (view: "active" | "later" | "cleared" | "all") =>
     get<{ items: any[]; counts: { later: number; cleared: number } }>(`/work/inbox?view=${view}`),
   workInboxBulk: (ids: string[], action: "clear" | "unclear" | "snooze" | "unsnooze" | "read" | "unread", until?: string) =>

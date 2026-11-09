@@ -120,21 +120,23 @@ model User {
   ceoMeetingAttendances CeoMeetingAttendee[] @relation("CeoMeetingAttendeeUser")
 
   // ── Work (ClickUp-style product) ──
-  workSpacesCreated    Space[]             @relation("SpaceCreator")
-  workSpaceMembership  SpaceMember[]       @relation("SpaceMemberUser")
-  workFoldersCreated   WorkFolder[]        @relation("WorkFolderCreator")
-  workListsCreated     WorkList[]          @relation("WorkListCreator")
-  workTasksCreated     WorkTask[]          @relation("WorkTaskCreator")
-  workMemberships      WorkMember[]        @relation("WorkMemberUser")
-  workMembersInvited   WorkMember[]        @relation("WorkMemberInviter")
-  workTaskAssignments  WorkTaskAssignee[]  @relation("WorkTaskAssigneeUser")
-  workComments         WorkComment[]       @relation("WorkCommentAuthor")
-  workAttachments      WorkAttachment[]    @relation("WorkAttachmentUploader")
-  workWebLinks         WorkWebLink[]       @relation("WorkWebLinkCreator")
-  workCommentsAssigned WorkComment[]       @relation("WorkCommentAssignee")
-  workChecklistItems   WorkChecklistItem[] @relation("WorkChecklistAssignee")
-  workTimeEntries      WorkTimeEntry[]     @relation("WorkTimeEntryUser")
-  workActivities       WorkActivity[]      @relation("WorkActivityUser")
+  workSpacesCreated     Space[]                @relation("SpaceCreator")
+  workSpaceMembership   SpaceMember[]          @relation("SpaceMemberUser")
+  workFoldersCreated    WorkFolder[]           @relation("WorkFolderCreator")
+  workListsCreated      WorkList[]             @relation("WorkListCreator")
+  workTasksCreated      WorkTask[]             @relation("WorkTaskCreator")
+  workMemberships       WorkMember[]           @relation("WorkMemberUser")
+  workReactions         WorkCommentReaction[]
+  workNotificationPrefs WorkNotificationPref[]
+  workMembersInvited    WorkMember[]           @relation("WorkMemberInviter")
+  workTaskAssignments   WorkTaskAssignee[]     @relation("WorkTaskAssigneeUser")
+  workComments          WorkComment[]          @relation("WorkCommentAuthor")
+  workAttachments       WorkAttachment[]       @relation("WorkAttachmentUploader")
+  workWebLinks          WorkWebLink[]          @relation("WorkWebLinkCreator")
+  workCommentsAssigned  WorkComment[]          @relation("WorkCommentAssignee")
+  workChecklistItems    WorkChecklistItem[]    @relation("WorkChecklistAssignee")
+  workTimeEntries       WorkTimeEntry[]        @relation("WorkTimeEntryUser")
+  workActivities        WorkActivity[]         @relation("WorkActivityUser")
 
   @@map("users")
 }
@@ -1602,12 +1604,13 @@ model WorkComment {
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
-  assignee    User?            @relation("WorkCommentAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  task        WorkTask         @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user        User             @relation("WorkCommentAuthor", fields: [userId], references: [id])
-  parent      WorkComment?     @relation("WorkCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies     WorkComment[]    @relation("WorkCommentReplies")
+  assignee    User?                 @relation("WorkCommentAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  task        WorkTask              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User                  @relation("WorkCommentAuthor", fields: [userId], references: [id])
+  parent      WorkComment?          @relation("WorkCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     WorkComment[]         @relation("WorkCommentReplies")
   attachments WorkAttachment[]
+  reactions   WorkCommentReaction[]
 
   @@index([taskId, createdAt])
   @@index([assigneeId, resolvedAt])
@@ -1797,4 +1800,35 @@ model WorkMember {
   @@id([workspaceId, userId])
   @@index([userId])
   @@map("work_members")
+}
+
+/// Emoji reaction on a Work comment (one per user per emoji).
+model WorkCommentReaction {
+  id        Int      @id @default(autoincrement())
+  commentId Int
+  userId    Int
+  emoji     String
+  createdAt DateTime @default(now())
+
+  comment WorkComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, emoji])
+  @@index([commentId])
+  @@map("work_comment_reactions")
+}
+
+/// Per-user Work notification channels for one event kind (mention, assigned, status, …).
+/// No row = defaults (inbox on, email off, browser on).
+model WorkNotificationPref {
+  userId  Int
+  kind    String
+  inbox   Boolean @default(true)
+  email   Boolean @default(false)
+  browser Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, kind])
+  @@map("work_notification_prefs")
 }

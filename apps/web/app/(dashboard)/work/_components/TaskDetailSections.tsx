@@ -38,6 +38,7 @@ import {
 } from "@/services/work.api";
 import { Avatar, StatusGlyph } from "./primitives";
 import { FileChip } from "./TaskFiles";
+import { Reactions } from "./Reactions";
 import { AssigneePicker } from "./pickers";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
@@ -593,6 +594,7 @@ export function Timeline({
                     {it.x.attachments.map((a) => <FileChip key={a.id} a={a} />)}
                   </div>
                 )}
+                <Reactions comment={it.x} currentUserId={currentUserId} />
                 {it.x.assignee && (
                   <div className="mt-2 flex items-center gap-2 border-t border-border/70 pt-2 text-[12px]">
                     {it.x.resolvedAt ? <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> : <CircleDashed className="h-3.5 w-3.5 text-[#b08d57]" />}

@@ -79,6 +79,7 @@ const COMMENT_SELECT = {
   id: true, taskId: true, parentId: true, content: true, createdAt: true, updatedAt: true, resolvedAt: true,
   user: { select: USER_MINI }, assignee: { select: USER_MINI },
   attachments: { select: ATTACHMENT_SELECT, orderBy: { id: 'asc' as const } },
+  reactions: { select: { emoji: true, userId: true, user: { select: { id: true, firstName: true, lastName: true } } }, orderBy: { createdAt: 'asc' as const } },
 } as const;
 
 const toDate = (v: string | null | undefined) => (v === undefined ? undefined : v === null ? null : new Date(v));

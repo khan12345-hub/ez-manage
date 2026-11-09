@@ -31,6 +31,7 @@ import {
   Activity,
   CalendarClock,
   ExternalLink,
+  SmilePlus,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -68,6 +69,7 @@ const KIND_ICON: Record<Kind, typeof Bell> = {
   assigned_comment: CheckCheck,
   reply: MessageSquare,
   comment: MessageSquare,
+  reaction: SmilePlus,
   status: Activity,
   overdue: CalendarClock,
   added: UserPlus,
@@ -361,7 +363,7 @@ export function InboxPage({ workspaceId }: { workspaceId: string }) {
             </div>
           </div>
           <div className="px-3 py-3">
-            <button type="button" onClick={() => router.push("/settings")} className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13.5px] hover:bg-accent"><Settings2 className="h-4 w-4 text-muted-foreground" /> Notification settings</button>
+            <button type="button" onClick={() => router.push(`/work/${workspaceId}/notifications`)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13.5px] hover:bg-accent"><Settings2 className="h-4 w-4 text-muted-foreground" /> Notification settings</button>
             <button type="button" onClick={() => setKeysOpen(true)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13.5px] hover:bg-accent"><Keyboard className="h-4 w-4 text-muted-foreground" /> Keyboard shortcuts</button>
           </div>
         </SheetContent>
@@ -455,6 +457,8 @@ function EventText({ n }: { n: InboxNotification }) {
       return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> mentioned you:{chip(n.message)}</span>;
     case "assigned_comment":
       return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> assigned you a comment:{chip(n.message)}</span>;
+    case "reaction":
+      return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> reacted to your comment:{chip(n.message)}</span>;
     case "reply":
       return <span className="truncate"><span className="font-medium">{actor || "Someone"}</span> replied:{chip(n.message)}</span>;
     default:
@@ -501,7 +505,11 @@ function Row({
       </span>
       {/* event */}
       <span className={cn("flex min-w-0 flex-1 items-center gap-2.5", row.unread ? "text-foreground/80" : "text-muted-foreground")}>
-        <I className={cn("h-4 w-4 shrink-0", k === "mention" ? "text-[#7C3AED]" : "text-muted-foreground")} />
+        {k === "reaction" && n.metadata?.emoji ? (
+          <span className="w-4 shrink-0 text-center text-[15px] leading-none" aria-label={`Reaction ${n.metadata.emoji}`}>{n.metadata.emoji}</span>
+        ) : (
+          <I className={cn("h-4 w-4 shrink-0", k === "mention" ? "text-[#7C3AED]" : "text-muted-foreground")} />
+        )}
         {!compact && <EventText n={n} />}
         {compact && <span className="truncate text-[12.5px] text-muted-foreground">{KIND_META[k].label}</span>}
       </span>

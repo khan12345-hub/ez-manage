@@ -17,7 +17,7 @@ export interface InboxNotification {
   task: { name: string; status: { name: string; color: string; category: StatusCategory } | null; dueDate: string | null; completedAt: string | null; archived: boolean } | null;
 }
 
-export type Kind = "mention" | "assigned" | "assigned_comment" | "reply" | "comment" | "status" | "overdue" | "added";
+export type Kind = "mention" | "assigned" | "assigned_comment" | "reply" | "comment" | "reaction" | "status" | "overdue" | "added";
 
 export const KIND_META: Record<Kind, { label: string; hint: string }> = {
   mention: { label: "Mentions", hint: "Someone @mentions you" },
@@ -25,6 +25,7 @@ export const KIND_META: Record<Kind, { label: string; hint: string }> = {
   assigned_comment: { label: "Assigned comments", hint: "A comment is assigned to you" },
   reply: { label: "Replies", hint: "Someone replies in a thread" },
   comment: { label: "Comments", hint: "New comments on your tasks" },
+  reaction: { label: "Reactions", hint: "Someone reacts to your comment" },
   status: { label: "Status changes", hint: "Status changes on your tasks" },
   overdue: { label: "Overdue tasks", hint: "Your task passed its due date" },
   added: { label: "Access", hint: "You were added to Work or a space" },
@@ -58,7 +59,7 @@ export const DEFAULT_SETTINGS: InboxSettings = {
   groupByDate: true,
   newestFirst: true,
   display: "fullscreen",
-  important: ["mention", "assigned", "assigned_comment", "reply", "status", "overdue"],
+  important: ["mention", "assigned", "assigned_comment", "reply", "reaction", "status", "overdue"],
 };
 
 const KEY = "ez:work:inbox:settings";
@@ -67,13 +68,16 @@ export function loadSettings(): InboxSettings {
     const raw = localStorage.getItem(KEY);
     if (!raw) return DEFAULT_SETTINGS;
     const v = JSON.parse(raw);
-    return { ...DEFAULT_SETTINGS, ...v, important: Array.isArray(v.important) ? v.important.filter((k: string) => k in KIND_META) : DEFAULT_SETTINGS.important };
+    let important: Kind[] = Array.isArray(v.important) ? v.important.filter((k: string) => k in KIND_META) : DEFAULT_SETTINGS.important;
+    // kinds added after the settings were saved start as important (like a fresh default)
+    if (!v.kindsV2 && !important.includes("reaction")) important = [...important, "reaction"];
+    return { ...DEFAULT_SETTINGS, ...v, important };
   } catch {
     return DEFAULT_SETTINGS;
   }
 }
 export function saveSettings(s: InboxSettings) {
-  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+  try { localStorage.setItem(KEY, JSON.stringify({ ...s, kindsV2: true })); } catch {}
 }
 
 /** One row = all events on the same task (latest first); non-task events stay single. */
