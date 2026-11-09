@@ -38,6 +38,8 @@ function MyWorkInner() {
   const sp = useSearchParams();
   const qc = useQueryClient();
   const taskUid = sp.get("task");
+  // My Tasks → "Assigned to me" (all) or "Today & Overdue"
+  const todayOnly = sp.get("view") === "today";
   const [showDone, setShowDone] = useState(false);
   const [newSpace, setNewSpace] = useState(false);
 
@@ -68,7 +70,7 @@ function MyWorkInner() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-product-work" aria-hidden /> Work · My Work
+            <span className="h-1.5 w-1.5 rounded-full bg-product-work" aria-hidden /> Work · My Tasks · {todayOnly ? "Today & Overdue" : "Assigned to me"}
           </p>
           <h1 className="mt-2 font-serif text-[36px] font-normal leading-tight tracking-tight">
             {greeting}, <span className="italic text-primary">{user?.firstName ?? "there"}.</span>
@@ -113,7 +115,13 @@ function MyWorkInner() {
               <p className="mt-1 text-[13.5px] text-muted-foreground">Tasks you&apos;re assigned to in any list will appear here.</p>
             </section>
           )}
-          {!isLoading && BUCKETS.map((b) => {
+          {!isLoading && todayOnly && grouped.m.get("overdue")!.length + grouped.m.get("today")!.length === 0 && grouped.open.length > 0 && (
+            <section className="rounded-2xl border border-dashed border-border bg-card/60 p-8 text-center">
+              <p className="font-serif text-[22px]">Nothing due today or overdue</p>
+              <p className="mt-1 text-[13.5px] text-muted-foreground">You&apos;re on track. Upcoming tasks are under Assigned to me.</p>
+            </section>
+          )}
+          {!isLoading && BUCKETS.filter((b) => !todayOnly || b.id === "overdue" || b.id === "today").map((b) => {
             const items = grouped.m.get(b.id)!;
             if (!items.length) return null;
             return (

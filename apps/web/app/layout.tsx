@@ -1,36 +1,17 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import {
-  IBM_Plex_Sans,
-  IBM_Plex_Mono,
-  Bricolage_Grotesque,
-  Instrument_Serif,
-} from "next/font/google";
+import { IBM_Plex_Mono, Instrument_Serif } from "next/font/google";
 import { cn } from "@/lib/utils";
 import Providers from "@/providers/providers";
 
 /*
- * EZ Manage "Ledger" type system (Phase 0 design tokens).
- * The CSS variable names are kept from the previous fonts so every existing
- * style picks up the new faces with no other changes:
- *   --font-figtree       → body / UI       (IBM Plex Sans)
- *   --font-poppins       → titles          (Bricolage Grotesque, .font-title)
+ * EZ Manage "Ledger" type system.
+ *   UI + titles  → the device's own UI font (Segoe UI on Windows, SF on Mac,
+ *                  Roboto on Android) via --font-figtree / --font-poppins in
+ *                  globals.css — crisp at small sizes, nothing to download
  *   --font-mono-display  → numbers, labels (IBM Plex Mono)
- *   --font-serif-display → luxury headlines on login / home / CEO (Instrument Serif)
+ *   --font-serif-display → big headings only (Instrument Serif)
  */
-const figtree = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-figtree",
-  display: "swap",
-});
-
-const poppins = Bricolage_Grotesque({
-  subsets: ["latin"],
-  variable: "--font-poppins",
-  display: "swap",
-});
-
 const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -57,16 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={cn(
-        figtree.variable,
-        poppins.variable,
-        plexMono.variable,
-        instrumentSerif.variable,
-      )}
-      suppressHydrationWarning
-    >
+    <html lang="en" className={cn(plexMono.variable, instrumentSerif.variable)} suppressHydrationWarning>
       <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>

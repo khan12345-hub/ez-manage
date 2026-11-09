@@ -2,7 +2,9 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, Columns3, List as ListIcon, Plus } from "lucide-react";
+import { CalendarDays, Columns3, LayoutGrid, List as ListIcon, Plus, Table2, X } from "lucide-react";
+import { GalleryView } from "../../../_components/GalleryView";
+import { AddViewMenu, type WorkView } from "../../../_components/AddViewMenu";
 import { pushRecentList, useWorkCreate } from "@/store/work-create";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -13,14 +15,18 @@ import { CalendarView } from "../../../_components/CalendarView";
 import { TaskDrawer } from "../../../_components/TaskDrawer";
 import { useListTasks, useWorkList } from "../../../_components/hooks";
 import { ListToolbar } from "../../../_components/ListToolbar";
-import { DEFAULT_VIEW, filterTasks, loadView, sameView, saveView, type ViewSettings } from "../../../_components/viewSettings";
+import { ALL_COLUMNS, DEFAULT_VIEW, filterTasks, loadView, sameView, saveView, type ViewSettings } from "../../../_components/viewSettings";
 
-type View = "list" | "board" | "calendar";
-const VIEWS: { id: View; label: string; icon: typeof ListIcon }[] = [
-  { id: "list", label: "List", icon: ListIcon },
-  { id: "board", label: "Board", icon: Columns3 },
-  { id: "calendar", label: "Calendar", icon: CalendarDays },
-];
+type View = WorkView;
+const VIEW_META: Record<View, { label: string; icon: typeof ListIcon }> = {
+  list: { label: "List", icon: ListIcon },
+  board: { label: "Board", icon: Columns3 },
+  calendar: { label: "Calendar", icon: CalendarDays },
+  table: { label: "Table", icon: Table2 },
+  gallery: { label: "Gallery", icon: LayoutGrid },
+};
+const BASE_VIEWS: View[] = ["list", "board", "calendar"];
+const viewsKey = (uid: string) => `ez:work:views:${uid}`;
 
 function ListPageInner() {
   const { listUid, workspaceId } = useParams<{ workspaceId: string; listUid: string }>();
@@ -29,7 +35,22 @@ function ListPageInner() {
   const pathname = usePathname();
   const sp = useSearchParams();
   const { user } = useAuth();
-  const view = (["list", "board", "calendar"].includes(sp.get("view") ?? "") ? sp.get("view") : "list") as View;
+  const view = (Object.keys(VIEW_META).includes(sp.get("view") ?? "") ? sp.get("view") : "list") as View;
+  // views added with "+ View" are remembered per list
+  const [extraViews, setExtraViews] = useState<View[]>([]);
+  useEffect(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(viewsKey(listUid)) ?? "[]");
+      setExtraViews(Array.isArray(v) ? v.filter((x: string) => x in VIEW_META && !BASE_VIEWS.includes(x as View)) : []);
+    } catch {
+      setExtraViews([]);
+    }
+  }, [listUid]);
+  const saveExtra = (v: View[]) => {
+    setExtraViews(v);
+    try { localStorage.setItem(viewsKey(listUid), JSON.stringify(v)); } catch {}
+  };
+  const tabs: View[] = [...BASE_VIEWS, ...extraViews, ...(BASE_VIEWS.includes(view) || extraViews.includes(view) ? [] : [view])];
   const taskUid = sp.get("task");
 
   const { data: list, isLoading, isError } = useWorkList(listUid);
@@ -118,23 +139,52 @@ function ListPageInner() {
           )}
         </div>
         {/* views */}
-        <div role="tablist" aria-label="Views" className="-mb-px mt-2 flex gap-1">
-          {VIEWS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={view === id}
-              type="button"
-              onClick={() => setParam("view", id === "list" ? null : id)}
-              className={cn(
-                "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
-                view === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          ))}
+        <div className="-mb-px mt-2 flex items-center gap-1 overflow-x-auto">
+          <div role="tablist" aria-label="Views" className="flex gap-1">
+            {tabs.map((id) => {
+              const { label, icon: Icon } = VIEW_META[id];
+              const removable = !BASE_VIEWS.includes(id);
+              return (
+                <div key={id} className="group/tab relative flex">
+                  <button
+                    role="tab"
+                    aria-selected={view === id}
+                    type="button"
+                    onClick={() => setParam("view", id === "list" ? null : id)}
+                    className={cn(
+                      "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
+                      view === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+                      removable && "pr-6",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </button>
+                  {removable && (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${label} view`}
+                      title="Remove view"
+                      onClick={() => {
+                        saveExtra(extraViews.filter((x) => x !== id));
+                        if (view === id) setParam("view", null);
+                      }}
+                      className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground group-hover/tab:block"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <span aria-hidden className="mx-1 h-4 w-px bg-border" />
+          <AddViewMenu
+            onAdd={(v) => {
+              if (!BASE_VIEWS.includes(v) && !extraViews.includes(v)) saveExtra([...extraViews, v]);
+              setParam("view", v === "list" ? null : v);
+            }}
+          />
         </div>
       </div>
 
@@ -171,6 +221,11 @@ function ListPageInner() {
           <BoardView list={list} tasks={shown} onOpenTask={openTask} />
         ) : view === "calendar" ? (
           <CalendarView list={list} tasks={shown} onOpenTask={openTask} />
+        ) : view === "gallery" ? (
+          <GalleryView list={list} tasks={shown} onOpenTask={openTask} />
+        ) : view === "table" ? (
+          // Table: one flat sheet with every column, subtasks shown
+          <ListView list={list} tasks={shown} view={{ ...vs, groupBy: "none", columns: ALL_COLUMNS, subtasks: "expanded" }} onView={(v) => setVs({ ...vs, sort: v.sort })} onOpenTask={openTask} />
         ) : (
           <ListView list={list} tasks={shown} view={vs} onView={setVs} onOpenTask={openTask} />
         )}

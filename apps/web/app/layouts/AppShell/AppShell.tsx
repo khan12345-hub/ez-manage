@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Bell, Phone, PhoneOff, Video, X } from "lucide-react";
@@ -254,12 +254,14 @@ export function AppShell({ children }: AppShellProps) {
               )}
 
               {isWorkPage ? (
+                <Suspense fallback={<div className="hidden w-[270px] shrink-0 border-r border-border bg-background md:block" />}>
                 <WorkSidebar
                   isOpen={isSecondaryOpen}
                   onToggle={() => setIsSecondaryOpen(!isSecondaryOpen)}
                   isMobileOpen={isMobileOpen}
                   onMobileClose={() => setIsMobileOpen(false)}
                 />
+                </Suspense>
               ) : (
                 <SecondarySidebar
                   isOpen={isSecondaryOpen}

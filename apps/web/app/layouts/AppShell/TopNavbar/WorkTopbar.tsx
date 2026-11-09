@@ -90,7 +90,7 @@ export function WorkTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const attention = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const open = mine.filter((t) => !t.completedAt);
+    const open = mine.filter((t) => !t.completedAt && !t.parentId); // same count as My Tasks
     return {
       overdue: open.filter((t) => isTaskOverdue(t)).length,
       today: open.filter((t) => t.dueDate && dayOf(t.dueDate).getTime() === today.getTime()).length,

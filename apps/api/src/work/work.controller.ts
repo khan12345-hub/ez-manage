@@ -4,6 +4,7 @@ import { memoryStorage } from 'multer';
 import { WorkFilesService, type AttachmentSource } from './work-files.service';
 import { WorkPeopleService } from './work-people.service';
 import { WorkInboxService } from './work-inbox.service';
+import { WorkOverviewService } from './work-overview.service';
 import { InboxBulkDto, NotificationPrefDto, ReactionDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
@@ -47,6 +48,7 @@ export class WorkController {
     private readonly files: WorkFilesService,
     private readonly people: WorkPeopleService,
     private readonly inbox: WorkInboxService,
+    private readonly overview: WorkOverviewService,
   ) {}
 
   // ── workspace level ──
@@ -335,6 +337,17 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── space / folder overview ──
+  @Get('spaces/:idOrUid/overview')
+  spaceOverview(@Param('idOrUid') id: string, @CurrentUser() u: SessionUser) {
+    return this.overview.space(id, u.id);
+  }
+
+  @Get('folders/:idOrUid/overview')
+  folderOverview(@Param('idOrUid') id: string, @CurrentUser() u: SessionUser) {
+    return this.overview.folder(id, u.id);
+  }
+
   // ── comment reactions ──
   @Post('comments/:id/reactions')
   react(@Param('id', ParseIntPipe) id: number, @Body() dto: ReactionDto, @CurrentUser() u: SessionUser) {

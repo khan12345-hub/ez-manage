@@ -266,7 +266,19 @@ export interface WorkPeople {
 }
 export type InviteResult = { email: string; status: "added" | "invited" | "already_member" | "already_invited" };
 
+export interface WorkOverviewList { id: number; uid: string; name: string; color: string | null; folder: { id: number; uid: string; name: string } | null; total: number; done: number; open: number; overdue: number }
+export interface WorkOverview {
+  kind: "space" | "folder";
+  space: { id: number; uid: string; name: string; color: string; isPrivate: boolean; workspace: { uid: string; name: string } };
+  folder: { id: number; uid: string; name: string } | null;
+  folders: { id: number; uid: string; name: string }[];
+  lists: WorkOverviewList[];
+  access: WorkAccessFlags;
+}
+
 export const workApi = {
+  spaceOverview: (uid: string) => get<WorkOverview>(`/work/spaces/${uid}/overview`),
+  folderOverview: (uid: string) => get<WorkOverview>(`/work/folders/${uid}/overview`),
   react: (commentId: number, emoji: string) => post<WorkReaction[]>(`/work/comments/${commentId}/reactions`, { emoji }),
   notificationSettings: () => get<NotificationPref[]>(`/work/notification-settings`),
   setNotificationSetting: (p: NotificationPref) => put<NotificationPref[]>(`/work/notification-settings`, p),

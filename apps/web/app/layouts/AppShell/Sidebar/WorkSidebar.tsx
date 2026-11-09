@@ -7,10 +7,26 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
+  Bell,
+  CalendarClock,
+  CheckCircle2,
+  ChevronsDownUp,
+  FileText,
+  FolderOpen,
+  Hash,
+  LayoutDashboard,
+  LayoutGrid,
+  MessageSquare,
+  Orbit,
+  PenTool,
+  Search,
+  SquareCheckBig,
+  UserCheck,
+  Video,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -30,12 +46,16 @@ import {
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
-import { workApi, workKeys, type WorkFolderNode, type WorkListNode, type WorkSpaceNode } from "@/services/work.api";
+import { dayOf, workApi, workKeys, type WorkFolderNode, type WorkListNode, type WorkSpaceNode } from "@/services/work.api";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NameDialog, type NameDialogResult } from "@/app/(dashboard)/work/_components/NameDialog";
@@ -53,6 +73,16 @@ type DialogState =
   | { kind: "rename-space"; space: WorkSpaceNode }
   | { kind: "rename-folder"; folder: WorkFolderNode }
   | { kind: "rename-list"; list: WorkListNode };
+
+const SOON_CREATE = [
+  { label: "Message", icon: MessageSquare, color: "#6366F1" },
+  { label: "Channel", icon: Hash, color: "#475569" },
+  { label: "Doc", icon: FileText, color: "#2563EB" },
+  { label: "Form", icon: SquareCheckBig, color: "#7C3AED" },
+  { label: "Dashboard", icon: LayoutDashboard, color: "#9333EA" },
+  { label: "Whiteboard", icon: PenTool, color: "#D97706" },
+  { label: "Clip", icon: Video, color: "#DB2777" },
+];
 
 const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13.5px] transition-colors";
 
@@ -90,6 +120,35 @@ export function WorkSidebar({
   const openWorkInvite = useWorkInvite((st) => st.setOpen);
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const [myOpen, setMyOpen] = useState(true);
+  const searchParams = useSearchParams();
+  const myView = searchParams.get("view");
+  const { data: myTasks = [] } = useQuery({ queryKey: workKeys.my(wsParam), queryFn: () => workApi.myTasks(wsParam), enabled: !!wsParam, staleTime: 30_000 });
+  const myCounts = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const open = myTasks.filter((t) => !t.completedAt && !t.parentId);
+    const overdue = open.filter((t) => t.dueDate && dayOf(t.dueDate).getTime() < today.getTime()).length;
+    const dueToday = open.filter((t) => t.dueDate && dayOf(t.dueDate).getTime() === today.getTime()).length;
+    return { open: open.length, overdue, todayOverdue: overdue + dueToday };
+  }, [myTasks]);
+  // sidebar search: keep spaces/folders that match or contain a matching list
+  const visibleSpaces = useMemo(() => {
+    const q = term.trim().toLowerCase();
+    const hit = (n: string) => !q || n.toLowerCase().includes(q);
+    return (tree?.spaces ?? [])
+      .map((space) => {
+        const spaceHit = hit(space.name);
+        const folders = space.folders
+          .map((folder) => ({ folder, lists: spaceHit || hit(folder.name) ? folder.lists : folder.lists.filter((l) => hit(l.name)) }))
+          .filter((f) => spaceHit || hit(f.folder.name) || f.lists.length);
+        const lists = spaceHit ? space.lists : space.lists.filter((l) => hit(l.name));
+        return { space, folders, lists, show: spaceHit || folders.length > 0 || lists.length > 0 };
+      })
+      .filter((x) => x.show);
+  }, [tree, term]);
   const toggle = (key: string) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
   const [dialog, setDialog] = useState<DialogState>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: workKeys.tree(wsParam) });
@@ -211,46 +270,123 @@ export function WorkSidebar({
           onNavigate={onMobileClose}
         />
 
-        {canEdit && (
+        {/* Home row: search + Create menu (always visible, like ClickUp) */}
+        <div className="flex items-center gap-1 px-4 pb-1 pt-3">
+          <span className="flex-1 text-[15px] font-semibold">Home</span>
+          <button type="button" aria-label="Search the sidebar" title="Search" aria-pressed={searchOpen} onClick={() => { setSearchOpen(!searchOpen); setTerm(""); }} className={cn("rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground", searchOpen && "bg-accent text-foreground")}>
+            <Search className="h-4 w-4" />
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" aria-label="Create" title="Create" className="flex h-7 items-center gap-0.5 rounded-md border border-border bg-card px-1.5 text-foreground shadow-sm hover:bg-accent">
+                <Plus className="h-4 w-4" /><ChevronDown className="h-3 w-3 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">Create</DropdownMenuLabel>
+              {canEdit && <DropdownMenuItem onClick={() => openCreate(activeListUid || null)}><CheckCircle2 className="mr-2 h-4 w-4 text-muted-foreground" />Task</DropdownMenuItem>}
+              {canManage && (tree?.spaces.length ?? 0) > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger><ListPlus className="mr-2 h-4 w-4 text-muted-foreground" /><span><span className="block">List</span><span className="block text-[11px] text-muted-foreground">Track tasks, projects &amp; more</span></span></DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-52">
+                      <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">In which space?</DropdownMenuLabel>
+                      {tree!.spaces.map((sp) => <DropdownMenuItem key={sp.id} onClick={() => setDialog({ kind: "list", space: sp })}>{sp.name}</DropdownMenuItem>)}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger><FolderPlus className="mr-2 h-4 w-4 text-muted-foreground" /><span><span className="block">Folder</span><span className="block text-[11px] text-muted-foreground">Group lists inside a space</span></span></DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-52">
+                      <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">In which space?</DropdownMenuLabel>
+                      {tree!.spaces.map((sp) => <DropdownMenuItem key={sp.id} onClick={() => setDialog({ kind: "folder", space: sp })}>{sp.name}</DropdownMenuItem>)}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                </>
+              )}
+              {canManage && (
+                <DropdownMenuItem onClick={() => setDialog({ kind: "space" })}><Orbit className="mr-2 h-4 w-4 text-muted-foreground" /><span><span className="block">Space</span><span className="block text-[11px] text-muted-foreground">Organize work by team or department</span></span></DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              {SOON_CREATE.map((x) => (
+                <DropdownMenuItem key={x.label} disabled>
+                  <x.icon className="mr-2 h-4 w-4" style={{ color: x.color }} />{x.label}
+                  <span className="ml-auto rounded bg-muted px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Soon</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        {searchOpen && (
           <div className="px-4 pb-1">
-            <button
-              type="button"
-              onClick={() => openCreate(activeListUid || null)}
-              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-forest text-[13px] font-semibold text-forest-foreground shadow-sm hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground"
-            >
-              <Plus className="h-4 w-4" /> New task
-            </button>
+            <label className="flex h-8 items-center gap-2 rounded-md border border-border bg-card px-2">
+              <Search className="h-3.5 w-3.5 text-muted-foreground" />
+              <input autoFocus value={term} onChange={(e) => setTerm(e.target.value)} onKeyDown={(e) => e.key === "Escape" && (setSearchOpen(false), setTerm(""))} placeholder="Search spaces, folders, lists" aria-label="Search spaces, folders and lists" className="w-full bg-transparent text-[13px] outline-none" />
+            </label>
           </div>
         )}
 
         <nav className="flex-1 overflow-y-auto px-3 pb-3" aria-label="Work">
-          <Link
-            href={wsParam ? `/work/${wsParam}` : "#"}
-            onClick={onMobileClose}
-            className={cn(ROW, "mt-1 py-2", pathname === `/work/${wsParam}` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
-          >
-            <Home className="h-4 w-4 shrink-0" /> My Work
-          </Link>
-          <Link
-            href={wsParam ? `/work/${wsParam}/inbox` : "#"}
-            onClick={onMobileClose}
-            className={cn(ROW, "py-2", pathname === `/work/${wsParam}/inbox` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
-          >
-            <Inbox className="h-4 w-4 shrink-0" /> <span className="flex-1">Inbox</span>
-            {inbox.primaryUnread > 0 && (
-              <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{inbox.primaryUnread}</span>
-            )}
-          </Link>
-          <Link
-            href={wsParam ? `/work/${wsParam}/people` : "#"}
-            onClick={onMobileClose}
-            className={cn(ROW, "py-2", pathname === `/work/${wsParam}/people` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
-          >
-            <Users className="h-4 w-4 shrink-0" /> People
-          </Link>
+          {!term && (
+            <>
+              <Link
+                href={wsParam ? `/work/${wsParam}/inbox` : "#"}
+                onClick={onMobileClose}
+                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/inbox` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+              >
+                <Inbox className="h-4 w-4 shrink-0" /> <span className="flex-1">Inbox</span>
+                {inbox.primaryUnread > 0 && <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{inbox.primaryUnread}</span>}
+              </Link>
 
-          <div className="mt-4 flex items-center justify-between px-2 pb-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">Spaces</span>
+              {/* My Tasks */}
+              <div className={cn(ROW, "py-[7px] text-foreground/80 hover:bg-accent/60")}>
+                <button type="button" aria-label={myOpen ? "Collapse My Tasks" : "Expand My Tasks"} aria-expanded={myOpen} onClick={() => setMyOpen(!myOpen)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                  <UserCheck className="h-4 w-4 shrink-0" />
+                  <span className="flex-1">My Tasks</span>
+                  {myOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                </button>
+              </div>
+              {myOpen && (
+                <>
+                  <Link
+                    href={wsParam ? `/work/${wsParam}` : "#"}
+                    onClick={onMobileClose}
+                    className={cn(ROW, "py-[6px] pl-7", pathname === `/work/${wsParam}` && myView !== "today" ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/75 hover:bg-accent/60")}
+                  >
+                    <Home className="h-3.5 w-3.5 shrink-0" /> <span className="flex-1">Assigned to me</span>
+                    {myCounts.open > 0 && <span className="font-mono text-[11px] text-muted-foreground">{myCounts.open}</span>}
+                  </Link>
+                  <Link
+                    href={wsParam ? `/work/${wsParam}?view=today` : "#"}
+                    onClick={onMobileClose}
+                    className={cn(ROW, "py-[6px] pl-7", pathname === `/work/${wsParam}` && myView === "today" ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/75 hover:bg-accent/60")}
+                  >
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0" /> <span className="flex-1">Today &amp; Overdue</span>
+                    {myCounts.todayOverdue > 0 && <span className={cn("font-mono text-[11px]", myCounts.overdue ? "text-destructive" : "text-muted-foreground")}>{myCounts.todayOverdue}</span>}
+                  </Link>
+                </>
+              )}
+
+              {/* More */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className={cn(ROW, "py-[7px] text-foreground/80 hover:bg-accent/60")}>
+                    <MoreHorizontal className="h-4 w-4 shrink-0" /> More
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="start" className="w-56">
+                  <DropdownMenuItem onClick={() => go(`/work/${wsParam}/people`)}><Users className="mr-2 h-4 w-4 text-muted-foreground" />People</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCollapsed({})}><Orbit className="mr-2 h-4 w-4 text-muted-foreground" />All Spaces (expand)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCollapsed(Object.fromEntries((tree?.spaces ?? []).map((sp) => [`s${sp.id}`, true])))}><ChevronsDownUp className="mr-2 h-4 w-4 text-muted-foreground" />Collapse all spaces</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => go(`/work/${wsParam}/notifications`)}><Bell className="mr-2 h-4 w-4 text-muted-foreground" />Notification settings</DropdownMenuItem>
+                  {canManage && <DropdownMenuItem onClick={() => openWorkInvite(true)}><UserPlus className="mr-2 h-4 w-4 text-muted-foreground" />Invite people</DropdownMenuItem>}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
+
+          <div className="mt-3 flex items-center justify-between border-t border-border/70 px-2 pb-1 pt-3">
+            <span className="text-[12px] font-semibold text-muted-foreground">Spaces</span>
             {canManage && (
               <button type="button" aria-label="New space" title="New space" onClick={() => setDialog({ kind: "space" })} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground">
                 <Plus className="h-3.5 w-3.5" />
@@ -262,9 +398,7 @@ export function WorkSidebar({
           {!isLoading && tree && tree.spaces.length === 0 && (
             <div className="mx-1 mt-1 rounded-lg border border-dashed border-border bg-card/60 px-3 py-4 text-center">
               <p className="text-[13px] font-medium">No spaces yet</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {canManage ? "Create a space for a team or department." : "Ask a workspace admin to create a space."}
-              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{canManage ? "Create a space for a team or department." : "Ask a Work admin to create a space."}</p>
               {canManage && (
                 <button type="button" onClick={() => setDialog({ kind: "space" })} className="mt-2.5 inline-flex items-center gap-1 rounded-md bg-forest px-2.5 py-1.5 text-xs font-semibold text-forest-foreground hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground">
                   <Plus className="h-3.5 w-3.5" /> New space
@@ -272,74 +406,87 @@ export function WorkSidebar({
               )}
             </div>
           )}
+          {term && visibleSpaces.length === 0 && <p className="px-2 py-3 text-xs text-muted-foreground">Nothing matches “{term}”.</p>}
 
           <div className="space-y-0.5">
-            {tree?.spaces.map((space) => {
-              const open = !collapsed[`s${space.id}`];
+            {visibleSpaces.map(({ space, folders, lists }) => {
+              const open = !!term || !collapsed[`s${space.id}`];
+              const spaceActive = pathname === `/work/${wsParam}/space/${space.uid}`;
               return (
                 <div key={space.id}>
-                  <div className={cn(ROW, "font-semibold text-foreground hover:bg-accent/60")}>
-                    <button type="button" onClick={() => toggle(`s${space.id}`)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={open}>
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-[10.5px] font-bold text-white" style={{ background: space.color }}>
-                        {space.name.charAt(0).toUpperCase()}
-                      </span>
+                  <div className={cn(ROW, "pl-1 font-semibold", spaceActive ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/60")}>
+                    <button type="button" onClick={() => toggle(`s${space.id}`)} aria-label={open ? `Collapse ${space.name}` : `Expand ${space.name}`} aria-expanded={open} className="rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground">
+                      {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                    </button>
+                    <button type="button" onClick={() => go(`/work/${wsParam}/space/${space.uid}`)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-[10.5px] font-bold text-white" style={{ background: space.color }}>{space.name.charAt(0).toUpperCase()}</span>
                       <span className="truncate">{space.name}</span>
                       {space.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Private" />}
-                      {open ? <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                     </button>
                     {canManage && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button" aria-label={`${space.name} options`} className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-card hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100">
-                            <MoreHorizontal className="h-3.5 w-3.5" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-44">
-                          <DropdownMenuItem onClick={() => setDialog({ kind: "list", space })}><ListPlus className="mr-2 h-3.5 w-3.5" />New list</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setDialog({ kind: "folder", space })}><FolderPlus className="mr-2 h-3.5 w-3.5" />New folder</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setDialog({ kind: "rename-space", space })}><Pencil className="mr-2 h-3.5 w-3.5" />Rename / colour</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => archive("space", space.id, space.name)}><Archive className="mr-2 h-3.5 w-3.5" />Archive</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <span className="flex items-center opacity-0 transition-opacity group-hover:opacity-100 has-[[data-state=open]]:opacity-100">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button type="button" aria-label={`${space.name} options`} className="rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-44">
+                            <DropdownMenuItem onClick={() => go(`/work/${wsParam}/space/${space.uid}`)}><LayoutGrid className="mr-2 h-3.5 w-3.5" />Overview</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setDialog({ kind: "rename-space", space })}><Pencil className="mr-2 h-3.5 w-3.5" />Rename / colour</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => archive("space", space.id, space.name)}><Archive className="mr-2 h-3.5 w-3.5" />Archive</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button type="button" aria-label={`Add to ${space.name}`} className="rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-40">
+                            <DropdownMenuItem onClick={() => setDialog({ kind: "list", space })}><ListPlus className="mr-2 h-3.5 w-3.5" />New list</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setDialog({ kind: "folder", space })}><FolderPlus className="mr-2 h-3.5 w-3.5" />New folder</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </span>
                     )}
                   </div>
 
                   {open && (
                     <div className="mb-1">
-                      {space.folders.map((folder) => {
-                        const fOpen = !collapsed[`f${folder.id}`];
+                      {folders.map(({ folder, lists: fLists }) => {
+                        const fOpen = !!term || !collapsed[`f${folder.id}`];
+                        const folderActive = pathname === `/work/${wsParam}/folder/${folder.uid}`;
                         return (
                           <div key={folder.id}>
-                            <div className={cn(ROW, "text-foreground/80 hover:bg-accent/60")} style={{ paddingLeft: 22 }}>
-                              <button type="button" onClick={() => toggle(`f${folder.id}`)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={fOpen}>
-                                <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <div className={cn(ROW, folderActive ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")} style={{ paddingLeft: 18 }}>
+                              <button type="button" onClick={() => toggle(`f${folder.id}`)} aria-label={fOpen ? `Collapse ${folder.name}` : `Expand ${folder.name}`} aria-expanded={fOpen} className="rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground">
+                                {fOpen ? <FolderOpen className="h-3.5 w-3.5" /> : <Folder className="h-3.5 w-3.5" />}
+                              </button>
+                              <button type="button" onClick={() => go(`/work/${wsParam}/folder/${folder.uid}`)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                                 <span className="truncate">{folder.name}</span>
-                                {fOpen ? <ChevronDown className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" /> : <ChevronRight className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />}
                               </button>
                               {canManage && (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <button type="button" aria-label={`${folder.name} options`} className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-card hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100">
-                                      <MoreHorizontal className="h-3.5 w-3.5" />
-                                    </button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start" className="w-40">
-                                    <DropdownMenuItem onClick={() => setDialog({ kind: "list", space, folder })}><ListPlus className="mr-2 h-3.5 w-3.5" />New list</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setDialog({ kind: "rename-folder", folder })}><Pencil className="mr-2 h-3.5 w-3.5" />Rename</DropdownMenuItem>
-                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => archive("folder", folder.id, folder.name)}><Archive className="mr-2 h-3.5 w-3.5" />Archive</DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                <span className="flex items-center opacity-0 transition-opacity group-hover:opacity-100 has-[[data-state=open]]:opacity-100">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <button type="button" aria-label={`${folder.name} options`} className="rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" className="w-40">
+                                      <DropdownMenuItem onClick={() => go(`/work/${wsParam}/folder/${folder.uid}`)}><LayoutGrid className="mr-2 h-3.5 w-3.5" />Overview</DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => setDialog({ kind: "rename-folder", folder })}><Pencil className="mr-2 h-3.5 w-3.5" />Rename</DropdownMenuItem>
+                                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => archive("folder", folder.id, folder.name)}><Archive className="mr-2 h-3.5 w-3.5" />Archive</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                  <button type="button" aria-label={`New list in ${folder.name}`} title="New list" onClick={() => setDialog({ kind: "list", space, folder })} className="rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button>
+                                </span>
                               )}
                             </div>
-                            {fOpen && folder.lists.map((l) => <ListRow key={l.id} list={l} depth={2} />)}
-                            {fOpen && folder.lists.length === 0 && <p className="py-1 pl-[50px] text-xs text-muted-foreground/70">No lists</p>}
+                            {fOpen && fLists.map((l) => <ListRow key={l.id} list={l} depth={2} />)}
+                            {fOpen && fLists.length === 0 && !term && <p className="py-1 pl-[50px] text-xs text-muted-foreground/70">No lists</p>}
                           </div>
                         );
                       })}
-                      {space.lists.map((l) => <ListRow key={l.id} list={l} depth={1} />)}
-                      {space.folders.length === 0 && space.lists.length === 0 && (
-                        <p className="py-1 pl-9 text-xs text-muted-foreground/70">{canManage ? "Use ⋯ to add a list" : "No lists yet"}</p>
+                      {lists.map((l) => <ListRow key={l.id} list={l} depth={1} />)}
+                      {!term && space.folders.length === 0 && space.lists.length === 0 && (
+                        <p className="py-1 pl-9 text-xs text-muted-foreground/70">{canManage ? "Use + to add a list" : "No lists yet"}</p>
                       )}
                     </div>
                   )}
