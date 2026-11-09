@@ -450,7 +450,7 @@ export class WorkService {
     });
     await this.detail.log(created.id, userId, 'created');
     if (dto.assigneeIds?.length) {
-      await this.files.notify(created.id, userId, dto.assigneeIds, NotificationType.TASK_ASSIGNED, 'Task assigned to you', `You were assigned "${created.name}".`);
+      await this.files.notify(created.id, userId, dto.assigneeIds, NotificationType.TASK_ASSIGNED, 'Task assigned to you', `You were assigned "${created.name}".`, { event: 'assigned' });
     }
     return shapeTask(created);
   }
@@ -603,7 +603,17 @@ export class WorkService {
     if (dto.assigneeIds && before) {
       const had = new Set(before.assignees.map((a: any) => a.userId));
       const added = [...new Set(dto.assigneeIds)].filter((u) => !had.has(u));
-      if (added.length) await this.files.notify(taskId, userId, added, NotificationType.TASK_ASSIGNED, 'Task assigned to you', `You were assigned "${updated.name}".`);
+      if (added.length) await this.files.notify(taskId, userId, added, NotificationType.TASK_ASSIGNED, 'Task assigned to you', `You were assigned "${updated.name}".`, { event: 'assigned' });
+    }
+    // status changes reach the task's people (assignees + creator)
+    if (before && updated.statusId !== before.statusId) {
+      const to = updated.statusId ? await this.prisma.workStatus.findUnique({ where: { id: updated.statusId }, select: { name: true, color: true } }) : null;
+      const from = before.statusId ? await this.prisma.workStatus.findUnique({ where: { id: before.statusId }, select: { name: true, color: true } }) : null;
+      const people = await this.prisma.workTask.findUnique({ where: { id: taskId }, select: { createdById: true, assignees: { select: { userId: true } } } });
+      const rcpt = [people?.createdById ?? 0, ...(people?.assignees.map((a) => a.userId) ?? [])];
+      await this.files.notify(taskId, userId, rcpt, NotificationType.TASK_STATUS_CHANGED, 'Status changed', `${from?.name ?? 'none'} → ${to?.name ?? 'none'}`, {
+        event: 'status', from: from?.name ?? null, fromColor: from?.color ?? null, to: to?.name ?? null, toColor: to?.color ?? null,
+      });
     }
     return shapeTask(updated);
   }
@@ -686,14 +696,14 @@ export class WorkService {
     if (mentioned.length) {
       const { access } = await this.access.requireTask(taskId, userId, 'view');
       const valid = await this.prisma.workMember.findMany({ where: { workspaceId: access.workspaceId, userId: { in: mentioned }, user: { deletedAt: null } }, select: { userId: true } });
-      await this.files.notify(taskId, userId, valid.map((v) => v.userId), NotificationType.COMMENT_MENTION, 'You were mentioned', snippet, extra);
+      await this.files.notify(taskId, userId, valid.map((v) => v.userId), NotificationType.COMMENT_MENTION, 'You were mentioned', snippet, { ...extra, event: 'mention' });
     }
     if (dto.assigneeId && !mentioned.includes(dto.assigneeId)) {
-      await this.files.notify(taskId, userId, [dto.assigneeId], NotificationType.COMMENT_CREATED, 'A comment was assigned to you', snippet, { ...extra, assignedComment: true });
+      await this.files.notify(taskId, userId, [dto.assigneeId], NotificationType.COMMENT_CREATED, 'A comment was assigned to you', snippet, { ...extra, assignedComment: true, event: 'assigned_comment' });
     }
     const t = await this.prisma.workTask.findUnique({ where: { id: taskId }, select: { createdById: true, assignees: { select: { userId: true } } } });
     const watchers = [t?.createdById ?? 0, ...(t?.assignees.map((a) => a.userId) ?? [])].filter((u) => !mentioned.includes(u) && u !== dto.assigneeId);
-    await this.files.notify(taskId, userId, watchers, dto.parentId ? NotificationType.COMMENT_REPLY : NotificationType.COMMENT_CREATED, dto.parentId ? 'New reply' : 'New comment', snippet, extra);
+    await this.files.notify(taskId, userId, watchers, dto.parentId ? NotificationType.COMMENT_REPLY : NotificationType.COMMENT_CREATED, dto.parentId ? 'New reply' : 'New comment', snippet, { ...extra, event: dto.parentId ? 'reply' : 'comment' });
     return comment;
   }
 

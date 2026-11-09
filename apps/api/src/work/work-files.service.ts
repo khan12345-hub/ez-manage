@@ -139,6 +139,11 @@ export class WorkFilesService {
    * Notify people about a Work task event. Never throws: a failed
    * notification must not fail the action that caused it.
    */
+  /** Notification without a person behind it (e.g. "Task is overdue"). */
+  notifySystem(taskId: number, recipients: number[], type: NotificationType, title: string, message: string, extra: Record<string, unknown> = {}) {
+    return this.notify(taskId, 0, recipients, type, title, message, extra);
+  }
+
   async notify(taskId: number, actorId: number, recipients: number[], type: NotificationType, title: string, message: string, extra: Record<string, unknown> = {}) {
     const ids = [...new Set(recipients)].filter((id) => id && id !== actorId);
     if (!ids.length) return;
@@ -148,7 +153,7 @@ export class WorkFilesService {
         select: { uid: true, name: true, list: { select: { uid: true, name: true, space: { select: { workspace: { select: { uid: true } } } } } } },
       });
       if (!t) return;
-      const actor = await this.prisma.user.findUnique({ where: { id: actorId }, select: { firstName: true, lastName: true } });
+      const actor = actorId ? await this.prisma.user.findUnique({ where: { id: actorId }, select: { firstName: true, lastName: true, avatarUrl: true } }) : null;
       const metadata = {
         product: 'work',
         taskUid: t.uid,
@@ -158,6 +163,8 @@ export class WorkFilesService {
         workspaceUid: t.list.space.workspace.uid,
         url: `/work/${t.list.space.workspace.uid}/list/${t.list.uid}?task=${t.uid}`,
         actorName: `${actor?.firstName ?? ''} ${actor?.lastName ?? ''}`.trim(),
+        actorId: actorId || null,
+        actorAvatar: actor?.avatarUrl ?? null,
         ...extra,
       };
       for (const recipientId of ids) {

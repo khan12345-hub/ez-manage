@@ -2,21 +2,14 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { Inbox } from "lucide-react";
-import { workApi } from "@/services/work.api";
+import { useInboxCounts } from "@/app/(dashboard)/work/[workspaceId]/inbox/useInboxCounts";
 
 /** Work header bell: Work notifications only, opens the Work Inbox. */
 export function WorkInboxBell() {
   const params = useParams<{ workspaceId?: string }>();
   const ws = String(params.workspaceId ?? "");
-  const { data } = useQuery({
-    queryKey: ["inbox", "primary", true, "work"],
-    queryFn: () => workApi.inbox("primary", { unread: true }),
-    refetchInterval: 60_000,
-    staleTime: 20_000,
-  });
-  const n = data?.counts.primaryUnread ?? 0;
+  const n = useInboxCounts().primaryUnread;
   return (
     <Link
       href={ws ? `/work/${ws}/inbox` : "/work"}

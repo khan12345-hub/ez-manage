@@ -257,6 +257,10 @@ export interface WorkPeople {
 export type InviteResult = { email: string; status: "added" | "invited" | "already_member" | "already_invited" };
 
 export const workApi = {
+  workInbox: (view: "active" | "later" | "cleared" | "all") =>
+    get<{ items: any[]; counts: { later: number; cleared: number } }>(`/work/inbox?view=${view}`),
+  workInboxBulk: (ids: string[], action: "clear" | "unclear" | "snooze" | "unsnooze" | "read" | "unread", until?: string) =>
+    patch<{ count: number }>(`/work/inbox`, { ids, action, ...(until ? { until } : {}) }),
   myWorkspaces: () => get<{ id: number; uid: string; name: string; role: WorkRole }[]>(`/work/my-workspaces`),
   people: (workspace: string | number) => get<WorkPeople>(`/work/workspaces/${workspace}/people`),
   invite: (workspace: string | number, emails: string[], role: Exclude<WorkRole, "OWNER">) =>

@@ -99,6 +99,7 @@ export function NotificationStreamProvider({
         if (notification.product === "work" || meta?.product === "work") {
           fireDesktopRef.current(notification.title, notification.message, typeof meta?.url === "string" ? meta.url : undefined);
           queryClient.invalidateQueries({ queryKey: ["inbox"] });
+          queryClient.invalidateQueries({ queryKey: ["work-inbox"] });
           return;
         }
         const url = meta?.workspaceId && meta?.boardId

@@ -112,6 +112,11 @@ export class CreateCommentDto {
   /** people @mentioned in the comment */
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
 }
+export class InboxBulkDto {
+  @IsArray() @ArrayMaxSize(500) @IsString({ each: true }) ids!: string[];
+  @IsIn(['clear', 'unclear', 'snooze', 'unsnooze', 'read', 'unread']) action!: 'clear' | 'unclear' | 'snooze' | 'unsnooze' | 'read' | 'unread';
+  @IsOptional() @IsDateString() until?: string;
+}
 export class WorkInviteDto {
   @IsArray() @ArrayMaxSize(50) @IsString({ each: true }) @MaxLength(254, { each: true }) emails!: string[];
   @IsIn(['ADMIN', 'MEMBER', 'LIMITED_MEMBER', 'GUEST']) role!: 'ADMIN' | 'MEMBER' | 'LIMITED_MEMBER' | 'GUEST';

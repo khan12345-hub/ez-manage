@@ -3,6 +3,8 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { WorkFilesService, type AttachmentSource } from './work-files.service';
 import { WorkPeopleService } from './work-people.service';
+import { WorkInboxService } from './work-inbox.service';
+import { InboxBulkDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -44,6 +46,7 @@ export class WorkController {
     private readonly detail: WorkDetailService,
     private readonly files: WorkFilesService,
     private readonly people: WorkPeopleService,
+    private readonly inbox: WorkInboxService,
   ) {}
 
   // ── workspace level ──
@@ -332,6 +335,18 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── inbox (Work notifications only) ──
+  @Get('inbox')
+  workInbox(@Query('view') view: string, @CurrentUser() u: SessionUser) {
+    const v = view === 'later' || view === 'cleared' || view === 'all' ? view : 'active';
+    return this.inbox.list(u.id, v);
+  }
+
+  @Patch('inbox')
+  workInboxBulk(@Body() dto: InboxBulkDto, @CurrentUser() u: SessionUser) {
+    return this.inbox.bulk(u.id, dto.ids, dto.action, dto.until);
+  }
+
   @Get('my-workspaces')
   myWorkspaces(@CurrentUser() u: SessionUser) {
     return this.people.myWorkspaces(u.id);

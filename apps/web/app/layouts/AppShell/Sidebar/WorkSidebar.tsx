@@ -41,6 +41,7 @@ import { NameDialog, type NameDialogResult } from "@/app/(dashboard)/work/_compo
 import { BrandMark, ProductSwitcher } from "./ProductNav";
 import { CreatePanel } from "@/app/(dashboard)/work/_components/CreatePanel";
 import { useWorkCreate } from "@/store/work-create";
+import { useInboxCounts } from "@/app/(dashboard)/work/[workspaceId]/inbox/useInboxCounts";
 
 type DialogState =
   | null
@@ -82,7 +83,7 @@ export function WorkSidebar({
   });
   const canManage = !!tree?.access.canManage;
   const canEdit = !!tree?.access.canEdit;
-  const { data: inbox } = useQuery({ queryKey: ["inbox", "primary", true, false], queryFn: () => workApi.inbox("primary", { unread: true }), refetchInterval: 60_000, staleTime: 20_000 });
+  const inbox = useInboxCounts();
   const openCreate = useWorkCreate((st) => st.openCreate);
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -249,8 +250,8 @@ export function WorkSidebar({
             className={cn(ROW, "py-2", pathname === `/work/${wsParam}/inbox` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
           >
             <Inbox className="h-4 w-4 shrink-0" /> <span className="flex-1">Inbox</span>
-            {!!inbox?.counts.primaryUnread && (
-              <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{inbox.counts.primaryUnread}</span>
+            {inbox.primaryUnread > 0 && (
+              <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{inbox.primaryUnread}</span>
             )}
           </Link>
           <Link
