@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { BarChart3, LayoutGrid, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProductAccess } from "@/hooks/useProductAccess";
 
 /** Forest tile with a serif brass "EZ": the Ledger brand mark. */
 export function BrandMark({ size = 32 }: { size?: number }) {
@@ -18,7 +20,16 @@ export function BrandMark({ size = 32 }: { size?: number }) {
 
 export type ProductKey = "boards" | "work" | "ceo";
 
-/** Product switcher: Boards / Work / CEO Tower, matching the home cards. */
+const PRODUCT_META = {
+  boards: { label: "Boards", icon: LayoutGrid, tint: "bg-product-boards", text: "text-product-boards dark:text-[#a5b4fc]", ring: "ring-product-boards/40" },
+  work: { label: "Work", icon: ListChecks, tint: "bg-product-work", text: "text-product-work dark:text-[#6ee7b7]", ring: "ring-product-work/40" },
+  ceo: { label: "CEO", icon: BarChart3, tint: "bg-product-ceo", text: "text-product-ceo", ring: "ring-product-ceo/40" },
+} as const;
+
+/**
+ * Product switcher: compact tiles. Only products this person can open are shown
+ * (Boards and Work have separate access); CEO Tower is a disabled "Soon" tile.
+ */
 export function ProductSwitcher({
   active,
   boardsHref,
@@ -27,61 +38,43 @@ export function ProductSwitcher({
   onNavigate,
 }: {
   active: ProductKey;
-  boardsHref: string;
-  /** Work product link; omitted = shown as "Soon" */
+  boardsHref?: string;
   workHref?: string;
   showCeo: boolean;
   onNavigate?: () => void;
 }) {
-  const items: { key: ProductKey; label: string; dot: string; href?: string; note?: string }[] = [
-    { key: "boards", label: "Boards", dot: "bg-product-boards", href: boardsHref },
-    workHref
-      ? { key: "work", label: "Work", dot: "bg-product-work", href: workHref }
-      : { key: "work", label: "Work", dot: "bg-product-work", note: "Soon" },
-    ...(showCeo
-      ? [{ key: "ceo" as const, label: "CEO Tower", dot: "bg-product-ceo", note: "Soon" }] // disabled for now
-      : []),
-  ];
+  const access = useProductAccess();
+  const items: { key: ProductKey; href?: string; soon?: boolean }[] = [];
+  if (active === "boards" || access.hasBoards) items.push({ key: "boards", href: active === "boards" ? boardsHref : boardsHref ?? access.boardsHref });
+  if (active === "work" || access.hasWork) items.push({ key: "work", href: active === "work" ? workHref : workHref ?? access.workHref });
+  if (showCeo) items.push({ key: "ceo", soon: true });
+  if (items.length < 2 && !showCeo) return null; // only one product: no switcher needed
 
   return (
     <nav aria-label="Products" className="px-4 pt-3">
-      <p className="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
-        Products
-      </p>
-      <div className="flex flex-col gap-0.5">
+      <div className={cn("grid gap-1.5 rounded-xl bg-muted/50 p-1 ring-1 ring-border/60", items.length === 3 ? "grid-cols-3" : "grid-cols-2")}>
         {items.map((item) => {
+          const m = PRODUCT_META[item.key];
           const isActive = item.key === active;
-          const cls = cn(
-            "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-            isActive
-              ? "bg-card text-foreground shadow-sm ring-1 ring-border"
-              : item.href
-                ? "text-muted-foreground hover:bg-accent hover:text-foreground"
-                : "cursor-not-allowed text-muted-foreground/60",
-          );
           const body = (
             <>
-              <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", item.dot, !item.href && "opacity-50")} />
-              <span className="flex-1 truncate">{item.label}</span>
-              {item.note && (
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {item.note}
-                </span>
-              )}
+              <span className={cn("flex h-6 w-6 items-center justify-center rounded-md text-white shadow-sm", m.tint, item.soon && "opacity-50")}>
+                <m.icon className="h-3.5 w-3.5" strokeWidth={2.2} />
+              </span>
+              <span className={cn("text-[11.5px] font-semibold leading-none", isActive ? "text-foreground" : "text-muted-foreground")}>{m.label}</span>
+              {item.soon && <span className="text-[8.5px] font-semibold uppercase tracking-wide text-muted-foreground/70">Soon</span>}
             </>
           );
-          return item.href ? (
-            <Link
-              key={item.key}
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={isActive ? "page" : undefined}
-              className={cls}
-            >
+          const cls = cn(
+            "flex flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 transition-all",
+            isActive ? cn("bg-card shadow-sm ring-1", m.ring) : item.soon ? "cursor-not-allowed" : "hover:bg-card/70",
+          );
+          return item.href && !item.soon && !isActive ? (
+            <Link key={item.key} href={item.href} onClick={onNavigate} className={cls} aria-label={`Open ${m.label}`}>
               {body}
             </Link>
           ) : (
-            <span key={item.key} aria-disabled="true" title="Being built" className={cls}>
+            <span key={item.key} className={cls} aria-current={isActive ? "page" : undefined} aria-disabled={item.soon || undefined} title={item.soon ? "Being built" : undefined}>
               {body}
             </span>
           );
@@ -90,4 +83,3 @@ export function ProductSwitcher({
     </nav>
   );
 }
-

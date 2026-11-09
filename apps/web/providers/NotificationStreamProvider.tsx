@@ -12,6 +12,7 @@ import { useDesktopNotifications } from "@/hooks/useDesktopNotifications";
 
 interface Notification {
   id: string;
+  product?: "boards" | "work";
   recipientId: number;
   type: string;
   title: string;
@@ -95,6 +96,11 @@ export function NotificationStreamProvider({
     const disconnect = connectNotificationStream(
       (notification: Notification) => {
         const meta = notification.metadata as Record<string, any> | null | undefined;
+        if (notification.product === "work" || meta?.product === "work") {
+          fireDesktopRef.current(notification.title, notification.message, typeof meta?.url === "string" ? meta.url : undefined);
+          queryClient.invalidateQueries({ queryKey: ["inbox"] });
+          return;
+        }
         const url = meta?.workspaceId && meta?.boardId
           ? `/workspace/${meta.workspaceId}/board/${meta.boardId}`
           : undefined;

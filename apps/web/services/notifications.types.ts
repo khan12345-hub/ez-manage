@@ -31,6 +31,8 @@ export interface Notification {
   isRead: boolean;
   readAt?: string | null;
   createdAt: string;
+  /** boards | work — each product shows only its own */
+  product?: "boards" | "work";
 }
 
 export interface NotificationsResponse {

@@ -12,14 +12,20 @@ import { Notifications } from "./Notifications";
 import UserProfile from "./UserProfile";
 import { ImportJobBadge } from "@/components/ImportJobBadge";
 import { RunningTimer } from "./RunningTimer";
+import { WorkInboxBell } from "./WorkInboxBell";
+import { WorkInviteModal, useWorkInvite } from "@/app/(dashboard)/work/_components/WorkInviteModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearchModal } from "@/app/(dashboard)/workspace/[workspaceId]/board/[boardId]/BoardHeader/GlobalSearch/GlobalSearchModal";
 
 interface TopNavbarProps {
   onMenuToggle?: () => void;
+  /** Boards and Work have fully separate headers: own search, notifications and tools */
+  product?: "boards" | "work";
 }
 
-export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
+export function TopNavbar({ onMenuToggle, product = "boards" }: TopNavbarProps) {
+  const isWork = product === "work";
+  const openWorkInvite = useWorkInvite((s) => s.setOpen);
   const openInviteModal = useInviteModalStore((state) => state.open);
   const setPaletteOpen = useCommandPalette((s) => s.setPaletteOpen);
   const searchOpen = useCommandPalette((s) => s.taskSearchOpen);
@@ -58,7 +64,7 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
 
         {/* Search bar */}
         <div className="flex flex-1 justify-center px-1 sm:px-6">
-          <Searchbar onOpen={() => setPaletteOpen(true)} />
+          <Searchbar onOpen={() => setPaletteOpen(true)} placeholder={isWork ? "Search Work: lists, spaces, actions…" : undefined} />
         </div>
 
         {/* Right controls */}
@@ -73,13 +79,12 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           </button>
 
-          <RunningTimer />
-          <ImportJobBadge />
+          {isWork ? <RunningTimer /> : <ImportJobBadge />}
           <ThemeToggle />
-          <Notifications />
+          {isWork ? <WorkInboxBell /> : <Notifications />}
 
           <button
-            onClick={openInviteModal}
+            onClick={() => (isWork ? openWorkInvite(true) : openInviteModal())}
             className="flex cursor-pointer items-center gap-1.5 rounded-md bg-forest px-2.5 py-1.5 text-xs font-semibold text-forest-foreground shadow-sm transition-colors hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90 sm:px-3.5 sm:py-2"
           >
             <UserPlus className="h-4 w-4" />
@@ -90,12 +95,14 @@ export function TopNavbar({ onMenuToggle }: TopNavbarProps) {
         </div>
       </header>
 
-      <GlobalSearchModal
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-      />
+      {!isWork && (
+        <GlobalSearchModal
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+        />
+      )}
 
-      <InviteModal />
+      {isWork ? <WorkInviteModal /> : <InviteModal />}
     </>
   );
 }

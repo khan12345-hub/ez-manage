@@ -1,4 +1,8 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { WorkFilesService, type AttachmentSource } from './work-files.service';
+import { WorkPeopleService } from './work-people.service';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -9,6 +13,9 @@ import {
   CreateCommentDto,
   CreateLinkDto,
   CreateTagDto,
+  CreateWebLinkDto,
+  WorkInviteDto,
+  WorkRoleDto,
   ManualTimeDto,
   UpdateChecklistDto,
   UpdateChecklistItemDto,
@@ -35,6 +42,8 @@ export class WorkController {
   constructor(
     private readonly work: WorkService,
     private readonly detail: WorkDetailService,
+    private readonly files: WorkFilesService,
+    private readonly people: WorkPeopleService,
   ) {}
 
   // ── workspace level ──
@@ -282,5 +291,79 @@ export class WorkController {
   @Get('tasks/:id/activity')
   activity(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
     return this.detail.activity(id, u.id);
+  }
+
+  // ── attachments ──
+  @Get('tasks/:id/attachments')
+  attachments(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.files.listAttachments(id, u.id);
+  }
+
+  @Post('tasks/:id/attachments')
+  @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } }))
+  upload(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Query('source') source: string,
+    @CurrentUser() u: SessionUser,
+  ) {
+    return this.files.upload(id, u.id, files ?? [], (source || 'task') as AttachmentSource);
+  }
+
+  @Delete('attachments/:id')
+  deleteAttachment(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.files.deleteAttachment(id, u.id);
+  }
+
+  // ── web links ──
+  @Get('tasks/:id/web-links')
+  webLinks(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.files.listLinks(id, u.id);
+  }
+
+  @Post('tasks/:id/web-links')
+  addWebLink(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateWebLinkDto, @CurrentUser() u: SessionUser) {
+    return this.files.addLink(id, u.id, dto.url, dto.title);
+  }
+
+  @Delete('web-links/:id')
+  deleteWebLink(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.files.deleteLink(id, u.id);
+  }
+
+  // ── people & access (Work's own membership, separate from Boards) ──
+  @Get('my-workspaces')
+  myWorkspaces(@CurrentUser() u: SessionUser) {
+    return this.people.myWorkspaces(u.id);
+  }
+
+  @Get('workspaces/:workspaceId/people')
+  async listPeople(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.people.people(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Post('workspaces/:workspaceId/invites')
+  async invite(@Param('workspaceId') ws: string, @Body() dto: WorkInviteDto, @CurrentUser() u: SessionUser) {
+    return this.people.invite(await this.work.resolveWorkspaceId(ws), u.id, dto.emails, dto.role);
+  }
+
+  @Patch('workspaces/:workspaceId/people/:userId')
+  async changeRole(@Param('workspaceId') ws: string, @Param('userId', ParseIntPipe) target: number, @Body() dto: WorkRoleDto, @CurrentUser() u: SessionUser) {
+    return this.people.changeRole(await this.work.resolveWorkspaceId(ws), u.id, target, dto.role);
+  }
+
+  @Delete('workspaces/:workspaceId/people/:userId')
+  async removePerson(@Param('workspaceId') ws: string, @Param('userId', ParseIntPipe) target: number, @CurrentUser() u: SessionUser) {
+    return this.people.remove(await this.work.resolveWorkspaceId(ws), u.id, target);
+  }
+
+  @Delete('invites/:id')
+  revokeInvite(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.people.revokeInvite(id, u.id);
+  }
+
+  @Get('spaces/:id/members')
+  spaceMembers(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.people.spaceMembers(id, u.id);
   }
 }

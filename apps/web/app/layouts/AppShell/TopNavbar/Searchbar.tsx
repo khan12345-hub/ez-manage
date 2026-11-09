@@ -4,9 +4,10 @@ import { Search } from "lucide-react";
 
 type SearchbarProps = {
   onOpen: () => void;
+  placeholder?: string;
 };
 
-export function Searchbar({ onOpen }: SearchbarProps) {
+export function Searchbar({ onOpen, placeholder = "Jump to a board, workspace or action…" }: SearchbarProps) {
   return (
     <button
       type="button"
@@ -17,7 +18,7 @@ export function Searchbar({ onOpen }: SearchbarProps) {
       <Search className="mr-3 h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
 
       <span className="flex-1 truncate text-sm text-muted-foreground">
-        Jump to a board, workspace or action…
+        {placeholder}
       </span>
 
       <kbd className="ml-3 hidden items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground sm:flex">

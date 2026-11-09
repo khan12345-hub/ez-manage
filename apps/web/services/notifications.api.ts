@@ -16,6 +16,7 @@ export async function getNotifications(
         params: {
           page,
           limit,
+          product: "boards",
         },
       },
     );
@@ -29,6 +30,7 @@ export async function getUnreadNotificationCount(): Promise<{
   const response =
     await api.get<{ count: number }>(
       "/notifications/unread-count",
+      { params: { product: "boards" } },
     );
 
   return response.data;
@@ -51,6 +53,8 @@ export async function markAllNotificationsAsRead(): Promise<{
   const response =
     await api.patch<{ count: number }>(
       "/notifications/read-all",
+      undefined,
+      { params: { product: "boards" } },
     );
 
   return response.data;
@@ -59,7 +63,7 @@ export async function markAllNotificationsAsRead(): Promise<{
 export async function deleteAllNotifications(): Promise<{
   success: boolean;
 }> {
-  const response = await api.delete<{ success: boolean }>("/notifications");
+  const response = await api.delete<{ success: boolean }>("/notifications", { params: { product: "boards" } });
   return response.data;
 }
 

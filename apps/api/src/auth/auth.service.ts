@@ -201,40 +201,52 @@ export class AuthService {
         },
       });
 
-      await tx.workspaceMember.create({
-        data: {
-          workspaceId: invitation.workspaceId,
-          userId: newUser.id,
-          role: invitation.role,
-        },
-      });
-
-      const boardGroupAccess = invitation.boardGroupAccess as
-        | { boardId: number; groupIds: number[] }[]
-        | null;
-
-      const createdMembers = await tx.boardMember.createManyAndReturn({
-        data: invitation.boardIds.map((boardId) => {
-          const entry = boardGroupAccess?.find((g) => g.boardId === boardId);
-          const accessAllGroups = !entry || entry.groupIds.length === 0;
-          return {
-            boardId,
+      if (invitation.product === 'work') {
+        // Work invite: Work access only — no Boards workspace or board membership
+        await tx.workMember.create({
+          data: {
+            workspaceId: invitation.workspaceId,
             userId: newUser.id,
-            role: workspaceToBoardRole(invitation.role),
-            accessAllGroups,
-          };
-        }),
-      });
+            role: invitation.workRole ?? 'MEMBER',
+            invitedById: invitation.invitedById,
+          },
+        });
+      } else {
+        await tx.workspaceMember.create({
+          data: {
+            workspaceId: invitation.workspaceId,
+            userId: newUser.id,
+            role: invitation.role,
+          },
+        });
 
-      for (const member of createdMembers) {
-        const entry = boardGroupAccess?.find((g) => g.boardId === member.boardId);
-        if (entry && entry.groupIds.length > 0) {
-          await tx.boardMemberGroupAccess.createMany({
-            data: entry.groupIds.map((groupId) => ({
-              boardMemberId: member.id,
-              groupId,
-            })),
-          });
+        const boardGroupAccess = invitation.boardGroupAccess as
+          | { boardId: number; groupIds: number[] }[]
+          | null;
+
+        const createdMembers = await tx.boardMember.createManyAndReturn({
+          data: invitation.boardIds.map((boardId) => {
+            const entry = boardGroupAccess?.find((g) => g.boardId === boardId);
+            const accessAllGroups = !entry || entry.groupIds.length === 0;
+            return {
+              boardId,
+              userId: newUser.id,
+              role: workspaceToBoardRole(invitation.role),
+              accessAllGroups,
+            };
+          }),
+        });
+
+        for (const member of createdMembers) {
+          const entry = boardGroupAccess?.find((g) => g.boardId === member.boardId);
+          if (entry && entry.groupIds.length > 0) {
+            await tx.boardMemberGroupAccess.createMany({
+              data: entry.groupIds.map((groupId) => ({
+                boardMemberId: member.id,
+                groupId,
+              })),
+            });
+          }
         }
       }
 
@@ -334,8 +346,9 @@ export class AuthService {
 
     return {
       email: invitation.email,
-      role: invitation.role,
+      role: invitation.product === 'work' ? invitation.workRole ?? 'MEMBER' : invitation.role,
       workspaceName: invitation.workspace.name,
+      product: invitation.product,
     };
   }
 

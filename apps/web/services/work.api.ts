@@ -178,6 +178,39 @@ export interface WorkComment {
   resolvedAt: string | null;
   user: WorkUser;
   assignee: WorkUser | null;
+  attachments?: WorkAttachment[];
+}
+
+export interface WorkAttachment {
+  id: number;
+  source: "task" | "comment" | "description";
+  commentId: number | null;
+  createdAt: string;
+  uploadedBy: WorkUser;
+  file: { id: number; fileName: string; mimeType: string; fileSize: number; url: string };
+}
+
+export interface WorkWebLink {
+  id: number;
+  url: string;
+  title: string | null;
+  createdAt: string;
+  createdBy: WorkUser;
+}
+
+export type InboxTab = "primary" | "later" | "cleared";
+export interface InboxItem {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  entityType: string | null;
+  entityId: number | null;
+  metadata: Record<string, any> | null;
+  isRead: boolean;
+  createdAt: string;
+  clearedAt: string | null;
+  snoozedUntil: string | null;
 }
 
 export interface MyWorkTask extends WorkTask {
@@ -208,7 +241,31 @@ const patch = async <T,>(url: string, body?: unknown) => (await api.patch<T>(url
 const put = async <T,>(url: string, body?: unknown) => (await api.put<T>(url, body)).data;
 const del = async <T,>(url: string) => (await api.delete<T>(url)).data;
 
+export type WorkRole = "OWNER" | "ADMIN" | "MEMBER" | "LIMITED_MEMBER" | "GUEST";
+export const WORK_ROLE_META: Record<WorkRole, { label: string; hint: string }> = {
+  OWNER: { label: "Owner", hint: "Full control of Work in this workspace." },
+  ADMIN: { label: "Admin", hint: "Can manage spaces, people and Work settings." },
+  MEMBER: { label: "Member", hint: "Can access all public spaces in Work." },
+  LIMITED_MEMBER: { label: "Limited Member", hint: "Can only access spaces shared with them." },
+  GUEST: { label: "Guest", hint: "View only. Can only see spaces shared with them." },
+};
+export interface WorkPeople {
+  me: { role: WorkRole | null; canManage: boolean };
+  members: { role: WorkRole; createdAt: string; user: WorkUser }[];
+  invites: { id: number; email: string; workRole: WorkRole | null; createdAt: string; expiresAt: string }[];
+}
+export type InviteResult = { email: string; status: "added" | "invited" | "already_member" | "already_invited" };
+
 export const workApi = {
+  myWorkspaces: () => get<{ id: number; uid: string; name: string; role: WorkRole }[]>(`/work/my-workspaces`),
+  people: (workspace: string | number) => get<WorkPeople>(`/work/workspaces/${workspace}/people`),
+  invite: (workspace: string | number, emails: string[], role: Exclude<WorkRole, "OWNER">) =>
+    post<{ results: InviteResult[] }>(`/work/workspaces/${workspace}/invites`, { emails, role }),
+  changeRole: (workspace: string | number, userId: number, role: Exclude<WorkRole, "OWNER">) => patch(`/work/workspaces/${workspace}/people/${userId}`, { role }),
+  removePerson: (workspace: string | number, userId: number) => del(`/work/workspaces/${workspace}/people/${userId}`),
+  revokeInvite: (id: number) => del(`/work/invites/${id}`),
+  spaceMembers: (spaceId: number) => get<{ userIds: number[] }>(`/work/spaces/${spaceId}/members`),
+
   tree: (workspace: string | number) => get<WorkTree>(`/work/workspaces/${workspace}/tree`),
   myTasks: (workspace: string | number) => get<MyWorkTask[]>(`/work/workspaces/${workspace}/my-tasks`),
 
@@ -243,13 +300,32 @@ export const workApi = {
   archiveTask: (id: number) => del(`/work/tasks/${id}`),
 
   comments: (taskId: number) => get<WorkComment[]>(`/work/tasks/${taskId}/comments`),
-  addComment: (taskId: number, content: string, opts?: { parentId?: number; assigneeId?: number }) =>
-    post<WorkComment>(`/work/tasks/${taskId}/comments`, { content, ...(opts?.parentId ? { parentId: opts.parentId } : {}), ...(opts?.assigneeId ? { assigneeId: opts.assigneeId } : {}) }),
+  addComment: (taskId: number, content: string, opts?: { parentId?: number; assigneeId?: number; attachmentIds?: number[]; mentionIds?: number[] }) =>
+    post<WorkComment>(`/work/tasks/${taskId}/comments`, { content, ...(opts?.parentId ? { parentId: opts.parentId } : {}), ...(opts?.assigneeId ? { assigneeId: opts.assigneeId } : {}), ...(opts?.attachmentIds?.length ? { attachmentIds: opts.attachmentIds } : {}), ...(opts?.mentionIds?.length ? { mentionIds: opts.mentionIds } : {}) }),
   resolveComment: (id: number) => post<WorkComment>(`/work/comments/${id}/resolve`),
   reopenComment: (id: number) => post<WorkComment>(`/work/comments/${id}/reopen`),
   assignedComments: (workspace: string | number, mode: "to-me" | "by-me", resolved = false) =>
     get<any[]>(`/work/workspaces/${workspace}/assigned-comments?mode=${mode}&resolved=${resolved}`),
   activity: (taskId: number) => get<WorkActivity[]>(`/work/tasks/${taskId}/activity`),
+
+  attachments: (taskId: number) => get<WorkAttachment[]>(`/work/tasks/${taskId}/attachments`),
+  uploadAttachments: (taskId: number, files: File[], source: WorkAttachment["source"] = "task") => {
+    const fd = new FormData();
+    files.forEach((f) => fd.append("files", f));
+    return post<WorkAttachment[]>(`/work/tasks/${taskId}/attachments?source=${source}`, fd);
+  },
+  deleteAttachment: (id: number) => del(`/work/attachments/${id}`),
+  webLinks: (taskId: number) => get<WorkWebLink[]>(`/work/tasks/${taskId}/web-links`),
+  addWebLink: (taskId: number, url: string, title?: string) => post<WorkWebLink>(`/work/tasks/${taskId}/web-links`, { url, ...(title ? { title } : {}) }),
+  deleteWebLink: (id: number) => del(`/work/web-links/${id}`),
+
+  inbox: (tab: InboxTab, opts: { unread?: boolean; product?: string } = {}) =>
+    get<{ items: InboxItem[]; counts: { primaryUnread: number; later: number; cleared: number } }>(
+      `/notifications/inbox?tab=${tab}&product=work${opts.unread ? "&unread=true" : ""}`,
+    ),
+  inboxAction: (id: string, action: "clear" | "unclear" | "snooze" | "unsnooze" | "read" | "unread", until?: string) =>
+    patch(`/notifications/${id}/inbox`, { action, ...(until ? { until } : {}) }),
+  inboxClearAll: () => patch(`/notifications/inbox/clear-all?product=work`),
 
   tags: (spaceId: number) => get<WorkTag[]>(`/work/spaces/${spaceId}/tags`),
   createTag: (spaceId: number, name: string, color: string) => post<WorkTag>(`/work/spaces/${spaceId}/tags`, { name, color }),

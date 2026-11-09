@@ -25,6 +25,7 @@ import { motion, useReducedMotion, type Variants } from "framer-motion";
 
 import { useAuth } from "@/providers/AuthProvider";
 import { getAllWorkspaces } from "@/services/workspace.api";
+import { useProductAccess } from "@/hooks/useProductAccess";
 import { useLogout } from "@/services/auth/auth.hooks";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -392,6 +393,9 @@ export default function HomePage() {
     staleTime: 30_000,
   });
   const { tasks, isLoading: tasksLoading } = useDashboardTasks();
+  // Boards and Work have separate access: only show what this person can open
+  const access = useProductAccess();
+  const productCount = (access.hasBoards ? 1 : 0) + (access.hasWork ? 1 : 0) + (isSuperAdmin ? 1 : 0);
   const { meetings } = useDashboardMeetings();
 
   const wsList = (workspaces as any[] | undefined) ?? [];
@@ -575,12 +579,13 @@ export default function HomePage() {
           <motion.div
             className={cn(
               "mt-9 grid grid-cols-1 gap-5",
-              isSuperAdmin ? "md:grid-cols-2 lg:grid-cols-3" : "md:grid-cols-2",
+              productCount >= 3 ? "md:grid-cols-2 lg:grid-cols-3" : productCount === 2 ? "md:grid-cols-2" : "md:grid-cols-1",
             )}
             variants={stagger}
             initial={reduced ? false : "hidden"}
             animate="show"
           >
+            {access.hasBoards && (
             <motion.div variants={fadeUp}>
               <ProductCard
                 tone="boards"
@@ -603,11 +608,13 @@ export default function HomePage() {
                 }
               />
             </motion.div>
+            )}
 
+            {access.hasWork && (
             <motion.div variants={fadeUp}>
               <ProductCard
                 tone="work"
-                href={firstWorkspace ? `/work/${firstWorkspace.uid ?? firstWorkspace.id}` : undefined}
+                href={access.workHref}
                 icon={ListChecks}
                 kicker="Projects"
                 title="Work"
@@ -628,6 +635,14 @@ export default function HomePage() {
                 }
               />
             </motion.div>
+            )}
+
+            {!access.loading && productCount === 0 && (
+              <motion.div variants={fadeUp} className="rounded-2xl border border-border bg-card/80 p-8 text-center">
+                <p className="font-serif text-[22px]">No products yet</p>
+                <p className="mt-1 text-[13.5px] text-muted-foreground">Ask an admin to invite you to Boards or Work.</p>
+              </motion.div>
+            )}
 
             {isSuperAdmin && (
               <motion.div variants={fadeUp} className="md:col-span-2 lg:col-span-1">

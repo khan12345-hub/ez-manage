@@ -57,11 +57,14 @@ import { getBoardDetail } from "@/services/boards.api";
 /* Helpers                                                              */
 /* ------------------------------------------------------------------ */
 
-async function getNotificationUrl(
+export async function getNotificationUrl(
   notification: Notification,
 ): Promise<string | null> {
   const { entityType, entityId, metadata } = notification;
   const meta = (metadata ?? {}) as Record<string, unknown>;
+
+  // Work notifications carry their own link
+  if (meta.product === "work" && typeof meta.url === "string") return meta.url;
 
   try {
     if (entityType === "WORKSPACE" && entityId) {

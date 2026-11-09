@@ -107,6 +107,21 @@ export class CreateCommentDto {
   @IsOptional() @IsInt() parentId?: number;
   /** assign the comment to someone (action item) */
   @IsOptional() @IsInt() assigneeId?: number;
+  /** files uploaded from the composer (source=comment) to attach to this comment */
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsInt({ each: true }) attachmentIds?: number[];
+  /** people @mentioned in the comment */
+  @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
+}
+export class WorkInviteDto {
+  @IsArray() @ArrayMaxSize(50) @IsString({ each: true }) @MaxLength(254, { each: true }) emails!: string[];
+  @IsIn(['ADMIN', 'MEMBER', 'LIMITED_MEMBER', 'GUEST']) role!: 'ADMIN' | 'MEMBER' | 'LIMITED_MEMBER' | 'GUEST';
+}
+export class WorkRoleDto {
+  @IsIn(['ADMIN', 'MEMBER', 'LIMITED_MEMBER', 'GUEST']) role!: 'ADMIN' | 'MEMBER' | 'LIMITED_MEMBER' | 'GUEST';
+}
+export class CreateWebLinkDto {
+  @IsString() @IsNotEmpty() @MaxLength(2000) url!: string;
+  @IsOptional() @IsString() @MaxLength(200) title?: string;
 }
 export class UpdateCommentDto {
   @IsString() @IsNotEmpty() @MaxLength(50000) content!: string;

@@ -3,6 +3,8 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 import { WorkAccessService } from './work-access.service';
 import { WorkDetailService } from './work-detail.service';
+import { ATTACHMENT_SELECT, WorkFilesService } from './work-files.service';
+import { NotificationType } from 'generated/prisma/client';
 import {
   CreateCommentDto,
   CreateFolderDto,
@@ -76,6 +78,7 @@ const LINKED_TASK = {
 const COMMENT_SELECT = {
   id: true, taskId: true, parentId: true, content: true, createdAt: true, updatedAt: true, resolvedAt: true,
   user: { select: USER_MINI }, assignee: { select: USER_MINI },
+  attachments: { select: ATTACHMENT_SELECT, orderBy: { id: 'asc' as const } },
 } as const;
 
 const toDate = (v: string | null | undefined) => (v === undefined ? undefined : v === null ? null : new Date(v));
@@ -86,6 +89,7 @@ export class WorkService {
     private readonly prisma: PrismaService,
     private readonly access: WorkAccessService,
     private readonly detail: WorkDetailService,
+    private readonly files: WorkFilesService,
   ) {}
 
   /* ─────────────────────────── helpers ─────────────────────────── */
@@ -114,10 +118,7 @@ export class WorkService {
   private async assertAssignable(workspaceId: number, userIds: number[] | undefined) {
     if (!userIds?.length) return;
     const ids = [...new Set(userIds)];
-    const n = await this.prisma.workspaceMember.count({
-      where: { workspaceId, userId: { in: ids }, deletedAt: null },
-    });
-    if (n !== ids.length) throw new BadRequestException('Assignees must be members of this workspace.');
+    if (!(await this.access.areMembers(workspaceId, ids))) throw new BadRequestException('Assignees must be Work members of this workspace.');
   }
 
   /* ──────────────────────────── tree ───────────────────────────── */
@@ -132,7 +133,7 @@ export class WorkService {
       where: {
         workspaceId,
         archivedAt: null,
-        ...(ws.canManage ? {} : { OR: [{ isPrivate: false }, { members: { some: { userId } } }] }),
+        ...this.access.visibleSpaces(ws, userId),
       },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
       select: {
@@ -361,7 +362,7 @@ export class WorkService {
       where: { archivedAt: null, ...(Number.isInteger(n) && String(n) === listIdOrUid ? { id: n } : { uid: listIdOrUid }) },
       select: {
         id: true, uid: true, name: true, description: true, color: true, spaceId: true, folderId: true,
-        space: { select: { id: true, uid: true, name: true, color: true, workspaceId: true, workspace: { select: { uid: true, name: true } } } },
+        space: { select: { id: true, uid: true, name: true, color: true, isPrivate: true, workspaceId: true, workspace: { select: { uid: true, name: true } } } },
         folder: { select: { id: true, uid: true, name: true } },
       },
     });
@@ -369,9 +370,19 @@ export class WorkService {
     const access = await this.access.requireSpace(row.spaceId, userId, 'view');
     const [statuses, members] = await Promise.all([
       this.effectiveStatuses(row),
-      this.prisma.workspaceMember.findMany({
-        where: { workspaceId: row.space.workspaceId, deletedAt: null, user: { deletedAt: null } },
+      // people who can be assigned here: Work members who can see this space
+      this.prisma.workMember.findMany({
+        where: {
+          workspaceId: row.space.workspaceId,
+          user: { deletedAt: null },
+          OR: [
+            { role: { in: ['OWNER', 'ADMIN'] } },
+            ...(row.space.isPrivate ? [] : [{ role: "MEMBER" as const }]),
+            { user: { workSpaceMembership: { some: { spaceId: row.spaceId } } } },
+          ],
+        },
         select: { user: { select: USER_MINI } },
+        orderBy: { createdAt: 'asc' },
       }),
     ]);
     return {
@@ -438,6 +449,9 @@ export class WorkService {
       select: TASK_SELECT,
     });
     await this.detail.log(created.id, userId, 'created');
+    if (dto.assigneeIds?.length) {
+      await this.files.notify(created.id, userId, dto.assigneeIds, NotificationType.TASK_ASSIGNED, 'Task assigned to you', `You were assigned "${created.name}".`);
+    }
     return shapeTask(created);
   }
 
@@ -586,6 +600,11 @@ export class WorkService {
       });
     });
     await this.logChanges(taskId, userId, before, updated, dto);
+    if (dto.assigneeIds && before) {
+      const had = new Set(before.assignees.map((a: any) => a.userId));
+      const added = [...new Set(dto.assigneeIds)].filter((u) => !had.has(u));
+      if (added.length) await this.files.notify(taskId, userId, added, NotificationType.TASK_ASSIGNED, 'Task assigned to you', `You were assigned "${updated.name}".`);
+    }
     return shapeTask(updated);
   }
 
@@ -650,13 +669,32 @@ export class WorkService {
     }
     if (dto.assigneeId) {
       const { access } = await this.access.requireTask(taskId, userId, 'edit');
-      const ok = await this.prisma.workspaceMember.count({ where: { workspaceId: access.workspaceId, userId: dto.assigneeId, deletedAt: null } });
+      const ok = await this.access.areMembers(access.workspaceId, [dto.assigneeId]);
       if (!ok) throw new BadRequestException('Comments can only be assigned to workspace members.');
     }
-    return this.prisma.workComment.create({
+    const created = await this.prisma.workComment.create({
       data: { taskId, userId, parentId: dto.parentId ?? null, content: dto.content, assigneeId: dto.assigneeId ?? null },
-      select: COMMENT_SELECT,
+      select: { id: true },
     });
+    await this.files.bindToComment(taskId, userId, created.id, dto.attachmentIds);
+    const comment = await this.prisma.workComment.findUniqueOrThrow({ where: { id: created.id }, select: COMMENT_SELECT });
+
+    // who hears about it: mentioned people, the comment's assignee, and everyone on the task
+    const snippet = dto.content.length > 140 ? `${dto.content.slice(0, 140)}…` : dto.content;
+    const extra = { commentId: comment.id };
+    const mentioned = [...new Set(dto.mentionIds ?? [])];
+    if (mentioned.length) {
+      const { access } = await this.access.requireTask(taskId, userId, 'view');
+      const valid = await this.prisma.workMember.findMany({ where: { workspaceId: access.workspaceId, userId: { in: mentioned }, user: { deletedAt: null } }, select: { userId: true } });
+      await this.files.notify(taskId, userId, valid.map((v) => v.userId), NotificationType.COMMENT_MENTION, 'You were mentioned', snippet, extra);
+    }
+    if (dto.assigneeId && !mentioned.includes(dto.assigneeId)) {
+      await this.files.notify(taskId, userId, [dto.assigneeId], NotificationType.COMMENT_CREATED, 'A comment was assigned to you', snippet, { ...extra, assignedComment: true });
+    }
+    const t = await this.prisma.workTask.findUnique({ where: { id: taskId }, select: { createdById: true, assignees: { select: { userId: true } } } });
+    const watchers = [t?.createdById ?? 0, ...(t?.assignees.map((a) => a.userId) ?? [])].filter((u) => !mentioned.includes(u) && u !== dto.assigneeId);
+    await this.files.notify(taskId, userId, watchers, dto.parentId ? NotificationType.COMMENT_REPLY : NotificationType.COMMENT_CREATED, dto.parentId ? 'New reply' : 'New comment', snippet, extra);
+    return comment;
   }
 
   private async ownComment(commentId: number, userId: number) {
@@ -695,7 +733,7 @@ export class WorkService {
           space: {
             workspaceId,
             archivedAt: null,
-            ...(ws.canManage ? {} : { OR: [{ isPrivate: false }, { members: { some: { userId } } }] }),
+            ...this.access.visibleSpaces(ws, userId),
           },
         },
       },

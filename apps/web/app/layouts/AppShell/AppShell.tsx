@@ -19,6 +19,7 @@ import { getSocket } from "@/components/Chat/ChatProvider";
 import { playRingtone } from "@/lib/sounds";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { CommandPalette } from "@/components/CommandPalette";
+import { WorkCommandPalette } from "@/components/WorkCommandPalette";
 import { TaskDetailsSheet } from "@/app/(dashboard)/workspace/[workspaceId]/board/Task/TaskDetailDrawer/Updates/TaskDetailsDrawer";
 
 // Lazy-load LiveKit bundle — prevents the SDK from running region-discovery
@@ -234,7 +235,8 @@ export function AppShell({ children }: AppShellProps) {
   // /\d+/ check never matched, so every board page rendered a second drawer.
   const isBoardPage = /\/workspace\/[^/]+\/board\/[^/]+/.test(pathname ?? "");
   // Work (ClickUp-style product) has its own sidebar: Spaces → Folders → Lists
-  const isWorkPage = (pathname ?? "").startsWith("/work");
+  // NOTE: "/workspace/..." is Boards — match "/work" or "/work/..." only
+  const isWorkPage = /^\/work(\/|$)/.test(pathname ?? "");
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground antialiased font-sans">
@@ -242,7 +244,7 @@ export function AppShell({ children }: AppShellProps) {
         <ChatProvider>
           <ImportJobProvider>
             <NotificationStreamProvider userId={user?.id}>
-              <OnboardingTour />
+              {!isWorkPage && <OnboardingTour />}
               {isMobileOpen && (
                 <div
                   className="fixed inset-0 z-40 bg-black/40 md:hidden"
@@ -267,13 +269,14 @@ export function AppShell({ children }: AppShellProps) {
               )}
 
               <div className="flex flex-1 flex-col overflow-hidden">
-                <TopNavbar onMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
+                <TopNavbar product={isWorkPage ? "work" : "boards"} onMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
                 <main className="flex-1 overflow-auto bg-background ez-page-surface">{children}</main>
               </div>
 
-              <CommandPalette />
-              {!isBoardPage && <TaskDetailsSheet />}
-              <AskAiWidget />
+              {/* Boards and Work never share UI: own search, task drawer and helper */}
+              {isWorkPage ? <WorkCommandPalette /> : <CommandPalette />}
+              {!isBoardPage && !isWorkPage && <TaskDetailsSheet />}
+              {!isWorkPage && <AskAiWidget />}
               <CallToast />
               <CallDeclinedToast />
               <GlobalLiveKitPanel />

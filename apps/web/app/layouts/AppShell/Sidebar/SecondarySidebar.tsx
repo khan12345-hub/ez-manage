@@ -237,8 +237,8 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         className={cn(
           "flex h-full flex-col overflow-hidden bg-background ez-sidebar-surface",
           "w-[270px]",
-          "md:w-auto md:transition-all md:duration-300 md:ease-in-out",
-          isOpen ? "md:max-w-[270px]" : "md:max-w-0",
+          "md:transition-[width] md:duration-300 md:ease-in-out",
+          isOpen ? "md:w-[270px]" : "md:w-0",
         )}
       >
         {/* Header — EzManage brand */}
@@ -278,7 +278,6 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
         <ProductSwitcher
           active={pathname?.startsWith("/ceo-assistant") ? "ceo" : "boards"}
           boardsHref={workspaceId ? `/workspace/${workspaceId}` : firstWorkspaceUid ? `/workspace/${firstWorkspaceUid}` : "/home"}
-          workHref={workspaceId ? `/work/${workspaceId}` : firstWorkspaceUid ? `/work/${firstWorkspaceUid}` : undefined}
           showCeo={user?.systemRole === "SUPER_ADMIN"}
           onNavigate={onMobileClose}
         />

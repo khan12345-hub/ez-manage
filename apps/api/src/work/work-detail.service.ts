@@ -47,7 +47,7 @@ export class WorkDetailService {
 
   private async assertMember(workspaceId: number, userId: number | null | undefined) {
     if (!userId) return;
-    const ok = await this.prisma.workspaceMember.count({ where: { workspaceId, userId, deletedAt: null } });
+    const ok = (await this.access.areMembers(workspaceId, [userId])) ? 1 : 0;
     if (!ok) throw new BadRequestException('That person is not a member of this workspace.');
   }
 

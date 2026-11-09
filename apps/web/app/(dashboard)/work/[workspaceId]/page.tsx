@@ -64,7 +64,7 @@ function MyWorkInner() {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-4 py-6 sm:px-6">
+    <div className="w-full px-4 py-6 sm:px-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">

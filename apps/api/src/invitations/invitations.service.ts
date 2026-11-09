@@ -278,6 +278,7 @@ export class InvitationsService {
       where: {
         email: dto.email,
         workspaceId: dto.workspaceId,
+        product: 'boards',
         status: InvitationStatus.PENDING,
       },
     });
@@ -375,7 +376,8 @@ export class InvitationsService {
       where: { token: dto.token },
     });
 
-    if (!invitation) {
+    if (!invitation || invitation.product !== 'boards') {
+      // Work invites are accepted through account setup / Work, never as a Boards invite
       throw new NotFoundException('Invitation not found.');
     }
 
@@ -502,6 +504,7 @@ export class InvitationsService {
     return this.prisma.invitation.findMany({
       where: {
         workspaceId,
+        product: 'boards',
         status: InvitationStatus.PENDING,
         acceptedAt: null,
         expiresAt: { gt: new Date() },
@@ -520,7 +523,7 @@ export class InvitationsService {
 
   async revokeInvitation(invitationId: number, requesterId: number) {
     const inv = await this.prisma.invitation.findUnique({ where: { id: invitationId } });
-    if (!inv) throw new NotFoundException('Invitation not found');
+    if (!inv || inv.product !== 'boards') throw new NotFoundException('Invitation not found');
     // Previously unchecked: any signed-in user could revoke any invitation by id.
     await this.assertWorkspaceInviter(inv.workspaceId, requesterId, WorkspaceMemberRole.MEMBER);
     if (inv.status !== InvitationStatus.PENDING) {

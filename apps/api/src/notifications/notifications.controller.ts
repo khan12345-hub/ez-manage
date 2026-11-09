@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -19,8 +20,11 @@ import { NotificationStreamService } from './notification-stream.service';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 import { GetNotificationsDto } from './dto/get-notifications.dto';
+import { InboxActionDto } from './dto/inbox-action.dto';
 
 import { SessionUser } from 'src/auth/types/session-user.type';
+
+const asProduct = (p?: string) => (p === 'work' || p === 'boards' ? p : undefined);
 
 @SkipThrottle() // SSE stream + notification reads must never be rate-limited
 @Controller('notifications')
@@ -48,6 +52,8 @@ export class NotificationsController {
       query.page,
 
       query.limit,
+
+      query.product,
     );
   }
 
@@ -55,9 +61,30 @@ export class NotificationsController {
 
 * Get unread notification count.
   */
+  @Get('inbox')
+  async inbox(
+    @CurrentUser() user: SessionUser,
+    @Query('tab') tab: string,
+    @Query('unread') unread: string,
+    @Query('product') product: string,
+  ) {
+    const t = tab === 'later' || tab === 'cleared' ? tab : 'primary';
+    return this.notificationsService.inbox(user.id, t, { unread: unread === 'true', product });
+  }
+
+  @Patch('inbox/clear-all')
+  async clearAll(@CurrentUser() user: SessionUser, @Query('product') product?: string) {
+    return this.notificationsService.clearAll(user.id, asProduct(product));
+  }
+
+  @Patch(':id/inbox')
+  async inboxAction(@CurrentUser() user: SessionUser, @Param('id') id: string, @Body() dto: InboxActionDto) {
+    return this.notificationsService.inboxAction(id, user.id, dto.action, dto.until);
+  }
+
   @Get('unread-count')
-  async getUnreadCount(@CurrentUser() user: SessionUser) {
-    const count = await this.notificationsService.getUnreadCount(user.id);
+  async getUnreadCount(@CurrentUser() user: SessionUser, @Query('product') product?: string) {
+    const count = await this.notificationsService.getUnreadCount(user.id, asProduct(product));
 
     return {
       count,
@@ -186,16 +213,16 @@ export class NotificationsController {
 * Mark all notifications as read.
   */
   @Patch('read-all')
-  async markAllAsRead(@CurrentUser() user: SessionUser) {
-    return this.notificationsService.markAllAsRead(user.id);
+  async markAllAsRead(@CurrentUser() user: SessionUser, @Query('product') product?: string) {
+    return this.notificationsService.markAllAsRead(user.id, asProduct(product));
   }
 
   /**
    * Delete all notifications for the current user.
    */
   @Delete()
-  async removeAll(@CurrentUser() user: SessionUser) {
-    return this.notificationsService.removeAll(user.id);
+  async removeAll(@CurrentUser() user: SessionUser, @Query('product') product?: string) {
+    return this.notificationsService.removeAll(user.id, asProduct(product));
   }
 
   /**

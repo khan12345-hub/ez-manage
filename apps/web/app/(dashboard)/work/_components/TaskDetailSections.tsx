@@ -37,6 +37,7 @@ import {
   type WorkUser,
 } from "@/services/work.api";
 import { Avatar, StatusGlyph } from "./primitives";
+import { FileChip } from "./TaskFiles";
 import { AssigneePicker } from "./pickers";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
@@ -485,6 +486,10 @@ const ACTION_TEXT: Record<string, string> = {
   moved: "moved the task",
   archived: "archived the task",
   link: "added a relationship",
+  attachment_added: "attached",
+  attachment_removed: "removed the file",
+  link_added: "added the link",
+  link_removed: "removed the link",
 };
 
 function fmtValue(action: string, v: unknown, members: WorkUser[] = []) {
@@ -508,28 +513,43 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function dayLabel(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  const y = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === y.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", ...(d.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {}) });
+}
+
 export function Timeline({
   task,
   comments,
   currentUserId,
   members = [],
   onDeleteComment,
+  mode = "all",
+  bare = false,
 }: {
   task: WorkTaskDetail;
   comments: WorkComment[];
   currentUserId?: number;
   members?: WorkUser[];
   onDeleteComment: (id: number) => void;
+  /** all = comments + history (toggle); activity = history only */
+  mode?: "all" | "activity";
+  /** inside the side panel: no heading, day dividers */
+  bare?: boolean;
 }) {
   const refresh = useRefreshTask(task);
   const qc = useQueryClient();
   const { data: activity = [] } = useQuery({ queryKey: ["work", "activity", task.id], queryFn: () => workApi.activity(task.id) });
   const [showHistory, setShowHistory] = useState(true);
   const items = useMemo(() => {
-    const a = showHistory ? activity.map((x) => ({ kind: "activity" as const, at: x.createdAt, x })) : [];
-    const c = comments.map((x) => ({ kind: "comment" as const, at: x.createdAt, x }));
+    const a = showHistory || mode === "activity" ? activity.map((x) => ({ kind: "activity" as const, at: x.createdAt, x })) : [];
+    const c = mode === "activity" ? [] : comments.map((x) => ({ kind: "comment" as const, at: x.createdAt, x }));
     return [...a, ...c].sort((p, q) => new Date(p.at).getTime() - new Date(q.at).getTime());
-  }, [activity, comments, showHistory]);
+  }, [activity, comments, showHistory, mode]);
 
   const setResolved = (c: WorkComment, resolved: boolean) =>
     (resolved ? workApi.resolveComment(c.id) : workApi.reopenComment(c.id))
@@ -537,16 +557,21 @@ export function Timeline({
       .catch((e) => toast.error(errMsg(e)));
 
   return (
-    <section className="px-6 py-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">Activity</h3>
-        <label className="flex cursor-pointer items-center gap-1.5 text-[11.5px] text-muted-foreground">
-          <input type="checkbox" checked={showHistory} onChange={(e) => setShowHistory(e.target.checked)} className="accent-[var(--primary)]" />
-          Show history
-        </label>
-      </div>
+    <section className={bare ? "px-4 py-3" : "px-6 py-4"}>
+      {mode !== "activity" && (
+        <div className="mb-3 flex items-center justify-between">
+          {!bare ? <h3 className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">Activity</h3> : <span />}
+          <label className="flex cursor-pointer items-center gap-1.5 text-[11.5px] text-muted-foreground">
+            <input type="checkbox" checked={showHistory} onChange={(e) => setShowHistory(e.target.checked)} className="accent-[var(--primary)]" />
+            Show history
+          </label>
+        </div>
+      )}
       <ul className="space-y-2.5">
-        {items.map((it) =>
+        {items.map((it, i) => {
+          const prev = items[i - 1];
+          const divider = bare && (!prev || new Date(prev.at).toDateString() !== new Date(it.at).toDateString());
+          const row =
           it.kind === "activity" ? (
             <ActivityRow key={`a${it.x.id}`} a={it.x} members={members} />
           ) : (
@@ -562,7 +587,12 @@ export function Timeline({
                     </button>
                   )}
                 </div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">{it.x.content}</p>
+                <p className="mt-0.5 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">{renderMentions(it.x.content, members)}</p>
+                {!!it.x.attachments?.length && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {it.x.attachments.map((a) => <FileChip key={a.id} a={a} />)}
+                  </div>
+                )}
                 {it.x.assignee && (
                   <div className="mt-2 flex items-center gap-2 border-t border-border/70 pt-2 text-[12px]">
                     {it.x.resolvedAt ? <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> : <CircleDashed className="h-3.5 w-3.5 text-[#b08d57]" />}
@@ -582,16 +612,56 @@ export function Timeline({
                 )}
               </div>
             </li>
-          ),
-        )}
-        {items.length === 0 && <li className="text-[13px] text-muted-foreground">No activity yet.</li>}
+          );
+          if (!divider) return row;
+          return [
+            <li key={`d${it.kind}${it.x.id}`} aria-hidden className="flex items-center gap-3 py-1">
+              <span className="h-px flex-1 bg-border" />
+              <span className="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">{dayLabel(it.at)}</span>
+              <span className="h-px flex-1 bg-border" />
+            </li>,
+            row,
+          ];
+        })}
+        {items.length === 0 && <li className="text-[13px] text-muted-foreground">{mode === "activity" ? "No history yet." : "No comments yet. Start the conversation below."}</li>}
       </ul>
     </section>
   );
 }
 
+const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Highlight "@First Last" mentions of known members. */
+function renderMentions(text: string, members: WorkUser[]) {
+  const names = members.map((m) => userName(m)).filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!names.length || !text.includes("@")) return text;
+  const re = new RegExp(`@(${names.map(escapeRe).join("|")})`, "g");
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    out.push(text.slice(last, m.index));
+    out.push(<span key={m.index} className="rounded bg-primary/10 px-1 font-medium text-primary">{m[0]}</span>);
+    last = (m.index ?? 0) + m[0].length;
+  }
+  out.push(text.slice(last));
+  return out;
+}
+
 function ActivityRow({ a, members }: { a: WorkActivity; members: WorkUser[] }) {
   const text = ACTION_TEXT[a.action] ?? a.action;
+  if (["attachment_added", "attachment_removed", "link_added", "link_removed"].includes(a.action)) {
+    const v = a.action.endsWith("added") ? a.toValue : a.fromValue;
+    return (
+      <li className="flex items-start gap-2.5 pl-1.5 text-[12.5px] text-muted-foreground">
+        <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 flex-1">
+          <strong className="font-semibold text-foreground/80">{userName(a.user)}</strong> {text}{" "}
+          <span className="font-medium text-foreground">{Array.isArray(v) ? v.join(", ") : String(v ?? "")}</span>
+        </span>
+        <span className="shrink-0 text-[11px]">{timeAgo(a.createdAt)}</span>
+      </li>
+    );
+  }
   const showValues = !["created", "archived", "link", "name"].includes(a.action);
   return (
     <li className="flex items-start gap-2.5 pl-1.5 text-[12.5px] text-muted-foreground">

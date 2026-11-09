@@ -3,10 +3,16 @@ import { WorkController } from './work.controller';
 import { WorkService } from './work.service';
 import { WorkAccessService } from './work-access.service';
 import { WorkDetailService } from './work-detail.service';
+import { WorkFilesService } from './work-files.service';
+import { WorkPeopleService } from './work-people.service';
+import { MailModule } from 'src/mail/mail.module';
+import { StorageModule } from 'src/storage/storage.module';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 /** Work — the ClickUp-style product (Space → Folder → List → Task). */
 @Module({
+  imports: [StorageModule, NotificationsModule, MailModule],
   controllers: [WorkController],
-  providers: [WorkService, WorkAccessService, WorkDetailService],
+  providers: [WorkService, WorkAccessService, WorkDetailService, WorkFilesService, WorkPeopleService],
 })
 export class WorkModule {}

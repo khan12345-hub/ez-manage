@@ -1,17 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, CalendarDays, Check, CircleDot, Flag, Hourglass, Link2, Maximize2, PanelRight, Plus, SquareStack, Tag as TagIcon, Timer, UserCheck, Users } from "lucide-react";
+import {
+  Activity,
+  Archive,
+  CalendarDays,
+  Check,
+  ChevronsLeft,
+  ChevronsRight,
+  CircleDot,
+  Flag,
+  GitBranch,
+  Hourglass,
+  Link2,
+  Loader2,
+  Maximize2,
+  MessageSquare,
+  PanelRight,
+  Paperclip,
+  Plus,
+  SquareStack,
+  Tag as TagIcon,
+  Timer,
+  Users,
+} from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
-import { userName, workApi, workKeys, type TaskInput, type WorkTask, type WorkUser } from "@/services/work.api";
+import { userName, workApi, workKeys, type TaskInput, type WorkTask, type WorkTaskDetail } from "@/services/work.api";
 import { ChecklistsSection, EstimateField, RelationshipsSection, TagsField, TimeTracker, Timeline } from "./TaskDetailSections";
-import { Avatar, AvatarStack, DueLabel, PriorityFlag, StatusGlyph, StatusPill, dueText } from "./primitives";
+import { AvatarStack, DueLabel, PriorityFlag, StatusGlyph, StatusPill, dueText } from "./primitives";
 import { AssigneePicker, DatePicker, PriorityPicker, StatusPicker } from "./pickers";
+import { AddLinkPanel, AttachmentsSection, FileChip, WebLinksList, attachmentsKey, useUpload } from "./TaskFiles";
+import { Composer } from "./Composer";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
 
@@ -25,6 +49,7 @@ function timeAgo(iso: string) {
 
 export type TaskLayout = "modal" | "full" | "sidebar";
 const LAYOUT_KEY = "ez:work:taskLayout";
+const PANEL_KEY = "ez:work:panelWidth";
 const LAYOUTS: { id: TaskLayout; label: string; icon: typeof Maximize2 }[] = [
   { id: "modal", label: "Modal", icon: SquareStack },
   { id: "full", label: "Full screen", icon: Maximize2 },
@@ -33,23 +58,34 @@ const LAYOUTS: { id: TaskLayout; label: string; icon: typeof Maximize2 }[] = [
 const LAYOUT_CLASS: Record<TaskLayout, string> = {
   sidebar: "data-[side=right]:w-full data-[side=right]:sm:w-[680px] data-[side=right]:sm:max-w-[680px]",
   modal:
-    "data-[side=right]:inset-y-auto data-[side=right]:top-[4vh] data-[side=right]:left-0 data-[side=right]:mx-auto data-[side=right]:h-[92vh] data-[side=right]:w-[min(1180px,96vw)] data-[side=right]:sm:max-w-none data-[side=right]:overflow-hidden data-[side=right]:rounded-2xl data-[side=right]:border",
+    "data-[side=right]:inset-y-auto data-[side=right]:top-[4vh] data-[side=right]:left-0 data-[side=right]:mx-auto data-[side=right]:h-[92vh] data-[side=right]:w-[min(1240px,96vw)] data-[side=right]:sm:max-w-none data-[side=right]:overflow-hidden data-[side=right]:rounded-2xl data-[side=right]:border",
   full: "data-[side=right]:left-0 data-[side=right]:w-full data-[side=right]:sm:max-w-none data-[side=right]:border-l-0",
 };
 
-function useTaskLayout() {
-  const [layout, setLayout] = useState<TaskLayout>("modal");
+type PanelTab = "comments" | "activity" | "related" | "links";
+const PANEL_TABS: { id: PanelTab; label: string; icon: typeof Activity }[] = [
+  { id: "comments", label: "Comments", icon: MessageSquare },
+  { id: "activity", label: "Activity", icon: Activity },
+  { id: "related", label: "Related items", icon: GitBranch },
+  { id: "links", label: "Add a link", icon: Link2 },
+];
+
+function useStored<T extends string | number>(key: string, initial: T, valid: (v: any) => boolean) {
+  const [v, setV] = useState<T>(initial);
   useEffect(() => {
     try {
-      const v = localStorage.getItem(LAYOUT_KEY) as TaskLayout | null;
-      if (v && v in LAYOUT_CLASS) setLayout(v);
+      const raw = localStorage.getItem(key);
+      if (raw === null) return;
+      const parsed = typeof initial === "number" ? Number(raw) : raw;
+      if (valid(parsed)) setV(parsed as T);
     } catch {}
-  }, []);
-  const choose = (l: TaskLayout) => {
-    setLayout(l);
-    try { localStorage.setItem(LAYOUT_KEY, l); } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const set = (n: T) => {
+    setV(n);
+    try { localStorage.setItem(key, String(n)); } catch {}
   };
-  return [layout, choose] as const;
+  return [v, set] as const;
 }
 
 /** Task detail view (opened with ?task=<uid>): Modal, Full screen or Sidebar layout. */
@@ -75,17 +111,17 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
   });
 
   const canEdit = !!task?.access.canEdit;
-  const [layout, setLayout] = useTaskLayout();
+  const [layout, setLayout] = useStored<TaskLayout>(LAYOUT_KEY, "modal", (v) => v in LAYOUT_CLASS);
+  const [panelW, setPanelW] = useStored<number>(PANEL_KEY, 420, (v) => Number.isFinite(v) && v >= 300 && v <= 900);
+  const [tab, setTab] = useState<PanelTab>("comments");
+  const [panelOpen, setPanelOpen] = useState(true);
   const wide = layout !== "sidebar";
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [comment, setComment] = useState("");
   const [subName, setSubName] = useState("");
-  const [commentAssignee, setCommentAssignee] = useState<WorkUser | null>(null);
+  const members = list?.members ?? [];
   useEffect(() => {
     setName(task?.name ?? "");
-    setDescription(task?.description ?? "");
-  }, [task?.id, task?.name, task?.description]);
+  }, [task?.id, task?.name]);
 
   const refresh = (listId?: number) => {
     qc.invalidateQueries({ queryKey: workKeys.task(taskUid ?? "") });
@@ -107,16 +143,6 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
     },
     onError: (e) => toast.error(errMsg(e)),
   });
-  const addComment = useMutation({
-    mutationFn: (c: string) => workApi.addComment(task!.id, c, { assigneeId: commentAssignee?.id }),
-    onSuccess: () => {
-      setComment("");
-      setCommentAssignee(null);
-      qc.invalidateQueries({ queryKey: workKeys.comments(task!.id) });
-      refresh(task!.listId);
-    },
-    onError: (e) => toast.error(errMsg(e)),
-  });
   const delComment = useMutation({
     mutationFn: (id: number) => workApi.deleteComment(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: workKeys.comments(task!.id) }),
@@ -134,55 +160,43 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
 
   const status = task?.statuses.find((s) => s.id === task.statusId);
   const update = (body: TaskInput) => task && save.mutate({ id: task.id, body });
-
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(() => toast.success("Task link copied"));
   };
 
-  const composerEl = !task ? null : (
-    <>
-      {canEdit && (
-                <div className="flex items-end gap-2">
-                  <textarea
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && comment.trim()) addComment.mutate(comment.trim());
-                    }}
-                    placeholder="Write a comment…  (Ctrl+Enter to send)"
-                    aria-label="Comment"
-                    rows={2}
-                    className="min-h-[44px] flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-[13.5px] outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
-                  />
-                  <AssigneePicker
-                    members={list?.members ?? []}
-                    value={commentAssignee ? [commentAssignee] : []}
-                    onChange={(ids) => {
-                      const id = ids.filter((x) => x !== commentAssignee?.id)[0];
-                      setCommentAssignee(id ? (list?.members ?? []).find((m) => m.id === id) ?? null : null);
-                    }}
-                  >
-                    <button
-                      type="button"
-                      title="Assign this comment"
-                      aria-label="Assign this comment"
-                      className={cn("flex h-10 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium", commentAssignee ? "border-[#b08d57]/60 bg-[#b08d57]/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}
-                    >
-                      {commentAssignee ? <><Avatar user={commentAssignee} size={18} /> <span className="max-w-[70px] truncate">{commentAssignee.firstName}</span></> : <UserCheck className="h-4 w-4" />}
-                    </button>
-                  </AssigneePicker>
-                  <button
-                    type="button"
-                    disabled={!comment.trim() || addComment.isPending}
-                    onClick={() => addComment.mutate(comment.trim())}
-                    className="h-10 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-50 dark:bg-primary dark:text-primary-foreground"
-                  >
-                    Comment
-                  </button>
-                </div>
-              )}
-    </>
-  );
+  // drag the panel edge to resize (wide layouts)
+  const body = useRef<HTMLDivElement>(null);
+  const startDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = panelW;
+    const max = Math.max(320, (body.current?.clientWidth ?? 1200) - 380);
+    let w = startW;
+    const move = (ev: PointerEvent) => {
+      w = Math.min(max, Math.max(300, startW + (startX - ev.clientX)));
+      body.current?.style.setProperty("--panel-w", `${w}px`);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.cursor = "";
+      setPanelW(Math.round(w));
+    };
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  const resizeKey = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowLeft") setPanelW(Math.min(900, panelW + 24));
+    if (e.key === "ArrowRight") setPanelW(Math.max(300, panelW - 24));
+  };
+  const openTab = (t: PanelTab) => {
+    if (panelOpen && tab === t) setPanelOpen(false);
+    else {
+      setTab(t);
+      setPanelOpen(true);
+    }
+  };
 
   return (
     <Sheet open={!!taskUid} onOpenChange={(o) => !o && onClose()}>
@@ -199,7 +213,7 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
 
         {task && (
           <>
-            <SheetHeader className="relative gap-0 border-b border-border bg-card px-6 pb-4 pr-14 pt-5 text-left">
+            <SheetHeader className="relative gap-0 border-b border-border bg-card px-6 pb-4 pr-24 pt-5 text-left">
               <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[2px]" style={{ background: "linear-gradient(90deg, var(--primary) 0%, var(--brass) 60%, transparent 100%)" }} />
               <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
                 {task.list.space.name} <span aria-hidden>/</span> {task.list.name}
@@ -246,145 +260,171 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
               />
             </SheetHeader>
 
-            <div className={cn("flex min-h-0 flex-1", wide ? "flex-col lg:flex-row" : "flex-col")}>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {/* properties */}
-              <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-1 border-b border-border px-6 py-4 sm:grid-cols-2", layout === "full" && "xl:grid-cols-3")}>
-                <Prop icon={CircleDot} label="Status">
-                  <StatusPicker statuses={task.statuses} value={task.statusId} disabled={!canEdit} onChange={(id) => update({ statusId: id })}>
-                    <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent"><StatusPill status={status} /></button>
-                  </StatusPicker>
-                </Prop>
-                <Prop icon={Users} label="Assignees">
-                  <AssigneePicker members={list?.members ?? []} value={task.assignees} disabled={!canEdit || !list} onChange={(ids) => update({ assigneeIds: ids })}>
-                    <button type="button" className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-accent">
-                      {task.assignees.length ? (
-                        <>
-                          <AvatarStack users={task.assignees} size={24} max={4} />
-                          {task.assignees.length === 1 && <span className="text-[13px]">{userName(task.assignees[0]!)}</span>}
-                        </>
-                      ) : (
-                        <span className="text-[13px] text-muted-foreground">Empty</span>
-                      )}
-                    </button>
-                  </AssigneePicker>
-                </Prop>
-                <Prop icon={CalendarDays} label="Dates">
-                  <span className="flex items-center gap-1 text-[13px]">
-                    <DatePicker label="Start date" value={task.startDate} disabled={!canEdit} onChange={(iso) => update({ startDate: iso })}>
-                      <button type="button" className="rounded-md px-1 py-0.5 text-muted-foreground hover:bg-accent">{task.startDate ? dueText(task.startDate) : "Start"}</button>
-                    </DatePicker>
-                    <span aria-hidden className="text-muted-foreground">→</span>
-                    <DatePicker label="Due date" value={task.dueDate} disabled={!canEdit} onChange={(iso) => update({ dueDate: iso })}>
-                      <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent">{task.dueDate ? <DueLabel task={task} /> : <span className="text-muted-foreground">Due</span>}</button>
-                    </DatePicker>
-                  </span>
-                </Prop>
-                <Prop icon={Flag} label="Priority">
-                  <PriorityPicker value={task.priority} disabled={!canEdit} onChange={(p) => update({ priority: p })}>
-                    <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent"><PriorityFlag priority={task.priority} showLabel /></button>
-                  </PriorityPicker>
-                </Prop>
-                <Prop icon={Hourglass} label="Estimate">
-                  <EstimateField task={task} onSave={(m) => update({ timeEstimate: m })} />
-                </Prop>
-                <Prop icon={Timer} label="Track time">
-                  <TimeTracker task={task} />
-                </Prop>
-                <Prop icon={TagIcon} label="Tags">
-                  <TagsField task={task} spaceId={task.list.spaceId} onSave={(ids) => update({ tagIds: ids })} />
-                </Prop>
-              </dl>
+            <div ref={body} className={cn("flex min-h-0 flex-1", wide ? "flex-col lg:flex-row" : "flex-col")} style={{ ["--panel-w" as any]: `${panelW}px` }}>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {/* properties */}
+                <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-1 border-b border-border px-6 py-4 sm:grid-cols-2", layout === "full" && !panelOpen && "xl:grid-cols-3")}>
+                  <Prop icon={CircleDot} label="Status">
+                    <StatusPicker statuses={task.statuses} value={task.statusId} disabled={!canEdit} onChange={(id) => update({ statusId: id })}>
+                      <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent"><StatusPill status={status} /></button>
+                    </StatusPicker>
+                  </Prop>
+                  <Prop icon={Users} label="Assignees">
+                    <AssigneePicker members={members} value={task.assignees} disabled={!canEdit || !list} onChange={(ids) => update({ assigneeIds: ids })}>
+                      <button type="button" className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-accent">
+                        {task.assignees.length ? (
+                          <>
+                            <AvatarStack users={task.assignees} size={24} max={4} />
+                            {task.assignees.length === 1 && <span className="text-[13px]">{userName(task.assignees[0]!)}</span>}
+                          </>
+                        ) : (
+                          <span className="text-[13px] text-muted-foreground">Empty</span>
+                        )}
+                      </button>
+                    </AssigneePicker>
+                  </Prop>
+                  <Prop icon={CalendarDays} label="Dates">
+                    <span className="flex items-center gap-1 text-[13px]">
+                      <DatePicker label="Start date" value={task.startDate} disabled={!canEdit} onChange={(iso) => update({ startDate: iso })}>
+                        <button type="button" className="rounded-md px-1 py-0.5 text-muted-foreground hover:bg-accent">{task.startDate ? dueText(task.startDate) : "Start"}</button>
+                      </DatePicker>
+                      <span aria-hidden className="text-muted-foreground">→</span>
+                      <DatePicker label="Due date" value={task.dueDate} disabled={!canEdit} onChange={(iso) => update({ dueDate: iso })}>
+                        <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent">{task.dueDate ? <DueLabel task={task} /> : <span className="text-muted-foreground">Due</span>}</button>
+                      </DatePicker>
+                    </span>
+                  </Prop>
+                  <Prop icon={Flag} label="Priority">
+                    <PriorityPicker value={task.priority} disabled={!canEdit} onChange={(p) => update({ priority: p })}>
+                      <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent"><PriorityFlag priority={task.priority} showLabel /></button>
+                    </PriorityPicker>
+                  </Prop>
+                  <Prop icon={Hourglass} label="Estimate">
+                    <EstimateField task={task} onSave={(m) => update({ timeEstimate: m })} />
+                  </Prop>
+                  <Prop icon={Timer} label="Track time">
+                    <TimeTracker task={task} />
+                  </Prop>
+                  <Prop icon={TagIcon} label="Tags">
+                    <TagsField task={task} spaceId={task.list.spaceId} onSave={(ids) => update({ tagIds: ids })} />
+                  </Prop>
+                </dl>
 
-              {/* description */}
-              <section className="border-b border-border px-6 py-4">
-                <h3 className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">Description</h3>
-                <textarea
-                  value={description}
-                  readOnly={!canEdit}
-                  onChange={(e) => setDescription(e.target.value)}
-                  onBlur={() => description !== (task.description ?? "") && update({ description: description || null })}
-                  placeholder={canEdit ? "Add a description…" : "No description"}
-                  aria-label="Description"
-                  className="min-h-[90px] w-full resize-y rounded-lg border border-transparent bg-transparent px-2 py-1.5 text-[14px] leading-relaxed outline-none transition-colors hover:border-border focus:border-primary/40 focus:bg-background [field-sizing:content]"
-                />
-              </section>
+                <DescriptionSection task={task} onSave={(d) => update({ description: d })} />
 
-              {/* subtasks */}
-              {!task.parentId && (
-                <section className="border-b border-border px-6 py-4">
-                  <h3 className="mb-2 flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-                    Subtasks <span className="normal-case tracking-normal">{task.subtasks.length}</span>
-                  </h3>
-                  <ul className="overflow-hidden rounded-lg border border-border">
-                    {task.subtasks.map((s) => {
-                      const st = task.statuses.find((x) => x.id === s.statusId);
-                      return (
-                        <li key={s.id} className="flex items-center gap-2.5 border-b border-border/70 px-3 py-2 last:border-b-0 hover:bg-accent/30">
-                          <StatusPicker statuses={task.statuses} value={s.statusId} disabled={!canEdit} onChange={(id) => save.mutate({ id: s.id, body: { statusId: id } })}>
-                            <button type="button" aria-label="Subtask status"><StatusGlyph status={st} size={14} /></button>
-                          </StatusPicker>
-                          <button type="button" onClick={() => onOpenTask(s.uid)} className={cn("min-w-0 flex-1 truncate text-left text-[13.5px] hover:text-primary", s.completedAt && "text-muted-foreground line-through")}>{s.name}</button>
-                          <AvatarStack users={s.assignees} size={20} />
-                          {s.dueDate && <DueLabel task={s} className="text-[12px]" />}
+                {/* subtasks */}
+                {!task.parentId && (
+                  <section className="border-b border-border px-6 py-4">
+                    <h3 className="mb-2 flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+                      Subtasks <span className="normal-case tracking-normal">{task.subtasks.length}</span>
+                    </h3>
+                    <ul className="overflow-hidden rounded-lg border border-border">
+                      {task.subtasks.map((s) => {
+                        const st = task.statuses.find((x) => x.id === s.statusId);
+                        return (
+                          <li key={s.id} className="flex items-center gap-2.5 border-b border-border/70 px-3 py-2 last:border-b-0 hover:bg-accent/30">
+                            <StatusPicker statuses={task.statuses} value={s.statusId} disabled={!canEdit} onChange={(id) => save.mutate({ id: s.id, body: { statusId: id } })}>
+                              <button type="button" aria-label="Subtask status"><StatusGlyph status={st} size={14} /></button>
+                            </StatusPicker>
+                            <button type="button" onClick={() => onOpenTask(s.uid)} className={cn("min-w-0 flex-1 truncate text-left text-[13.5px] hover:text-primary", s.completedAt && "text-muted-foreground line-through")}>{s.name}</button>
+                            <AvatarStack users={s.assignees} size={20} />
+                            {s.dueDate && <DueLabel task={s} className="text-[12px]" />}
+                          </li>
+                        );
+                      })}
+                      {canEdit && (
+                        <li className="flex items-center gap-2 px-3 py-1.5">
+                          <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                          <input
+                            value={subName}
+                            onChange={(e) => setSubName(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && subName.trim() && addSub.mutate(subName.trim())}
+                            placeholder="Add subtask, then Enter"
+                            aria-label="New subtask"
+                            className="h-7 flex-1 bg-transparent text-[13.5px] outline-none placeholder:text-muted-foreground"
+                          />
                         </li>
-                      );
-                    })}
-                    {canEdit && (
-                      <li className="flex items-center gap-2 px-3 py-1.5">
-                        <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                        <input
-                          value={subName}
-                          onChange={(e) => setSubName(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && subName.trim() && addSub.mutate(subName.trim())}
-                          placeholder="Add subtask, then Enter"
-                          aria-label="New subtask"
-                          className="h-7 flex-1 bg-transparent text-[13.5px] outline-none placeholder:text-muted-foreground"
-                        />
-                      </li>
-                    )}
-                    {!canEdit && task.subtasks.length === 0 && <li className="px-3 py-2 text-xs text-muted-foreground">No subtasks</li>}
-                  </ul>
-                </section>
-              )}
+                      )}
+                      {!canEdit && task.subtasks.length === 0 && <li className="px-3 py-2 text-xs text-muted-foreground">No subtasks</li>}
+                    </ul>
+                  </section>
+                )}
 
-              <ChecklistsSection task={task} members={list?.members ?? []} />
-              <RelationshipsSection task={task} />
+                <ChecklistsSection task={task} members={members} />
+                <RelationshipsSection task={task} />
+                <AttachmentsSection task={task} />
 
-              {!wide && (
+                {!wide && (
+                  <Timeline task={task} comments={comments} currentUserId={user?.id} members={members} onDeleteComment={(id) => delComment.mutate(id)} />
+                )}
+              </div>
+
+              {wide && (
                 <>
-              {/* comments + history */}
-              <Timeline
-                task={task}
-                comments={comments}
-                currentUserId={user?.id}
-                members={list?.members ?? []}
-                onDeleteComment={(id) => delComment.mutate(id)}
-              />
+                  {/* icon rail */}
+                  <nav aria-label="Task panels" className="hidden shrink-0 flex-col items-center gap-1 border-l border-border bg-card px-1.5 py-2 lg:flex">
+                    <button type="button" aria-label={panelOpen ? "Collapse panel" : "Expand panel"} title={panelOpen ? "Collapse" : "Expand"} onClick={() => setPanelOpen(!panelOpen)} className="mb-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+                      {panelOpen ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+                    </button>
+                    {PANEL_TABS.map((t, i) => (
+                      <div key={t.id} className="flex flex-col items-center">
+                        {i === 2 && <span aria-hidden className="my-1 h-px w-5 bg-border" />}
+                        <button
+                          type="button"
+                          aria-label={t.label}
+                          aria-pressed={panelOpen && tab === t.id}
+                          title={t.label}
+                          onClick={() => openTab(t.id)}
+                          className={cn("relative flex h-8 w-8 items-center justify-center rounded-md transition-colors", panelOpen && tab === t.id ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
+                        >
+                          <t.icon className="h-4 w-4" />
+                          {t.id === "comments" && comments.length > 0 && (
+                            <span className="absolute -right-0.5 -top-0.5 min-w-[14px] rounded-full bg-primary px-1 text-center font-mono text-[9px] leading-[14px] text-primary-foreground">{comments.length}</span>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </nav>
+
+                  {panelOpen && (
+                    <aside aria-label={PANEL_TABS.find((t) => t.id === tab)!.label} className="relative flex min-h-0 w-full flex-col border-t border-border bg-muted/25 lg:w-[var(--panel-w)] lg:shrink-0 lg:border-l lg:border-t-0">
+                      {/* drag handle */}
+                      <div
+                        role="separator"
+                        aria-orientation="vertical"
+                        aria-label="Resize panel"
+                        tabIndex={0}
+                        onPointerDown={startDrag}
+                        onKeyDown={resizeKey}
+                        onDoubleClick={() => setPanelW(420)}
+                        className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize lg:block [&:hover>span]:bg-primary/50 focus-visible:outline-none [&:focus-visible>span]:bg-primary"
+                      >
+                        <span className="mx-auto block h-full w-0.5 bg-transparent transition-colors" />
+                      </div>
+                      <div className="flex items-center gap-2 border-b border-border bg-card px-4 py-3">
+                        <h3 className="text-[14px] font-semibold">{PANEL_TABS.find((t) => t.id === tab)!.label}</h3>
+                        <span className="text-[12px] text-muted-foreground">Created {new Date(task.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto">
+                        {tab === "comments" && <Timeline bare task={task} comments={comments} currentUserId={user?.id} members={members} onDeleteComment={(id) => delComment.mutate(id)} />}
+                        {tab === "activity" && <Timeline bare mode="activity" task={task} comments={comments} currentUserId={user?.id} members={members} onDeleteComment={() => {}} />}
+                        {tab === "related" && <RelatedPanel task={task} onAdd={() => setTab("links")} />}
+                        {tab === "links" && <AddLinkPanel task={task} onRelate={() => setTab("related")} />}
+                      </div>
+                      {tab === "comments" && canEdit && (
+                        <div className="border-t border-border bg-card p-3">
+                          <Composer task={task} members={members} />
+                        </div>
+                      )}
+                    </aside>
+                  )}
                 </>
               )}
             </div>
 
-            {wide && (
-              <aside aria-label="Activity" className="flex min-h-0 w-full flex-col border-t border-border bg-muted/25 lg:w-[420px] lg:border-l lg:border-t-0">
-                <div className="min-h-0 flex-1 overflow-y-auto">
-              {/* comments + history */}
-              <Timeline
-                task={task}
-                comments={comments}
-                currentUserId={user?.id}
-                members={list?.members ?? []}
-                onDeleteComment={(id) => delComment.mutate(id)}
-              />
-                </div>
-                {canEdit && <div className="border-t border-border bg-card px-4 py-3">{composerEl}</div>}
-              </aside>
-            )}
-            </div>
-
-            {/* composer + actions */}
+            {/* footer */}
             <footer className={cn("border-t border-border bg-card px-6", wide ? "py-1.5" : "py-3")}>
-              {!wide && composerEl}
+              {!wide && canEdit && <Composer task={task} members={members} />}
               <div className={cn("flex items-center gap-1 text-xs text-muted-foreground", !wide && canEdit && "mt-2")}>
                 <span>Created by {userName(task.createdBy)} · {timeAgo(task.createdAt)}</span>
                 <span className="flex-1" />
@@ -404,6 +444,132 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** Description: a short preview that expands into the editor on click; files can be attached. */
+function DescriptionSection({ task, onSave }: { task: WorkTaskDetail; onSave: (d: string | null) => void }) {
+  const canEdit = task.access.canEdit;
+  const [value, setValue] = useState(task.description ?? "");
+  const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const area = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const upload = useUpload(task, "description");
+  const { data: files = [] } = useQuery({ queryKey: attachmentsKey(task.id), queryFn: () => workApi.attachments(task.id) });
+  const descFiles = files.filter((f) => f.source === "description");
+  useEffect(() => setValue(task.description ?? ""), [task.id, task.description]);
+  const long = value.length > 280 || value.split("\n").length > 5;
+
+  const start = () => {
+    if (!canEdit) return setExpanded(true);
+    setEditing(true);
+    requestAnimationFrame(() => area.current?.focus());
+  };
+
+  return (
+    <section className="border-b border-border px-6 py-4" aria-label="Description">
+      <div className="mb-2 flex items-center gap-2">
+        <h3 className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">Description</h3>
+        <span className="flex-1" />
+        {canEdit && (
+          <>
+            <input ref={fileInput} type="file" multiple hidden aria-label="Attach files to description" onChange={(e) => { if (e.target.files?.length) upload.mutate(Array.from(e.target.files)); e.target.value = ""; }} />
+            <button type="button" onClick={() => fileInput.current?.click()} className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground">
+              {upload.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />} Attach
+            </button>
+          </>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="rounded-lg border border-primary/40 bg-background ring-2 ring-primary/10">
+          <textarea
+            ref={area}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={() => {
+              setEditing(false);
+              if (value !== (task.description ?? "")) onSave(value || null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.stopPropagation();
+                (e.target as HTMLTextAreaElement).blur();
+              }
+            }}
+            placeholder="Write a description… (Esc or click outside to save)"
+            aria-label="Description"
+            className="block min-h-[220px] w-full resize-y bg-transparent px-3 py-2.5 text-[14px] leading-relaxed outline-none [field-sizing:content]"
+          />
+        </div>
+      ) : value ? (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={start}
+            aria-label="Edit description"
+            className={cn("block w-full whitespace-pre-wrap break-words rounded-lg px-2 py-1.5 text-left text-[14px] leading-relaxed transition-colors hover:bg-accent/40", !expanded && long && "max-h-[140px] overflow-hidden")}
+          >
+            {value}
+          </button>
+          {long && !expanded && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-14 items-end justify-center bg-gradient-to-t from-card to-transparent">
+              <button type="button" onClick={() => setExpanded(true)} className="pointer-events-auto mb-1 rounded-full border border-border bg-card px-3 py-0.5 text-[12px] font-medium shadow-sm hover:bg-accent">Show more</button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <button type="button" onClick={start} disabled={!canEdit} className="flex w-full items-center rounded-lg border border-dashed border-transparent px-2 py-2 text-left text-[14px] text-muted-foreground hover:border-border hover:bg-accent/30">
+          {canEdit ? "Add a description…" : "No description"}
+        </button>
+      )}
+
+      {descFiles.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {descFiles.map((a) => <FileChip key={a.id} a={a} />)}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Related items: Relationships (task links) | References (web links). */
+function RelatedPanel({ task, onAdd }: { task: WorkTaskDetail; onAdd: () => void }) {
+  const [sub, setSub] = useState<"relationships" | "references">("relationships");
+  const n = task.links.waitingOn.length + task.links.blocking.length + task.links.linked.length;
+  return (
+    <div className="px-4 py-3">
+      <div className="mb-3 grid grid-cols-2 rounded-lg bg-muted p-0.5">
+        {(["relationships", "references"] as const).map((s) => (
+          <button key={s} type="button" aria-pressed={sub === s} onClick={() => setSub(s)} className={cn("rounded-md py-1.5 text-[12.5px] font-medium capitalize", sub === s ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+            {s === "references" ? "Links" : "Relationships"}
+          </button>
+        ))}
+      </div>
+      {sub === "relationships" ? (
+        n === 0 && !task.access.canEdit ? (
+          <EmptyRelated onAdd={onAdd} canEdit={false} />
+        ) : (
+          <div className="-mx-4 -mt-3 [&>section]:border-b-0 [&>section]:px-4">
+            <RelationshipsSection task={task} />
+          </div>
+        )
+      ) : (
+        <WebLinksList task={task} />
+      )}
+    </div>
+  );
+}
+
+function EmptyRelated({ onAdd, canEdit }: { onAdd: () => void; canEdit: boolean }) {
+  return (
+    <div className="flex flex-col items-center py-16 text-center">
+      <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground"><GitBranch className="h-5 w-5" /></span>
+      <p className="text-[14px] font-semibold">No related items</p>
+      <p className="mt-1 max-w-[240px] text-[12.5px] text-muted-foreground">Link related tasks or web pages to organise and quickly reach them here.</p>
+      {canEdit && <button type="button" onClick={onAdd} className="mt-3 flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-[12.5px] hover:bg-accent"><Plus className="h-3.5 w-3.5" /> Add a link</button>}
+    </div>
   );
 }
 

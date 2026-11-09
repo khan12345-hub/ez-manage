@@ -16,19 +16,19 @@ import {
   ChevronRight,
   Folder,
   FolderPlus,
-  HelpCircle,
   Home,
+  Inbox,
   ListPlus,
   Lock,
   MoreHorizontal,
   Pencil,
   Plus,
+  Users,
   X,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
-import { getAllWorkspaces } from "@/services/workspace.api";
 import { workApi, workKeys, type WorkFolderNode, type WorkListNode, type WorkSpaceNode } from "@/services/work.api";
 import {
   DropdownMenu,
@@ -72,7 +72,7 @@ export function WorkSidebar({
   const wsParam = String(params.workspaceId ?? "");
   const activeListUid = String(params.listUid ?? "");
 
-  const { data: workspaces = [] } = useQuery({ queryKey: ["workspaces"], queryFn: getAllWorkspaces, staleTime: 60_000 });
+  const { data: workspaces = [] } = useQuery({ queryKey: ["work", "my-workspaces"], queryFn: workApi.myWorkspaces, staleTime: 30_000 });
   const currentWs: any = (workspaces as any[]).find((w) => w.uid === wsParam || String(w.id) === wsParam);
   const { data: tree, isLoading } = useQuery({
     queryKey: workKeys.tree(wsParam),
@@ -82,6 +82,7 @@ export function WorkSidebar({
   });
   const canManage = !!tree?.access.canManage;
   const canEdit = !!tree?.access.canEdit;
+  const { data: inbox } = useQuery({ queryKey: ["inbox", "primary", true, false], queryFn: () => workApi.inbox("primary", { unread: true }), refetchInterval: 60_000, staleTime: 20_000 });
   const openCreate = useWorkCreate((st) => st.openCreate);
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -179,8 +180,8 @@ export function WorkSidebar({
       <div
         className={cn(
           "flex h-full flex-col overflow-hidden bg-background ez-sidebar-surface",
-          "w-[270px] md:w-auto md:transition-all md:duration-300 md:ease-in-out",
-          isOpen ? "md:max-w-[270px]" : "md:max-w-0",
+          "w-[270px] md:transition-[width] md:duration-300 md:ease-in-out",
+          isOpen ? "md:w-[270px]" : "md:w-0",
         )}
       >
         {/* Brand */}
@@ -201,7 +202,6 @@ export function WorkSidebar({
 
         <ProductSwitcher
           active="work"
-          boardsHref={wsParam ? `/workspace/${wsParam}` : "/home"}
           workHref={wsParam ? `/work/${wsParam}` : undefined}
           showCeo={user?.systemRole === "SUPER_ADMIN"}
           onNavigate={onMobileClose}
@@ -242,6 +242,23 @@ export function WorkSidebar({
             className={cn(ROW, "mt-1 py-2", pathname === `/work/${wsParam}` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
           >
             <Home className="h-4 w-4 shrink-0" /> My Work
+          </Link>
+          <Link
+            href={wsParam ? `/work/${wsParam}/inbox` : "#"}
+            onClick={onMobileClose}
+            className={cn(ROW, "py-2", pathname === `/work/${wsParam}/inbox` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+          >
+            <Inbox className="h-4 w-4 shrink-0" /> <span className="flex-1">Inbox</span>
+            {!!inbox?.counts.primaryUnread && (
+              <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{inbox.counts.primaryUnread}</span>
+            )}
+          </Link>
+          <Link
+            href={wsParam ? `/work/${wsParam}/people` : "#"}
+            onClick={onMobileClose}
+            className={cn(ROW, "py-2", pathname === `/work/${wsParam}/people` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+          >
+            <Users className="h-4 w-4 shrink-0" /> People
           </Link>
 
           <div className="mt-4 flex items-center justify-between px-2 pb-1">
@@ -344,9 +361,6 @@ export function WorkSidebar({
           </div>
         </nav>
 
-        <Link href="/help" className="mx-3 mb-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-          <HelpCircle strokeWidth={1.5} className="h-4 w-4" /> Help & Guide
-        </Link>
         <div className="flex items-center gap-2.5 border-t border-border px-4 py-3.5">
           <BrandMark size={26} />
           <div className="min-w-0 leading-tight">

@@ -2,17 +2,24 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PrismaService } from 'prisma/prisma.service';
 
 /**
- * Who can do what in Work (ClickUp-style product).
+ * Who can do what in Work (ClickUp-style product). Work access is its OWN
+ * membership (WorkMember) — Boards workspace roles grant nothing here.
  *
- *  - workspace OWNER / ADMIN, super admin  → manage: spaces, folders, lists, statuses
- *  - workspace MEMBER                      → edit:   tasks, assignees, comments
- *  - workspace VIEWER / GUEST              → view only
- *  - private space: visible only to its SpaceMember rows + OWNER/ADMIN/super admin
+ *  - super admin, Work OWNER / ADMIN  → manage: spaces, folders, lists, statuses, people
+ *  - Work MEMBER                      → edit, every public space (+ private ones they're in)
+ *  - Work LIMITED_MEMBER              → edit, only spaces shared with them (SpaceMember)
+ *  - Work GUEST                       → view only, only spaces shared with them
+ *  - no WorkMember row                → nothing (404)
+ *  The workspace's Boards OWNER is bootstrapped as Work OWNER so someone can invite people.
  */
 export type WorkLevel = 'view' | 'edit' | 'manage';
+export type WorkRoleName = 'OWNER' | 'ADMIN' | 'MEMBER' | 'LIMITED_MEMBER' | 'GUEST';
 
 export interface WorkAccess {
   workspaceId: number;
+  role: WorkRoleName | null;
+  /** all = every public space; shared = only spaces they were added to */
+  scope: 'all' | 'shared';
   canView: boolean;
   canEdit: boolean;
   canManage: boolean;
@@ -22,21 +29,51 @@ export interface WorkAccess {
 export class WorkAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Access to a workspace's Work area (ignores private spaces). */
-  async forWorkspace(workspaceId: number, userId: number): Promise<WorkAccess> {
+  /** The user's Work role in a workspace (bootstraps the workspace owner). */
+  async roleIn(workspaceId: number, userId: number): Promise<{ role: WorkRoleName | null; superAdmin: boolean }> {
     const [user, member] = await Promise.all([
       this.prisma.user.findFirst({ where: { id: userId, deletedAt: null }, select: { systemRole: true } }),
-      this.prisma.workspaceMember.findFirst({
-        where: { workspaceId, userId, deletedAt: null },
-        select: { role: true },
-      }),
+      this.prisma.workMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } }, select: { role: true } }),
     ]);
     const superAdmin = user?.systemRole === 'SUPER_ADMIN';
-    const role = member?.role;
+    if (member) return { role: member.role as WorkRoleName, superAdmin };
+    if (!user) return { role: null, superAdmin: false };
+    // the company owner always owns its Work area
+    const owner = await this.prisma.workspaceMember.findFirst({ where: { workspaceId, userId, role: 'OWNER', deletedAt: null }, select: { id: true } });
+    if (owner) {
+      await this.prisma.workMember.upsert({
+        where: { workspaceId_userId: { workspaceId, userId } },
+        update: {},
+        create: { workspaceId, userId, role: 'OWNER' },
+      });
+      return { role: 'OWNER', superAdmin };
+    }
+    return { role: null, superAdmin };
+  }
+
+  /** Access to a workspace's Work area (ignores private spaces). */
+  async forWorkspace(workspaceId: number, userId: number): Promise<WorkAccess> {
+    const { role, superAdmin } = await this.roleIn(workspaceId, userId);
     const canManage = superAdmin || role === 'OWNER' || role === 'ADMIN';
-    const canEdit = canManage || role === 'MEMBER';
-    const canView = canEdit || role === 'VIEWER' || role === 'GUEST';
-    return { workspaceId, canView, canEdit, canManage };
+    const canEdit = canManage || role === 'MEMBER' || role === 'LIMITED_MEMBER';
+    const canView = canEdit || role === 'GUEST';
+    const scope = !canManage && (role === 'LIMITED_MEMBER' || role === 'GUEST') ? 'shared' : 'all';
+    return { workspaceId, role, scope, canView, canEdit, canManage };
+  }
+
+  /** Prisma filter for the spaces this user may see in a workspace. */
+  visibleSpaces(ws: WorkAccess, userId: number) {
+    if (ws.canManage) return {};
+    if (ws.scope === 'shared') return { members: { some: { userId } } };
+    return { OR: [{ isPrivate: false }, { members: { some: { userId } } }] };
+  }
+
+  /** Are all these users Work members of the workspace? (assignees, mentions, checklist owners) */
+  async areMembers(workspaceId: number, userIds: number[]) {
+    const ids = [...new Set(userIds)];
+    if (!ids.length) return true;
+    const n = await this.prisma.workMember.count({ where: { workspaceId, userId: { in: ids }, user: { deletedAt: null } } });
+    return n === ids.length;
   }
 
   /** Access to one space, honouring private spaces. */
@@ -47,7 +84,7 @@ export class WorkAccessService {
     });
     if (!space) throw new NotFoundException('Space not found.');
     const ws = await this.forWorkspace(space.workspaceId, userId);
-    if (space.isPrivate && !ws.canManage) {
+    if (ws.canView && !ws.canManage && (space.isPrivate || ws.scope === 'shared')) {
       const inSpace = await this.prisma.spaceMember.findUnique({
         where: { spaceId_userId: { spaceId, userId } },
         select: { userId: true },
@@ -62,7 +99,7 @@ export class WorkAccessService {
     if (!access.canView) throw new NotFoundException('Not found.');
     if (level === 'edit' && !access.canEdit) throw new ForbiddenException('You do not have permission to edit here.');
     if (level === 'manage' && !access.canManage) {
-      throw new ForbiddenException('Only workspace owners and admins can do this.');
+      throw new ForbiddenException('Only Work owners and admins can do this.');
     }
   }
 

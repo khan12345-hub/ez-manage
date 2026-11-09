@@ -6,24 +6,26 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
 enum SystemRole {
   USER
   SUPER_ADMIN
 }
-model User {
-  id                   Int               @id @default(autoincrement())
-  firstName            String            @map("first_name") @db.VarChar(100)
-  lastName             String            @map("last_name") @db.VarChar(100)
-  email                String            @unique @db.VarChar(255)
-  password             String            @map("password_hash")
-  phone                String?           @db.VarChar(20)
-  avatarUrl            String?           @map("avatar_url")
 
-  status               UserStatus        @default(ACTIVE)
-  systemRole SystemRole  @default(USER)
+model User {
+  id        Int     @id @default(autoincrement())
+  firstName String  @map("first_name") @db.VarChar(100)
+  lastName  String  @map("last_name") @db.VarChar(100)
+  email     String  @unique @db.VarChar(255)
+  password  String  @map("password_hash")
+  phone     String? @db.VarChar(20)
+  avatarUrl String? @map("avatar_url")
+
+  status     UserStatus @default(ACTIVE)
+  systemRole SystemRole @default(USER)
 
   emailNotificationsEnabled Boolean @default(true) @map("email_notifications_enabled")
-  inAppNotificationsEnabled  Boolean @default(true) @map("in_app_notifications_enabled")
+  inAppNotificationsEnabled Boolean @default(true) @map("in_app_notifications_enabled")
 
   whatsappPhone         String?   @map("whatsapp_phone") @db.VarChar(20)
   whatsappEnabled       Boolean   @default(false) @map("whatsapp_enabled")
@@ -32,103 +34,107 @@ model User {
   whatsappOtpExpiry     DateTime? @map("whatsapp_otp_expiry") @db.Timestamptz(6)
 
   // Per-event WhatsApp notification preferences
-  whatsappOnAssigned    Boolean @default(true) @map("whatsapp_on_assigned")
-  whatsappOnStatus      Boolean @default(true) @map("whatsapp_on_status")
-  whatsappOnDate        Boolean @default(true) @map("whatsapp_on_date")
-  whatsappOnComment     Boolean @default(true) @map("whatsapp_on_comment")
-  whatsappOnMention     Boolean @default(true) @map("whatsapp_on_mention")
-  whatsappOnAutomation  Boolean @default(true) @map("whatsapp_on_automation")
+  whatsappOnAssigned   Boolean @default(true) @map("whatsapp_on_assigned")
+  whatsappOnStatus     Boolean @default(true) @map("whatsapp_on_status")
+  whatsappOnDate       Boolean @default(true) @map("whatsapp_on_date")
+  whatsappOnComment    Boolean @default(true) @map("whatsapp_on_comment")
+  whatsappOnMention    Boolean @default(true) @map("whatsapp_on_mention")
+  whatsappOnAutomation Boolean @default(true) @map("whatsapp_on_automation")
 
   whatsappSession WhatsappSession?
   whatsappLogs    WhatsappLog[]
   boardImportJobs BoardImportJob[]
 
   // Chat presence status
-  chatStatusEmoji    String?   @map("chat_status_emoji")     @db.VarChar(10)
-  chatStatusText     String?   @map("chat_status_text")      @db.VarChar(100)
+  chatStatusEmoji    String?   @map("chat_status_emoji") @db.VarChar(10)
+  chatStatusText     String?   @map("chat_status_text") @db.VarChar(100)
   chatStatusClearsAt DateTime? @map("chat_status_clears_at") @db.Timestamptz(6)
 
   passwordResetToken     String?   @map("password_reset_token") @db.VarChar(128)
   passwordResetExpiresAt DateTime? @map("password_reset_expires_at") @db.Timestamptz(6)
 
-  lastLoginAt          DateTime?         @map("last_login_at") @db.Timestamptz(6)
-  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt            DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   // Who created this user via the admin panel (null = self-registered or invited)
-  createdById          Int?              @map("created_by_id")
-  createdByAdmin       User?             @relation("UserCreatedBy", fields: [createdById], references: [id])
-  adminCreatedUsers    User[]            @relation("UserCreatedBy")
+  createdById       Int?   @map("created_by_id")
+  createdByAdmin    User?  @relation("UserCreatedBy", fields: [createdById], references: [id])
+  adminCreatedUsers User[] @relation("UserCreatedBy")
 
-  invitationsSent      Invitation[]      @relation("InvitationSender")
+  invitationsSent Invitation[] @relation("InvitationSender")
 
   workspaceMemberships WorkspaceMember[]
   boardMemberships     BoardMember[]
 
-  createdWorkspaces    Workspace[]       @relation("WorkspaceCreator")
-  createdBoards        Board[]            @relation("BoardCreator")
-  createdGroups        Group[]            @relation("GroupCreator")
-  createdTasks        Task[]            @relation("TaskCreator")
+  createdWorkspaces Workspace[] @relation("WorkspaceCreator")
+  createdBoards     Board[]     @relation("BoardCreator")
+  createdGroups     Group[]     @relation("GroupCreator")
+  createdTasks      Task[]      @relation("TaskCreator")
 
-  commentsAuthored TaskComment[] @relation("TaskCommentAuthor")
+  commentsAuthored TaskComment[]        @relation("TaskCommentAuthor")
   commentMentions  TaskCommentMention[] @relation("TaskCommentMentionUser")
 
-  filesUploaded       File[]            @relation("FileUploader")
-  fileComments        FileComment[]     @relation("FileCommentAuthor")
-  assignedFileComments FileComment[]   @relation("FileCommentAssignee")
+  filesUploaded        File[]        @relation("FileUploader")
+  fileComments         FileComment[] @relation("FileCommentAuthor")
+  assignedFileComments FileComment[] @relation("FileCommentAssignee")
 
-  notifications        Notification[]
+  notifications Notification[]
 
-  activityLogs         ActivityLog[]      @relation("ActivityActor")
-  undoneActivities     ActivityLog[]      @relation("ActivityUndoneBy")
-  timeEntries          TimeEntry[]        @relation("TimeEntryUser")
+  activityLogs     ActivityLog[] @relation("ActivityActor")
+  undoneActivities ActivityLog[] @relation("ActivityUndoneBy")
+  timeEntries      TimeEntry[]   @relation("TimeEntryUser")
 
-  boardDocuments       BoardDocument[]
-  workspaceDocs        WorkspaceDoc[]
+  boardDocuments BoardDocument[]
+  workspaceDocs  WorkspaceDoc[]
 
   boardColumnPermissions BoardColumnPermission[]
 
-  commentReactions     CommentReaction[]
+  commentReactions CommentReaction[]
 
   boardViews BoardView[]
 
-  chatChannelsCreated ChatChannel[] @relation("ChatChannelCreator")
-  chatMemberships        ChatMember[]  @relation("ChatMemberUser")
-  chatMessages           ChatMessage[] @relation("ChatMessageAuthor")
-  chatMessagesAssigned   ChatMessage[] @relation("ChatMessageAssignee")
-  chatMessagesAssignedBy ChatMessage[] @relation("ChatMessageAssigner")
+  chatChannelsCreated    ChatChannel[]  @relation("ChatChannelCreator")
+  chatMemberships        ChatMember[]   @relation("ChatMemberUser")
+  chatMessages           ChatMessage[]  @relation("ChatMessageAuthor")
+  chatMessagesAssigned   ChatMessage[]  @relation("ChatMessageAssignee")
+  chatMessagesAssignedBy ChatMessage[]  @relation("ChatMessageAssigner")
   chatReactions          ChatReaction[]
 
-  pushSubscriptions      PushSubscription[]
-  scheduledMessages      ScheduledMessage[]
+  pushSubscriptions PushSubscription[]
+  scheduledMessages ScheduledMessage[]
 
-  inviteLinksCreated     WorkspaceInviteLink[] @relation("InviteLinkCreator")
+  inviteLinksCreated WorkspaceInviteLink[] @relation("InviteLinkCreator")
 
-  ceoTemplatesCreated    CeoEmailTemplate[]    @relation("CeoTemplateCreator")
-  ceoEmailDraftsCreated  CeoEmailDraft[]       @relation("CeoEmailDraftCreator")
-  ceoEmailDraftsReceived CeoEmailDraft[]       @relation("CeoEmailDraftRecipient")
-  ceoEmailHistorySent    CeoEmailHistory[]     @relation("CeoEmailHistorySentBy")
-  ceoEmailHistoryReceived CeoEmailHistory[]    @relation("CeoEmailHistoryRecipient")
+  ceoTemplatesCreated     CeoEmailTemplate[] @relation("CeoTemplateCreator")
+  ceoEmailDraftsCreated   CeoEmailDraft[]    @relation("CeoEmailDraftCreator")
+  ceoEmailDraftsReceived  CeoEmailDraft[]    @relation("CeoEmailDraftRecipient")
+  ceoEmailHistorySent     CeoEmailHistory[]  @relation("CeoEmailHistorySentBy")
+  ceoEmailHistoryReceived CeoEmailHistory[]  @relation("CeoEmailHistoryRecipient")
 
-  ceoManagementAsManager  CeoManagementConfig[] @relation("CeoManagementConfigs")
-  ceoManagementAsMember   CeoManagementConfig[] @relation("MemberManagementConfigs")
+  ceoManagementAsManager CeoManagementConfig[] @relation("CeoManagementConfigs")
+  ceoManagementAsMember  CeoManagementConfig[] @relation("MemberManagementConfigs")
 
-  ceoMeetingsCreated      CeoMeeting[]          @relation("CeoMeetingCreator")
-  ceoMeetingAttendances   CeoMeetingAttendee[]  @relation("CeoMeetingAttendeeUser")
+  ceoMeetingsCreated    CeoMeeting[]         @relation("CeoMeetingCreator")
+  ceoMeetingAttendances CeoMeetingAttendee[] @relation("CeoMeetingAttendeeUser")
 
   // ── Work (ClickUp-style product) ──
-  workSpacesCreated   Space[]            @relation("SpaceCreator")
-  workSpaceMembership SpaceMember[]      @relation("SpaceMemberUser")
-  workFoldersCreated  WorkFolder[]       @relation("WorkFolderCreator")
-  workListsCreated    WorkList[]         @relation("WorkListCreator")
-  workTasksCreated    WorkTask[]         @relation("WorkTaskCreator")
-  workTaskAssignments WorkTaskAssignee[] @relation("WorkTaskAssigneeUser")
-  workComments        WorkComment[]      @relation("WorkCommentAuthor")
-  workCommentsAssigned WorkComment[]     @relation("WorkCommentAssignee")
-  workChecklistItems  WorkChecklistItem[] @relation("WorkChecklistAssignee")
-  workTimeEntries     WorkTimeEntry[]    @relation("WorkTimeEntryUser")
-  workActivities      WorkActivity[]     @relation("WorkActivityUser")
+  workSpacesCreated    Space[]             @relation("SpaceCreator")
+  workSpaceMembership  SpaceMember[]       @relation("SpaceMemberUser")
+  workFoldersCreated   WorkFolder[]        @relation("WorkFolderCreator")
+  workListsCreated     WorkList[]          @relation("WorkListCreator")
+  workTasksCreated     WorkTask[]          @relation("WorkTaskCreator")
+  workMemberships      WorkMember[]        @relation("WorkMemberUser")
+  workMembersInvited   WorkMember[]        @relation("WorkMemberInviter")
+  workTaskAssignments  WorkTaskAssignee[]  @relation("WorkTaskAssigneeUser")
+  workComments         WorkComment[]       @relation("WorkCommentAuthor")
+  workAttachments      WorkAttachment[]    @relation("WorkAttachmentUploader")
+  workWebLinks         WorkWebLink[]       @relation("WorkWebLinkCreator")
+  workCommentsAssigned WorkComment[]       @relation("WorkCommentAssignee")
+  workChecklistItems   WorkChecklistItem[] @relation("WorkChecklistAssignee")
+  workTimeEntries      WorkTimeEntry[]     @relation("WorkTimeEntryUser")
+  workActivities       WorkActivity[]      @relation("WorkActivityUser")
 
   @@map("users")
 }
@@ -178,34 +184,37 @@ model Session {
 }
 
 model Invitation {
-  id          Int                 @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  email       String
-  token       String              @unique
+  email String
+  token String @unique
 
   workspaceId Int
-  role WorkspaceMemberRole
+  role        WorkspaceMemberRole
 
-  status      InvitationStatus    @default(PENDING)
+  status InvitationStatus @default(PENDING)
 
   invitedById Int
 
-  expiresAt   DateTime
-  acceptedAt  DateTime?
-  createdAt   DateTime            @default(now())
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
 
-  workspace   Workspace           @relation(fields: [workspaceId], references: [id])
-  invitedBy   User                @relation("InvitationSender", fields: [invitedById], references: [id])
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  invitedBy User      @relation("InvitationSender", fields: [invitedById], references: [id])
 
   boards           InvitationBoard[]
   boardIds         Int[]
-  boardGroupAccess Json? @map("board_group_access")
+  boardGroupAccess Json?             @map("board_group_access")
+  /// which product the invite grants: "boards" (default) or "work" (Work access only, never Boards)
+  product          String            @default("boards")
+  workRole         WorkRole?
 
   @@map("invitations")
 }
 
 model InvitationBoard {
-  id           Int @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
   invitationId Int
   boardId      Int
@@ -226,8 +235,8 @@ model WorkspaceInviteLink {
   expiresAt   DateTime?
   createdAt   DateTime            @default(now()) @map("created_at")
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy   User      @relation("InviteLinkCreator", fields: [createdById], references: [id])
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("InviteLinkCreator", fields: [createdById], references: [id])
 
   @@map("workspace_invite_links")
 }
@@ -239,6 +248,7 @@ enum WorkspaceMemberRole {
   VIEWER
   GUEST
 }
+
 model WorkspaceMember {
   id          Int                 @id @default(autoincrement())
   workspaceId Int
@@ -249,25 +259,26 @@ model WorkspaceMember {
   user        User                @relation(fields: [userId], references: [id])
   workspace   Workspace           @relation(fields: [workspaceId], references: [id])
 
-  @@unique([workspaceId,userId])
+  @@unique([workspaceId, userId])
   @@map("workspace_members")
-
 }
+
 enum BoardMemberRole {
   OWNER
   ADMIN
   MEMBER
   VIEWER
 }
+
 model BoardMember {
-  id              Int     @id @default(autoincrement())
+  id              Int             @id @default(autoincrement())
   boardId         Int
   userId          Int
   role            BoardMemberRole
-  accessAllGroups Boolean @default(true) @map("access_all_groups")
+  accessAllGroups Boolean         @default(true) @map("access_all_groups")
 
-  board       Board @relation(fields: [boardId], references: [id])
-  user        User  @relation(fields: [userId], references: [id])
+  board       Board                    @relation(fields: [boardId], references: [id])
+  user        User                     @relation(fields: [userId], references: [id])
   groupAccess BoardMemberGroupAccess[]
 
   createdAt DateTime @default(now())
@@ -277,9 +288,9 @@ model BoardMember {
 }
 
 model BoardMemberGroupAccess {
-  id            Int         @id @default(autoincrement())
-  boardMemberId Int         @map("board_member_id")
-  groupId       Int         @map("group_id")
+  id            Int @id @default(autoincrement())
+  boardMemberId Int @map("board_member_id")
+  groupId       Int @map("group_id")
 
   boardMember BoardMember @relation(fields: [boardMemberId], references: [id], onDelete: Cascade)
   group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -291,15 +302,17 @@ model BoardMemberGroupAccess {
   @@index([groupId])
   @@map("board_member_group_access")
 }
+
 enum BoardVisibility {
-    PUBLIC
-    PRIVATE
+  PUBLIC
+  PRIVATE
 }
 
 enum WorkspaceVisibility {
-    PUBLIC
-    PRIVATE
+  PUBLIC
+  PRIVATE
 }
+
 model Board {
   id               Int               @id @default(autoincrement())
   uid              String            @unique
@@ -312,17 +325,17 @@ model Board {
   visibility       BoardVisibility   @default(PUBLIC)
   members          BoardMember[]
 
-  updatedById      Int?
+  updatedById Int?
 
-  createdById      Int
-  createdBy        User @relation("BoardCreator", fields:[createdById], references:[id])
+  createdById Int
+  createdBy   User @relation("BoardCreator", fields: [createdById], references: [id])
 
-  groups            Group[]
-  columns           BoardColumn[]
+  groups  Group[]
+  columns BoardColumn[]
 
-  activities       ActivityLog[]
+  activities ActivityLog[]
 
-  form        BoardForm?
+  form BoardForm?
 
   templateId Int?
   template   BoardTemplate? @relation(fields: [templateId], references: [id])
@@ -342,81 +355,80 @@ model Board {
 }
 
 model Workspace {
-  id          Int      @id @default(autoincrement())
-  uid         String   @unique
+  id  Int    @id @default(autoincrement())
+  uid String @unique
 
   name        String
   description String?
   visibility  WorkspaceVisibility @default(PRIVATE)
-  timezone    String   @default("UTC")
+  timezone    String              @default("UTC")
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   createdById Int
-  createdBy   User      @relation("WorkspaceCreator", fields: [createdById], references: [id])
+  createdBy   User @relation("WorkspaceCreator", fields: [createdById], references: [id])
 
   boards      Board[]
   members     WorkspaceMember[]
   invitations Invitation[]
 
-  @@unique([createdById, name])
-  @@map("workspaces")
-
   chatChannels ChatChannel[]
   docs         WorkspaceDoc[]
   inviteLinks  WorkspaceInviteLink[]
   workSpaces   Space[]
+  workMembers  WorkMember[]
+
+  @@unique([createdById, name])
+  @@map("workspaces")
 }
 
 model WorkspaceDoc {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   workspaceId Int
   name        String
-  content     Json     @default("{}")
-  privacy     String   @default("MAIN")
+  content     Json    @default("{}")
+  privacy     String  @default("MAIN")
   emoji       String?
 
   createdById Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy   User      @relation(fields: [createdById], references: [id])
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User      @relation(fields: [createdById], references: [id])
 
   @@index([workspaceId])
 }
 
 model Group {
-  id          Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  name        String
-  color       String?
-  order       Float @default(1000)
-  isArchived  Boolean @default(false)
+  name       String
+  color      String?
+  order      Float   @default(1000)
+  isArchived Boolean @default(false)
 
-  boardId     Int
+  boardId Int
 
   createdAt   DateTime @default(now())
   updatedById Int?
   updatedAt   DateTime @updatedAt
   createdById Int
-  createdBy    User  @relation("GroupCreator",fields: [createdById], references: [id])
+  createdBy   User     @relation("GroupCreator", fields: [createdById], references: [id])
 
-  board        Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  tasks        Task[]
+  board Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks Task[]
 
-  activities  ActivityLog[]
+  activities ActivityLog[]
 
-  automationTargets AutomationRule[] @relation("AutomationTargetGroup")
+  automationTargets AutomationRule[]         @relation("AutomationTargetGroup")
   memberGroupAccess BoardMemberGroupAccess[]
 
   @@index([boardId])
   @@index([boardId, order])
   @@map("groups")
-
 }
-
 
 enum RecurrenceType {
   NONE
@@ -447,6 +459,7 @@ enum BoardColumnType {
   EMAIL
   FORMULA
 }
+
 /// Status group, like ClickUp: drives "done" / overdue everywhere
 /// (dashboard, home, group progress, CEO tower) instead of guessing from label text.
 enum StatusCategory {
@@ -456,18 +469,18 @@ enum StatusCategory {
 }
 
 model StatusOption {
-  id          Int         @id @default(autoincrement())
-  columnId    Int
-  label       String
-  color       String
-  order       Float       @default(1000)
-  isArchived  Boolean     @default(false)
-  category    StatusCategory @default(ACTIVE)
+  id         Int            @id @default(autoincrement())
+  columnId   Int
+  label      String
+  color      String
+  order      Float          @default(1000)
+  isArchived Boolean        @default(false)
+  category   StatusCategory @default(ACTIVE)
 
-  column      BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  column BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   automationTriggers AutomationRule[] @relation("AutomationTriggerStatus")
 
@@ -476,25 +489,25 @@ model StatusOption {
 }
 
 model BoardColumn {
-  id          Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  name        String
-  type        BoardColumnType
+  name String
+  type BoardColumnType
 
-  order       Float
+  order Float
 
-  width       Int      @default(180)
+  width Int @default(180)
 
   statusOptions StatusOption[]
 
-  boardId     Int
+  boardId Int
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
-  cells      TaskCell[]
+  cells TaskCell[]
 
   isPrimary Boolean @default(false)
 
@@ -504,44 +517,44 @@ model BoardColumn {
 
   automationTriggers AutomationRule[] @relation("AutomationTriggerColumn")
 
-  accessControlEnabled Boolean         @default(false)
+  accessControlEnabled Boolean @default(false)
 
   formula String?
 
   @@index([boardId])
   @@map("board_columns")
-
 }
+
 model Task {
-  id          Int      @id @default(autoincrement())
-  groupId     Int
-  order       Float
-  name        String
+  id      Int    @id @default(autoincrement())
+  groupId Int
+  order   Float
+  name    String
 
   createdById Int
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  group       Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  createdBy   User  @relation("TaskCreator", fields: [createdById], references: [id])
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("TaskCreator", fields: [createdById], references: [id])
 
-  cells       TaskCell[]
+  cells TaskCell[]
 
   // Task hierarchy
-  parentId    Int?
-  parent      Task?  @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks    Task[] @relation("TaskHierarchy")
+  parentId Int?
+  parent   Task?  @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks Task[] @relation("TaskHierarchy")
 
   // Task comments
-  comments    TaskComment[]
+  comments TaskComment[]
 
   activities  ActivityLog[]
   timeEntries TimeEntry[]
 
   // Recurrence
-  recurrenceType     RecurrenceType  @default(NONE)
-  recurrenceInterval Int             @default(1)
+  recurrenceType     RecurrenceType @default(NONE)
+  recurrenceInterval Int            @default(1)
   recurrenceEndDate  DateTime?
 
   // Links recurring copies back to their source task
@@ -555,59 +568,57 @@ model Task {
   @@index([groupId])
   @@index([groupId, order])
   @@index([groupId, parentId])
-
   @@map("tasks")
 }
 
 model TimeEntry {
-  id          Int       @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  taskId      Int
-  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId Int
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  userId      Int
-  user        User      @relation("TimeEntryUser", fields: [userId], references: [id])
+  userId Int
+  user   User @relation("TimeEntryUser", fields: [userId], references: [id])
 
-  boardId     Int
-  board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  boardId Int
+  board   Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
-  startedAt   DateTime
-  endedAt     DateTime?
-  durationMs  Float?    // computed when timer stops; also set for manual entries
-  note        String?
+  startedAt  DateTime
+  endedAt    DateTime?
+  durationMs Float? // computed when timer stops; also set for manual entries
+  note       String?
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([taskId])
   @@index([userId])
   @@index([boardId])
 }
+
 model TaskCell {
-  id        Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  taskId    Int
-  columnId  Int
+  taskId   Int
+  columnId Int
 
-  value     Json?
+  value Json?
 
   updatedAt DateTime @updatedAt
 
-  task       Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  column     BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  task   Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  column BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
 
-  files      TaskCellFile[]
+  files TaskCellFile[]
 
   @@unique([taskId, columnId])
-
   @@index([taskId])
   @@index([columnId])
   @@map("task_cells")
-
 }
 
 model File {
-  id         Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
   fileName   String
   storageKey String
@@ -620,25 +631,26 @@ model File {
 
   uploadedBy User @relation("FileUploader", fields: [uploadedById], references: [id])
 
-  cells         TaskCellFile[]
-  comments      TaskCommentFile[]
-  fileComments  FileComment[]
+  workAttachments WorkAttachment[]  @relation("WorkAttachmentFile")
+  cells           TaskCellFile[]
+  comments        TaskCommentFile[]
+  fileComments    FileComment[]
 
   @@index([uploadedById])
   @@map("files")
 }
 
 model TaskComment {
-  id        Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  taskId    Int
-  userId    Int
+  taskId Int
+  userId Int
 
-  content   String   @db.Text
+  content String @db.Text
 
   // null = top-level comment
   // non-null = reply to a top-level comment
-  parentId  Int?
+  parentId Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -666,14 +678,13 @@ model TaskComment {
   @@index([taskId, createdAt])
   @@index([parentId])
   @@index([userId])
-
   @@map("task_comments")
 }
 
 model TaskCommentFile {
-  id        Int      @id @default(autoincrement())
-  commentId Int      @map("comment_id")
-  fileId    Int      @map("file_id")
+  id        Int @id @default(autoincrement())
+  commentId Int @map("comment_id")
+  fileId    Int @map("file_id")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -686,7 +697,6 @@ model TaskCommentFile {
   @@unique([commentId, fileId])
   @@index([commentId])
   @@index([fileId])
-
   @@map("task_comment_files")
 }
 
@@ -696,14 +706,13 @@ model TaskCellFile {
   fileId Int @map("file_id")
 
   createdAt DateTime @default(now())
-  cell TaskCell @relation(fields: [cellId], references: [id], onDelete: Cascade)
+  cell      TaskCell @relation(fields: [cellId], references: [id], onDelete: Cascade)
 
   file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@unique([cellId, fileId])
   @@index([cellId])
   @@index([fileId])
-
   @@map("task_cell_files")
 }
 
@@ -725,14 +734,14 @@ model FileComment {
 }
 
 model TaskCommentMention {
-  id        Int @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
   commentId Int
   userId    Int
 
-createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
   comment   TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  user      User    @relation("TaskCommentMentionUser", fields: [userId], references: [id], onDelete: Cascade)
+  user      User        @relation("TaskCommentMentionUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([commentId, userId])
   @@index([commentId])
@@ -767,6 +776,7 @@ enum ActivityEntityType {
   REPLY
   MEMBER
 }
+
 enum ActivityAction {
   CREATED
   UPDATED
@@ -786,38 +796,38 @@ enum ActivityAction {
   MEMBER_ADDED
   MEMBER_REMOVED
 }
+
 model ActivityLog {
-  id          Int                @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  boardId     Int               @map("board_id")
-  taskId      Int?              @map("task_id")
-  groupId     Int?              @map("group_id")
-  userId      Int               @map("user_id")
+  boardId Int  @map("board_id")
+  taskId  Int? @map("task_id")
+  groupId Int? @map("group_id")
+  userId  Int  @map("user_id")
 
-  entityType  ActivityEntityType @map("entity_type")
-  entityId    Int                @map("entity_id")
-  action      ActivityAction
+  entityType ActivityEntityType @map("entity_type")
+  entityId   Int                @map("entity_id")
+  action     ActivityAction
 
-  metadata    Json?
+  metadata Json?
 
-  undoneAt    DateTime?          @map("undone_at")
-  undoneById  Int?               @map("undone_by_id")
+  undoneAt   DateTime? @map("undone_at")
+  undoneById Int?      @map("undone_by_id")
 
-  createdAt   DateTime           @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  board       Board              @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  task        Task?              @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  group       Group?             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  board Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  task  Task?  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  group Group? @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
-  user        User               @relation("ActivityActor", fields: [userId], references: [id])
-  undoneBy    User?              @relation("ActivityUndoneBy", fields: [undoneById], references: [id])
+  user     User  @relation("ActivityActor", fields: [userId], references: [id])
+  undoneBy User? @relation("ActivityUndoneBy", fields: [undoneById], references: [id])
 
   @@index([boardId, createdAt])
   @@index([taskId, createdAt])
   @@index([groupId, createdAt])
   @@index([userId, createdAt])
   @@index([entityType, entityId])
-
   @@map("activity_logs")
 }
 
@@ -842,6 +852,7 @@ enum UserStatus {
 
   @@map("user_status")
 }
+
 enum InvitationStatus {
   PENDING
   ACCEPTED
@@ -850,6 +861,7 @@ enum InvitationStatus {
 
   @@map("invitation_status")
 }
+
 enum NotificationType {
   TASK_ASSIGNED
   COMMENT_CREATED
@@ -885,8 +897,6 @@ enum NotificationEntityType {
   FILE
 }
 
-
-
 model Notification {
   id String @id @default(cuid())
 
@@ -902,36 +912,45 @@ model Notification {
 
   metadata Json?
 
-  isRead Boolean @default(false)
+  isRead Boolean   @default(false)
   readAt DateTime?
+
+  /// which product the notification belongs to: "boards" or "work" (kept fully separate in the UI)
+  product String @default("boards")
+
+  /// inbox: cleared (moved to "Cleared") and snoozed ("Later") items
+  clearedAt    DateTime?
+  snoozedUntil DateTime?
 
   eventKey String? @unique
 
   createdAt DateTime @default(now())
 
-  recipient User @relation(fields: [recipientId],references: [id],onDelete: Cascade)
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@index([recipientId, isRead])
   @@index([recipientId, createdAt])
+  @@index([recipientId, clearedAt])
+  @@index([recipientId, product, isRead])
   @@index([entityType, entityId])
 }
 
 model BoardForm {
-  id          Int      @id @default(autoincrement())
-  boardId     Int      @unique
-  groupId     Int      @unique
-  shareToken  String?  @unique @default(uuid())
+  id         Int     @id @default(autoincrement())
+  boardId    Int     @unique
+  groupId    Int     @unique
+  shareToken String? @unique @default(uuid())
 
   title       String?
   description String?
-  submitLabel String?  @default("Submit")
-  isActive    Boolean  @default(true)
+  submitLabel String? @default("Submit")
+  isActive    Boolean @default(true)
   design      Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  board  Board           @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board  Board            @relation(fields: [boardId], references: [id], onDelete: Cascade)
   fields BoardFormField[]
 
   @@index([boardId])
@@ -964,19 +983,17 @@ model BoardFormField {
 }
 
 model BoardTemplate {
-  id          Int      @id @default(autoincrement())
+  id          Int                  @id @default(autoincrement())
   name        String
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  boards      Board[] 
-  groups BoardTemplateGroup[]
-
-  
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  boards      Board[]
+  groups      BoardTemplateGroup[]
 }
 
 model BoardTemplateGroup {
-  id         Int      @id @default(autoincrement())
+  id         Int    @id @default(autoincrement())
   templateId Int
   name       String
   color      String
@@ -990,12 +1007,12 @@ model BoardTemplateGroup {
 }
 
 model BoardTemplateColumn {
-  id        Int      @id @default(autoincrement())
+  id        Int             @id @default(autoincrement())
   groupId   Int
   name      String
   type      BoardColumnType
   position  Int
-  isPrimary Boolean  @default(false)
+  isPrimary Boolean         @default(false)
   options   Json?
 
   group BoardTemplateGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -1004,13 +1021,13 @@ model BoardTemplateColumn {
 }
 
 model BoardColumnPermission {
-  id        Int @id @default(autoincrement())
-  columnId  Int
-  userId    Int
-  canEdit   Boolean @default(true)
+  id       Int     @id @default(autoincrement())
+  columnId Int
+  userId   Int
+  canEdit  Boolean @default(true)
 
-  column    BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  column BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1018,6 +1035,7 @@ model BoardColumnPermission {
   @@unique([columnId, userId])
   @@index([userId])
 }
+
 enum AutomationTriggerType {
   STATUS_CHANGED
   TASK_CREATED
@@ -1035,27 +1053,27 @@ enum AutomationActionType {
 }
 
 model AutomationRule {
-  id        Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  name      String
-  isActive  Boolean  @default(true)
+  name     String
+  isActive Boolean @default(true)
 
-  boardId   Int
-  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  boardId Int
+  board   Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
   triggerType AutomationTriggerType
   actionType  AutomationActionType
 
   // STATUS_CHANGED trigger
   triggerColumnId Int?
-  triggerColumn   BoardColumn? @relation("AutomationTriggerColumn",fields: [triggerColumnId],references: [id],onDelete: Cascade)
+  triggerColumn   BoardColumn? @relation("AutomationTriggerColumn", fields: [triggerColumnId], references: [id], onDelete: Cascade)
 
   triggerStatusId Int?
   triggerStatus   StatusOption? @relation("AutomationTriggerStatus", fields: [triggerStatusId], references: [id], onDelete: Cascade)
 
   // MOVE_TO_GROUP action
   targetGroupId Int?
-  targetGroup   Group? @relation("AutomationTargetGroup",fields: [targetGroupId],references: [id],onDelete: Cascade)
+  targetGroup   Group? @relation("AutomationTargetGroup", fields: [targetGroupId], references: [id], onDelete: Cascade)
 
   // Flexible metadata for new trigger/action types
   // Trigger metadata: { dateColumnId: number } for DATE_ARRIVED
@@ -1076,20 +1094,21 @@ model AutomationRule {
   @@index([triggerStatusId])
   @@index([targetGroupId])
 }
+
 model BoardDocument {
-  id          Int      @id @default(autoincrement())
-  boardId     Int
-  title       String
-  content     Json
-  icon        String?
-  order       Int      @default(0)
+  id      Int     @id @default(autoincrement())
+  boardId Int
+  title   String
+  content Json
+  icon    String?
+  order   Int     @default(0)
 
   createdById Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  board       Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  createdBy   User  @relation(fields: [createdById], references: [id])
+  board     Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  createdBy User  @relation(fields: [createdById], references: [id])
 
   @@index([boardId])
 }
@@ -1105,17 +1124,17 @@ model SystemSetting {
 // ─── Board Import Jobs ───────────────────────────────────────────────────────
 
 model BoardImportJob {
-  id          Int      @id @default(autoincrement())
-  userId      Int      @map("user_id")
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  boardName   String   @map("board_name")
-  status      String   @default("processing") @map("status") // processing | done | failed
-  totalRows   Int      @default(0) @map("total_rows")
-  boardId     Int?     @map("board_id")
-  error       String?  @map("error")
-  summary     Json?    @map("summary")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boardName String   @map("board_name")
+  status    String   @default("processing") @map("status") // processing | done | failed
+  totalRows Int      @default(0) @map("total_rows")
+  boardId   Int?     @map("board_id")
+  error     String?  @map("error")
+  summary   Json?    @map("summary")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([userId])
   @@map("board_import_jobs")
@@ -1130,9 +1149,9 @@ model WhatsappSession {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   lastTaskId  Int?     @map("last_task_id")
   lastBoardId Int?     @map("last_board_id")
-  state       String?  @map("state")       // null | "selecting-task" | "selecting-board"
-  taskList    Json?    @map("task_list")   // [{id,name,boardId,boardName,groupName,statusLabel,dueDate}]
-  boardList   Json?    @map("board_list")  // [{id,name}]
+  state       String?  @map("state") // null | "selecting-task" | "selecting-board"
+  taskList    Json?    @map("task_list") // [{id,name,boardId,boardName,groupName,statusLabel,dueDate}]
+  boardList   Json?    @map("board_list") // [{id,name}]
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("whatsapp_sessions")
@@ -1142,9 +1161,9 @@ model WhatsappLog {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  direction String   @db.VarChar(3)   // "OUT" | "IN"
+  direction String   @db.VarChar(3) // "OUT" | "IN"
   body      String
-  status    String   @db.VarChar(20)  // "sent" | "delivered" | "failed"
+  status    String   @db.VarChar(20) // "sent" | "delivered" | "failed"
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@map("whatsapp_logs")
@@ -1165,7 +1184,7 @@ enum ChatNotifPref {
 
 model ChatChannel {
   id          Int             @id @default(autoincrement())
-  workspaceId Int?            // null for global DMs
+  workspaceId Int? // null for global DMs
   workspace   Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   name        String?
   description String?
@@ -1175,57 +1194,57 @@ model ChatChannel {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
-  members            ChatMember[]
-  messages           ChatMessage[]
-  scheduledMessages  ScheduledMessage[]
+  members           ChatMember[]
+  messages          ChatMessage[]
+  scheduledMessages ScheduledMessage[]
 
   @@index([workspaceId])
   @@map("chat_channels")
 }
 
 model ChatMember {
-  id         Int            @id @default(autoincrement())
+  id         Int           @id @default(autoincrement())
   channelId  Int
-  channel    ChatChannel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channel    ChatChannel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
   userId     Int
-  user       User           @relation("ChatMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  user       User          @relation("ChatMemberUser", fields: [userId], references: [id], onDelete: Cascade)
   lastReadAt DateTime?
-  notifPref  ChatNotifPref  @default(ALL)
-  joinedAt   DateTime       @default(now())
+  notifPref  ChatNotifPref @default(ALL)
+  joinedAt   DateTime      @default(now())
 
   @@unique([channelId, userId])
   @@map("chat_members")
 }
 
 model ChatMessage {
-  id             Int          @id @default(autoincrement())
-  channelId      Int
-  channel        ChatChannel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  userId         Int
-  user           User         @relation("ChatMessageAuthor", fields: [userId], references: [id], onDelete: Cascade)
-  content        String       @db.Text
-  attachmentUrl  String?      @db.Text
-  attachmentType String?      @db.VarChar(50)
+  id              Int           @id @default(autoincrement())
+  channelId       Int
+  channel         ChatChannel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId          Int
+  user            User          @relation("ChatMessageAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  content         String        @db.Text
+  attachmentUrl   String?       @db.Text
+  attachmentType  String?       @db.VarChar(50)
   // Threading
-  parentId       Int?
-  parent         ChatMessage?  @relation("ChatReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies        ChatMessage[] @relation("ChatReplies")
+  parentId        Int?
+  parent          ChatMessage?  @relation("ChatReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies         ChatMessage[] @relation("ChatReplies")
   // Assignment
-  assignedToId   Int?
-  assignedTo     User?        @relation("ChatMessageAssignee", fields: [assignedToId], references: [id])
-  assignedById   Int?
-  assignedBy     User?        @relation("ChatMessageAssigner", fields: [assignedById], references: [id])
+  assignedToId    Int?
+  assignedTo      User?         @relation("ChatMessageAssignee", fields: [assignedToId], references: [id])
+  assignedById    Int?
+  assignedBy      User?         @relation("ChatMessageAssigner", fields: [assignedById], references: [id])
   // System / call messages
-  isSystemMessage Boolean  @default(false)
-  callType        String?  // "video" | "voice"
-  callStatus      String?  // "ongoing" | "ended" | "declined" | "missed"
-  callDuration    Int?     // seconds
-  isPinned        Boolean  @default(false)
+  isSystemMessage Boolean       @default(false)
+  callType        String? // "video" | "voice"
+  callStatus      String? // "ongoing" | "ended" | "declined" | "missed"
+  callDuration    Int? // seconds
+  isPinned        Boolean       @default(false)
 
-  createdAt      DateTime     @default(now())
-  editedAt       DateTime?
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
 
-  reactions      ChatReaction[]
+  reactions ChatReaction[]
 
   @@index([channelId, createdAt])
   @@index([parentId])
@@ -1233,14 +1252,14 @@ model ChatMessage {
 }
 
 model ChatReaction {
-  id        Int         @id @default(autoincrement())
-  messageId Int         @map("message_id")
-  userId    Int         @map("user_id")
-  emoji     String      @db.VarChar(10)
-  createdAt DateTime    @default(now()) @map("created_at")
+  id        Int      @id @default(autoincrement())
+  messageId Int      @map("message_id")
+  userId    Int      @map("user_id")
+  emoji     String   @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at")
 
-  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId, emoji])
   @@map("chat_reactions")
@@ -1249,18 +1268,18 @@ model ChatReaction {
 // ─── CEO AI Task Assistant ────────────────────────────────────────────────────
 
 model CeoEmailTemplate {
-  id          Int      @id @default(autoincrement())
-  name        String
-  subject     String
-  body        String   @db.Text
-  tone        String   @default("professional")
-  isDefault   Boolean  @default(false) @map("is_default")
+  id        Int     @id @default(autoincrement())
+  name      String
+  subject   String
+  body      String  @db.Text
+  tone      String  @default("professional")
+  isDefault Boolean @default(false) @map("is_default")
 
-  createdById Int      @map("created_by_id")
-  createdBy   User     @relation("CeoTemplateCreator", fields: [createdById], references: [id])
+  createdById Int  @map("created_by_id")
+  createdBy   User @relation("CeoTemplateCreator", fields: [createdById], references: [id])
 
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([createdById])
   @@map("ceo_email_templates")
@@ -1273,13 +1292,13 @@ enum CeoEmailDraftStatus {
 }
 
 model CeoEmailDraft {
-  id           Int                 @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  recipientId  Int                 @map("recipient_id")
-  recipient    User                @relation("CeoEmailDraftRecipient", fields: [recipientId], references: [id])
+  recipientId Int  @map("recipient_id")
+  recipient   User @relation("CeoEmailDraftRecipient", fields: [recipientId], references: [id])
 
-  createdById  Int                 @map("created_by_id")
-  createdBy    User                @relation("CeoEmailDraftCreator", fields: [createdById], references: [id])
+  createdById Int  @map("created_by_id")
+  createdBy   User @relation("CeoEmailDraftCreator", fields: [createdById], references: [id])
 
   subject      String
   body         String              @db.Text
@@ -1287,11 +1306,11 @@ model CeoEmailDraft {
   tone         String              @default("professional")
   status       CeoEmailDraftStatus @default(DRAFT)
 
-  historyId    Int?                @map("history_id")
-  history      CeoEmailHistory?    @relation(fields: [historyId], references: [id])
+  historyId Int?             @map("history_id")
+  history   CeoEmailHistory? @relation(fields: [historyId], references: [id])
 
-  createdAt    DateTime            @default(now()) @map("created_at")
-  updatedAt    DateTime            @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([recipientId])
   @@index([createdById])
@@ -1300,21 +1319,21 @@ model CeoEmailDraft {
 }
 
 model CeoEmailHistory {
-  id             Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  sentById       Int      @map("sent_by_id")
-  sentBy         User     @relation("CeoEmailHistorySentBy", fields: [sentById], references: [id])
+  sentById Int  @map("sent_by_id")
+  sentBy   User @relation("CeoEmailHistorySentBy", fields: [sentById], references: [id])
 
-  recipientId    Int      @map("recipient_id")
-  recipient      User     @relation("CeoEmailHistoryRecipient", fields: [recipientId], references: [id])
+  recipientId Int  @map("recipient_id")
+  recipient   User @relation("CeoEmailHistoryRecipient", fields: [recipientId], references: [id])
 
   subject        String
-  body           String   @db.Text
-  deliveryStatus String   @default("sent") @map("delivery_status")
+  body           String @db.Text
+  deliveryStatus String @default("sent") @map("delivery_status")
 
-  sentAt         DateTime @default(now()) @map("sent_at")
+  sentAt DateTime @default(now()) @map("sent_at")
 
-  drafts         CeoEmailDraft[]
+  drafts CeoEmailDraft[]
 
   @@index([sentById])
   @@index([recipientId])
@@ -1351,15 +1370,15 @@ model CeoMeeting {
 
   cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
 
-  notifInitialSent  Boolean @default(false) @map("notif_initial_sent")
-  notif24hSent      Boolean @default(false) @map("notif_24h_sent")
-  notif1hSent       Boolean @default(false) @map("notif_1h_sent")
-  notif15mSent      Boolean @default(false) @map("notif_15m_sent")
+  notifInitialSent Boolean @default(false) @map("notif_initial_sent")
+  notif24hSent     Boolean @default(false) @map("notif_24h_sent")
+  notif1hSent      Boolean @default(false) @map("notif_1h_sent")
+  notif15mSent     Boolean @default(false) @map("notif_15m_sent")
 
-  attendees   CeoMeetingAttendee[]
+  attendees CeoMeetingAttendee[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt      @map("updated_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([createdById])
   @@index([scheduledAt])
@@ -1386,7 +1405,6 @@ model CeoSettings {
 
   @@map("ceo_settings")
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // WORK — ClickUp-style product: Workspace → Space → (Folder) → List → Task.
@@ -1514,40 +1532,42 @@ model WorkStatus {
 }
 
 model WorkTask {
-  id          Int           @id @default(autoincrement())
-  uid         String        @unique
-  listId      Int
-  statusId    Int?
-  parentId    Int?
-  name        String
+  id           Int           @id @default(autoincrement())
+  uid          String        @unique
+  listId       Int
+  statusId     Int?
+  parentId     Int?
+  name         String
   /// rich text (HTML from the editor)
-  description String?
-  priority    WorkPriority?
-  startDate   DateTime?
-  dueDate     DateTime?
-  order       Float         @default(1000)
-  completedAt DateTime?
-  archivedAt  DateTime?
+  description  String?
+  priority     WorkPriority?
+  startDate    DateTime?
+  dueDate      DateTime?
+  order        Float         @default(1000)
+  completedAt  DateTime?
+  archivedAt   DateTime?
   /// time estimate in minutes
   timeEstimate Int?
-  createdById Int
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdById  Int
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  tags         WorkTaskTag[]
-  checklists   WorkChecklist[]
-  timeEntries  WorkTimeEntry[]
-  activities   WorkActivity[]
-  dependsOn    WorkTaskLink[] @relation("WorkLinkFrom")
-  dependedBy   WorkTaskLink[] @relation("WorkLinkTo")
+  tags        WorkTaskTag[]
+  checklists  WorkChecklist[]
+  timeEntries WorkTimeEntry[]
+  activities  WorkActivity[]
+  dependsOn   WorkTaskLink[]  @relation("WorkLinkFrom")
+  dependedBy  WorkTaskLink[]  @relation("WorkLinkTo")
 
-  list      WorkList           @relation(fields: [listId], references: [id], onDelete: Cascade)
-  status    WorkStatus?        @relation(fields: [statusId], references: [id], onDelete: SetNull)
-  parent    WorkTask?          @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks  WorkTask[]         @relation("WorkSubtasks")
-  createdBy User               @relation("WorkTaskCreator", fields: [createdById], references: [id])
-  assignees WorkTaskAssignee[]
-  comments  WorkComment[]
+  list        WorkList           @relation(fields: [listId], references: [id], onDelete: Cascade)
+  status      WorkStatus?        @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  parent      WorkTask?          @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks    WorkTask[]         @relation("WorkSubtasks")
+  createdBy   User               @relation("WorkTaskCreator", fields: [createdById], references: [id])
+  assignees   WorkTaskAssignee[]
+  comments    WorkComment[]
+  attachments WorkAttachment[]
+  webLinks    WorkWebLink[]
 
   @@index([listId, order])
   @@index([statusId])
@@ -1570,27 +1590,64 @@ model WorkTaskAssignee {
 }
 
 model WorkComment {
-  id        Int       @id @default(autoincrement())
-  taskId    Int
-  userId    Int
-  parentId  Int?
-  content   String
+  id         Int       @id @default(autoincrement())
+  taskId     Int
+  userId     Int
+  parentId   Int?
+  content    String
   /// assigned comment (ClickUp-style action item): who must act, and when it was resolved
   assigneeId Int?
   resolvedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
-  assignee User?        @relation("WorkCommentAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  task    WorkTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user    User          @relation("WorkCommentAuthor", fields: [userId], references: [id])
-  parent  WorkComment?  @relation("WorkCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies WorkComment[] @relation("WorkCommentReplies")
+  assignee    User?            @relation("WorkCommentAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  task        WorkTask         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User             @relation("WorkCommentAuthor", fields: [userId], references: [id])
+  parent      WorkComment?     @relation("WorkCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     WorkComment[]    @relation("WorkCommentReplies")
+  attachments WorkAttachment[]
 
   @@index([taskId, createdAt])
   @@index([assigneeId, resolvedAt])
   @@map("work_comments")
+}
+
+/// File on a task. source: task (uploaded to the task), comment, description.
+model WorkAttachment {
+  id           Int      @id @default(autoincrement())
+  taskId       Int
+  fileId       Int
+  commentId    Int?
+  source       String   @default("task")
+  uploadedById Int
+  createdAt    DateTime @default(now())
+
+  task       WorkTask     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  file       File         @relation("WorkAttachmentFile", fields: [fileId], references: [id], onDelete: Cascade)
+  comment    WorkComment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  uploadedBy User         @relation("WorkAttachmentUploader", fields: [uploadedById], references: [id])
+
+  @@index([taskId, createdAt])
+  @@index([commentId])
+  @@map("work_attachments")
+}
+
+/// External link on a task (Figma, GitHub, a doc…).
+model WorkWebLink {
+  id          Int      @id @default(autoincrement())
+  taskId      Int
+  url         String
+  title       String?
+  createdById Int
+  createdAt   DateTime @default(now())
+
+  task      WorkTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdBy User     @relation("WorkWebLinkCreator", fields: [createdById], references: [id])
+
+  @@index([taskId])
+  @@map("work_web_links")
 }
 
 enum WorkLinkType {
@@ -1709,4 +1766,35 @@ model WorkActivity {
 
   @@index([taskId, createdAt])
   @@map("work_activities")
+}
+
+/// Work (ClickUp-style product) access — completely separate from Boards workspace membership.
+enum WorkRole {
+  /// full control, cannot be removed
+  OWNER
+  /// manage spaces, people and settings
+  ADMIN
+  /// all public spaces
+  MEMBER
+  /// only spaces shared with them
+  LIMITED_MEMBER
+  /// view-only, only spaces shared with them
+  GUEST
+}
+
+model WorkMember {
+  workspaceId Int
+  userId      Int
+  role        WorkRole @default(MEMBER)
+  invitedById Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation("WorkMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy User?     @relation("WorkMemberInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+  @@map("work_members")
 }

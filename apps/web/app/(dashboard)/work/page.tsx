@@ -3,19 +3,17 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getAllWorkspaces } from "@/services/workspace.api";
+import { workApi } from "@/services/work.api";
+import { NoWorkAccess } from "./_components/NoWorkAccess";
 
-/** /work → the first workspace's Work home. */
+/** /work → the first workspace where this person has Work access. */
 export default function WorkIndexPage() {
   const router = useRouter();
-  const { data: workspaces, isLoading } = useQuery({ queryKey: ["workspaces"], queryFn: getAllWorkspaces, staleTime: 60_000 });
-  const first = (workspaces as any[] | undefined)?.[0];
+  const { data: workspaces, isLoading } = useQuery({ queryKey: ["work", "my-workspaces"], queryFn: workApi.myWorkspaces, staleTime: 30_000 });
+  const first = workspaces?.[0];
   useEffect(() => {
-    if (first) router.replace(`/work/${first.uid ?? first.id}`);
+    if (first) router.replace(`/work/${first.uid}`);
   }, [first, router]);
-  return (
-    <div className="flex h-full items-center justify-center p-10 text-sm text-muted-foreground">
-      {isLoading || first ? "Opening Work…" : "You're not in a workspace yet. Ask an admin to invite you."}
-    </div>
-  );
+  if (isLoading || first) return <div className="flex h-full items-center justify-center p-10 text-sm text-muted-foreground">Opening Work…</div>;
+  return <NoWorkAccess />;
 }

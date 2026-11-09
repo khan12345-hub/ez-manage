@@ -64,6 +64,9 @@ export class NotificationsService implements OnModuleInit {
     eventKey?: string;
 
     sendEmail?: boolean;
+
+    /** boards (default) | work */
+    product?: 'boards' | 'work';
   }) {
 
     const {
@@ -76,6 +79,7 @@ export class NotificationsService implements OnModuleInit {
       metadata,
       eventKey,
       sendEmail: sendEmailParam = true,
+      product = 'boards',
     } = params;
 
     /**
@@ -167,6 +171,8 @@ export class NotificationsService implements OnModuleInit {
         metadata,
 
         eventKey,
+
+        product,
       },
     });
 
@@ -272,13 +278,14 @@ export class NotificationsService implements OnModuleInit {
   /**
    * Get paginated notifications.
    */
-  async findAll(recipientId: number, page = 1, limit = 20) {
+  async findAll(recipientId: number, page = 1, limit = 20, product?: 'boards' | 'work') {
     const skip = (page - 1) * limit;
 
     const [notifications, total] = await this.prisma.$transaction([
       this.prisma.notification.findMany({
         where: {
           recipientId,
+          ...(product ? { product } : {}),
         },
 
         orderBy: {
@@ -293,6 +300,7 @@ export class NotificationsService implements OnModuleInit {
       this.prisma.notification.count({
         where: {
           recipientId,
+          ...(product ? { product } : {}),
         },
       }),
     ]);
@@ -313,12 +321,65 @@ export class NotificationsService implements OnModuleInit {
   }
 
   /**
+   * Inbox (ClickUp-style): Primary = not cleared and not snoozed,
+   * Later = snoozed into the future, Cleared = cleared.
+   */
+  async inbox(recipientId: number, tab: 'primary' | 'later' | 'cleared', opts: { unread?: boolean; product?: string; limit?: number } = {}) {
+    const now = new Date();
+    const tabWhere =
+      tab === 'cleared'
+        ? { clearedAt: { not: null } }
+        : tab === 'later'
+          ? { clearedAt: null, snoozedUntil: { gt: now } }
+          : { clearedAt: null, OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }] };
+    const where: any = {
+      recipientId,
+      ...tabWhere,
+      ...(opts.unread ? { isRead: false } : {}),
+      ...(opts.product === 'work' || opts.product === 'boards' ? { product: opts.product } : {}),
+    };
+    const byProduct = opts.product === 'work' || opts.product === 'boards' ? { product: opts.product } : {};
+    const base = { recipientId, clearedAt: null, ...byProduct };
+    const [items, primaryUnread, later, cleared] = await this.prisma.$transaction([
+      this.prisma.notification.findMany({ where, orderBy: { createdAt: 'desc' }, take: Math.min(opts.limit ?? 150, 300) }),
+      this.prisma.notification.count({ where: { ...base, isRead: false, OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }] } }),
+      this.prisma.notification.count({ where: { ...base, snoozedUntil: { gt: now } } }),
+      this.prisma.notification.count({ where: { recipientId, ...byProduct, clearedAt: { not: null } } }),
+    ]);
+    return { items, counts: { primaryUnread, later, cleared } };
+  }
+
+  async inboxAction(notificationId: string, recipientId: number, action: string, until?: string) {
+    const n = await this.prisma.notification.findFirst({ where: { id: notificationId, recipientId }, select: { id: true } });
+    if (!n) throw new NotFoundException('Notification not found');
+    const now = new Date();
+    const data =
+      action === 'clear' ? { clearedAt: now, snoozedUntil: null, isRead: true, readAt: now }
+      : action === 'unclear' ? { clearedAt: null }
+      : action === 'snooze' ? { snoozedUntil: until ? new Date(until) : new Date(now.getTime() + 86_400_000), clearedAt: null }
+      : action === 'unsnooze' ? { snoozedUntil: null }
+      : action === 'read' ? { isRead: true, readAt: now }
+      : { isRead: false, readAt: null };
+    return this.prisma.notification.update({ where: { id: n.id }, data });
+  }
+
+  /** Clear everything in Primary. */
+  async clearAll(recipientId: number, product?: 'boards' | 'work') {
+    const now = new Date();
+    return this.prisma.notification.updateMany({
+      where: { recipientId, ...(product ? { product } : {}), clearedAt: null, OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }] },
+      data: { clearedAt: now, isRead: true, readAt: now },
+    });
+  }
+
+  /**
    * Get unread notification count.
    */
-  async getUnreadCount(recipientId: number) {
+  async getUnreadCount(recipientId: number, product?: 'boards' | 'work') {
     return this.prisma.notification.count({
       where: {
         recipientId,
+        ...(product ? { product } : {}),
         isRead: false,
       },
     });
@@ -360,10 +421,11 @@ export class NotificationsService implements OnModuleInit {
   /**
    * Mark all notifications as read.
    */
-  async markAllAsRead(recipientId: number) {
+  async markAllAsRead(recipientId: number, product?: 'boards' | 'work') {
     return this.prisma.notification.updateMany({
       where: {
         recipientId,
+        ...(product ? { product } : {}),
 
         isRead: false,
       },
@@ -379,9 +441,9 @@ export class NotificationsService implements OnModuleInit {
   /**
    * Delete all notifications for a user.
    */
-  async removeAll(recipientId: number) {
+  async removeAll(recipientId: number, product?: 'boards' | 'work') {
     await this.prisma.notification.deleteMany({
-      where: { recipientId },
+      where: { recipientId, ...(product ? { product } : {}) },
     });
 
     return { success: true };
