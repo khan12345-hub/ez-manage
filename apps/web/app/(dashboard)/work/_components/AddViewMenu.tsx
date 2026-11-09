@@ -28,7 +28,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-export type WorkView = "list" | "board" | "calendar" | "table" | "gallery";
+export type WorkView = "list" | "board" | "calendar" | "table" | "gallery" | "dashboard";
 
 type Item = { id: string; label: string; hint: string; icon: typeof ListIcon; color: string; ready?: WorkView };
 const POPULAR: Item[] = [
@@ -38,7 +38,7 @@ const POPULAR: Item[] = [
   { id: "doc", label: "Doc", hint: "Collaborate & document anything", icon: FileText, color: "#2563EB" },
   { id: "board", label: "Board – Kanban", hint: "Move tasks between columns", icon: Columns3, color: "#2563EB", ready: "board" },
   { id: "form", label: "Form", hint: "Collect, track & report data", icon: SquareCheckBig, color: "#7C3AED" },
-  { id: "dashboard", label: "Dashboard", hint: "Track metrics & insights", icon: BarChart3, color: "#9333EA" },
+  { id: "dashboard", label: "Dashboard", hint: "Track metrics & insights", icon: BarChart3, color: "#9333EA", ready: "dashboard" },
   { id: "gallery", label: "Gallery", hint: "Gallery of tasks", icon: LayoutGrid, color: "#7C3AED", ready: "gallery" },
 ];
 const MORE: Item[] = [

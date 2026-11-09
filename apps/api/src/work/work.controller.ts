@@ -8,6 +8,7 @@ import { WorkOverviewService } from './work-overview.service';
 import { WorkFieldsService } from './work-fields.service';
 import { WorkRemindersService } from './work-reminders.service';
 import { WorkExtrasService } from './work-extras.service';
+import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
@@ -55,6 +56,7 @@ export class WorkController {
     private readonly fields: WorkFieldsService,
     private readonly reminders: WorkRemindersService,
     private readonly extras: WorkExtrasService,
+    private readonly stats: WorkStatsService,
   ) {}
 
   // ── workspace level ──
@@ -348,6 +350,12 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── overview / dashboard numbers ──
+  @Get('stats/:kind/:idOrUid')
+  locationStats(@Param('kind') kind: string, @Param('idOrUid') idOrUid: string, @CurrentUser() u: SessionUser) {
+    return this.stats.get(kind as StatsKind, idOrUid, u.id);
+  }
+
   // ── comment extras ──
   @Post('comments/:id/assign')
   assignComment(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignCommentDto, @CurrentUser() u: SessionUser) {

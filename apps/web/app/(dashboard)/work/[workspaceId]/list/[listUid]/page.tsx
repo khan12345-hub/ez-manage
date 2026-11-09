@@ -2,7 +2,9 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, Columns3, LayoutGrid, List as ListIcon, Plus, Table2, X } from "lucide-react";
+import { BarChart3, CalendarDays, Columns3, LayoutGrid, List as ListIcon, Plus, Table2, X } from "lucide-react";
+import { LocationDashboard } from "../../../_components/Dashboard";
+import { trackPlace } from "../../../_components/recent";
 import { GalleryView } from "../../../_components/GalleryView";
 import { AddViewMenu, type WorkView } from "../../../_components/AddViewMenu";
 import { pushRecentList, useWorkCreate } from "@/store/work-create";
@@ -25,6 +27,7 @@ const VIEW_META: Record<View, { label: string; icon: typeof ListIcon }> = {
   calendar: { label: "Calendar", icon: CalendarDays },
   table: { label: "Table", icon: Table2 },
   gallery: { label: "Gallery", icon: LayoutGrid },
+  dashboard: { label: "Dashboard", icon: BarChart3 },
 };
 const BASE_VIEWS: View[] = ["list", "board", "calendar"];
 const viewsKey = (uid: string) => `ez:work:views:${uid}`;
@@ -56,7 +59,10 @@ function ListPageInner() {
 
   const { data: list, isLoading, isError } = useWorkList(listUid);
   useEffect(() => {
-    if (list) pushRecentList(workspaceId, list.uid);
+    if (list) {
+      pushRecentList(workspaceId, list.uid);
+      trackPlace({ kind: "list", uid: list.uid, name: list.name, parent: list.folder?.name ?? list.space.name, spaceUid: list.space.uid, folderUid: list.folder?.uid ?? null });
+    }
   }, [list?.uid, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
   const { data: tasks = [], isLoading: tasksLoading } = useListTasks(list?.id);
   const { data: fields = [] } = useSpaceFields(list?.spaceId);
@@ -195,7 +201,7 @@ function ListPageInner() {
       </div>
 
       {/* toolbar */}
-      {list && (
+      {list && view !== "dashboard" && (
         <div className="px-4 pt-4 sm:px-6">
           <ListToolbar
             list={list}
@@ -229,6 +235,8 @@ function ListPageInner() {
           <BoardView list={list} tasks={shown} onOpenTask={openTask} />
         ) : view === "calendar" ? (
           <CalendarView list={list} tasks={shown} onOpenTask={openTask} />
+        ) : view === "dashboard" ? (
+          <LocationDashboard kind="list" uid={listUid} onOpenTask={openTask} />
         ) : view === "gallery" ? (
           <GalleryView list={list} tasks={shown} onOpenTask={openTask} />
         ) : view === "table" ? (

@@ -298,7 +298,27 @@ export interface WorkReminder {
   task: { uid: string; name: string; list: { uid: string } } | null;
 }
 
+export type StatsKind = "list" | "folder" | "space";
+export interface StatsTask {
+  id: number; uid: string; name: string; priority: WorkPriority | null; dueDate: string | null; completedAt: string | null;
+  list: { uid: string; name: string }; status: { id: number; name: string; color: string; category: string } | null; assignees: WorkUser[];
+  overdue?: boolean;
+}
+export interface WorkStats {
+  kind: StatsKind;
+  name: string;
+  totals: { total: number; done: number; open: number; inProgress: number; unassigned: number; overdue: number };
+  byStatus: { name: string; color: string; category: string; count: number }[];
+  byAssignee: { user: WorkUser; total: number; open: number; done: number }[];
+  completedThisWeek: StatsTask[];
+  dueThisWeek: StatsTask[];
+  activity: { id: number; action: string; fromValue: unknown; toValue: unknown; createdAt: string; user: WorkUser; task: { uid: string; name: string; list: { name: string } } }[];
+  timeByUser: { user: WorkUser; seconds: number }[];
+  files: (WorkAttachment & { task: { uid: string; name: string } })[];
+}
+
 export const workApi = {
+  stats: (kind: StatsKind, uid: string) => get<WorkStats>(`/work/stats/${kind}/${uid}`),
   reminders: (workspace: string | number, done = false) => get<WorkReminder[]>(`/work/workspaces/${workspace}/reminders${done ? "?done=true" : ""}`),
   createReminder: (workspace: string | number, body: { title: string; description?: string; remindAt: string; assigneeId?: number; taskUid?: string }) =>
     post<WorkReminder>(`/work/workspaces/${workspace}/reminders`, body),

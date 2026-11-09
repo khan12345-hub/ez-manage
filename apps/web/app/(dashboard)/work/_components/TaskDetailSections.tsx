@@ -736,7 +736,7 @@ function renderMentions(text: string, members: WorkUser[]) {
   return out;
 }
 
-function ActivityRow({ a, members }: { a: WorkActivity; members: WorkUser[] }) {
+export function ActivityRow({ a, members }: { a: WorkActivity; members: WorkUser[] }) {
   const text = ACTION_TEXT[a.action] ?? a.action;
   if (["attachment_added", "attachment_removed", "link_added", "link_removed", "field"].includes(a.action)) {
     const v = a.action.endsWith("added") ? a.toValue : a.fromValue;
