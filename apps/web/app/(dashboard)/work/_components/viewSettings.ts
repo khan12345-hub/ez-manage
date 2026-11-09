@@ -36,6 +36,8 @@ export interface ViewSettings {
     tagIds: number[];
   };
   hiddenGroups: string[];
+  /** per-column "Calculate" choice for group footers */
+  calcs?: Record<string, "none" | "sum" | "avg" | "min" | "max" | "filled" | "empty" | "pct">;
 }
 
 export const DEFAULT_VIEW: ViewSettings = {

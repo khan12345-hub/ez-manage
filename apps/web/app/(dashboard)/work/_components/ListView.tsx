@@ -32,6 +32,8 @@ import { AssigneeCell, AssigneePicker, DatePicker, PriorityPicker, StatusPicker 
 import { useCreateTask, useUpdateTask } from "./hooks";
 import { cfId, colMeta, groupTasks, isCf, sortTasks, type Col, type SortKey, type TaskGroup, type ViewSettings } from "./viewSettings";
 import { FieldEditor } from "./CustomFields";
+import { BulkBar, CalcRow } from "./ListExtras";
+import { CheckSquare } from "lucide-react";
 import type { FieldValues, WorkField } from "@/services/work.api";
 import { NameDialog } from "./NameDialog";
 import { StatusesDialog } from "./StatusesDialog";
@@ -77,6 +79,8 @@ export function ListView({
   const [renaming, setRenaming] = useState<TaskGroup | null>(null);
   const [newStatus, setNewStatus] = useState(false);
   const [editStatuses, setEditStatuses] = useState(false);
+  const [selected, setSelected] = useState<number[]>([]);
+  const toggleSelect = (id: number) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   const groups = groupTasks(roots, view, list).filter((g) => !view.hiddenGroups.includes(g.key));
   const ctx: RowCtx = {
@@ -91,6 +95,8 @@ export function ListView({
     setExpanded: (id, open) => setExpanded((e) => ({ ...e, [id]: open })),
     update,
     onOpenTask,
+    selected,
+    toggleSelect,
   };
   const refreshList = () => {
     qc.invalidateQueries({ queryKey: workKeys.list(list.uid) });
@@ -136,6 +142,7 @@ export function ListView({
                     <DropdownMenuSeparator />
                   </>
                 )}
+                {canEdit && <DropdownMenuItem onClick={() => setSelected((s) => [...new Set([...s, ...g.tasks.map((t) => t.id)])])}><CheckSquare className="mr-2 h-3.5 w-3.5" />Select all</DropdownMenuItem>}
                 <DropdownMenuItem onClick={() => setCollapsed((c) => ({ ...c, [g.key]: true }))}><ChevronRight className="mr-2 h-3.5 w-3.5" />Collapse group</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onView({ ...view, hiddenGroups: [...view.hiddenGroups, g.key] })}><EyeOff className="mr-2 h-3.5 w-3.5" />Hide group</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCollapsed(Object.fromEntries(groups.map((x) => [x.key, true])))}><ChevronsDownUp className="mr-2 h-3.5 w-3.5" />Collapse all groups</DropdownMenuItem>
@@ -160,6 +167,17 @@ export function ListView({
                 </div>
                 {g.tasks.map((t) => <Row key={t.id} task={t} ctx={ctx} />)}
                 {canEdit && <AddTaskRow listId={list.id} defaults={g.createDefaults} />}
+                {g.tasks.length > 0 && (
+                  <CalcRow
+                    columns={columns}
+                    fields={fields}
+                    values={fieldValues}
+                    tasks={g.tasks}
+                    calcs={view.calcs ?? {}}
+                    onCalc={(c, calc) => onView({ ...view, calcs: { ...(view.calcs ?? {}), [c]: calc } })}
+                    grid={gridFor(columns, fields)}
+                  />
+                )}
                 {!canEdit && g.tasks.length === 0 && <p className="border-t border-border/70 px-4 py-3 text-xs text-muted-foreground">No tasks</p>}
               </div>
             </div>
@@ -198,6 +216,7 @@ export function ListView({
         }}
       />
       <StatusesDialog open={editStatuses} onOpenChange={setEditStatuses} list={list} onChanged={refreshList} />
+      {canEdit && <BulkBar list={list} selected={selected.filter((id) => tasks.some((t) => t.id === id))} onClear={() => setSelected([])} />}
     </div>
   );
 }
@@ -224,6 +243,8 @@ type RowCtx = {
   setExpanded: (id: number, open: boolean) => void;
   update: ReturnType<typeof useUpdateTask>;
   onOpenTask: (uid: string) => void;
+  selected: number[];
+  toggleSelect: (id: number) => void;
 };
 
 function Row({ task, depth = 0, ctx }: { task: WorkTask; depth?: number; ctx: RowCtx }) {
@@ -294,7 +315,19 @@ function Row({ task, depth = 0, ctx }: { task: WorkTask; depth?: number; ctx: Ro
   return (
     <>
       <div className="group grid min-h-[42px] items-center border-t border-border/70 px-3 transition-colors hover:bg-accent/30" style={gridFor(columns, ctx.fields)}>
-        <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: depth * 22 }}>
+        <div className="relative flex min-w-0 items-center gap-2" style={{ paddingLeft: depth * 22 }}>
+          {canEdit && (
+            <input
+              type="checkbox"
+              aria-label={`Select ${task.name}`}
+              checked={ctx.selected.includes(task.id)}
+              onChange={() => ctx.toggleSelect(task.id)}
+              className={cn(
+                "absolute -left-[13px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 cursor-pointer accent-[var(--primary)] transition-opacity",
+                ctx.selected.length ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100",
+              )}
+            />
+          )}
           {kids.length > 0 ? (
             <button type="button" aria-label={isOpen ? "Hide subtasks" : "Show subtasks"} onClick={() => ctx.setExpanded(task.id, !isOpen)} className="-ml-1 rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground">
               {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
