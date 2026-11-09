@@ -9,6 +9,7 @@ import { connectNotificationStream, ChatUnreadEvent, ChatCallEvent } from "@/ser
 import { getUnreadNotificationCount } from "@/services/notifications.api";
 import { useChatStore } from "@/store/chat-store";
 import { useDesktopNotifications } from "@/hooks/useDesktopNotifications";
+import { isWorkMuted } from "@/app/layouts/AppShell/TopNavbar/WorkTopbar";
 
 interface Notification {
   id: string;
@@ -97,7 +98,7 @@ export function NotificationStreamProvider({
       (notification: Notification) => {
         const meta = notification.metadata as Record<string, any> | null | undefined;
         if (notification.product === "work" || meta?.product === "work") {
-          if (meta?.push !== false) fireDesktopRef.current(notification.title, notification.message, typeof meta?.url === "string" ? meta.url : undefined);
+          if (meta?.push !== false && !isWorkMuted()) fireDesktopRef.current(notification.title, notification.message, typeof meta?.url === "string" ? meta.url : undefined);
           queryClient.invalidateQueries({ queryKey: ["inbox"] });
           queryClient.invalidateQueries({ queryKey: ["work-inbox"] });
           return;

@@ -7,6 +7,7 @@ import { Bell, Phone, PhoneOff, Video, X } from "lucide-react";
 import { SecondarySidebar } from "./Sidebar/SecondarySidebar";
 import { WorkSidebar } from "./Sidebar/WorkSidebar";
 import { TopNavbar } from "./TopNavbar/TopNavbar";
+import { WorkTopbar } from "./TopNavbar/WorkTopbar";
 import { NotificationStreamProvider } from "@/providers/NotificationStreamProvider";
 import { ImportJobProvider } from "@/providers/ImportJobContext";
 import { useAuth } from "@/providers/AuthProvider";
@@ -269,7 +270,11 @@ export function AppShell({ children }: AppShellProps) {
               )}
 
               <div className="flex flex-1 flex-col overflow-hidden">
-                <TopNavbar product={isWorkPage ? "work" : "boards"} onMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
+                {isWorkPage ? (
+                  <WorkTopbar onMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
+                ) : (
+                  <TopNavbar product="boards" onMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
+                )}
                 <main className="flex-1 overflow-auto bg-background ez-page-surface">{children}</main>
               </div>
 

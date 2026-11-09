@@ -24,6 +24,7 @@ import {
   Pencil,
   Plus,
   Users,
+  UserPlus,
   X,
 } from "lucide-react";
 
@@ -42,6 +43,7 @@ import { BrandMark, ProductSwitcher } from "./ProductNav";
 import { CreatePanel } from "@/app/(dashboard)/work/_components/CreatePanel";
 import { useWorkCreate } from "@/store/work-create";
 import { useInboxCounts } from "@/app/(dashboard)/work/[workspaceId]/inbox/useInboxCounts";
+import { WorkInviteModal, useWorkInvite } from "@/app/(dashboard)/work/_components/WorkInviteModal";
 
 type DialogState =
   | null
@@ -85,6 +87,7 @@ export function WorkSidebar({
   const canEdit = !!tree?.access.canEdit;
   const inbox = useInboxCounts();
   const openCreate = useWorkCreate((st) => st.openCreate);
+  const openWorkInvite = useWorkInvite((st) => st.setOpen);
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
@@ -207,22 +210,6 @@ export function WorkSidebar({
           showCeo={user?.systemRole === "SUPER_ADMIN"}
           onNavigate={onMobileClose}
         />
-
-        {/* Workspace */}
-        <div className="px-4 pb-2 pt-3">
-          <label htmlFor="work-ws" className="sr-only">Workspace</label>
-          <select
-            id="work-ws"
-            value={currentWs?.uid ?? ""}
-            onChange={(e) => go(`/work/${e.target.value}`)}
-            className="h-9 w-full cursor-pointer truncate rounded-md border border-border bg-card px-2.5 text-[13px] font-medium text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          >
-            {!currentWs && <option value="">Select workspace</option>}
-            {(workspaces as any[]).map((w) => (
-              <option key={w.id} value={w.uid}>{w.name}</option>
-            ))}
-          </select>
-        </div>
 
         {canEdit && (
           <div className="px-4 pb-1">
@@ -362,6 +349,18 @@ export function WorkSidebar({
           </div>
         </nav>
 
+        {canManage && (
+          <div className="px-3 pb-2">
+            <button
+              type="button"
+              onClick={() => openWorkInvite(true)}
+              className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:border-solid hover:bg-accent hover:text-foreground"
+            >
+              <UserPlus className="h-4 w-4" /> Invite people
+            </button>
+          </div>
+        )}
+        <WorkInviteModal />
         <div className="flex items-center gap-2.5 border-t border-border px-4 py-3.5">
           <BrandMark size={26} />
           <div className="min-w-0 leading-tight">
