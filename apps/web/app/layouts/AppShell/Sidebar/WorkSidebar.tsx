@@ -5,6 +5,8 @@
  * Shares the brand mark + product switcher with the Boards sidebar.
  */
 
+import { CreateSpaceDialog } from "@/app/(dashboard)/work/_components/CreateSpaceDialog";
+import { SpaceIcon } from "@/app/(dashboard)/work/_components/SpaceIcon";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -504,7 +506,7 @@ export function WorkSidebar({
                       {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                     </button>
                     <button type="button" onClick={() => go(`/work/${wsParam}/space/${space.uid}`)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-[10.5px] font-bold text-white" style={{ background: space.color }}>{space.name.charAt(0).toUpperCase()}</span>
+                      <SpaceIcon name={space.name} color={space.color} icon={space.icon} size={20} />
                       <span className="truncate">{space.name}</span>
                       {space.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Private" />}
                     </button>
@@ -609,7 +611,13 @@ export function WorkSidebar({
       )}
 
       {wsParam && <CreatePanel ws={wsParam} />}
-      {dialogProps && (
+      <CreateSpaceDialog
+        open={dialog?.kind === "space"}
+        onOpenChange={(o) => !o && setDialog(null)}
+        workspace={wsParam}
+        onCreated={(s) => { refresh(); go(`/work/${wsParam}/space/${s.uid}`); }}
+      />
+      {dialogProps && dialog?.kind !== "space" && (
         <NameDialog
           open={!!dialog}
           onOpenChange={(o) => !o && setDialog(null)}

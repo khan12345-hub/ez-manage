@@ -1428,19 +1428,22 @@ enum WorkPriority {
 }
 
 model Space {
-  id          Int       @id @default(autoincrement())
-  uid         String    @unique
-  workspaceId Int
-  name        String
-  color       String    @default("#047857")
-  icon        String?
+  id                Int       @id @default(autoincrement())
+  uid               String    @unique
+  workspaceId       Int
+  name              String
+  color             String    @default("#047857")
+  icon              String?
   /// private space: only SpaceMember rows (+ workspace OWNER/ADMIN) can see it
-  isPrivate   Boolean   @default(false)
-  order       Float     @default(1000)
-  archivedAt  DateTime?
-  createdById Int
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  isPrivate         Boolean   @default(false)
+  description       String?
+  /// what members (not owners/admins) can do here: full | edit | comment | view
+  defaultPermission String    @default("full")
+  order             Float     @default(1000)
+  archivedAt        DateTime?
+  createdById       Int
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy User              @relation("SpaceCreator", fields: [createdById], references: [id])

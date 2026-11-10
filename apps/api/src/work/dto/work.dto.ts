@@ -23,14 +23,23 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 export const PRIORITIES = ['URGENT', 'HIGH', 'NORMAL', 'LOW'] as const;
 export const CATEGORIES = ['NOT_STARTED', 'ACTIVE', 'DONE'] as const;
 
+export const SPACE_PERMISSIONS = ['full', 'edit', 'comment', 'view'] as const;
 export class CreateSpaceDto {
   @IsString() @IsNotEmpty() @MaxLength(80) name!: string;
   @IsOptional() @Matches(HEX) color?: string;
   @IsOptional() @IsString() @MaxLength(40) icon?: string;
   @IsOptional() @IsBoolean() isPrivate?: boolean;
+  @IsOptional() @IsString() @MaxLength(500) description?: string;
+  @IsOptional() @IsIn(SPACE_PERMISSIONS) defaultPermission?: (typeof SPACE_PERMISSIONS)[number];
+  /** private space: who else gets in */
+  @IsOptional() @IsArray() @ArrayMaxSize(200) @IsInt({ each: true }) memberIds?: number[];
+  /** build folders, lists and statuses from a template */
+  @IsOptional() @IsString() @MaxLength(40) templateId?: string;
 }
 export class UpdateSpaceDto {
   @IsOptional() @IsString() @IsNotEmpty() @MaxLength(80) name?: string;
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(500) description?: string | null;
+  @IsOptional() @IsIn(SPACE_PERMISSIONS) defaultPermission?: (typeof SPACE_PERMISSIONS)[number];
   @IsOptional() @Matches(HEX) color?: string;
   @IsOptional() @IsString() @MaxLength(40) icon?: string;
   @IsOptional() @IsBoolean() isPrivate?: boolean;

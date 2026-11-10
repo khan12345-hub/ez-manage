@@ -350,6 +350,11 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  @Get('space-templates')
+  spaceTemplates() {
+    return this.work.spaceTemplates();
+  }
+
   // ── overview / dashboard numbers ──
   @Get('stats/:kind/:idOrUid')
   locationStats(@Param('kind') kind: string, @Param('idOrUid') idOrUid: string, @CurrentUser() u: SessionUser) {

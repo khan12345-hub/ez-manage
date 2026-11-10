@@ -23,6 +23,8 @@ import {
 const uid = () => randomBytes(9).toString('base64url').substring(0, 12);
 
 /** Default statuses for a new space (ClickUp-style: To do → In progress → Complete). */
+import { SPACE_TEMPLATES } from './space-templates';
+
 const DEFAULT_STATUSES = [
   { name: 'To do', color: '#9CA3AF', category: 'NOT_STARTED' as const, order: 1000 },
   { name: 'In progress', color: '#2563EB', category: 'ACTIVE' as const, order: 2000 },
@@ -165,22 +167,58 @@ export class WorkService {
 
   async createSpace(workspaceId: number, userId: number, dto: CreateSpaceDto) {
     await this.access.requireWorkspace(workspaceId, userId, 'manage');
+    const tpl = dto.templateId ? SPACE_TEMPLATES.find((t) => t.id === dto.templateId) : undefined;
+    if (dto.templateId && !tpl) throw new BadRequestException('Unknown template.');
+    // "share only with": must be people in this Work workspace
+    const extra = [...new Set((dto.memberIds ?? []).filter((id) => id !== userId))];
+    if (dto.isPrivate && extra.length && !(await this.access.areMembers(workspaceId, extra))) {
+      throw new BadRequestException('Private spaces can only be shared with Work members.');
+    }
     const last = await this.prisma.space.findFirst({ where: { workspaceId }, orderBy: { order: 'desc' }, select: { order: true } });
-    return this.prisma.space.create({
+    const statuses = tpl ? tpl.statuses.map((s, i) => ({ ...s, order: (i + 1) * 1000 })) : DEFAULT_STATUSES;
+    const space = await this.prisma.space.create({
       data: {
         uid: uid(),
         workspaceId,
         name: dto.name.trim(),
-        color: dto.color ?? '#047857',
-        icon: dto.icon,
+        color: dto.color ?? tpl?.color ?? '#047857',
+        icon: dto.icon ?? tpl?.icon,
+        description: dto.description?.trim() || tpl?.description || null,
+        defaultPermission: dto.defaultPermission ?? 'full',
         isPrivate: dto.isPrivate ?? false,
         order: (last?.order ?? 0) + 1000,
         createdById: userId,
-        statuses: { create: DEFAULT_STATUSES },
+        statuses: { create: statuses },
         // the creator always keeps access to a private space
-        ...(dto.isPrivate ? { members: { create: [{ userId }] } } : {}),
+        ...(dto.isPrivate ? { members: { create: [{ userId }, ...extra.map((id) => ({ userId: id }))] } } : {}),
       },
     });
+    if (tpl) {
+      let order = 1000;
+      for (const f of tpl.folders) {
+        const folder = await this.prisma.workFolder.create({ data: { uid: uid(), spaceId: space.id, name: f.name, order: order, createdById: userId } });
+        let lo = 1000;
+        for (const l of f.lists) {
+          await this.prisma.workList.create({ data: { uid: uid(), spaceId: space.id, folderId: folder.id, name: l, order: lo, createdById: userId } });
+          lo += 1000;
+        }
+        order += 1000;
+      }
+      for (const l of tpl.lists) {
+        await this.prisma.workList.create({ data: { uid: uid(), spaceId: space.id, name: l, order, createdById: userId } });
+        order += 1000;
+      }
+    }
+    return space;
+  }
+
+  spaceTemplates() {
+    return SPACE_TEMPLATES.map(({ id, name, category, description, color, icon, folders, lists, statuses }) => ({
+      id, name, category, description, color, icon,
+      folders: folders.map((f) => ({ name: f.name, lists: f.lists })),
+      lists,
+      statuses: statuses.map((s) => ({ name: s.name, color: s.color })),
+    }));
   }
 
   async updateSpace(spaceId: number, userId: number, dto: UpdateSpaceDto) {
@@ -192,6 +230,8 @@ export class WorkService {
         ...(dto.color !== undefined && { color: dto.color }),
         ...(dto.icon !== undefined && { icon: dto.icon }),
         ...(dto.isPrivate !== undefined && { isPrivate: dto.isPrivate }),
+        ...(dto.description !== undefined && { description: dto.description?.trim() || null }),
+        ...(dto.defaultPermission !== undefined && { defaultPermission: dto.defaultPermission }),
         ...(dto.order !== undefined && { order: dto.order }),
       },
     });
@@ -390,7 +430,7 @@ export class WorkService {
       ...row,
       statuses,
       members: members.map((m) => m.user),
-      access: { canEdit: access.canEdit, canManage: access.canManage },
+      access: { canComment: access.canComment, canEdit: access.canEdit, canManage: access.canManage },
     };
   }
 
@@ -510,7 +550,7 @@ export class WorkService {
       subtasks: subtasks.map(shapeTask),
       otherLists: extraLists.map((x: any) => x.list),
       statuses,
-      access: { canEdit: access.canEdit, canManage: access.canManage },
+      access: { canComment: access.canComment, canEdit: access.canEdit, canManage: access.canManage },
     };
   }
 
@@ -679,13 +719,13 @@ export class WorkService {
   }
 
   async createComment(taskId: number, userId: number, dto: CreateCommentDto) {
-    await this.access.requireTask(taskId, userId, 'edit');
+    await this.access.requireTask(taskId, userId, 'comment');
     if (dto.parentId) {
       const p = await this.prisma.workComment.findFirst({ where: { id: dto.parentId, taskId, deletedAt: null }, select: { id: true } });
       if (!p) throw new BadRequestException('Reply target is not on this task.');
     }
     if (dto.assigneeId) {
-      const { access } = await this.access.requireTask(taskId, userId, 'edit');
+      const { access } = await this.access.requireTask(taskId, userId, 'comment');
       const ok = await this.access.areMembers(access.workspaceId, [dto.assigneeId]);
       if (!ok) throw new BadRequestException('Comments can only be assigned to workspace members.');
     }

@@ -12,7 +12,7 @@ import { PrismaService } from 'prisma/prisma.service';
  *  - no WorkMember row                → nothing (404)
  *  The workspace's Boards OWNER is bootstrapped as Work OWNER so someone can invite people.
  */
-export type WorkLevel = 'view' | 'edit' | 'manage';
+export type WorkLevel = 'view' | 'comment' | 'edit' | 'manage';
 export type WorkRoleName = 'OWNER' | 'ADMIN' | 'MEMBER' | 'LIMITED_MEMBER' | 'GUEST';
 
 export interface WorkAccess {
@@ -21,6 +21,8 @@ export interface WorkAccess {
   /** all = every public space; shared = only spaces they were added to */
   scope: 'all' | 'shared';
   canView: boolean;
+  /** comment (and react) without editing: "Comment" space permission */
+  canComment: boolean;
   canEdit: boolean;
   canManage: boolean;
 }
@@ -58,7 +60,7 @@ export class WorkAccessService {
     const canEdit = canManage || role === 'MEMBER' || role === 'LIMITED_MEMBER';
     const canView = canEdit || role === 'GUEST';
     const scope = !canManage && (role === 'LIMITED_MEMBER' || role === 'GUEST') ? 'shared' : 'all';
-    return { workspaceId, role, scope, canView, canEdit, canManage };
+    return { workspaceId, role, scope, canView, canComment: canEdit, canEdit, canManage };
   }
 
   /** Prisma filter for the spaces this user may see in a workspace. */
@@ -80,7 +82,7 @@ export class WorkAccessService {
   async forSpace(spaceId: number, userId: number): Promise<WorkAccess & { spaceId: number }> {
     const space = await this.prisma.space.findFirst({
       where: { id: spaceId, archivedAt: null },
-      select: { id: true, workspaceId: true, isPrivate: true },
+      select: { id: true, workspaceId: true, isPrivate: true, defaultPermission: true },
     });
     if (!space) throw new NotFoundException('Space not found.');
     const ws = await this.forWorkspace(space.workspaceId, userId);
@@ -89,7 +91,12 @@ export class WorkAccessService {
         where: { spaceId_userId: { spaceId, userId } },
         select: { userId: true },
       });
-      if (!inSpace) return { ...ws, spaceId, canView: false, canEdit: false, canManage: false };
+      if (!inSpace) return { ...ws, spaceId, canView: false, canComment: false, canEdit: false, canManage: false };
+    }
+    // the space's default permission narrows what members can do (owners/admins keep everything)
+    if (!ws.canManage && ws.canEdit) {
+      if (space.defaultPermission === 'view') return { ...ws, spaceId, canComment: false, canEdit: false };
+      if (space.defaultPermission === 'comment') return { ...ws, spaceId, canComment: true, canEdit: false };
     }
     return { ...ws, spaceId };
   }
@@ -97,6 +104,7 @@ export class WorkAccessService {
   /** Throws 404 when the user can't even see it (don't leak existence), 403 when they can see but not act. */
   assert(access: WorkAccess, level: WorkLevel) {
     if (!access.canView) throw new NotFoundException('Not found.');
+    if (level === 'comment' && !access.canComment) throw new ForbiddenException('You can only view this space.');
     if (level === 'edit' && !access.canEdit) throw new ForbiddenException('You do not have permission to edit here.');
     if (level === 'manage' && !access.canManage) {
       throw new ForbiddenException('Only Work owners and admins can do this.');

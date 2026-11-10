@@ -254,7 +254,7 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
           {t === "related" && <RelatedPanel task={task!} onAdd={() => openTab("links")} />}
           {t === "links" && <AddLinkPanel task={task!} onRelate={() => openTab("related")} />}
         </div>
-        {t === "comments" && canEdit && (
+        {t === "comments" && (task!.access.canComment ?? canEdit) && (
           <div className="border-t border-border bg-card p-3">
             <Composer task={task!} members={members} />
           </div>

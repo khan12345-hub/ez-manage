@@ -9,7 +9,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { dayOf, workApi, workKeys, type MyWorkTask } from "@/services/work.api";
 import { DueLabel, PriorityFlag, StatusGlyph } from "../_components/primitives";
 import { TaskDrawer } from "../_components/TaskDrawer";
-import { NameDialog } from "../_components/NameDialog";
+import { CreateSpaceDialog } from "../_components/CreateSpaceDialog";
 import { RemindersCard } from "../_components/Reminders";
 
 type Bucket = "overdue" | "today" | "week" | "later" | "none";
@@ -174,18 +174,11 @@ function MyWorkInner() {
       )}
 
       <TaskDrawer taskUid={taskUid} onClose={() => setTask(null)} onOpenTask={(uid) => setTask(uid)} />
-      <NameDialog
+      <CreateSpaceDialog
         open={newSpace}
         onOpenChange={setNewSpace}
-        title="New space"
-        description="A space holds a team's folders, lists and statuses."
-        placeholder="e.g. Marketing"
-        withColor
-        withPrivacy
-        onSubmit={async (r) => {
-          await workApi.createSpace(workspaceId, { name: r.name, color: r.color, isPrivate: r.isPrivate });
-          await qc.invalidateQueries({ queryKey: workKeys.tree(workspaceId) });
-        }}
+        workspace={workspaceId}
+        onCreated={() => qc.invalidateQueries({ queryKey: workKeys.tree(workspaceId) })}
       />
     </div>
   );

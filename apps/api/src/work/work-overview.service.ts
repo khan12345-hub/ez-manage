@@ -21,7 +21,7 @@ export class WorkOverviewService {
   async space(idOrUid: string, userId: number) {
     const space = await this.prisma.space.findFirst({
       where: { ...byUid(idOrUid), archivedAt: null },
-      select: { id: true, uid: true, name: true, color: true, isPrivate: true, workspace: { select: { uid: true, name: true } } },
+      select: { id: true, uid: true, name: true, color: true, icon: true, description: true, isPrivate: true, workspace: { select: { uid: true, name: true } } },
     });
     if (!space) throw new NotFoundException('Space not found.');
     const access = await this.access.requireSpace(space.id, userId, 'view');
@@ -31,13 +31,13 @@ export class WorkOverviewService {
       select: { id: true, uid: true, name: true, color: true, folder: { select: { id: true, uid: true, name: true } } },
     });
     const folders = await this.prisma.workFolder.findMany({ where: { spaceId: space.id, archivedAt: null }, orderBy: { order: 'asc' }, select: { id: true, uid: true, name: true } });
-    return { kind: 'space' as const, space, folder: null, folders, lists: await this.withCounts(lists), access: { canEdit: access.canEdit, canManage: access.canManage } };
+    return { kind: 'space' as const, space, folder: null, folders, lists: await this.withCounts(lists), access: { canComment: access.canComment, canEdit: access.canEdit, canManage: access.canManage } };
   }
 
   async folder(idOrUid: string, userId: number) {
     const folder = await this.prisma.workFolder.findFirst({
       where: { ...byUid(idOrUid), archivedAt: null },
-      select: { id: true, uid: true, name: true, space: { select: { id: true, uid: true, name: true, color: true, isPrivate: true, workspace: { select: { uid: true, name: true } } } } },
+      select: { id: true, uid: true, name: true, space: { select: { id: true, uid: true, name: true, color: true, icon: true, description: true, isPrivate: true, workspace: { select: { uid: true, name: true } } } } },
     });
     if (!folder) throw new NotFoundException('Folder not found.');
     const access = await this.access.requireSpace(folder.space.id, userId, 'view');
@@ -52,7 +52,7 @@ export class WorkOverviewService {
       folder: { id: folder.id, uid: folder.uid, name: folder.name },
       folders: [],
       lists: await this.withCounts(lists),
-      access: { canEdit: access.canEdit, canManage: access.canManage },
+      access: { canComment: access.canComment, canEdit: access.canEdit, canManage: access.canManage },
     };
   }
 

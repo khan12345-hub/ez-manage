@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock, Orbit, Plus, Search } from "lucide-react";
 import { workApi, workKeys } from "@/services/work.api";
-import { NameDialog } from "../../_components/NameDialog";
+import { CreateSpaceDialog } from "../../_components/CreateSpaceDialog";
 
 /** All Spaces (ClickUp): every space you can see, with a quick way to open or create one. */
 export default function AllSpacesPage() {
@@ -70,18 +70,11 @@ export default function AllSpacesPage() {
           </ul>
         )}
       </div>
-      <NameDialog
+      <CreateSpaceDialog
         open={creating}
         onOpenChange={setCreating}
-        title="New space"
-        description="A space holds a team's folders, lists and statuses."
-        placeholder="e.g. Marketing"
-        withColor
-        withPrivacy
-        onSubmit={async (r) => {
-          await workApi.createSpace(workspaceId, { name: r.name, color: r.color, isPrivate: r.isPrivate });
-          qc.invalidateQueries({ queryKey: workKeys.tree(workspaceId) });
-        }}
+        workspace={workspaceId}
+        onCreated={() => qc.invalidateQueries({ queryKey: workKeys.tree(workspaceId) })}
       />
     </div>
   );

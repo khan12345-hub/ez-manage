@@ -82,7 +82,7 @@ export function ThreadView({
         )}
       </div>
 
-      {root && task.access.canEdit && (
+      {root && (task.access.canComment ?? task.access.canEdit) && (
         <div className="border-t border-border bg-card p-3">
           <Composer task={task} members={members} parentId={rootId} />
         </div>

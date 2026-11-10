@@ -68,6 +68,7 @@ export function CommentActions({
   const react = useReact(comment, currentUserId);
   const [remindOpen, setRemindOpen] = useState(false);
   const canEdit = task.access.canEdit;
+  const canComment = task.access.canComment ?? canEdit;
   const root = comment.parentId ?? comment.id;
   const following = !!mine?.followedComments.includes(root);
   const snippet = comment.content.length > 80 ? `${comment.content.slice(0, 80)}…` : comment.content;
@@ -129,10 +130,10 @@ export function CommentActions({
         </PopoverContent>
       </Popover>
       <span aria-hidden className="mx-0.5 h-4 w-px bg-border" />
-      {onReply && canEdit && (
+      {onReply && canComment && (
         <button type="button" aria-label="Reply in thread" title="Reply in thread" onClick={onReply} className={btn}><MessageSquareReply className="h-4 w-4" /></button>
       )}
-      {canEdit && (
+      {canComment && (
         <button
           type="button"
           aria-label="Quote"

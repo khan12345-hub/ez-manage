@@ -11,6 +11,7 @@ import { NameDialog } from "./NameDialog";
 import { Donut, colorAt } from "./Charts";
 import { LocationDashboard, Panel } from "./Dashboard";
 import { TaskDrawer } from "./TaskDrawer";
+import { SpaceIcon } from "./SpaceIcon";
 import { loadBookmarks, recentPlaces, saveBookmarks, trackPlace, type Bookmark, type RecentPlace } from "./recent";
 
 type Tab = "overview" | "dashboard";
@@ -58,15 +59,16 @@ export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "fold
             {kind === "folder" && (
               <>
                 <Link href={`/work/${workspaceId}/space/${data.space.uid}`} className="flex items-center gap-1.5 font-normal text-muted-foreground hover:text-foreground">
-                  <SpaceBadge name={data.space.name} color={data.space.color} />
+                  <SpaceIcon name={data.space.name} color={data.space.color} icon={data.space.icon} />
                   {data.space.name}
                 </Link>
                 <span className="text-muted-foreground">/</span>
               </>
             )}
-            {kind === "space" ? <SpaceBadge name={title} color={data.space.color} /> : <Folder className="h-4 w-4 text-muted-foreground" />}
+            {kind === "space" ? <SpaceIcon name={title} color={data.space.color} icon={data.space.icon} /> : <Folder className="h-4 w-4 text-muted-foreground" />}
             <span className="truncate">{title}</span>
             {data.space.isPrivate && <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-label="Private" />}
+            {kind === "space" && data.space.description && <span className="hidden truncate text-[12.5px] font-normal text-muted-foreground md:inline">· {data.space.description}</span>}
           </h1>
           <span className="flex-1" />
           {data.access.canManage && (
@@ -119,10 +121,6 @@ export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "fold
       />
     </div>
   );
-}
-
-function SpaceBadge({ name, color }: { name: string; color: string }) {
-  return <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10.5px] font-bold text-white" style={{ background: color }}>{name[0]?.toUpperCase()}</span>;
 }
 
 function OverviewCards({

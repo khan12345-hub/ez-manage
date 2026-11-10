@@ -44,7 +44,7 @@ export function Thread({ task, parent, replies, currentUserId, onDelete }: { tas
             <span className="font-normal text-muted-foreground">· last {ago(replies[replies.length - 1]!.createdAt)}</span>
           </button>
         )}
-        {task.access.canEdit && (
+        {(task.access.canComment ?? task.access.canEdit) && (
           <button type="button" onClick={() => { setReplying(true); setOpen(true); }} className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
             <MessageSquareReply className="h-3.5 w-3.5" /> Reply
           </button>

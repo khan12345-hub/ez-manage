@@ -55,6 +55,8 @@ export interface WorkSpaceNode {
 }
 
 export interface WorkAccessFlags {
+  /** comment without editing ("Comment" space permission); missing = same as canEdit */
+  canComment?: boolean;
   canEdit: boolean;
   canManage: boolean;
 }
@@ -273,7 +275,7 @@ export type InviteResult = { email: string; status: "added" | "invited" | "alrea
 export interface WorkOverviewList { id: number; uid: string; name: string; color: string | null; folder: { id: number; uid: string; name: string } | null; total: number; done: number; open: number; overdue: number }
 export interface WorkOverview {
   kind: "space" | "folder";
-  space: { id: number; uid: string; name: string; color: string; isPrivate: boolean; workspace: { uid: string; name: string } };
+  space: { id: number; uid: string; name: string; color: string; icon?: string | null; description?: string | null; isPrivate: boolean; workspace: { uid: string; name: string } };
   folder: { id: number; uid: string; name: string } | null;
   folders: { id: number; uid: string; name: string }[];
   lists: WorkOverviewList[];
@@ -316,6 +318,9 @@ export interface WorkStats {
   timeByUser: { user: WorkUser; seconds: number }[];
   files: (WorkAttachment & { task: { uid: string; name: string } })[];
 }
+
+export type SpacePermission = "full" | "edit" | "comment" | "view";
+export interface SpaceTemplate { id: string; name: string; category: string; description: string; color: string; icon: string; folders: { name: string; lists: string[] }[]; lists: string[]; statuses: { name: string; color: string }[] }
 
 export const workApi = {
   stats: (kind: StatsKind, uid: string) => get<WorkStats>(`/work/stats/${kind}/${uid}`),
@@ -364,7 +369,8 @@ export const workApi = {
   allTasks: (workspace: string | number) => get<MyWorkTask[]>(`/work/workspaces/${workspace}/all-tasks`),
   myTasks: (workspace: string | number) => get<MyWorkTask[]>(`/work/workspaces/${workspace}/my-tasks`),
 
-  createSpace: (workspace: string | number, body: { name: string; color?: string; isPrivate?: boolean }) =>
+  spaceTemplates: () => get<SpaceTemplate[]>(`/work/space-templates`),
+  createSpace: (workspace: string | number, body: { name: string; color?: string; icon?: string; isPrivate?: boolean; description?: string; defaultPermission?: SpacePermission; memberIds?: number[]; templateId?: string }) =>
     post<WorkSpaceNode>(`/work/workspaces/${workspace}/spaces`, body),
   updateSpace: (id: number, body: Partial<{ name: string; color: string; isPrivate: boolean; order: number }>) =>
     patch(`/work/spaces/${id}`, body),
