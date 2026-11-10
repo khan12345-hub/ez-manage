@@ -146,6 +146,10 @@ export class ChannelMembersDto {
 export class ChannelPrefsDto {
   @IsOptional() @IsBoolean() muted?: boolean;
   @IsOptional() @IsBoolean() starred?: boolean;
+  @IsOptional() @IsIn(['all', 'mentions', 'none']) notify?: string;
+}
+export class ChannelPermissionDto {
+  @IsIn(['full', 'edit', 'comment', 'view']) permission!: string;
 }
 export class ChatMessageDto {
   @IsOptional() @IsString() @MaxLength(20000) content?: string;

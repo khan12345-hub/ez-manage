@@ -2186,6 +2186,12 @@ model WorkChannelMember {
   lastReadAt DateTime?
   muted      Boolean   @default(false)
   starred    Boolean   @default(false)
+  /// what this person can do here: full | edit | comment | view
+  permission String    @default("edit")
+  /// notification setting: all | mentions | none
+  notify     String    @default("all")
+  /// "Close DM": hidden until a newer message arrives
+  hiddenAt   DateTime?
   joinedAt   DateTime  @default(now())
 
   channel WorkChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
@@ -2197,31 +2203,31 @@ model WorkChannelMember {
 }
 
 model WorkChatMessage {
-  id          Int       @id @default(autoincrement())
-  channelId   Int
-  userId      Int
+  id            Int       @id @default(autoincrement())
+  channelId     Int
+  userId        Int
   /// thread replies point at their parent message
-  parentId    Int?
+  parentId      Int?
   /// message | post | system
-  kind        String    @default("message")
+  kind          String    @default("message")
   /// posts (ClickUp Posts): a title and a type (update, announcement, idea, question)
-  title       String?
-  postType    String?
-  content     String
+  title         String?
+  postType      String?
+  content       String
   /// people @mentioned (for notifications / Chat Activity)
-  mentionIds  Int[]
+  mentionIds    Int[]
   /// files sent with the message: [{ id, name, url, mime, size }]
-  files       Json?
-  replyCount  Int       @default(0)
-  lastReplyAt DateTime?
+  files         Json?
+  replyCount    Int       @default(0)
+  lastReplyAt   DateTime?
   /// also posted to the channel from a thread
-  alsoInChannel Boolean @default(false)
-  assigneeId  Int?
-  resolvedAt  DateTime?
-  pinnedAt    DateTime?
-  editedAt    DateTime?
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
+  alsoInChannel Boolean   @default(false)
+  assigneeId    Int?
+  resolvedAt    DateTime?
+  pinnedAt      DateTime?
+  editedAt      DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
 
   channel   WorkChannel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
   user      User               @relation("WorkChatAuthor", fields: [userId], references: [id], onDelete: Cascade)

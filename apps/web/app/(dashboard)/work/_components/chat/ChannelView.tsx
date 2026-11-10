@@ -12,6 +12,7 @@ import { userName, workApi, type ChatChannelDetail, type ChatMessage, type WorkU
 import { Avatar } from "../primitives";
 import { OnlineDot, useDirectory, useProfilePanel } from "../people";
 import { ChatComposer } from "./ChatComposer";
+import { useShareChannel } from "./ShareChannel";
 import { MessageList, MessageRow } from "./ChatMessages";
 import { channelKey, chatSidebarKey, messagesKey, threadKey, useChannelMessages, useChatEvents, useWs } from "./useChat";
 
@@ -29,6 +30,7 @@ export function ChannelView({ uid }: { uid: string }) {
   const sp = useSearchParams();
   const { user } = useAuth();
   const openProfile = useProfilePanel((s) => s.open);
+  const openShare = useShareChannel((s) => s.open);
   const thread = Number(sp.get("thread")) || null;
   const focus = Number(sp.get("message")) || null;
   const [panel, setPanel] = useState<Panel>(null);
@@ -117,7 +119,11 @@ export function ChannelView({ uid }: { uid: string }) {
         <button type="button" aria-label={ch.starred ? "Remove from favourites" : "Add to favourites"} onClick={() => ch.joined && prefs.mutate({ starred: !ch.starred })} className="rounded p-1 text-muted-foreground hover:bg-accent"><Star className={cn("h-4 w-4", ch.starred && "fill-[#b08d57] text-[#b08d57]")} /></button>
         {ch.topic && <span className="hidden truncate text-[12.5px] text-muted-foreground md:inline">· {ch.topic}</span>}
         <span className="flex-1" />
-        {!isDm && <span className="text-[12.5px] text-muted-foreground">{ch.members.length} {ch.members.length === 1 ? "member" : "members"}</span>}
+        {!isDm && (
+          <button type="button" onClick={() => openShare(uid)} className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[12.5px] hover:bg-accent">
+            {ch.isPrivate ? <Lock className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />} Share · {ch.members.length}
+          </button>
+        )}
         {isDm && others.length === 1 && <button type="button" onClick={() => openProfile(others[0]!.id)} className="rounded-md border border-border px-2.5 py-1 text-[12.5px] hover:bg-accent">Show profile</button>}
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild><button type="button" aria-label="Channel options" className="rounded p-1 text-muted-foreground hover:bg-accent"><MoreHorizontal className="h-4 w-4" /></button></DropdownMenuTrigger>
@@ -125,6 +131,7 @@ export function ChannelView({ uid }: { uid: string }) {
             {ch.joined && <DropdownMenuItem onClick={() => prefs.mutate({ muted: !ch.muted })}>{ch.muted ? <><Bell className="mr-2 h-4 w-4" /> Unmute</> : <><BellOff className="mr-2 h-4 w-4" /> Mute notifications</>}</DropdownMenuItem>}
             <DropdownMenuItem onClick={() => navigator.clipboard.writeText(window.location.href.split("?")[0]!).then(() => toast.success("Link copied"))}>Copy link</DropdownMenuItem>
             {!isDm && <DropdownMenuItem onClick={() => setPanel("settings")}><Settings2 className="mr-2 h-4 w-4" /> Channel settings</DropdownMenuItem>}
+            {!isDm && <DropdownMenuItem onClick={() => openShare(uid)}><Users className="mr-2 h-4 w-4" /> Sharing &amp; Permissions</DropdownMenuItem>}
             {!isDm && ch.joined && (<><DropdownMenuSeparator /><DropdownMenuItem onClick={() => leave.mutate()}><LogOut className="mr-2 h-4 w-4" /> Leave channel</DropdownMenuItem></>)}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -156,8 +163,10 @@ export function ChannelView({ uid }: { uid: string }) {
                 <span className="text-[13px]">You&apos;re viewing <strong>#{ch.name}</strong>. Join to send messages and get notifications.</span>
                 <button type="button" onClick={() => join.mutate()} className="h-8 rounded-lg bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground">Join channel</button>
               </div>
+            ) : !ch.canPost ? (
+              <p className="mx-4 mb-4 rounded-xl border border-dashed border-border bg-muted/40 px-4 py-3 text-center text-[13px] text-muted-foreground">You have <strong>View only</strong> access to this channel.</p>
             ) : (
-              <ChatComposer channelUid={uid} members={members} placeholder={`Write to ${isDm ? title : `#${ch.name}`}`} initialDraft={draft} allowPost={!isDm} />
+              <ChatComposer channelUid={uid} members={members} placeholder={`Write to ${isDm ? title : `#${ch.name}`}`} initialDraft={draft} allowPost={!isDm && ["full", "edit"].includes(ch.myPermission ?? "edit")} />
             )
           ) : null}
         </div>

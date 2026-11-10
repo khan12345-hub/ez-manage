@@ -18,6 +18,7 @@ const MSG_SELECT = {
   reactions: { select: { emoji: true, userId: true } },
 } as const;
 const uid = () => randomUUID().replace(/-/g, '').slice(0, 12);
+const PERMS = ['full', 'edit', 'comment', 'view'];
 const name2key = (n: string) => n.trim().toLowerCase().replace(/^#/, '').replace(/\s+/g, '-');
 
 /**
@@ -37,8 +38,8 @@ export class WorkChatService {
 
   /* ── access ── */
 
-  private async channel(channelUid: string, userId: number, level: 'view' | 'post' | 'manage' = 'view') {
-    const ch = await this.prisma.workChannel.findFirst({ where: { uid: channelUid, archivedAt: null }, include: { members: { select: { userId: true, role: true, lastReadAt: true, muted: true, starred: true } } } });
+  private async channel(channelUid: string, userId: number, level: 'view' | 'post' | 'pin' | 'manage' = 'view') {
+    const ch = await this.prisma.workChannel.findFirst({ where: { uid: channelUid, archivedAt: null }, include: { members: { select: { userId: true, role: true, lastReadAt: true, muted: true, starred: true, permission: true, notify: true, hiddenAt: true } } } });
     if (!ch) throw new NotFoundException('Channel not found.');
     const ws = await this.access.forWorkspace(ch.workspaceId, userId);
     const me = ch.members.find((m) => m.userId === userId);
@@ -47,7 +48,9 @@ export class WorkChatService {
     if (!ws.canView || (!me && !open)) throw new NotFoundException('Channel not found.');
     if (level === 'post' && !(me || open) ) throw new ForbiddenException('Join the channel first.');
     if (level === 'post' && ws.role === 'GUEST' && !me) throw new ForbiddenException('Guests can only post in channels they were added to.');
-    if (level === 'manage' && !(me?.role === 'owner' || ws.canManage)) throw new ForbiddenException('Only the channel owner or an admin can do this.');
+    if (level === 'post' && me?.permission === 'view') throw new ForbiddenException('You can only view this channel.');
+    if (level === 'pin' && !(ws.canManage || ['full', 'edit'].includes(me?.permission ?? ''))) throw new ForbiddenException('You need Edit access to do this.');
+    if (level === 'manage' && !(me?.role === 'owner' || me?.permission === 'full' || ws.canManage)) throw new ForbiddenException('Only people with Full edit can do this.');
     return { ch, me, ws };
   }
 
@@ -75,12 +78,14 @@ export class WorkChatService {
       orderBy: [{ lastMessageAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'asc' }],
       select: {
         id: true, uid: true, kind: true, name: true, description: true, topic: true, isPrivate: true, locationType: true, locationId: true, lastMessageAt: true, createdAt: true,
-        members: { select: { userId: true, lastReadAt: true, muted: true, starred: true, user: { select: USER_MINI } } },
+        members: { select: { userId: true, lastReadAt: true, muted: true, starred: true, notify: true, permission: true, hiddenAt: true, user: { select: USER_MINI } } },
       },
     });
     const out: any[] = [];
     for (const c of rows) {
       const me = c.members.find((m) => m.userId === userId);
+      // "Close DM": stays hidden until a newer message arrives
+      if (c.kind !== 'channel' && me?.hiddenAt && (!c.lastMessageAt || c.lastMessageAt <= me.hiddenAt)) continue;
       const unread = me
         ? await this.prisma.workChatMessage.count({ where: { channelId: c.id, deletedAt: null, userId: { not: userId }, OR: [{ parentId: null }, { alsoInChannel: true }], ...(me.lastReadAt ? { createdAt: { gt: me.lastReadAt } } : {}) } })
         : 0;
@@ -89,7 +94,7 @@ export class WorkChatService {
         : 0;
       out.push({
         id: c.id, uid: c.uid, kind: c.kind, name: c.name, description: c.description, topic: c.topic, isPrivate: c.isPrivate, locationType: c.locationType, locationId: c.locationId,
-        lastMessageAt: c.lastMessageAt, joined: !!me, muted: !!me?.muted, starred: !!me?.starred, unread, mentions,
+        lastMessageAt: c.lastMessageAt, joined: !!me, muted: !!me?.muted || me?.notify === 'none', starred: !!me?.starred, notify: me?.notify ?? 'all', permission: me?.permission ?? null, unread, mentions,
         memberCount: c.members.length,
         // DMs show the other person / people
         people: c.kind === 'channel' ? [] : c.members.filter((m) => m.userId !== userId).map((m) => m.user),
@@ -110,7 +115,7 @@ export class WorkChatService {
       data: {
         uid: uid(), workspaceId, kind: 'channel', name, description: dto.description?.trim() || null, isPrivate: !!dto.isPrivate, createdById: userId,
         locationType: dto.locationType ?? null, locationId: dto.locationId ?? null,
-        members: { create: [{ userId, role: 'owner' }, ...others.map((u) => ({ userId: u }))] },
+        members: { create: [{ userId, role: 'owner', permission: 'full' }, ...others.map((u) => ({ userId: u }))] },
       },
     });
     await this.system(ch.id, userId, `created #${name}`);
@@ -141,12 +146,16 @@ export class WorkChatService {
 
   async detail(channelUid: string, userId: number) {
     const { ch, me, ws } = await this.channel(channelUid, userId);
-    const members = await this.prisma.workChannelMember.findMany({ where: { channelId: ch.id }, select: { role: true, joinedAt: true, user: { select: USER_MINI } }, orderBy: { joinedAt: 'asc' } });
+    const rows = await this.prisma.workChannelMember.findMany({ where: { channelId: ch.id }, select: { role: true, permission: true, joinedAt: true, user: { select: USER_MINI } }, orderBy: { joinedAt: 'asc' } });
+    const wsRoles = new Map((await this.prisma.workMember.findMany({ where: { workspaceId: ch.workspaceId, userId: { in: rows.map((r) => r.user.id) } }, select: { userId: true, role: true } })).map((m) => [m.userId, m.role]));
+    // workspace owners / admins always have full edit
+    const members = rows.map((r) => ({ ...r, workRole: wsRoles.get(r.user.id) ?? null, permission: ['OWNER', 'ADMIN'].includes(wsRoles.get(r.user.id) ?? '') ? 'full' : r.permission }));
     const pinned = await this.prisma.workChatMessage.findMany({ where: { channelId: ch.id, pinnedAt: { not: null }, deletedAt: null }, orderBy: { pinnedAt: 'desc' }, select: MSG_SELECT });
     return {
       id: ch.id, uid: ch.uid, kind: ch.kind, name: ch.name, description: ch.description, topic: ch.topic, isPrivate: ch.isPrivate, locationType: ch.locationType, locationId: ch.locationId,
-      createdAt: ch.createdAt, joined: !!me, muted: !!me?.muted, starred: !!me?.starred, myRole: me?.role ?? null,
-      canManage: me?.role === 'owner' || ws.canManage, members, pinned,
+      createdAt: ch.createdAt, joined: !!me, muted: !!me?.muted, starred: !!me?.starred, myRole: me?.role ?? null, notify: me?.notify ?? 'all',
+      myPermission: ws.canManage ? 'full' : me?.permission ?? (ch.kind === 'channel' && !ch.isPrivate ? 'edit' : null),
+      canManage: me?.role === 'owner' || me?.permission === 'full' || ws.canManage, canPost: ws.canManage || !me || me.permission !== 'view', members, pinned,
     };
   }
 
@@ -219,10 +228,65 @@ export class WorkChatService {
     return { removed: true };
   }
 
-  async setPrefs(channelUid: string, userId: number, dto: { muted?: boolean; starred?: boolean }) {
+  async setPrefs(channelUid: string, userId: number, dto: { muted?: boolean; starred?: boolean; notify?: string }) {
     const { ch, me } = await this.channel(channelUid, userId);
     if (!me) throw new BadRequestException('Join the channel first.');
-    await this.prisma.workChannelMember.update({ where: { channelId_userId: { channelId: ch.id, userId } }, data: { ...(dto.muted !== undefined && { muted: dto.muted }), ...(dto.starred !== undefined && { starred: dto.starred }) } });
+    if (dto.notify && !['all', 'mentions', 'none'].includes(dto.notify)) throw new BadRequestException('Unknown notification setting.');
+    await this.prisma.workChannelMember.update({
+      where: { channelId_userId: { channelId: ch.id, userId } },
+      data: { ...(dto.muted !== undefined && { muted: dto.muted }), ...(dto.starred !== undefined && { starred: dto.starred }), ...(dto.notify && { notify: dto.notify, muted: dto.notify === 'none' }) },
+    });
+    return { ok: true };
+  }
+
+  /** "Mark as unread": everything after the latest message from someone else is unread again */
+  async markUnread(channelUid: string, userId: number) {
+    const { ch, me } = await this.channel(channelUid, userId);
+    if (!me) throw new BadRequestException('Join the channel first.');
+    const last = await this.prisma.workChatMessage.findFirst({ where: { channelId: ch.id, userId: { not: userId }, deletedAt: null, kind: { not: 'system' } }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
+    await this.prisma.workChannelMember.update({ where: { channelId_userId: { channelId: ch.id, userId } }, data: { lastReadAt: last ? new Date(last.createdAt.getTime() - 1) : null } });
+    return { ok: true };
+  }
+
+  /** "Mark all as read" for the Channels or the Direct Messages section */
+  async markAllRead(workspaceId: number, userId: number, section: 'channels' | 'dms') {
+    await this.access.requireWorkspace(workspaceId, userId, 'view');
+    await this.prisma.workChannelMember.updateMany({
+      where: { userId, channel: { workspaceId, archivedAt: null, kind: section === 'channels' ? 'channel' : { in: ['dm', 'group'] } } },
+      data: { lastReadAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  /** "Close DM": hide it from the sidebar until a new message arrives */
+  async closeDm(channelUid: string, userId: number) {
+    const { ch, me } = await this.channel(channelUid, userId);
+    if (ch.kind === 'channel' || !me) throw new BadRequestException('Only direct messages can be closed.');
+    await this.prisma.workChannelMember.update({ where: { channelId_userId: { channelId: ch.id, userId } }, data: { hiddenAt: new Date(), lastReadAt: new Date() } });
+    return { ok: true };
+  }
+
+  /** Sharing & Permissions: one person's access in this channel */
+  async setPermission(channelUid: string, userId: number, target: number, permission: string) {
+    const { ch } = await this.channel(channelUid, userId, 'manage');
+    if (!PERMS.includes(permission)) throw new BadRequestException('Unknown permission.');
+    if (ch.kind !== 'channel') throw new BadRequestException('Direct messages have no permissions.');
+    const role = (await this.prisma.workMember.findUnique({ where: { workspaceId_userId: { workspaceId: ch.workspaceId, userId: target } }, select: { role: true } }))?.role;
+    if (role === 'OWNER' || role === 'ADMIN') throw new BadRequestException('Workspace owners and admins always have full edit.');
+    if (target === userId && permission !== 'full') throw new BadRequestException("You can't lower your own access.");
+    const r = await this.prisma.workChannelMember.updateMany({ where: { channelId: ch.id, userId: target }, data: { permission } });
+    if (!r.count) throw new NotFoundException('That person is not in this channel.');
+    this.push([target], 'channel', { channelUid: ch.uid });
+    return { ok: true };
+  }
+
+  /** "Edit all": the same access for everyone (except owners / admins and you) */
+  async setAllPermissions(channelUid: string, userId: number, permission: string) {
+    const { ch } = await this.channel(channelUid, userId, 'manage');
+    if (!PERMS.includes(permission)) throw new BadRequestException('Unknown permission.');
+    const keep = (await this.prisma.workMember.findMany({ where: { workspaceId: ch.workspaceId, role: { in: ['OWNER', 'ADMIN'] } }, select: { userId: true } })).map((m) => m.userId);
+    await this.prisma.workChannelMember.updateMany({ where: { channelId: ch.id, userId: { notIn: [...keep, userId] } }, data: { permission } });
+    this.push(await this.audience(ch), 'channel', { channelUid: ch.uid });
     return { ok: true };
   }
 
@@ -287,6 +351,7 @@ export class WorkChatService {
     if (content.length > 20000) throw new BadRequestException('That message is too long.');
     const kind = dto.kind === 'post' ? 'post' : 'message';
     if (kind === 'post' && (!dto.title?.trim() || (dto.postType && !POST_TYPES.includes(dto.postType)))) throw new BadRequestException('Posts need a title.');
+    if (kind === 'post' && me && !ws.canManage && !['full', 'edit'].includes(me.permission)) throw new ForbiddenException('You need Edit access to write posts.');
     let parent: { id: number; userId: number; parentId: number | null } | null = null;
     if (dto.parentId) {
       parent = await this.prisma.workChatMessage.findFirst({ where: { id: dto.parentId, channelId: ch.id, deletedAt: null }, select: { id: true, userId: true, parentId: true } });
@@ -319,9 +384,12 @@ export class WorkChatService {
     const where = ch.kind === 'channel' ? `#${ch.name}` : 'a direct message';
     const url = `/work/${(await this.prisma.workWorkspace.findUnique({ where: { id: ch.workspaceId }, select: { uid: true } }))?.uid}/chat/${ch.uid}${parent ? `?thread=${parent.id}` : ''}`;
     const told = new Set<number>([userId]);
+    const level = new Map(ch.members.map((m) => [m.userId, m.notify]));
     const tell = async (ids: number[], event: string, title: string) => {
       for (const r of ids) {
         if (told.has(r)) continue;
+        // per-person setting: nothing at all, or mentions only
+        if (level.get(r) === 'none' || (level.get(r) === 'mentions' && event !== 'chat_mention')) continue;
         told.add(r);
         await this.workNotify.send({ recipientId: r, type: 'CHAT', title, message: snippet, metadata: { event, url, channelUid: ch.uid, messageId: msg.id, actorId: userId, actorName: who, actorAvatar: author.avatarUrl, channelName: ch.name } });
       }
@@ -381,6 +449,7 @@ export class WorkChatService {
   async pin(messageId: number, userId: number, on: boolean) {
     const { ch, me, ws } = await this.ownMessage(messageId, userId);
     if (!me && !ws.canManage) throw new ForbiddenException('Join the channel first.');
+    if (!ws.canManage && !['full', 'edit'].includes(me?.permission ?? '')) throw new ForbiddenException('You need Edit access to pin.');
     const up = await this.prisma.workChatMessage.update({ where: { id: messageId }, data: { pinnedAt: on ? new Date() : null }, select: MSG_SELECT });
     const shaped = this.shape(up, userId);
     this.push(await this.audience(ch), 'message_updated', { channelUid: ch.uid, message: shaped, pinned: on });

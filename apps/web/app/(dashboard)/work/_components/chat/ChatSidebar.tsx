@@ -1,103 +1,251 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, ChevronDown, ChevronRight, Hash, Lock, Plus, Search, Users } from "lucide-react";
+import { ArrowUpDown, Bell, BellOff, Check, CheckCheck, ChevronDown, ChevronRight, Hash, LayoutGrid, Link2, Lock, MailOpen, MoreHorizontal, Pencil, Plus, Search, Star, Trash2, UserRound, Users, XCircle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
-import { userName, workApi, workKeys } from "@/services/work.api";
+import { userName, workApi, workKeys, type ChatChannelRow } from "@/services/work.api";
 import { Avatar } from "../primitives";
-import { OnlineDot, useDirectory } from "../people";
+import { OnlineDot, useDirectory, useProfilePanel } from "../people";
+import { ShareChannelDialog, useShareChannel } from "./ShareChannel";
 import { chatSidebarKey, useChatSidebar, useWs } from "./useChat";
 
 const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-[13.5px] transition-colors";
 
-/** "Channels" and "Direct Messages" sections of the Work sidebar (ClickUp). */
+type Show = "all" | "unread" | "mentions";
+type Sort = "recent" | "alpha";
+type SectionPrefs = { show: Show; sort: Sort; limit: number };
+const PREFS_KEY = "ez:work:chatSections";
+const DEFAULT_PREFS: SectionPrefs = { show: "all", sort: "recent", limit: 20 };
+function loadPrefs(): Record<string, SectionPrefs> {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}"); } catch { return {}; }
+}
+
+/** "Channels", "Direct Messages" (and "Favorites") sections of the Work sidebar, with ClickUp's ⋯ menus. */
 export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void }) {
   const ws = useWs();
+  const qc = useQueryClient();
+  const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
   const { data = [] } = useChatSidebar();
   const { data: dir } = useDirectory();
-  const [openCh, setOpenCh] = useState(true);
-  const [openDm, setOpenDm] = useState(true);
+  const openShare = useShareChannel((s) => s.open);
+  const openProfile = useProfilePanel((s) => s.open);
+  const [open, setOpen] = useState<Record<string, boolean>>({ fav: true, ch: true, dm: true });
+  const [prefs, setPrefs] = useState<Record<string, SectionPrefs>>({});
   const [creating, setCreating] = useState(false);
   const [messaging, setMessaging] = useState(false);
-  const channels = data.filter((c) => c.kind === "channel" && (c.joined || c.starred)).sort((a, b) => Number(b.starred) - Number(a.starred) || (a.name ?? "").localeCompare(b.name ?? ""));
-  const dms = data.filter((c) => c.kind !== "channel");
+  const [renaming, setRenaming] = useState<{ uid: string; name: string } | null>(null);
+  useEffect(() => setPrefs(loadPrefs()), []);
+  const pref = (k: string) => ({ ...DEFAULT_PREFS, ...(prefs[k] ?? {}) });
+  const setPref = (k: string, p: Partial<SectionPrefs>) => {
+    const next = { ...prefs, [k]: { ...pref(k), ...p } };
+    setPrefs(next);
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(next)); } catch {}
+  };
+  const refresh = () => qc.invalidateQueries({ queryKey: chatSidebarKey(ws) });
+  const err = (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Something went wrong.");
+  const act = useMutation({ mutationFn: (fn: () => Promise<unknown>) => fn(), onSuccess: refresh, onError: err });
   const online = (id: number) => dir?.people.find((p) => p.user.id === id)?.online;
   const href = (uid: string) => `/work/${ws}/chat/${uid}`;
   const active = (uid: string) => pathname === href(uid);
+
+  const arrange = (rows: ChatChannelRow[], k: string) => {
+    const p = pref(k);
+    const shown = rows.filter((c) => (p.show === "unread" ? c.unread > 0 || active(c.uid) : p.show === "mentions" ? c.mentions > 0 || active(c.uid) : true));
+    const sorted = [...shown].sort((a, b) => (p.sort === "alpha" ? label(a).localeCompare(label(b)) : (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? "")));
+    return { rows: sorted.slice(0, p.limit), more: Math.max(0, sorted.length - p.limit) };
+  };
+  const label = (c: ChatChannelRow) => (c.kind === "channel" ? c.name ?? "" : c.people.length ? c.people.map((p) => (c.people.length > 1 ? p.firstName : userName(p))).join(", ") : `${user?.firstName ?? "You"} — You`);
+  const favorites = data.filter((c) => c.starred);
+  const channels = data.filter((c) => c.kind === "channel" && c.joined && !c.starred);
+  const dms = data.filter((c) => c.kind !== "channel" && !c.starred);
   if (!ws) return null;
+
+  const badge = (c: ChatChannelRow) =>
+    c.mentions > 0 ? <span className="rounded-full bg-destructive px-1.5 font-mono text-[10.5px] text-white">{c.mentions}</span>
+    : c.unread > 0 && !c.muted ? <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{c.unread}</span>
+    : null;
+
+  const rowMenu = (c: ChatChannelRow) => (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label={`${label(c)} options`} onClick={(e) => e.preventDefault()} className="invisible rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground group-hover:visible data-[state=open]:visible"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="right" align="start" className="w-60">
+        <DropdownMenuItem onClick={() => act.mutate(() => workApi.unreadChannel(c.uid))}><MailOpen className="mr-2 h-4 w-4" /> Mark as unread</DropdownMenuItem>
+        {c.kind === "channel" ? (
+          <>
+            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(`${window.location.origin}${href(c.uid)}`).then(() => toast.success("Link copied"))}><Link2 className="mr-2 h-4 w-4" /> Copy link</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => act.mutate(() => workApi.channelPrefs(c.uid, { starred: !c.starred }))}><Star className="mr-2 h-4 w-4" /> {c.starred ? "Remove from Favorites" : "Favorite"}</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setRenaming({ uid: c.uid, name: c.name ?? "" })}><Pencil className="mr-2 h-4 w-4" /> Rename</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.confirm(`Delete #${c.name}? Nobody can post in it any more.`) && act.mutate(() => workApi.archiveChannel(c.uid))} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger><Bell className="mr-2 h-4 w-4" /> Notification settings</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-52">
+                {([["all", "All new messages"], ["mentions", "Mentions only"], ["none", "Nothing"]] as const).map(([v, l]) => (
+                  <DropdownMenuItem key={v} onClick={() => act.mutate(() => workApi.channelPrefs(c.uid, { notify: v }))}>{l}{c.notify === v && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuItem onClick={() => act.mutate(() => workApi.leaveChannel(c.uid))}>
+              <BellOff className="mr-2 h-4 w-4" />
+              <span><span className="block">Unfollow</span><span className="block text-[11px] text-muted-foreground">Follow it again from All Channels</span></span>
+            </DropdownMenuItem>
+            <div className="p-1">
+              <button type="button" onClick={() => openShare(c.uid)} className="h-8 w-full rounded-md bg-forest text-[12.5px] font-semibold text-forest-foreground hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground">Sharing &amp; Permissions</button>
+            </div>
+          </>
+        ) : (
+          <>
+            {c.people.length === 1 && <DropdownMenuItem onClick={() => openProfile(c.people[0]!.id)}><UserRound className="mr-2 h-4 w-4" /> View Profile</DropdownMenuItem>}
+            <DropdownMenuItem onClick={() => act.mutate(() => workApi.channelPrefs(c.uid, { starred: !c.starred }))}><Star className="mr-2 h-4 w-4" /> {c.starred ? "Remove from Favorites" : "Favorite"}</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => { act.mutate(() => workApi.closeDm(c.uid)); if (active(c.uid)) router.push(`/work/${ws}`); }}>
+              <XCircle className="mr-2 h-4 w-4" />
+              <span><span className="block">Close DM</span><span className="block text-[11px] text-muted-foreground">Will reappear with new messages</span></span>
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const rowFor = (c: ChatChannelRow) => {
+    const one = c.kind !== "channel" && c.people.length === 1 ? c.people[0]! : null;
+    return (
+      <div key={c.uid} className={cn(ROW, "pr-1", active(c.uid) ? "bg-accent font-semibold text-accent-foreground" : c.unread && !c.muted ? "font-semibold text-foreground hover:bg-accent/60" : "text-foreground/80 hover:bg-accent/60")}>
+        <Link href={href(c.uid)} onClick={onNavigate} className="flex min-w-0 flex-1 items-center gap-2">
+          {c.kind === "channel" ? (
+            <Hash className="h-4 w-4 shrink-0 text-muted-foreground" />
+          ) : one ? (
+            <span className="relative shrink-0"><Avatar user={one} size={18} /><OnlineDot online={online(one.id)} className="absolute -bottom-0.5 -right-0.5 h-2 w-2" /></span>
+          ) : (
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-muted"><Users className="h-3 w-3" /></span>
+          )}
+          <span className="min-w-0 flex-1 truncate">{label(c)}</span>
+          {c.isPrivate && c.kind === "channel" && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+          {c.muted && <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" />}
+        </Link>
+        {badge(c)}
+        {rowMenu(c)}
+      </div>
+    );
+  };
+
+  const sectionMenu = (k: "ch" | "dm") => {
+    const p = pref(k);
+    return (
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <button type="button" aria-label={`${k === "ch" ? "Channels" : "Direct Messages"} options`} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="right" align="start" className="w-56">
+          <DropdownMenuItem onClick={() => (k === "ch" ? router.push(`/work/${ws}/chat/channels`) : router.push(`/work/${ws}/teams`))}><LayoutGrid className="mr-2 h-4 w-4" /> {k === "ch" ? "Browse Channels" : "Browse people"}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => act.mutate(() => workApi.chatReadAll(ws, k === "ch" ? "channels" : "dms"))}><CheckCheck className="mr-2 h-4 w-4" /> Mark all as read</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger><ArrowUpDown className="mr-2 h-4 w-4" /> Show and sort</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-48">
+              <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium text-muted-foreground">Show in section</p>
+              {([["all", "All"], ["unread", "Unread"], ["mentions", "Mentions Only"]] as const).map(([v, l]) => (
+                <DropdownMenuItem key={v} onClick={() => setPref(k, { show: v })}>{l}{p.show === v && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium text-muted-foreground">Sort section</p>
+              {([["recent", "Recents"], ["alpha", "Alphabetically"]] as const).map(([v, l]) => (
+                <DropdownMenuItem key={v} onClick={() => setPref(k, { sort: v })}>{l}{p.sort === v && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger><Hash className="mr-2 h-4 w-4" /> Limit <span className="ml-auto font-mono text-[11px] text-muted-foreground">{p.limit >= 999 ? "All" : p.limit}</span></DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-36">
+              {[10, 20, 40, 999].map((n) => <DropdownMenuItem key={n} onClick={() => setPref(k, { limit: n })}>{n >= 999 ? "Show all" : n}{p.limit === n && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>)}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
+  const head = (k: string, title: string, extra: React.ReactNode) => (
+    <div className="flex items-center gap-0.5 px-2 pb-1">
+      <button type="button" onClick={() => setOpen({ ...open, [k]: !open[k] })} className="flex flex-1 items-center gap-1 text-left text-[12px] font-semibold text-muted-foreground hover:text-foreground">
+        {title} {open[k] ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+      </button>
+      {extra}
+    </div>
+  );
+  const ch = arrange(channels, "ch");
+  const dm = arrange(dms, "dm");
 
   return (
     <div className="mt-3 space-y-3">
+      {favorites.length > 0 && (
+        <section aria-label="Favorites">
+          {head("fav", "Favorites", null)}
+          {open.fav && <div className="space-y-px">{favorites.map(rowFor)}</div>}
+        </section>
+      )}
       <section aria-label="Channels">
-        <div className="flex items-center px-2 pb-1">
-          <button type="button" onClick={() => setOpenCh(!openCh)} className="flex flex-1 items-center gap-1 text-left text-[12px] font-semibold text-muted-foreground hover:text-foreground">
-            Channels {openCh ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          </button>
-          <button type="button" aria-label="Add Channel" title="Add Channel" onClick={() => setCreating(true)} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button>
-        </div>
-        {openCh && (
+        {head("ch", "Channels", <>{sectionMenu("ch")}<button type="button" aria-label="Add Channel" title="Add Channel" onClick={() => setCreating(true)} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button></>)}
+        {open.ch && (
           <div className="space-y-px">
-            {channels.map((c) => (
-              <Link key={c.uid} href={href(c.uid)} onClick={onNavigate} className={cn(ROW, active(c.uid) ? "bg-accent font-semibold text-accent-foreground" : c.unread ? "font-semibold text-foreground hover:bg-accent/60" : "text-foreground/80 hover:bg-accent/60")}>
-                <Hash className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                {c.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
-                {c.mentions > 0 ? <span className="rounded-full bg-destructive px-1.5 font-mono text-[10.5px] text-white">{c.mentions}</span> : c.unread > 0 && !c.muted ? <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{c.unread}</span> : null}
-              </Link>
-            ))}
-            <Link href={`/work/${ws}/chat/channels`} onClick={onNavigate} className={cn(ROW, "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}>
-              <Search className="h-3.5 w-3.5 shrink-0" /> Browse channels
-            </Link>
-            <button type="button" onClick={() => setCreating(true)} className={cn(ROW, "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}>
-              <Plus className="h-3.5 w-3.5 shrink-0" /> Add Channel
-            </button>
+            {ch.rows.map(rowFor)}
+            {ch.more > 0 && <button type="button" onClick={() => setPref("ch", { limit: 999 })} className={cn(ROW, "text-muted-foreground hover:bg-accent/60")}>Show {ch.more} more</button>}
+            <Link href={`/work/${ws}/chat/channels`} onClick={onNavigate} className={cn(ROW, "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}><Search className="h-3.5 w-3.5 shrink-0" /> Browse channels</Link>
+            <button type="button" onClick={() => setCreating(true)} className={cn(ROW, "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}><Plus className="h-3.5 w-3.5 shrink-0" /> Add Channel</button>
           </div>
         )}
       </section>
-
       <section aria-label="Direct Messages">
-        <div className="flex items-center px-2 pb-1">
-          <button type="button" onClick={() => setOpenDm(!openDm)} className="flex flex-1 items-center gap-1 text-left text-[12px] font-semibold text-muted-foreground hover:text-foreground">
-            Direct Messages {openDm ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          </button>
-          <button type="button" aria-label="New message" title="New message" onClick={() => setMessaging(true)} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button>
-        </div>
-        {openDm && (
+        {head("dm", "Direct Messages", <>{sectionMenu("dm")}<button type="button" aria-label="New message" title="New message" onClick={() => setMessaging(true)} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button></>)}
+        {open.dm && (
           <div className="space-y-px">
-            {dms.map((c) => {
-              const one = c.people.length === 1 ? c.people[0]! : null;
-              const label = c.people.length ? c.people.map((p) => (c.people.length > 1 ? p.firstName : userName(p))).join(", ") : `${user?.firstName ?? "You"} — You`;
-              return (
-                <Link key={c.uid} href={href(c.uid)} onClick={onNavigate} className={cn(ROW, active(c.uid) ? "bg-accent font-semibold text-accent-foreground" : c.unread ? "font-semibold text-foreground hover:bg-accent/60" : "text-foreground/80 hover:bg-accent/60")}>
-                  {one ? (
-                    <span className="relative shrink-0"><Avatar user={one} size={18} /><OnlineDot online={online(one.id)} className="absolute -bottom-0.5 -right-0.5 h-2 w-2" /></span>
-                  ) : (
-                    <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-muted"><Users className="h-3 w-3" /></span>
-                  )}
-                  <span className="min-w-0 flex-1 truncate">{label}</span>
-                  {c.unread > 0 && !c.muted && <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{c.unread}</span>}
-                </Link>
-              );
-            })}
-            <button type="button" onClick={() => setMessaging(true)} className={cn(ROW, "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}>
-              <Plus className="h-3.5 w-3.5 shrink-0" /> New message
-            </button>
+            {dm.rows.map(rowFor)}
+            {dm.more > 0 && <button type="button" onClick={() => setPref("dm", { limit: 999 })} className={cn(ROW, "text-muted-foreground hover:bg-accent/60")}>Show {dm.more} more</button>}
+            <button type="button" onClick={() => setMessaging(true)} className={cn(ROW, "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}><Plus className="h-3.5 w-3.5 shrink-0" /> New message</button>
           </div>
         )}
       </section>
 
       {creating && <CreateChannelDialog onClose={() => setCreating(false)} />}
       {messaging && <NewMessageDialog onClose={() => setMessaging(false)} />}
+      {renaming && <RenameChannelDialog uid={renaming.uid} name={renaming.name} onClose={() => setRenaming(null)} />}
+      <ShareChannelDialog />
     </div>
+  );
+}
+
+function RenameChannelDialog({ uid, name, onClose }: { uid: string; name: string; onClose: () => void }) {
+  const ws = useWs();
+  const qc = useQueryClient();
+  const [v, setV] = useState(name);
+  const save = useMutation({
+    mutationFn: () => workApi.updateChannel(uid, { name: v }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: chatSidebarKey(ws) }); qc.invalidateQueries({ queryKey: ["work", "chat-channel", uid] }); toast.success("Channel renamed"); onClose(); },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't rename."),
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogTitle>Rename channel</DialogTitle>
+        <DialogDescription className="sr-only">New channel name</DialogDescription>
+        <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && v.trim() && save.mutate()} aria-label="New channel name" maxLength={80} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-[14px] outline-none focus:border-primary/50" />
+        <div className="flex justify-end"><button type="button" disabled={!v.trim() || save.isPending} onClick={() => save.mutate()} className="h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">Save</button></div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

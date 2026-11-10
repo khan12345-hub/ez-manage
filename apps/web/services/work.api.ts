@@ -374,15 +374,19 @@ export interface ChatMessage {
   reactions: { emoji: string; userIds: number[] }[]; saved: boolean; mine: boolean;
   channel?: { uid: string; name: string | null; kind: string }; reason?: "mention" | "reply";
 }
+export type ChatPermission = "full" | "edit" | "comment" | "view";
+export type ChatNotify = "all" | "mentions" | "none";
 export interface ChatChannelRow {
   id: number; uid: string; kind: "channel" | "dm" | "group"; name: string | null; description: string | null; topic: string | null; isPrivate: boolean;
   locationType: string | null; locationId: number | null; lastMessageAt: string | null; joined: boolean; muted: boolean; starred: boolean;
+  notify: ChatNotify; permission: ChatPermission | null;
   unread: number; mentions: number; memberCount: number; people: WorkUser[];
 }
 export interface ChatChannelDetail {
   id: number; uid: string; kind: "channel" | "dm" | "group"; name: string | null; description: string | null; topic: string | null; isPrivate: boolean;
   locationType: string | null; locationId: number | null; createdAt: string; joined: boolean; muted: boolean; starred: boolean; myRole: string | null;
-  canManage: boolean; members: { role: string; joinedAt: string; user: WorkUser }[]; pinned: ChatMessage[];
+  canManage: boolean; canPost: boolean; notify: ChatNotify; myPermission: ChatPermission | null;
+  members: { role: string; permission: ChatPermission; workRole: WorkRole | null; joinedAt: string; user: WorkUser }[]; pinned: ChatMessage[];
 }
 
 export const workApi = {
@@ -406,7 +410,12 @@ export const workApi = {
   leaveChannel: (uid: string) => post(`/work/chat/channels/${uid}/leave`),
   addChannelMembers: (uid: string, userIds: number[]) => post(`/work/chat/channels/${uid}/members`, { userIds }),
   removeChannelMember: (uid: string, userId: number) => del(`/work/chat/channels/${uid}/members/${userId}`),
-  channelPrefs: (uid: string, body: { muted?: boolean; starred?: boolean }) => put(`/work/chat/channels/${uid}/prefs`, body),
+  channelPrefs: (uid: string, body: { muted?: boolean; starred?: boolean; notify?: ChatNotify }) => put(`/work/chat/channels/${uid}/prefs`, body),
+  unreadChannel: (uid: string) => post(`/work/chat/channels/${uid}/unread`),
+  closeDm: (uid: string) => post(`/work/chat/channels/${uid}/close`),
+  setChannelPermission: (uid: string, userId: number, permission: ChatPermission) => put(`/work/chat/channels/${uid}/permissions/${userId}`, { permission }),
+  setAllChannelPermissions: (uid: string, permission: ChatPermission) => put(`/work/chat/channels/${uid}/permissions`, { permission }),
+  chatReadAll: (ws: string, section: "channels" | "dms") => post(`/work/workspaces/${ws}/chat/read-all?section=${section}`),
   readChannel: (uid: string) => post(`/work/chat/channels/${uid}/read`),
   chatTyping: (uid: string) => post(`/work/chat/channels/${uid}/typing`),
   chatDraft: (uid: string, content: string, parentId?: number) => put(`/work/chat/channels/${uid}/draft`, { content, ...(parentId ? { parentId } : {}) }),

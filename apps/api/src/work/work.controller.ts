@@ -12,7 +12,7 @@ import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { WorkProfileService } from './work-profile.service';
 import { WorkAutomationsService } from './work-automations.service';
 import { WorkChatService } from './work-chat.service';
-import { CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -441,6 +441,31 @@ export class WorkController {
   @Put('chat/channels/:uid/prefs')
   channelPrefs(@Param('uid') uid: string, @Body() dto: ChannelPrefsDto, @CurrentUser() u: SessionUser) {
     return this.chat.setPrefs(uid, u.id, dto);
+  }
+
+  @Post('chat/channels/:uid/unread')
+  unreadChannel(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.markUnread(uid, u.id);
+  }
+
+  @Post('chat/channels/:uid/close')
+  closeDm(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.closeDm(uid, u.id);
+  }
+
+  @Put('chat/channels/:uid/permissions/:userId')
+  channelPermission(@Param('uid') uid: string, @Param('userId', ParseIntPipe) target: number, @Body() dto: ChannelPermissionDto, @CurrentUser() u: SessionUser) {
+    return this.chat.setPermission(uid, u.id, target, dto.permission);
+  }
+
+  @Put('chat/channels/:uid/permissions')
+  channelPermissionsAll(@Param('uid') uid: string, @Body() dto: ChannelPermissionDto, @CurrentUser() u: SessionUser) {
+    return this.chat.setAllPermissions(uid, u.id, dto.permission);
+  }
+
+  @Post('workspaces/:workspaceId/chat/read-all')
+  async chatReadAll(@Param('workspaceId') ws: string, @Query('section') section: string, @CurrentUser() u: SessionUser) {
+    return this.chat.markAllRead(await this.work.resolveWorkspaceId(ws), u.id, section === 'dms' ? 'dms' : 'channels');
   }
 
   @Post('chat/channels/:uid/read')
