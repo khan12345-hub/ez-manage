@@ -1659,12 +1659,18 @@ model WorkAttachment {
 
 /// External link on a task (Figma, GitHub, a doc…).
 model WorkWebLink {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   taskId      Int
   url         String
   title       String?
+  /// link preview (Open Graph): image, site, description, favicon; previewAt = when we last tried
+  imageUrl    String?
+  siteName    String?
+  description String?
+  iconUrl     String?
+  previewAt   DateTime?
   createdById Int
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   task      WorkTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdBy User     @relation("WorkWebLinkCreator", fields: [createdById], references: [id])

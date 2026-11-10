@@ -6,9 +6,12 @@ import type { StorageProvider } from 'src/storage/storage.types';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { WorkAccessService } from './work-access.service';
 import { WorkNotifyService } from './work-notify.service';
+import { fetchLinkPreview } from './link-preview';
 import { WorkDetailService } from './work-detail.service';
 
 const USER_MINI = { id: true, firstName: true, lastName: true, avatarUrl: true, email: true } as const;
+
+const LINK_SELECT = { id: true, url: true, title: true, imageUrl: true, siteName: true, description: true, iconUrl: true, previewAt: true, createdAt: true, createdBy: { select: USER_MINI } } as const;
 
 export const ATTACHMENT_SELECT = {
   id: true,
@@ -105,7 +108,24 @@ export class WorkFilesService {
 
   async listLinks(taskId: number, userId: number) {
     await this.access.requireTask(taskId, userId, 'view');
-    return this.prisma.workWebLink.findMany({ where: { taskId }, orderBy: { createdAt: 'desc' }, select: { id: true, url: true, title: true, createdAt: true, createdBy: { select: USER_MINI } } });
+    const links = await this.prisma.workWebLink.findMany({ where: { taskId }, orderBy: { createdAt: 'desc' }, select: LINK_SELECT });
+    // older links get their preview the first time they're listed (in the background)
+    for (const l of links.filter((x) => !x.previewAt)) void this.refreshPreview(l.id, l.url);
+    return links;
+  }
+
+  /** fetch and store a link's preview (Open Graph); remembers the attempt even when it fails */
+  private async refreshPreview(id: number, url: string) {
+    const p = await fetchLinkPreview(url);
+    await this.prisma.workWebLink
+      .update({
+        where: { id },
+        data: {
+          previewAt: new Date(),
+          ...(p ? { imageUrl: p.imageUrl, siteName: p.siteName, description: p.description, iconUrl: p.iconUrl, ...(p.title ? { title: p.title.slice(0, 300) } : {}) } : {}),
+        },
+      })
+      .catch(() => null);
   }
 
   async addLink(taskId: number, userId: number, url: string, title?: string) {
@@ -117,11 +137,15 @@ export class WorkFilesService {
       throw new BadRequestException('That is not a valid URL.');
     }
     if (!['http:', 'https:'].includes(parsed.protocol)) throw new BadRequestException('Only http and https links are allowed.');
-    const link = await this.prisma.workWebLink.create({
+    let link = await this.prisma.workWebLink.create({
       data: { taskId, url: parsed.toString(), title: title?.trim() || parsed.hostname.replace(/^www\./, ''), createdById: userId },
-      select: { id: true, url: true, title: true, createdAt: true, createdBy: { select: USER_MINI } },
+      select: LINK_SELECT,
     });
     await this.detail.log(taskId, userId, 'link_added', null, link.title);
+    // preview (title, image, site, icon) — quick, and the link is saved either way
+    if (!title?.trim()) await this.refreshPreview(link.id, link.url);
+    else await this.prisma.workWebLink.update({ where: { id: link.id }, data: { previewAt: new Date() } }).catch(() => null);
+    link = (await this.prisma.workWebLink.findUnique({ where: { id: link.id }, select: LINK_SELECT })) ?? link;
     return link;
   }
 

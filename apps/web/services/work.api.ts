@@ -210,6 +210,11 @@ export interface WorkWebLink {
   id: number;
   url: string;
   title: string | null;
+  imageUrl?: string | null;
+  siteName?: string | null;
+  description?: string | null;
+  iconUrl?: string | null;
+  previewAt?: string | null;
   createdAt: string;
   createdBy: WorkUser;
 }

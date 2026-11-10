@@ -15,6 +15,7 @@ import {
   FileText,
   FileVideo,
   GitBranch,
+  Globe,
   LayoutGrid,
   Link2,
   List as ListIcon,
@@ -207,29 +208,78 @@ export function AttachmentsSection({ task }: { task: WorkTaskDetail }) {
 /** Web links on a task (References tab + "Add a link" panel). */
 export function WebLinksList({ task }: { task: WorkTaskDetail }) {
   const qc = useQueryClient();
-  const { data: links = [] } = useQuery({ queryKey: webLinksKey(task.id), queryFn: () => workApi.webLinks(task.id) });
+  const [grid, setGrid] = useState(true);
+  const { data: links = [] } = useQuery({
+    queryKey: webLinksKey(task.id),
+    queryFn: () => workApi.webLinks(task.id),
+    // previews of older links arrive a moment after the first load
+    refetchInterval: (q) => ((q.state.data as any[] | undefined)?.some((l) => !l.previewAt) ? 2500 : false),
+  });
   const del = useMutation({
     mutationFn: (id: number) => workApi.deleteWebLink(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: webLinksKey(task.id) }); qc.invalidateQueries({ queryKey: ["work", "activity", task.id] }); },
     onError: (e) => toast.error(errMsg(e)),
   });
   if (!links.length) return <p className="py-6 text-center text-[13px] text-muted-foreground">No links yet.</p>;
+  const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
+  const remove = (l: (typeof links)[number]) =>
+    task.access.canEdit && (
+      <button type="button" aria-label={`Remove link ${l.title ?? l.url}`} onClick={(e) => { e.preventDefault(); del.mutate(l.id); }} className="rounded-md bg-card/90 p-1 text-muted-foreground opacity-0 shadow-sm hover:text-destructive group-hover:opacity-100 focus:opacity-100">
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    );
+  const Icon = ({ l }: { l: (typeof links)[number] }) =>
+    l.iconUrl ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={l.iconUrl} alt="" className="h-3.5 w-3.5 shrink-0 rounded-sm" referrerPolicy="no-referrer" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+    ) : (
+      <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+    );
   return (
-    <ul className="space-y-1.5">
-      {links.map((l) => (
-        <li key={l.id} className="group flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Link2 className="h-3.5 w-3.5" /></span>
-          <a href={l.url} target="_blank" rel="noreferrer noopener" className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-medium hover:text-primary">{l.title || l.url}</span>
-            <span className="block truncate text-[11px] text-muted-foreground">{l.url}</span>
-          </a>
-          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-          {task.access.canEdit && (
-            <button type="button" aria-label={`Remove link ${l.title ?? l.url}`} onClick={() => del.mutate(l.id)} className="hidden text-muted-foreground hover:text-destructive group-hover:block"><Trash2 className="h-3.5 w-3.5" /></button>
-          )}
-        </li>
-      ))}
-    </ul>
+    <div>
+      <div className="mb-2 flex items-center justify-end gap-0.5">
+        <button type="button" aria-label="Cards" aria-pressed={grid} onClick={() => setGrid(true)} className={cn("rounded p-1", grid ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}><LayoutGrid className="h-3.5 w-3.5" /></button>
+        <button type="button" aria-label="List" aria-pressed={!grid} onClick={() => setGrid(false)} className={cn("rounded p-1", !grid ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}><ListIcon className="h-3.5 w-3.5" /></button>
+      </div>
+      {grid ? (
+        <ul aria-label="Link cards" className="space-y-3">
+          {links.map((l) => (
+            <li key={l.id} className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgb(11_42_31/0.05)] transition-shadow hover:shadow-md">
+              <a href={l.url} target="_blank" rel="noreferrer noopener" className="block">
+                {l.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={l.imageUrl} alt="" referrerPolicy="no-referrer" className="aspect-[1.91/1] w-full bg-muted object-cover" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+                ) : (
+                  <span className="flex aspect-[3/1] w-full items-center justify-center bg-gradient-to-br from-primary/10 via-muted to-[#b08d57]/15">
+                    {l.previewAt ? <Globe className="h-7 w-7 text-muted-foreground/60" /> : <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/60" />}
+                  </span>
+                )}
+                <span className="block px-3.5 py-2.5">
+                  <span className="line-clamp-2 text-[13.5px] font-semibold leading-snug group-hover:text-primary">{l.title || host(l.url)}</span>
+                  {l.description && <span className="mt-0.5 line-clamp-2 block text-[12px] text-muted-foreground">{l.description}</span>}
+                  <span className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground"><Icon l={l} /> <span className="truncate">{host(l.url)}</span></span>
+                </span>
+              </a>
+              <span className="absolute right-2 top-2">{remove(l)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul className="space-y-1.5">
+          {links.map((l) => (
+            <li key={l.id} className="group flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted"><Icon l={l} /></span>
+              <a href={l.url} target="_blank" rel="noreferrer noopener" className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium hover:text-primary">{l.title || l.url}</span>
+                <span className="block truncate text-[11px] text-muted-foreground">{host(l.url)}</span>
+              </a>
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              {remove(l)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -268,7 +318,7 @@ export function AddLinkPanel({ task, onRelate }: { task: WorkTaskDetail; onRelat
         <button type="button" onClick={onRelate} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] hover:bg-accent"><Link2 className="h-3.5 w-3.5" /> Dependencies</button>
       </div>
       <div>
-        <p className="mb-1.5 text-[12px] font-semibold text-muted-foreground">Links on this task</p>
+        <p className="mb-1.5 text-[12px] font-semibold text-muted-foreground">Other links</p>
         <WebLinksList task={task} />
       </div>
     </div>
