@@ -123,6 +123,21 @@ export class CreateCommentDto {
   /** people @mentioned in the comment */
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
 }
+export class CreateAutomationDto {
+  @IsOptional() @IsString() @MaxLength(200) name?: string;
+  @IsOptional() @IsInt() folderId?: number;
+  @IsOptional() @IsInt() listId?: number;
+  @IsObject() trigger!: Record<string, unknown>;
+  @IsOptional() @IsArray() @ArrayMaxSize(10) conditions?: Record<string, unknown>[];
+  @IsArray() @ArrayMaxSize(10) actions!: Record<string, unknown>[];
+}
+export class UpdateAutomationDto {
+  @IsOptional() @IsString() @MaxLength(200) name?: string;
+  @IsOptional() @IsBoolean() enabled?: boolean;
+  @IsOptional() @IsObject() trigger?: Record<string, unknown>;
+  @IsOptional() @IsArray() @ArrayMaxSize(10) conditions?: Record<string, unknown>[];
+  @IsOptional() @IsArray() @ArrayMaxSize(10) actions?: Record<string, unknown>[];
+}
 export class CreateWorkWorkspaceDto {
   @IsString() @IsNotEmpty() @MaxLength(80) name!: string;
   @IsOptional() @Matches(HEX) color?: string;

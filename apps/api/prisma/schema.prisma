@@ -129,6 +129,7 @@ model User {
   workWorkspacesCreated WorkWorkspace[]        @relation("WorkWorkspaceCreator")
   workInvitationsSent   WorkInvitation[]       @relation("WorkInvitationInviter")
   workNotifications     WorkNotification[]     @relation("WorkNotificationRecipient")
+  workAutomations       WorkAutomation[]       @relation("WorkAutomationCreator")
   workTeamMemberships   WorkTeamMember[]       @relation("WorkTeamMemberUser")
   workPriorities        WorkProfilePriority[]  @relation("WorkPriorityUser")
   workReactions         WorkCommentReaction[]
@@ -2047,6 +2048,7 @@ model WorkWorkspace {
   priorities  WorkProfilePriority[]
   reminders   WorkReminder[]
   invitations WorkInvitation[]
+  automations WorkAutomation[]
 
   @@map("work_workspaces")
 }
@@ -2094,4 +2096,47 @@ model WorkNotification {
   @@index([recipientId, isRead])
   @@index([recipientId, clearedAt])
   @@map("work_notifications")
+}
+
+/// ClickUp-style automation: when <trigger> (and <conditions>) then <actions>, on a space / folder / list
+model WorkAutomation {
+  id          Int       @id @default(autoincrement())
+  workspaceId Int
+  spaceId     Int
+  folderId    Int?
+  listId      Int?
+  name        String
+  /// { type: task_created | status_changed | assignee_added | priority_changed | due_date_changed | comment_added | task_moved, ...params }
+  trigger     Json
+  /// [{ field: priority | assignee | tag, op: is | is_not, value }]
+  conditions  Json?
+  /// [{ type: set_status | set_priority | add_assignees | remove_assignees | set_due_date | add_tag | add_comment | create_subtask | move_to_list | archive | notify, ... }]
+  actions     Json
+  enabled     Boolean   @default(true)
+  runCount    Int       @default(0)
+  lastRunAt   DateTime?
+  createdById Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace WorkWorkspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User                @relation("WorkAutomationCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  runs      WorkAutomationRun[]
+
+  @@index([spaceId, enabled])
+  @@map("work_automations")
+}
+
+model WorkAutomationRun {
+  id           Int      @id @default(autoincrement())
+  automationId Int
+  taskId       Int?
+  ok           Boolean
+  message      String?
+  createdAt    DateTime @default(now())
+
+  automation WorkAutomation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@index([automationId, createdAt])
+  @@map("work_automation_runs")
 }

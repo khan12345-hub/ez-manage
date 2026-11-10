@@ -8,6 +8,7 @@
 import { CreateSpaceDialog } from "@/app/(dashboard)/work/_components/CreateSpaceDialog";
 import { SpaceIcon } from "@/app/(dashboard)/work/_components/SpaceIcon";
 import { ProfilePanel } from "@/app/(dashboard)/work/_components/ProfilePanel";
+import { AutomationsPanel } from "@/app/(dashboard)/work/_components/Automations";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -615,6 +616,7 @@ export function WorkSidebar({
 
       {wsParam && <CreatePanel ws={wsParam} />}
       {wsParam && <ProfilePanel />}
+      {wsParam && <AutomationsPanel />}
       <CreateSpaceDialog
         open={dialog?.kind === "space"}
         onOpenChange={(o) => !o && setDialog(null)}

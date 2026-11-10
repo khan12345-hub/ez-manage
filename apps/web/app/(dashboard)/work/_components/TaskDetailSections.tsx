@@ -480,6 +480,7 @@ export function RelationshipsSection({ task }: { task: WorkTaskDetail; }) {
 
 const ACTION_TEXT: Record<string, string> = {
   created: "created this task",
+  automation: "ran automation",
   status: "changed status",
   name: "renamed the task",
   priority: "changed priority",
@@ -739,7 +740,7 @@ function renderMentions(text: string, members: WorkUser[]) {
 
 export function ActivityRow({ a, members }: { a: WorkActivity; members: WorkUser[] }) {
   const text = ACTION_TEXT[a.action] ?? a.action;
-  if (["attachment_added", "attachment_removed", "link_added", "link_removed", "field"].includes(a.action)) {
+  if (["attachment_added", "attachment_removed", "link_added", "link_removed", "field", "automation"].includes(a.action)) {
     const v = a.action.endsWith("added") ? a.toValue : a.fromValue;
     return (
       <li className="flex items-start gap-2.5 pl-1.5 text-[12.5px] text-muted-foreground">

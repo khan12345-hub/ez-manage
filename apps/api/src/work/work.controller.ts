@@ -10,7 +10,8 @@ import { WorkRemindersService } from './work-reminders.service';
 import { WorkExtrasService } from './work-extras.service';
 import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { WorkProfileService } from './work-profile.service';
-import { CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { WorkAutomationsService } from './work-automations.service';
+import { CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -59,6 +60,7 @@ export class WorkController {
     private readonly extras: WorkExtrasService,
     private readonly stats: WorkStatsService,
     private readonly profiles: WorkProfileService,
+    private readonly automations: WorkAutomationsService,
   ) {}
 
   // ── workspace level ──
@@ -352,6 +354,32 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── automations ──
+  @Get('spaces/:id/automations')
+  listAutomations(@Param('id', ParseIntPipe) id: number, @Query('folderId') folderId: string, @Query('listId') listId: string, @CurrentUser() u: SessionUser) {
+    return this.automations.list(id, u.id, folderId ? Number(folderId) : undefined, listId ? Number(listId) : undefined);
+  }
+
+  @Post('spaces/:id/automations')
+  createAutomation(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateAutomationDto, @CurrentUser() u: SessionUser) {
+    return this.automations.create(id, u.id, dto);
+  }
+
+  @Patch('automations/:id')
+  updateAutomation(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateAutomationDto, @CurrentUser() u: SessionUser) {
+    return this.automations.update(id, u.id, dto);
+  }
+
+  @Delete('automations/:id')
+  deleteAutomation(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.automations.remove(id, u.id);
+  }
+
+  @Get('automations/:id/runs')
+  automationRuns(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.automations.runs(id, u.id);
+  }
+
   // ── Work workspaces (separate from Boards) ──
   @Post('workspaces')
   createWorkWorkspace(@Body() dto: CreateWorkWorkspaceDto, @CurrentUser() u: SessionUser) {

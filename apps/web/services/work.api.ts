@@ -354,7 +354,26 @@ export interface WorkAnalytics { day: string; hours: number[]; people: { user: W
 
 export interface WorkWorkspaceInfo { id: number; uid: string; name: string; color?: string; avatarUrl?: string | null; role: WorkRole }
 
+export type AutomationTriggerType = "task_created" | "status_changed" | "assignee_added" | "priority_changed" | "due_date_changed" | "comment_added" | "task_moved";
+export type AutomationActionType = "set_status" | "set_priority" | "add_assignees" | "remove_assignees" | "set_due_date" | "add_tag" | "add_comment" | "create_subtask" | "move_to_list" | "archive" | "notify";
+export interface AutomationTrigger { type: AutomationTriggerType; from?: string | null; to?: string | null; userId?: number | null }
+export interface AutomationCondition { field: "priority" | "assignee" | "tag"; op: "is" | "is_not"; value: string | number }
+export interface AutomationAction { type: AutomationActionType; status?: string; priority?: string | null; userIds?: number[]; days?: number; tagId?: number; text?: string; name?: string; listId?: number; message?: string }
+export interface WorkAutomation {
+  id: number; name: string; spaceId: number; folderId: number | null; listId: number | null;
+  trigger: AutomationTrigger; conditions: AutomationCondition[]; actions: AutomationAction[];
+  enabled: boolean; runCount: number; lastRunAt: string | null; createdAt: string; createdBy: WorkUser; inherited: boolean;
+}
+export interface WorkAutomationRun { id: number; taskId: number | null; ok: boolean; message: string | null; createdAt: string }
+
 export const workApi = {
+  automations: (spaceId: number, at: { folderId?: number | null; listId?: number | null } = {}) =>
+    get<WorkAutomation[]>(`/work/spaces/${spaceId}/automations?${at.folderId ? `folderId=${at.folderId}&` : ""}${at.listId ? `listId=${at.listId}` : ""}`),
+  createAutomation: (spaceId: number, body: { name?: string; folderId?: number; listId?: number; trigger: AutomationTrigger; conditions?: AutomationCondition[]; actions: AutomationAction[] }) =>
+    post<WorkAutomation>(`/work/spaces/${spaceId}/automations`, body),
+  updateAutomation: (id: number, body: Partial<{ name: string; enabled: boolean; trigger: AutomationTrigger; conditions: AutomationCondition[]; actions: AutomationAction[] }>) => patch<WorkAutomation>(`/work/automations/${id}`, body),
+  deleteAutomation: (id: number) => del(`/work/automations/${id}`),
+  automationRuns: (id: number) => get<WorkAutomationRun[]>(`/work/automations/${id}/runs`),
   createWorkspace: (body: { name: string; color?: string; useCase?: string; teamSize?: string; inviteEmails?: string[] }) =>
     post<{ id: number; uid: string; name: string; color: string; invited: { email: string; status: string }[] }>(`/work/workspaces`, body),
   updateWorkspace: (ws: string | number, body: { name?: string; color?: string }) => patch<{ uid: string; name: string; color: string }>(`/work/workspaces/${ws}`, body),

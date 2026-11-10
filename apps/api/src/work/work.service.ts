@@ -24,6 +24,11 @@ const uid = () => randomBytes(9).toString('base64url').substring(0, 12);
 
 /** Default statuses for a new space (ClickUp-style: To do → In progress → Complete). */
 import { SPACE_TEMPLATES } from './space-templates';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { WORK_TASK_EVENT, type WorkTaskEvent } from './work-events';
+
+/** set by automations so their own changes never trigger automations again */
+export type WorkOpts = { fromAutomation?: boolean };
 
 const DEFAULT_STATUSES = [
   { name: 'To do', color: '#9CA3AF', category: 'NOT_STARTED' as const, order: 1000 },
@@ -93,7 +98,14 @@ export class WorkService {
     private readonly access: WorkAccessService,
     private readonly detail: WorkDetailService,
     private readonly files: WorkFilesService,
+    private readonly events: EventEmitter2,
   ) {}
+
+  /** tell automations what happened (skipped for changes made by automations) */
+  private async emit(e: WorkTaskEvent, opts?: WorkOpts) {
+    if (opts?.fromAutomation) return;
+    await this.events.emitAsync(WORK_TASK_EVENT, e).catch(() => null);
+  }
 
   /* ─────────────────────────── helpers ─────────────────────────── */
 
@@ -446,7 +458,7 @@ export class WorkService {
     return tasks.map(shapeTask);
   }
 
-  async createTask(listId: number, userId: number, dto: CreateTaskDto) {
+  async createTask(listId: number, userId: number, dto: CreateTaskDto, opts?: WorkOpts) {
     const { list, access } = await this.access.requireList(listId, userId, 'edit');
     const statuses = await this.effectiveStatuses(list);
     const status = dto.statusId
@@ -493,6 +505,7 @@ export class WorkService {
     if (dto.assigneeIds?.length) {
       await this.files.notify(created.id, userId, dto.assigneeIds, NotificationType.TASK_ASSIGNED, 'Task assigned to you', `You were assigned "${created.name}".`, { event: 'assigned' });
     }
+    await this.emit({ type: 'task_created', taskId: created.id, actorId: userId }, opts);
     return shapeTask(created);
   }
 
@@ -554,7 +567,7 @@ export class WorkService {
     };
   }
 
-  async updateTask(taskId: number, userId: number, dto: UpdateTaskDto) {
+  async updateTask(taskId: number, userId: number, dto: UpdateTaskDto, opts?: WorkOpts) {
     const { task, access } = await this.access.requireTask(taskId, userId, 'edit');
     let listId = task.listId;
     let statusId: number | null | undefined = dto.statusId;
@@ -661,6 +674,17 @@ export class WorkService {
       await this.files.notify(taskId, userId, rcpt, NotificationType.TASK_STATUS_CHANGED, 'Status changed', `${from?.name ?? 'none'} → ${to?.name ?? 'none'}`, {
         event: 'status', from: from?.name ?? null, fromColor: from?.color ?? null, to: to?.name ?? null, toColor: to?.color ?? null,
       });
+      await this.emit({ type: 'status_changed', taskId, actorId: userId, from: from?.name ?? null, to: to?.name ?? null }, opts);
+    }
+    if (before && !opts?.fromAutomation) {
+      if (dto.assigneeIds) {
+        const had = new Set(before.assignees.map((a: any) => a.userId));
+        const added = [...new Set(dto.assigneeIds)].filter((u) => !had.has(u));
+        if (added.length) await this.emit({ type: 'assignee_added', taskId, actorId: userId, userIds: added }, opts);
+      }
+      if (dto.priority !== undefined && dto.priority !== before.priority) await this.emit({ type: 'priority_changed', taskId, actorId: userId, from: before.priority, to: dto.priority }, opts);
+      if (dto.dueDate !== undefined && +(before.dueDate ?? 0) !== +(updated.dueDate ?? 0)) await this.emit({ type: 'due_date_changed', taskId, actorId: userId }, opts);
+      if (listId !== task.listId) await this.emit({ type: 'task_moved', taskId, actorId: userId }, opts);
     }
     return shapeTask(updated);
   }
@@ -718,7 +742,7 @@ export class WorkService {
     });
   }
 
-  async createComment(taskId: number, userId: number, dto: CreateCommentDto) {
+  async createComment(taskId: number, userId: number, dto: CreateCommentDto, opts?: WorkOpts) {
     await this.access.requireTask(taskId, userId, 'comment');
     if (dto.parentId) {
       const p = await this.prisma.workComment.findFirst({ where: { id: dto.parentId, taskId, deletedAt: null }, select: { id: true } });
@@ -759,6 +783,7 @@ export class WorkService {
     ];
     const watchers = [...thread, ...followers, t?.createdById ?? 0, ...(t?.assignees.map((a) => a.userId) ?? [])].filter((u) => !mentioned.includes(u) && u !== dto.assigneeId);
     await this.files.notify(taskId, userId, watchers, dto.parentId ? NotificationType.COMMENT_REPLY : NotificationType.COMMENT_CREATED, dto.parentId ? 'New reply' : 'New comment', snippet, { ...extra, ...(dto.parentId ? { threadId: dto.parentId } : {}), event: dto.parentId ? 'reply' : 'comment' });
+    await this.emit({ type: 'comment_added', taskId, actorId: userId }, opts);
     return comment;
   }
 

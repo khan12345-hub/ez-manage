@@ -12,6 +12,7 @@ import { Donut, colorAt } from "./Charts";
 import { LocationDashboard, Panel } from "./Dashboard";
 import { TaskDrawer } from "./TaskDrawer";
 import { SpaceIcon } from "./SpaceIcon";
+import { AutomateButton } from "./Automations";
 import { loadBookmarks, recentPlaces, saveBookmarks, trackPlace, type Bookmark, type RecentPlace } from "./recent";
 
 type Tab = "overview" | "dashboard";
@@ -71,6 +72,7 @@ export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "fold
             {kind === "space" && data.space.description && <span className="hidden truncate text-[12.5px] font-normal text-muted-foreground md:inline">· {data.space.description}</span>}
           </h1>
           <span className="flex-1" />
+          {data.access.canEdit && <AutomateButton scope={{ spaceId: data.space.id, folderId: data.folder?.id ?? null, label: kind === "space" ? data.space.name : data.folder!.name }} />}
           {data.access.canManage && (
             <div className="flex gap-2">
               {kind === "space" && (
