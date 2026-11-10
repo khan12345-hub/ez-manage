@@ -5,7 +5,7 @@ import { boardQueryFilter } from "@/lib/board-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 
-import { connectNotificationStream, ChatUnreadEvent, ChatCallEvent } from "@/services/notifications.sse";
+import { connectNotificationStream, ChatUnreadEvent, ChatCallEvent, WORK_CHAT_EVENT } from "@/services/notifications.sse";
 import { getUnreadNotificationCount } from "@/services/notifications.api";
 import { useChatStore } from "@/store/chat-store";
 import { useDesktopNotifications } from "@/hooks/useDesktopNotifications";
@@ -142,6 +142,11 @@ export function NotificationStreamProvider({
       },
       ({ boardId }: { boardId: number }) => {
         queryClient.invalidateQueries({ queryKey: ["board-tasks", Number(boardId)] });
+      },
+      (data) => {
+        // Work chat: screens listen for this; the sidebar refreshes unread counts
+        window.dispatchEvent(new CustomEvent(WORK_CHAT_EVENT, { detail: data }));
+        if (data.type !== "typing") queryClient.invalidateQueries({ queryKey: ["work", "chat-sidebar"] });
       },
     );
 

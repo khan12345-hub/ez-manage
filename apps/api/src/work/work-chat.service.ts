@@ -182,6 +182,7 @@ export class WorkChatService {
     if (!me) {
       await this.prisma.workChannelMember.create({ data: { channelId: ch.id, userId, lastReadAt: new Date() } });
       await this.system(ch.id, userId, 'joined the channel');
+      this.push(await this.audience(ch), 'channel', { channelUid: ch.uid });
     }
     return { joined: true };
   }
@@ -192,6 +193,7 @@ export class WorkChatService {
     if (ch.kind === 'dm') throw new BadRequestException("You can't leave a direct message.");
     await this.prisma.workChannelMember.delete({ where: { channelId_userId: { channelId: ch.id, userId } } });
     await this.system(ch.id, userId, 'left the channel');
+    this.push(await this.audience(ch), 'channel', { channelUid: ch.uid });
     return { left: true };
   }
 

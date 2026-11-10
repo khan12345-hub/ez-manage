@@ -366,7 +366,59 @@ export interface WorkAutomation {
 }
 export interface WorkAutomationRun { id: number; taskId: number | null; ok: boolean; message: string | null; createdAt: string }
 
+export interface ChatFile { id: number; name: string; url: string; mime: string; size: number }
+export interface ChatMessage {
+  id: number; channelId: number; parentId: number | null; kind: "message" | "post" | "system"; title: string | null; postType: string | null;
+  content: string; mentionIds: number[]; files: ChatFile[]; replyCount: number; lastReplyAt: string | null; alsoInChannel: boolean;
+  pinnedAt: string | null; editedAt: string | null; deletedAt: string | null; createdAt: string; user: WorkUser;
+  reactions: { emoji: string; userIds: number[] }[]; saved: boolean; mine: boolean;
+  channel?: { uid: string; name: string | null; kind: string }; reason?: "mention" | "reply";
+}
+export interface ChatChannelRow {
+  id: number; uid: string; kind: "channel" | "dm" | "group"; name: string | null; description: string | null; topic: string | null; isPrivate: boolean;
+  locationType: string | null; locationId: number | null; lastMessageAt: string | null; joined: boolean; muted: boolean; starred: boolean;
+  unread: number; mentions: number; memberCount: number; people: WorkUser[];
+}
+export interface ChatChannelDetail {
+  id: number; uid: string; kind: "channel" | "dm" | "group"; name: string | null; description: string | null; topic: string | null; isPrivate: boolean;
+  locationType: string | null; locationId: number | null; createdAt: string; joined: boolean; muted: boolean; starred: boolean; myRole: string | null;
+  canManage: boolean; members: { role: string; joinedAt: string; user: WorkUser }[]; pinned: ChatMessage[];
+}
+
 export const workApi = {
+  chatSidebar: (ws: string) => get<ChatChannelRow[]>(`/work/workspaces/${ws}/chat`),
+  createChannel: (ws: string, body: { name: string; description?: string; isPrivate?: boolean; memberIds?: number[]; locationType?: string; locationId?: number }) => post<{ uid: string; name: string }>(`/work/workspaces/${ws}/chat/channels`, body),
+  openDm: (ws: string, userIds: number[]) => post<{ uid: string; created: boolean }>(`/work/workspaces/${ws}/chat/dm`, { userIds }),
+  chatDrafts: (ws: string) => get<{ content: string; parentId: number; updatedAt: string; channel: { uid: string; name: string | null; kind: string } }[]>(`/work/workspaces/${ws}/chat/drafts`),
+  chatSent: (ws: string) => get<ChatMessage[]>(`/work/workspaces/${ws}/chat/sent`),
+  chatSaved: (ws: string) => get<ChatMessage[]>(`/work/workspaces/${ws}/chat/saved`),
+  chatActivity: (ws: string) => get<ChatMessage[]>(`/work/workspaces/${ws}/chat/activity`),
+  chatPosts: (ws: string, type?: string) => get<ChatMessage[]>(`/work/workspaces/${ws}/chat/posts${type ? `?type=${type}` : ""}`),
+  chatUpload: (ws: string, files: File[]) => {
+    const fd = new FormData();
+    files.forEach((f) => fd.append("files", f));
+    return post<ChatFile[]>(`/work/workspaces/${ws}/chat/files`, fd);
+  },
+  channel: (uid: string) => get<ChatChannelDetail>(`/work/chat/channels/${uid}`),
+  updateChannel: (uid: string, body: { name?: string; description?: string | null; topic?: string | null; isPrivate?: boolean }) => patch(`/work/chat/channels/${uid}`, body),
+  archiveChannel: (uid: string) => del(`/work/chat/channels/${uid}`),
+  joinChannel: (uid: string) => post(`/work/chat/channels/${uid}/join`),
+  leaveChannel: (uid: string) => post(`/work/chat/channels/${uid}/leave`),
+  addChannelMembers: (uid: string, userIds: number[]) => post(`/work/chat/channels/${uid}/members`, { userIds }),
+  removeChannelMember: (uid: string, userId: number) => del(`/work/chat/channels/${uid}/members/${userId}`),
+  channelPrefs: (uid: string, body: { muted?: boolean; starred?: boolean }) => put(`/work/chat/channels/${uid}/prefs`, body),
+  readChannel: (uid: string) => post(`/work/chat/channels/${uid}/read`),
+  chatTyping: (uid: string) => post(`/work/chat/channels/${uid}/typing`),
+  chatDraft: (uid: string, content: string, parentId?: number) => put(`/work/chat/channels/${uid}/draft`, { content, ...(parentId ? { parentId } : {}) }),
+  chatMessages: (uid: string, opts: { before?: string; q?: string; posts?: boolean } = {}) =>
+    get<{ items: ChatMessage[]; hasMore: boolean }>(`/work/chat/channels/${uid}/messages?${opts.before ? `before=${encodeURIComponent(opts.before)}&` : ""}${opts.q ? `q=${encodeURIComponent(opts.q)}&` : ""}${opts.posts ? "posts=true" : ""}`),
+  sendChat: (uid: string, body: { content?: string; parentId?: number; kind?: "message" | "post"; title?: string; postType?: string; mentionIds?: number[]; files?: ChatFile[]; alsoInChannel?: boolean }) => post<ChatMessage>(`/work/chat/channels/${uid}/messages`, body),
+  chatThread: (id: number) => get<{ parent: ChatMessage; replies: ChatMessage[]; channelUid: string }>(`/work/chat/messages/${id}/thread`),
+  editChat: (id: number, content: string, title?: string) => patch<ChatMessage>(`/work/chat/messages/${id}`, { content, ...(title ? { title } : {}) }),
+  deleteChat: (id: number) => del(`/work/chat/messages/${id}`),
+  reactChat: (id: number, emoji: string) => post<ChatMessage>(`/work/chat/messages/${id}/reactions`, { emoji }),
+  pinChat: (id: number, on: boolean) => put<ChatMessage>(`/work/chat/messages/${id}/pin`, { on }),
+  saveChat: (id: number, on: boolean) => put(`/work/chat/messages/${id}/save`, { on }),
   automations: (spaceId: number, at: { folderId?: number | null; listId?: number | null } = {}) =>
     get<WorkAutomation[]>(`/work/spaces/${spaceId}/automations?${at.folderId ? `folderId=${at.folderId}&` : ""}${at.listId ? `listId=${at.listId}` : ""}`),
   createAutomation: (spaceId: number, body: { name?: string; folderId?: number; listId?: number; trigger: AutomationTrigger; conditions?: AutomationCondition[]; actions: AutomationAction[] }) =>

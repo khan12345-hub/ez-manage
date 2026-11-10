@@ -143,7 +143,7 @@ function CallToast() {
 }
 
 
-function PushPermissionBanner() {
+function PushPermissionBanner({ top = false }: { top?: boolean }) {
   const { state, loading, enable } = usePushNotifications();
   const [dismissed, setDismissed] = useState(false);
 
@@ -156,7 +156,10 @@ function PushPermissionBanner() {
     return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 flex items-center gap-3 rounded-xl border border-primary/25 bg-popover px-4 py-3 shadow-2xl animate-in slide-in-from-bottom-4">
+    <div className={top
+      // Work: a slim strip under the header so it never covers a chat box or composer
+      ? "fixed left-1/2 top-16 z-[70] flex -translate-x-1/2 items-center gap-3 rounded-xl border border-primary/25 bg-popover px-4 py-2 shadow-lg animate-in slide-in-from-top-2"
+      : "fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 flex items-center gap-3 rounded-xl border border-primary/25 bg-popover px-4 py-3 shadow-2xl animate-in slide-in-from-bottom-4"}>
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
         <Bell className="h-4 w-4 text-primary" />
       </div>
@@ -287,7 +290,7 @@ export function AppShell({ children }: AppShellProps) {
               <CallToast />
               <CallDeclinedToast />
               <GlobalLiveKitPanel />
-              <PushPermissionBanner />
+              <PushPermissionBanner top={isWorkPage} />
             </NotificationStreamProvider>
           </ImportJobProvider>
         </ChatProvider>

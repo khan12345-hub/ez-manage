@@ -9,6 +9,7 @@ import { CreateSpaceDialog } from "@/app/(dashboard)/work/_components/CreateSpac
 import { SpaceIcon } from "@/app/(dashboard)/work/_components/SpaceIcon";
 import { ProfilePanel } from "@/app/(dashboard)/work/_components/ProfilePanel";
 import { AutomationsPanel } from "@/app/(dashboard)/work/_components/Automations";
+import { ChatSidebarSections } from "@/app/(dashboard)/work/_components/chat/ChatSidebar";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -97,12 +98,11 @@ const SOON_CREATE = [
   { label: "Clip", icon: Video, color: "#DB2777" },
 ];
 
-const MORE_SOON = [
-  { label: "Chat Activity", icon: AtSign },
-  { label: "Drafts & Sent", icon: Send },
-  { label: "All Channels", icon: LayoutGrid },
-];
+const MORE_SOON: { label: string; icon: typeof AtSign }[] = [];
 const MORE_PAGES = [
+  { id: "chat-activity", label: "Chat Activity", path: "chat/activity", icon: AtSign },
+  { id: "drafts", label: "Drafts & Sent", path: "chat/drafts", icon: Send },
+  { id: "channels", label: "All Channels", path: "chat/channels", icon: LayoutGrid },
   { id: "spaces", label: "All Spaces", path: "spaces", icon: Orbit },
   { id: "all-tasks", label: "All Tasks", path: "all-tasks", icon: ListChecks },
   { id: "teams", label: "Teams", path: "teams", icon: UsersRound },
@@ -387,10 +387,13 @@ export function WorkSidebar({
                 <CheckCheck className="h-4 w-4 shrink-0" /> Assigned Comments
               </Link>
 
-              <span title="Coming soon" className={cn(ROW, "cursor-not-allowed py-[7px] text-foreground/45")}>
-                <Megaphone className="h-4 w-4 shrink-0" /> <span className="flex-1">Posts</span>
-                <span className="rounded bg-muted px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Soon</span>
-              </span>
+              <Link
+                href={wsParam ? `/work/${wsParam}/chat/posts` : "#"}
+                onClick={onMobileClose}
+                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/chat/posts` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+              >
+                <Megaphone className="h-4 w-4 shrink-0" /> Posts
+              </Link>
 
               {/* My Tasks */}
               <div className={cn(ROW, "py-[7px] text-foreground/80 hover:bg-accent/60")}>
@@ -585,6 +588,7 @@ export function WorkSidebar({
               );
             })}
           </div>
+          {wsParam && <ChatSidebarSections onNavigate={onMobileClose} />}
         </nav>
 
         {canManage && (

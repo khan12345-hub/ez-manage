@@ -22,6 +22,18 @@ export interface ChatCallEvent {
   callMessageId?: number;
 }
 
+export interface WorkChatEvent {
+  type: "message" | "message_updated" | "typing" | "channel";
+  channelUid: string;
+  message?: any;
+  userId?: number;
+  name?: string;
+  archived?: boolean;
+  removed?: boolean;
+}
+/** browser event that Work chat screens listen to */
+export const WORK_CHAT_EVENT = "ez:work-chat";
+
 export function connectNotificationStream(
   onNotification: (notification: any) => void,
   onFileImportProgress?: (progress: FileImportProgress) => void,
@@ -30,6 +42,7 @@ export function connectNotificationStream(
   onChatUnread?: (data: ChatUnreadEvent) => void,
   onChatCall?: (data: ChatCallEvent) => void,
   onBoardTasksUpdate?: (data: { boardId: number }) => void,
+  onWorkChat?: (data: WorkChatEvent) => void,
 ) {
   const url = `${process.env.NEXT_PUBLIC_API_URL}/notifications/stream`;
 
@@ -66,6 +79,11 @@ export function connectNotificationStream(
   // A new task was added to a board (form submission, etc.) — refresh task list.
   eventSource.addEventListener("board_tasks_update", (event) => {
     try { onBoardTasksUpdate?.(JSON.parse(event.data)); } catch {}
+  });
+
+  // Work chat (separate from Boards chat): new / edited messages, typing, channel changes.
+  eventSource.addEventListener("work_chat", (event) => {
+    try { onWorkChat?.(JSON.parse(event.data)); } catch {}
   });
 
   eventSource.onmessage = (event) => {
