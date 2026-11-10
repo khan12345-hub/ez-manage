@@ -130,6 +130,12 @@ model User {
   workInvitationsSent   WorkInvitation[]       @relation("WorkInvitationInviter")
   workNotifications     WorkNotification[]     @relation("WorkNotificationRecipient")
   workAutomations       WorkAutomation[]       @relation("WorkAutomationCreator")
+  workChannelsCreated   WorkChannel[]          @relation("WorkChannelCreator")
+  workChannelMembers    WorkChannelMember[]    @relation("WorkChannelMemberUser")
+  workChatMessages      WorkChatMessage[]      @relation("WorkChatAuthor")
+  workChatReactions     WorkChatReaction[]     @relation("WorkChatReactionUser")
+  workChatDrafts        WorkChatDraft[]        @relation("WorkChatDraftUser")
+  workChatSaved         WorkChatSaved[]        @relation("WorkChatSavedUser")
   workTeamMemberships   WorkTeamMember[]       @relation("WorkTeamMemberUser")
   workPriorities        WorkProfilePriority[]  @relation("WorkPriorityUser")
   workReactions         WorkCommentReaction[]
@@ -2049,6 +2055,7 @@ model WorkWorkspace {
   reminders   WorkReminder[]
   invitations WorkInvitation[]
   automations WorkAutomation[]
+  channels    WorkChannel[]
 
   @@map("work_workspaces")
 }
@@ -2139,4 +2146,133 @@ model WorkAutomationRun {
 
   @@index([automationId, createdAt])
   @@map("work_automation_runs")
+}
+
+/// Work chat (ClickUp Chat): channels, direct messages and group DMs — separate from Boards chat
+model WorkChannel {
+  id            Int       @id @default(autoincrement())
+  uid           String    @unique
+  workspaceId   Int
+  /// channel | dm | group
+  kind          String    @default("channel")
+  name          String?
+  description   String?
+  topic         String?
+  isPrivate     Boolean   @default(false)
+  /// a channel can live on a space / folder / list (ClickUp "location")
+  locationType  String?
+  locationId    Int?
+  createdById   Int
+  lastMessageAt DateTime?
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workspace WorkWorkspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User                @relation("WorkChannelCreator", fields: [createdById], references: [id])
+  members   WorkChannelMember[]
+  messages  WorkChatMessage[]
+  drafts    WorkChatDraft[]
+
+  @@index([workspaceId, kind])
+  @@map("work_channels")
+}
+
+model WorkChannelMember {
+  channelId  Int
+  userId     Int
+  /// owner | member
+  role       String    @default("member")
+  lastReadAt DateTime?
+  muted      Boolean   @default(false)
+  starred    Boolean   @default(false)
+  joinedAt   DateTime  @default(now())
+
+  channel WorkChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation("WorkChannelMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([channelId, userId])
+  @@index([userId])
+  @@map("work_channel_members")
+}
+
+model WorkChatMessage {
+  id          Int       @id @default(autoincrement())
+  channelId   Int
+  userId      Int
+  /// thread replies point at their parent message
+  parentId    Int?
+  /// message | post | system
+  kind        String    @default("message")
+  /// posts (ClickUp Posts): a title and a type (update, announcement, idea, question)
+  title       String?
+  postType    String?
+  content     String
+  /// people @mentioned (for notifications / Chat Activity)
+  mentionIds  Int[]
+  /// files sent with the message: [{ id, name, url, mime, size }]
+  files       Json?
+  replyCount  Int       @default(0)
+  lastReplyAt DateTime?
+  /// also posted to the channel from a thread
+  alsoInChannel Boolean @default(false)
+  assigneeId  Int?
+  resolvedAt  DateTime?
+  pinnedAt    DateTime?
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  channel   WorkChannel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User               @relation("WorkChatAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  parent    WorkChatMessage?   @relation("WorkChatThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   WorkChatMessage[]  @relation("WorkChatThread")
+  reactions WorkChatReaction[]
+  saved     WorkChatSaved[]
+
+  @@index([channelId, createdAt])
+  @@index([parentId, createdAt])
+  @@index([userId, createdAt])
+  @@map("work_chat_messages")
+}
+
+model WorkChatReaction {
+  messageId Int
+  userId    Int
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message WorkChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User            @relation("WorkChatReactionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId, emoji])
+  @@map("work_chat_reactions")
+}
+
+/// unsent text per channel / thread (ClickUp "Drafts & Sent")
+model WorkChatDraft {
+  userId    Int
+  channelId Int
+  parentId  Int      @default(0)
+  content   String
+  updatedAt DateTime @updatedAt
+
+  user    User        @relation("WorkChatDraftUser", fields: [userId], references: [id], onDelete: Cascade)
+  channel WorkChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@id([userId, channelId, parentId])
+  @@map("work_chat_drafts")
+}
+
+/// messages saved for later
+model WorkChatSaved {
+  userId    Int
+  messageId Int
+  createdAt DateTime @default(now())
+
+  user    User            @relation("WorkChatSavedUser", fields: [userId], references: [id], onDelete: Cascade)
+  message WorkChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([userId, messageId])
+  @@map("work_chat_saved")
 }

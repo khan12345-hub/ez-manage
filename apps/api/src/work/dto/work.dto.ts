@@ -123,6 +123,48 @@ export class CreateCommentDto {
   /** people @mentioned in the comment */
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
 }
+export class CreateChannelDto {
+  @IsString() @IsNotEmpty() @MaxLength(80) name!: string;
+  @IsOptional() @IsString() @MaxLength(500) description?: string;
+  @IsOptional() @IsBoolean() isPrivate?: boolean;
+  @IsOptional() @IsArray() @ArrayMaxSize(500) @IsInt({ each: true }) memberIds?: number[];
+  @IsOptional() @IsIn(['space', 'folder', 'list']) locationType?: string;
+  @IsOptional() @IsInt() locationId?: number;
+}
+export class UpdateChannelDto {
+  @IsOptional() @IsString() @MaxLength(80) name?: string;
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(500) description?: string | null;
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(250) topic?: string | null;
+  @IsOptional() @IsBoolean() isPrivate?: boolean;
+}
+export class DmDto {
+  @IsArray() @ArrayMaxSize(8) @IsInt({ each: true }) userIds!: number[];
+}
+export class ChannelMembersDto {
+  @IsArray() @ArrayMaxSize(200) @IsInt({ each: true }) userIds!: number[];
+}
+export class ChannelPrefsDto {
+  @IsOptional() @IsBoolean() muted?: boolean;
+  @IsOptional() @IsBoolean() starred?: boolean;
+}
+export class ChatMessageDto {
+  @IsOptional() @IsString() @MaxLength(20000) content?: string;
+  @IsOptional() @IsInt() parentId?: number;
+  @IsOptional() @IsIn(['message', 'post']) kind?: string;
+  @IsOptional() @IsString() @MaxLength(200) title?: string;
+  @IsOptional() @IsIn(['announcement', 'discussion', 'idea', 'update']) postType?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
+  @IsOptional() @IsArray() @ArrayMaxSize(10) files?: Record<string, unknown>[];
+  @IsOptional() @IsBoolean() alsoInChannel?: boolean;
+}
+export class EditChatMessageDto {
+  @IsString() @MaxLength(20000) content!: string;
+  @IsOptional() @IsString() @MaxLength(200) title?: string;
+}
+export class ChatDraftDto {
+  @IsString() @MaxLength(20000) content!: string;
+  @IsOptional() @IsInt() parentId?: number;
+}
 export class CreateAutomationDto {
   @IsOptional() @IsString() @MaxLength(200) name?: string;
   @IsOptional() @IsInt() folderId?: number;

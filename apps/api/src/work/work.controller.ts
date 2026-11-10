@@ -11,7 +11,8 @@ import { WorkExtrasService } from './work-extras.service';
 import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { WorkProfileService } from './work-profile.service';
 import { WorkAutomationsService } from './work-automations.service';
-import { CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { WorkChatService } from './work-chat.service';
+import { CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -61,6 +62,7 @@ export class WorkController {
     private readonly stats: WorkStatsService,
     private readonly profiles: WorkProfileService,
     private readonly automations: WorkAutomationsService,
+    private readonly chat: WorkChatService,
   ) {}
 
   // ── workspace level ──
@@ -354,6 +356,148 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── chat: channels, DMs, messages (separate from Boards chat) ──
+  @Get('workspaces/:workspaceId/chat')
+  async chatSidebar(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.chat.sidebar(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Post('workspaces/:workspaceId/chat/channels')
+  async createChannel(@Param('workspaceId') ws: string, @Body() dto: CreateChannelDto, @CurrentUser() u: SessionUser) {
+    return this.chat.create(await this.work.resolveWorkspaceId(ws), u.id, dto);
+  }
+
+  @Post('workspaces/:workspaceId/chat/dm')
+  async openDm(@Param('workspaceId') ws: string, @Body() dto: DmDto, @CurrentUser() u: SessionUser) {
+    return this.chat.dm(await this.work.resolveWorkspaceId(ws), u.id, dto.userIds);
+  }
+
+  @Get('workspaces/:workspaceId/chat/drafts')
+  async chatDrafts(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.chat.drafts(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Get('workspaces/:workspaceId/chat/sent')
+  async chatSent(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.chat.sent(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Get('workspaces/:workspaceId/chat/saved')
+  async chatSaved(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.chat.saved(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Get('workspaces/:workspaceId/chat/activity')
+  async chatActivity(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.chat.activity(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Get('workspaces/:workspaceId/chat/posts')
+  async chatPosts(@Param('workspaceId') ws: string, @Query('type') type: string, @CurrentUser() u: SessionUser) {
+    return this.chat.posts(await this.work.resolveWorkspaceId(ws), u.id, type);
+  }
+
+  @Post('workspaces/:workspaceId/chat/files')
+  @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } }))
+  async chatFiles(@Param('workspaceId') ws: string, @UploadedFiles() files: Express.Multer.File[], @CurrentUser() u: SessionUser) {
+    return this.chat.upload(await this.work.resolveWorkspaceId(ws), u.id, files);
+  }
+
+  @Get('chat/channels/:uid')
+  channelDetail(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.detail(uid, u.id);
+  }
+
+  @Patch('chat/channels/:uid')
+  updateChannel(@Param('uid') uid: string, @Body() dto: UpdateChannelDto, @CurrentUser() u: SessionUser) {
+    return this.chat.update(uid, u.id, dto);
+  }
+
+  @Delete('chat/channels/:uid')
+  archiveChannel(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.archive(uid, u.id);
+  }
+
+  @Post('chat/channels/:uid/join')
+  joinChannel(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.join(uid, u.id);
+  }
+
+  @Post('chat/channels/:uid/leave')
+  leaveChannel(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.leave(uid, u.id);
+  }
+
+  @Post('chat/channels/:uid/members')
+  addChannelMembers(@Param('uid') uid: string, @Body() dto: ChannelMembersDto, @CurrentUser() u: SessionUser) {
+    return this.chat.addMembers(uid, u.id, dto.userIds);
+  }
+
+  @Delete('chat/channels/:uid/members/:userId')
+  removeChannelMember(@Param('uid') uid: string, @Param('userId', ParseIntPipe) target: number, @CurrentUser() u: SessionUser) {
+    return this.chat.removeMember(uid, u.id, target);
+  }
+
+  @Put('chat/channels/:uid/prefs')
+  channelPrefs(@Param('uid') uid: string, @Body() dto: ChannelPrefsDto, @CurrentUser() u: SessionUser) {
+    return this.chat.setPrefs(uid, u.id, dto);
+  }
+
+  @Post('chat/channels/:uid/read')
+  readChannel(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.markRead(uid, u.id);
+  }
+
+  @Post('chat/channels/:uid/typing')
+  typing(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.typing(uid, u.id);
+  }
+
+  @Put('chat/channels/:uid/draft')
+  chatDraft(@Param('uid') uid: string, @Body() dto: ChatDraftDto, @CurrentUser() u: SessionUser) {
+    return this.chat.setDraft(uid, u.id, dto.content, dto.parentId ?? 0);
+  }
+
+  @Get('chat/channels/:uid/messages')
+  chatMessages(@Param('uid') uid: string, @Query('before') before: string, @Query('q') q: string, @Query('posts') posts: string, @CurrentUser() u: SessionUser) {
+    return this.chat.messages(uid, u.id, { before, q, posts: posts === 'true' });
+  }
+
+  @Post('chat/channels/:uid/messages')
+  sendChat(@Param('uid') uid: string, @Body() dto: ChatMessageDto, @CurrentUser() u: SessionUser) {
+    return this.chat.send(uid, u.id, dto);
+  }
+
+  @Get('chat/messages/:id/thread')
+  chatThread(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.chat.thread(id, u.id);
+  }
+
+  @Patch('chat/messages/:id')
+  editChat(@Param('id', ParseIntPipe) id: number, @Body() dto: EditChatMessageDto, @CurrentUser() u: SessionUser) {
+    return this.chat.edit(id, u.id, dto);
+  }
+
+  @Delete('chat/messages/:id')
+  deleteChat(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.chat.remove(id, u.id);
+  }
+
+  @Post('chat/messages/:id/reactions')
+  reactChat(@Param('id', ParseIntPipe) id: number, @Body() dto: ReactionDto, @CurrentUser() u: SessionUser) {
+    return this.chat.react(id, u.id, dto.emoji);
+  }
+
+  @Put('chat/messages/:id/pin')
+  pinChat(@Param('id', ParseIntPipe) id: number, @Body() dto: ToggleDto, @CurrentUser() u: SessionUser) {
+    return this.chat.pin(id, u.id, dto.on);
+  }
+
+  @Put('chat/messages/:id/save')
+  saveChat(@Param('id', ParseIntPipe) id: number, @Body() dto: ToggleDto, @CurrentUser() u: SessionUser) {
+    return this.chat.save(id, u.id, dto.on);
+  }
+
   // ── automations ──
   @Get('spaces/:id/automations')
   listAutomations(@Param('id', ParseIntPipe) id: number, @Query('folderId') folderId: string, @Query('listId') listId: string, @CurrentUser() u: SessionUser) {

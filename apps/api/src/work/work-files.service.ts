@@ -22,7 +22,7 @@ export const ATTACHMENT_SELECT = {
   file: { select: { id: true, fileName: true, mimeType: true, fileSize: true, url: true } },
 } as const;
 
-const ALLOWED_MIME_TYPES = new Set([
+export const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
   'application/pdf',
   'application/msword',
