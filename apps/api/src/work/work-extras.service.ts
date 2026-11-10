@@ -45,13 +45,13 @@ export class WorkExtrasService {
   async markCommentUnread(commentId: number, userId: number) {
     const c = await this.comment(commentId);
     await this.access.requireTask(c.taskId, userId, 'view');
-    const existing = await this.prisma.notification.findFirst({
-      where: { recipientId: userId, product: 'work', metadata: { path: ['commentId'], equals: commentId } },
+    const existing = await this.prisma.workNotification.findFirst({
+      where: { recipientId: userId, metadata: { path: ['commentId'], equals: commentId } },
       orderBy: { createdAt: 'desc' },
       select: { id: true },
     });
     if (existing) {
-      await this.prisma.notification.update({ where: { id: existing.id }, data: { isRead: false, readAt: null, clearedAt: null, snoozedUntil: null } });
+      await this.prisma.workNotification.update({ where: { id: existing.id }, data: { isRead: false, readAt: null, clearedAt: null, snoozedUntil: null } });
     } else {
       const snippet = c.content.length > 140 ? `${c.content.slice(0, 140)}…` : c.content;
       await this.files.notifySystem(c.taskId, [userId], NotificationType.COMMENT_CREATED, 'Comment', snippet, { commentId, event: 'comment' });

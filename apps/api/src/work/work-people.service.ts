@@ -5,6 +5,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { MailService } from 'src/mail/mail.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { WorkAccessService, type WorkRoleName } from './work-access.service';
+import { WorkNotifyService } from './work-notify.service';
 
 const USER_MINI = { id: true, firstName: true, lastName: true, avatarUrl: true, email: true } as const;
 const INVITABLE: WorkRoleName[] = ['ADMIN', 'MEMBER', 'LIMITED_MEMBER', 'GUEST'];
@@ -24,18 +25,73 @@ export class WorkPeopleService {
     private readonly access: WorkAccessService,
     private readonly mail: MailService,
     private readonly notifications: NotificationsService,
+    private readonly workNotify: WorkNotifyService,
   ) {}
+
+  /* ── Work workspaces (ClickUp-style; nothing to do with Boards workspaces) ── */
+
+  async createWorkspace(userId: number, dto: { name: string; color?: string; useCase?: string; teamSize?: string; inviteEmails?: string[] }) {
+    const name = dto.name.trim();
+    if (!name) throw new BadRequestException('Name your workspace.');
+    const ws = await this.prisma.workWorkspace.create({
+      data: {
+        uid: randomUUID().replace(/-/g, '').slice(0, 12),
+        name,
+        color: dto.color ?? '#047857',
+        useCase: dto.useCase ?? null,
+        teamSize: dto.teamSize ?? null,
+        createdById: userId,
+        members: { create: [{ userId, role: 'OWNER' }] },
+        // ClickUp starts every workspace with a "Team Space"
+        spaces: {
+          create: [{
+            uid: randomUUID().replace(/-/g, '').slice(0, 12),
+            name: 'Team Space',
+            color: dto.color ?? '#047857',
+            createdById: userId,
+            members: { create: [] },
+            statuses: {
+              create: [
+                { name: 'To do', color: '#9CA3AF', category: 'NOT_STARTED', order: 1000 },
+                { name: 'In progress', color: '#2563EB', category: 'ACTIVE', order: 2000 },
+                { name: 'Complete', color: '#16A34A', category: 'DONE', order: 3000 },
+              ],
+            },
+          }],
+        },
+      },
+      select: { id: true, uid: true, name: true, color: true },
+    });
+    const emails = (dto.inviteEmails ?? []).map((e) => e.trim()).filter(Boolean);
+    const invited = emails.length ? (await this.invite(ws.id, userId, emails, 'MEMBER')).results : [];
+    return { ...ws, invited };
+  }
+
+  async updateWorkspace(workspaceId: number, userId: number, dto: { name?: string; color?: string; avatarUrl?: string | null }) {
+    await this.access.requireWorkspace(workspaceId, userId, 'manage');
+    return this.prisma.workWorkspace.update({
+      where: { id: workspaceId },
+      data: { ...(dto.name?.trim() && { name: dto.name.trim() }), ...(dto.color && { color: dto.color }), ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }) },
+      select: { id: true, uid: true, name: true, color: true, avatarUrl: true },
+    });
+  }
+
+  async deleteWorkspace(workspaceId: number, userId: number, confirmName: string) {
+    const me = await this.access.requireWorkspace(workspaceId, userId, 'manage');
+    if (me.role !== 'OWNER') throw new ForbiddenException('Only the workspace owner can delete it.');
+    const ws = await this.prisma.workWorkspace.findUnique({ where: { id: workspaceId }, select: { name: true } });
+    if (!ws || ws.name.trim() !== (confirmName ?? '').trim()) throw new BadRequestException('Type the workspace name to confirm.');
+    await this.prisma.workWorkspace.update({ where: { id: workspaceId }, data: { deletedAt: new Date() } });
+    return { deleted: true };
+  }
 
   /** Workspaces where this user can open Work. */
   async myWorkspaces(userId: number) {
     const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null }, select: { systemRole: true } });
     if (!user) return [];
-    // bootstrap: company owners own their Work area
-    const owned = await this.prisma.workspaceMember.findMany({ where: { userId, role: 'OWNER', deletedAt: null }, select: { workspaceId: true } });
-    for (const o of owned) await this.access.roleIn(o.workspaceId, userId);
     const rows = await this.prisma.workMember.findMany({
-      where: { userId },
-      select: { role: true, workspace: { select: { id: true, uid: true, name: true } } },
+      where: { userId, workspace: { deletedAt: null } },
+      select: { role: true, workspace: { select: { id: true, uid: true, name: true, color: true, avatarUrl: true } } },
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((r) => ({ ...r.workspace, role: r.role }));
@@ -49,13 +105,13 @@ export class WorkPeopleService {
       orderBy: { createdAt: 'asc' },
     });
     const invites = ws.canManage
-      ? await this.prisma.invitation.findMany({
-          where: { workspaceId, product: 'work', status: 'PENDING', expiresAt: { gt: new Date() } },
-          select: { id: true, email: true, workRole: true, createdAt: true, expiresAt: true },
+      ? await this.prisma.workInvitation.findMany({
+          where: { workspaceId, status: 'PENDING', expiresAt: { gt: new Date() } },
+          select: { id: true, email: true, role: true, createdAt: true, expiresAt: true },
           orderBy: { createdAt: 'desc' },
         })
       : [];
-    return { me: { role: ws.role, canManage: ws.canManage }, members, invites };
+    return { me: { role: ws.role, canManage: ws.canManage }, members, invites: invites.map(({ role, ...i }) => ({ ...i, workRole: role })) };
   }
 
   async invite(workspaceId: number, userId: number, emails: string[], role: WorkRoleName) {
@@ -65,7 +121,7 @@ export class WorkPeopleService {
     if (!list.length) throw new BadRequestException('Add at least one email.');
     const bad = list.filter((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
     if (bad.length) throw new BadRequestException(`Not a valid email: ${bad.join(', ')}`);
-    const ws = await this.prisma.workspace.findUnique({ where: { id: workspaceId }, select: { name: true, uid: true } });
+    const ws = await this.prisma.workWorkspace.findUnique({ where: { id: workspaceId }, select: { name: true, uid: true } });
     const inviter = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
     const inviterName = `${inviter?.firstName ?? ''} ${inviter?.lastName ?? ''}`.trim() || 'Someone';
 
@@ -76,31 +132,21 @@ export class WorkPeopleService {
         const existing = await this.prisma.workMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId: user.id } } });
         if (existing) { results.push({ email, status: 'already_member' }); continue; }
         await this.prisma.workMember.create({ data: { workspaceId, userId: user.id, role, invitedById: userId } });
-        await this.notifications
-          .notify({
-            recipientId: user.id,
-            type: NotificationType.WORKSPACE_MEMBER_ADDED,
-            title: 'You were added to Work',
-            message: `${inviterName} added you to Work in ${ws?.name ?? 'a workspace'} as ${ROLE_LABEL[role]}.`,
-            entityType: NotificationEntityType.WORKSPACE,
-            entityId: workspaceId,
-            metadata: { product: 'work', url: `/work/${ws?.uid ?? workspaceId}`, actorName: inviterName },
-            sendEmail: false,
-            product: 'work',
-          })
-          .catch(() => null);
+        await this.workNotify.send({
+          recipientId: user.id,
+          type: NotificationType.WORKSPACE_MEMBER_ADDED,
+          title: 'You were added to a Work workspace',
+          message: `${inviterName} added you to ${ws?.name ?? 'a workspace'} as ${ROLE_LABEL[role]}.`,
+          metadata: { event: 'added', url: `/work/${ws?.uid ?? workspaceId}`, actorName: inviterName },
+        });
         results.push({ email, status: 'added' });
         continue;
       }
-      const pending = await this.prisma.invitation.findFirst({ where: { workspaceId, email: { equals: email, mode: 'insensitive' }, product: 'work', status: 'PENDING', expiresAt: { gt: new Date() } } });
+      const pending = await this.prisma.workInvitation.findFirst({ where: { workspaceId, email: { equals: email, mode: 'insensitive' }, status: 'PENDING', expiresAt: { gt: new Date() } } });
       if (pending) { results.push({ email, status: 'already_invited' }); continue; }
       const token = randomUUID();
-      await this.prisma.invitation.create({
-        data: {
-          email, token, workspaceId, role: 'MEMBER', invitedById: userId, boardIds: [],
-          product: 'work', workRole: role,
-          expiresAt: new Date(Date.now() + 7 * 86_400_000),
-        },
+      await this.prisma.workInvitation.create({
+        data: { email, token, workspaceId, role, invitedById: userId, expiresAt: new Date(Date.now() + 7 * 86_400_000) },
       });
       const url = `${process.env.FRONTEND_URL}/setup-account?token=${token}`;
       try {
@@ -141,10 +187,10 @@ export class WorkPeopleService {
   }
 
   async revokeInvite(inviteId: number, actorId: number) {
-    const inv = await this.prisma.invitation.findFirst({ where: { id: inviteId, product: 'work' }, select: { id: true, workspaceId: true, status: true } });
+    const inv = await this.prisma.workInvitation.findFirst({ where: { id: inviteId }, select: { id: true, workspaceId: true, status: true } });
     if (!inv) throw new NotFoundException('Invitation not found.');
     await this.access.requireWorkspace(inv.workspaceId, actorId, 'manage');
-    await this.prisma.invitation.update({ where: { id: inv.id }, data: { status: 'REVOKED' } });
+    await this.prisma.workInvitation.update({ where: { id: inv.id }, data: { status: 'REVOKED' } });
     return { revoked: true };
   }
 

@@ -28,6 +28,7 @@ import {
   Palette,
   Search,
   Settings,
+  Plus,
   SmilePlus,
   SquarePlus,
   Sun,
@@ -126,7 +127,7 @@ export function WorkTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
         <Popover>
           <PopoverTrigger asChild>
             <button type="button" aria-label="Switch workspace" className="flex min-w-0 max-w-[220px] items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-product-work text-[12px] font-bold text-white">{(current?.name ?? "W")[0]?.toUpperCase()}</span>
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[12px] font-bold text-white" style={{ background: current?.color ?? "var(--product-work)" }}>{(current?.name ?? "W")[0]?.toUpperCase()}</span>
               <span className="truncate text-[14px] font-semibold">{current?.name ?? "Work"}</span>
               <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             </button>
@@ -135,12 +136,14 @@ export function WorkTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
             <p className="px-2 pb-1 pt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Workspaces</p>
             {workspaces.map((w) => (
               <button key={w.id} type="button" onClick={() => go(`/work/${w.uid}`)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13.5px] hover:bg-accent">
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-product-work/15 text-[11px] font-bold text-product-work">{w.name[0]?.toUpperCase()}</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold text-white" style={{ background: w.color ?? "var(--product-work)" }}>{w.name[0]?.toUpperCase()}</span>
                 <span className="min-w-0 flex-1 truncate">{w.name}</span>
                 {w.uid === current?.uid && <Check className="h-4 w-4 text-primary" />}
               </button>
             ))}
+            <button type="button" onClick={() => go("/work/create")} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-4 w-4" /> Create Workspace</button>
             <div className="my-1 h-px bg-border" />
+            <button type="button" onClick={() => go(`/work/${ws}/settings`)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent"><Settings className="h-4 w-4 text-muted-foreground" /> Workspace settings</button>
             <button type="button" onClick={() => go(`/work/${ws}/people`)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent"><Users className="h-4 w-4 text-muted-foreground" /> People</button>
             <button type="button" onClick={() => go(`/work/${ws}/notifications`)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent"><Bell className="h-4 w-4 text-muted-foreground" /> Notification settings</button>
           </PopoverContent>

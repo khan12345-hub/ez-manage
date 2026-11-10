@@ -5,6 +5,7 @@ import { STORAGE_SERVICE } from 'src/storage/storage.module';
 import type { StorageProvider } from 'src/storage/storage.types';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { WorkAccessService } from './work-access.service';
+import { WorkNotifyService } from './work-notify.service';
 import { WorkDetailService } from './work-detail.service';
 
 const USER_MINI = { id: true, firstName: true, lastName: true, avatarUrl: true, email: true } as const;
@@ -45,6 +46,7 @@ export class WorkFilesService {
     private readonly access: WorkAccessService,
     private readonly detail: WorkDetailService,
     private readonly notifications: NotificationsService,
+    private readonly workNotify: WorkNotifyService,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageProvider,
   ) {}
 
@@ -232,12 +234,10 @@ export class WorkFilesService {
       for (const recipientId of ids) {
         const pref = byUser.get(recipientId);
         if (pref && !pref.inbox && !pref.email) continue; // this person turned this kind off
-        await this.notifications.notify({
-          recipientId, type, title, message,
-          entityType: NotificationEntityType.TASK, entityId: taskId,
+        await this.workNotify.send({
+          recipientId, type, title, message, taskId,
           metadata: { ...metadata, push: pref ? pref.browser : true, inboxHidden: pref ? !pref.inbox : false },
           sendEmail: pref?.email ?? false,
-          product: 'work',
         });
       }
     } catch (e: any) {

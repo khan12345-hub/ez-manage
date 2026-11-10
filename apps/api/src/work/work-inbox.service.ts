@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { NotificationType } from 'generated/prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { WorkFilesService } from './work-files.service';
+import { WorkNotifyService } from './work-notify.service';
 import { WorkRemindersService } from './work-reminders.service';
 
 export type InboxView = 'active' | 'later' | 'cleared' | 'all';
@@ -29,7 +30,7 @@ export class WorkInboxService {
     await this.ensureOverdue(userId).catch((e) => this.logger.warn(`overdue scan failed: ${e?.message ?? e}`));
     await this.reminders.fireDue(userId).catch((e) => this.logger.warn(`reminders failed: ${e?.message ?? e}`));
     const now = new Date();
-    const base = { recipientId: userId, product: 'work' };
+    const base = { recipientId: userId };
     const active = { clearedAt: null, OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }] };
     const where =
       view === 'cleared' ? { ...base, clearedAt: { not: null } }
@@ -37,9 +38,9 @@ export class WorkInboxService {
       : view === 'all' ? base
       : { ...base, ...active };
     const [items, laterCount, clearedCount] = await this.prisma.$transaction([
-      this.prisma.notification.findMany({ where, orderBy: { createdAt: 'desc' }, take: 400 }),
-      this.prisma.notification.count({ where: { ...base, clearedAt: null, snoozedUntil: { gt: now } } }),
-      this.prisma.notification.count({ where: { ...base, clearedAt: { not: null } } }),
+      this.prisma.workNotification.findMany({ where, orderBy: { createdAt: 'desc' }, take: 400 }),
+      this.prisma.workNotification.count({ where: { ...base, clearedAt: null, snoozedUntil: { gt: now } } }),
+      this.prisma.workNotification.count({ where: { ...base, clearedAt: { not: null } } }),
     ]);
 
     // current state of each task mentioned (status may have changed since the event)
@@ -54,7 +55,7 @@ export class WorkInboxService {
     return {
       items: items.filter((n) => !(n.metadata as any)?.inboxHidden).map((n) => {
         const t = byUid.get((n.metadata as any)?.taskUid);
-        return { ...n, task: t ? { name: t.name, status: t.status, dueDate: t.dueDate, completedAt: t.completedAt, archived: !!t.archivedAt } : null };
+        return { ...WorkNotifyService.shape(n), task: t ? { name: t.name, status: t.status, dueDate: t.dueDate, completedAt: t.completedAt, archived: !!t.archivedAt } : null };
       }),
       counts: { later: laterCount, cleared: clearedCount },
     };
@@ -75,7 +76,7 @@ export class WorkInboxService {
     if (!data) throw new BadRequestException('Unknown action.');
     if (action === 'snooze' && until && new Date(until).getTime() <= now.getTime()) throw new BadRequestException('Pick a time in the future.');
     // only the caller's own Work notifications
-    const r = await this.prisma.notification.updateMany({ where: { id: { in: ids }, recipientId: userId, product: 'work' }, data });
+    const r = await this.prisma.workNotification.updateMany({ where: { id: { in: ids }, recipientId: userId }, data });
     return { count: r.count };
   }
 
@@ -92,15 +93,15 @@ export class WorkInboxService {
         completedAt: null,
         dueDate: { lt: today },
         assignees: { some: { userId } },
-        list: { archivedAt: null, space: { archivedAt: null, workspace: { workMembers: { some: { userId } } } } },
+        list: { archivedAt: null, space: { archivedAt: null, workspace: { deletedAt: null, members: { some: { userId } } } } },
       },
       select: { id: true, uid: true, name: true, dueDate: true },
       take: 100,
     });
     if (!late.length) return;
     const keys = late.map((t) => `${t.uid}:${t.dueDate!.toISOString().slice(0, 10)}`);
-    const seen = await this.prisma.notification.findMany({
-      where: { recipientId: userId, product: 'work', type: NotificationType.TASK_DUE_SOON, OR: keys.map((k) => ({ metadata: { path: ['overdueKey'], equals: k } })) },
+    const seen = await this.prisma.workNotification.findMany({
+      where: { recipientId: userId, type: NotificationType.TASK_DUE_SOON, OR: keys.map((k) => ({ metadata: { path: ['overdueKey'], equals: k } })) },
       select: { metadata: true },
     });
     const have = new Set(seen.map((s) => (s.metadata as any)?.overdueKey));

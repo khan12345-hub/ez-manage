@@ -3,6 +3,7 @@ import { NotificationEntityType, NotificationType } from 'generated/prisma/clien
 import { PrismaService } from 'prisma/prisma.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { WorkAccessService } from './work-access.service';
+import { WorkNotifyService } from './work-notify.service';
 
 const USER_MINI = { id: true, firstName: true, lastName: true, avatarUrl: true, email: true } as const;
 const SELECT = {
@@ -24,6 +25,7 @@ export class WorkRemindersService {
     private readonly prisma: PrismaService,
     private readonly access: WorkAccessService,
     private readonly notifications: NotificationsService,
+    private readonly workNotify: WorkNotifyService,
   ) {}
 
   async create(workspaceId: number, userId: number, dto: { title: string; description?: string; remindAt: string; assigneeId?: number; taskUid?: string }) {
@@ -89,14 +91,13 @@ export class WorkRemindersService {
       const claimed = await this.prisma.workReminder.updateMany({ where: { id: r.id, firedAt: null }, data: { firedAt: new Date() } });
       if (!claimed.count) continue;
       const by = r.userId === userId ? '' : `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim();
-      await this.notifications
-        .notify({
+      await this.workNotify
+        .send({
           recipientId: userId,
           type: NotificationType.TASK_DUE_SOON,
           title: r.title,
           message: r.description || (by ? `Reminder from ${by}` : 'Reminder'),
-          entityType: r.task ? NotificationEntityType.TASK : undefined,
-          entityId: r.task?.id,
+          taskId: r.task?.id ?? null,
           metadata: {
             product: 'work',
             event: 'reminder',
@@ -106,7 +107,6 @@ export class WorkRemindersService {
             ...(r.task ? { taskUid: r.task.uid, taskName: r.task.name, listUid: r.task.list.uid, listName: r.task.list.name, url: `/work/${r.workspace.uid}/list/${r.task.list.uid}?task=${r.task.uid}` } : { url: `/work/${r.workspace.uid}` }),
           },
           sendEmail: false,
-          product: 'work',
         })
         .catch((e) => this.logger.warn(`reminder notify failed: ${e?.message ?? e}`));
     }

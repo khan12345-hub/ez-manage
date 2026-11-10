@@ -10,7 +10,7 @@ import { WorkRemindersService } from './work-reminders.service';
 import { WorkExtrasService } from './work-extras.service';
 import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { WorkProfileService } from './work-profile.service';
-import { UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -352,6 +352,22 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── Work workspaces (separate from Boards) ──
+  @Post('workspaces')
+  createWorkWorkspace(@Body() dto: CreateWorkWorkspaceDto, @CurrentUser() u: SessionUser) {
+    return this.people.createWorkspace(u.id, dto);
+  }
+
+  @Patch('workspaces/:workspaceId')
+  async updateWorkWorkspace(@Param('workspaceId') ws: string, @Body() dto: UpdateWorkWorkspaceDto, @CurrentUser() u: SessionUser) {
+    return this.people.updateWorkspace(await this.work.resolveWorkspaceId(ws), u.id, dto);
+  }
+
+  @Delete('workspaces/:workspaceId')
+  async deleteWorkWorkspace(@Param('workspaceId') ws: string, @Body() dto: DeleteWorkWorkspaceDto, @CurrentUser() u: SessionUser) {
+    return this.people.deleteWorkspace(await this.work.resolveWorkspaceId(ws), u.id, dto.confirmName);
+  }
+
   // ── people: directory, profiles, teams, analytics ──
   @Get('workspaces/:workspaceId/directory')
   async directory(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {

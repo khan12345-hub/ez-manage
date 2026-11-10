@@ -100,8 +100,8 @@ export class WorkService {
   async resolveWorkspaceId(idOrUid: string): Promise<number> {
     const n = Number(idOrUid);
     const ws = Number.isInteger(n) && String(n) === idOrUid
-      ? await this.prisma.workspace.findUnique({ where: { id: n }, select: { id: true } })
-      : await this.prisma.workspace.findUnique({ where: { uid: idOrUid }, select: { id: true } });
+      ? await this.prisma.workWorkspace.findFirst({ where: { id: n, deletedAt: null }, select: { id: true } })
+      : await this.prisma.workWorkspace.findFirst({ where: { uid: idOrUid, deletedAt: null }, select: { id: true } });
     if (!ws) throw new NotFoundException('Workspace not found.');
     return ws.id;
   }

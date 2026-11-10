@@ -31,26 +31,16 @@ export interface WorkAccess {
 export class WorkAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** The user's Work role in a workspace (bootstraps the workspace owner). */
+  /** The user's role in a Work workspace — only from Work membership (Boards plays no part). */
   async roleIn(workspaceId: number, userId: number): Promise<{ role: WorkRoleName | null; superAdmin: boolean }> {
-    const [user, member] = await Promise.all([
+    const [user, member, ws] = await Promise.all([
       this.prisma.user.findFirst({ where: { id: userId, deletedAt: null }, select: { systemRole: true } }),
       this.prisma.workMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } }, select: { role: true } }),
+      this.prisma.workWorkspace.findFirst({ where: { id: workspaceId, deletedAt: null }, select: { id: true } }),
     ]);
-    const superAdmin = user?.systemRole === 'SUPER_ADMIN';
-    if (member) return { role: member.role as WorkRoleName, superAdmin };
-    if (!user) return { role: null, superAdmin: false };
-    // the company owner always owns its Work area
-    const owner = await this.prisma.workspaceMember.findFirst({ where: { workspaceId, userId, role: 'OWNER', deletedAt: null }, select: { id: true } });
-    if (owner) {
-      await this.prisma.workMember.upsert({
-        where: { workspaceId_userId: { workspaceId, userId } },
-        update: {},
-        create: { workspaceId, userId, role: 'OWNER' },
-      });
-      return { role: 'OWNER', superAdmin };
-    }
-    return { role: null, superAdmin };
+    if (!user || !ws) return { role: null, superAdmin: false };
+    // the platform/Boards system role grants nothing in Work — only Work membership counts
+    return { role: (member?.role as WorkRoleName) ?? null, superAdmin: false };
   }
 
   /** Access to a workspace's Work area (ignores private spaces). */

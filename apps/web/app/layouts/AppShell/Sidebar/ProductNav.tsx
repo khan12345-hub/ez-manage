@@ -46,7 +46,7 @@ export function ProductSwitcher({
   const access = useProductAccess();
   const items: { key: ProductKey; href?: string; soon?: boolean }[] = [];
   if (active === "boards" || access.hasBoards) items.push({ key: "boards", href: active === "boards" ? boardsHref : boardsHref ?? access.boardsHref });
-  if (active === "work" || access.hasWork) items.push({ key: "work", href: active === "work" ? workHref : workHref ?? access.workHref });
+  if (active === "work" || !access.loading) items.push({ key: "work", href: active === "work" ? workHref : workHref ?? access.workHref ?? "/work/create" });
   if (showCeo) items.push({ key: "ceo", soon: true });
   if (items.length < 2 && !showCeo) return null; // only one product: no switcher needed
 

@@ -123,6 +123,20 @@ export class CreateCommentDto {
   /** people @mentioned in the comment */
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
 }
+export class CreateWorkWorkspaceDto {
+  @IsString() @IsNotEmpty() @MaxLength(80) name!: string;
+  @IsOptional() @Matches(HEX) color?: string;
+  @IsOptional() @IsString() @MaxLength(60) useCase?: string;
+  @IsOptional() @IsString() @MaxLength(20) teamSize?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(50) @IsString({ each: true }) inviteEmails?: string[];
+}
+export class UpdateWorkWorkspaceDto {
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(80) name?: string;
+  @IsOptional() @Matches(HEX) color?: string;
+}
+export class DeleteWorkWorkspaceDto {
+  @IsString() confirmName!: string;
+}
 export class UpdateProfileDto {
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(80) title?: string | null;
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(60) timezone?: string | null;

@@ -160,6 +160,9 @@ export class AuthService {
     });
 
     if (!invitation) {
+      // Work (ClickUp-style) invites live in their own table
+      const workInvite = await this.prisma.workInvitation.findUnique({ where: { token: dto.token } });
+      if (workInvite) return this.setupWorkAccount(workInvite, dto, req);
       throw new NotFoundException('Invitation not found or invalid.');
     }
 
@@ -201,17 +204,7 @@ export class AuthService {
         },
       });
 
-      if (invitation.product === 'work') {
-        // Work invite: Work access only — no Boards workspace or board membership
-        await tx.workMember.create({
-          data: {
-            workspaceId: invitation.workspaceId,
-            userId: newUser.id,
-            role: invitation.workRole ?? 'MEMBER',
-            invitedById: invitation.invitedById,
-          },
-        });
-      } else {
+      {
         await tx.workspaceMember.create({
           data: {
             workspaceId: invitation.workspaceId,
@@ -272,6 +265,33 @@ export class AuthService {
       message: 'Account set up successfully.',
       user: safeUser,
     };
+  }
+
+  /** Sign-up from a Work invite: the new account gets Work access only (never Boards). */
+  private async setupWorkAccount(
+    invite: { id: number; email: string; workspaceId: number; role: any; invitedById: number | null; status: string; acceptedAt: Date | null; expiresAt: Date },
+    dto: SetupAccountDto,
+    req: Request,
+  ) {
+    if (invite.status !== 'PENDING' || invite.acceptedAt || invite.expiresAt < new Date()) {
+      throw new BadRequestException('Invitation has expired or already accepted.');
+    }
+    if (await this.prisma.user.findUnique({ where: { email: invite.email } })) {
+      throw new BadRequestException('A user with this email already exists.');
+    }
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const user = await this.prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: { firstName: dto.firstName, lastName: dto.lastName, email: invite.email, password: hashedPassword, status: 'ACTIVE' },
+      });
+      await tx.workInvitation.update({ where: { id: invite.id }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
+      await tx.workMember.create({ data: { workspaceId: invite.workspaceId, userId: newUser.id, role: invite.role ?? 'MEMBER', invitedById: invite.invitedById } });
+      return newUser;
+    });
+    req.session.user = { id: user.id, systemRole: user.systemRole };
+    await new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
+    const { password, ...safeUser } = user;
+    return { success: true, message: 'Account set up successfully.', user: safeUser };
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
@@ -336,8 +356,14 @@ export class AuthService {
       },
     });
 
+    if (!invitation) {
+      const wi = await this.prisma.workInvitation.findUnique({ where: { token }, include: { workspace: true } });
+      if (!wi || wi.status !== 'PENDING' || wi.expiresAt < new Date() || wi.workspace.deletedAt) {
+        throw new NotFoundException('Invitation not found, expired, or invalid.');
+      }
+      return { email: wi.email, role: wi.role, workspaceName: wi.workspace.name, product: 'work' };
+    }
     if (
-      !invitation ||
       invitation.status !== 'PENDING' ||
       invitation.expiresAt < new Date()
     ) {

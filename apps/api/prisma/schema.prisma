@@ -126,6 +126,9 @@ model User {
   workListsCreated      WorkList[]             @relation("WorkListCreator")
   workTasksCreated      WorkTask[]             @relation("WorkTaskCreator")
   workMemberships       WorkMember[]           @relation("WorkMemberUser")
+  workWorkspacesCreated WorkWorkspace[]        @relation("WorkWorkspaceCreator")
+  workInvitationsSent   WorkInvitation[]       @relation("WorkInvitationInviter")
+  workNotifications     WorkNotification[]     @relation("WorkNotificationRecipient")
   workTeamMemberships   WorkTeamMember[]       @relation("WorkTeamMemberUser")
   workPriorities        WorkProfilePriority[]  @relation("WorkPriorityUser")
   workReactions         WorkCommentReaction[]
@@ -382,14 +385,9 @@ model Workspace {
   members     WorkspaceMember[]
   invitations Invitation[]
 
-  chatChannels   ChatChannel[]
-  docs           WorkspaceDoc[]
-  inviteLinks    WorkspaceInviteLink[]
-  workSpaces     Space[]
-  workMembers    WorkMember[]
-  workTeams      WorkTeam[]
-  workPriorities WorkProfilePriority[]
-  workReminders  WorkReminder[]
+  chatChannels ChatChannel[]
+  docs         WorkspaceDoc[]
+  inviteLinks  WorkspaceInviteLink[]
 
   @@unique([createdById, name])
   @@map("workspaces")
@@ -1449,7 +1447,7 @@ model Space {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace WorkWorkspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy User              @relation("SpaceCreator", fields: [createdById], references: [id])
   members   SpaceMember[]
   fields    WorkCustomField[]
@@ -1819,9 +1817,9 @@ model WorkMember {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user      User      @relation("WorkMemberUser", fields: [userId], references: [id], onDelete: Cascade)
-  invitedBy User?     @relation("WorkMemberInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  workspace WorkWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User          @relation("WorkMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy User?         @relation("WorkMemberInviter", fields: [invitedById], references: [id], onDelete: SetNull)
 
   @@id([workspaceId, userId])
   @@index([userId])
@@ -1908,10 +1906,10 @@ model WorkReminder {
   doneAt      DateTime?
   createdAt   DateTime  @default(now())
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user      User      @relation("WorkReminderCreator", fields: [userId], references: [id], onDelete: Cascade)
-  assignee  User      @relation("WorkReminderAssignee", fields: [assigneeId], references: [id], onDelete: Cascade)
-  task      WorkTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  workspace WorkWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User          @relation("WorkReminderCreator", fields: [userId], references: [id], onDelete: Cascade)
+  assignee  User          @relation("WorkReminderAssignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+  task      WorkTask?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@index([assigneeId, firedAt, remindAt])
   @@index([workspaceId, userId])
@@ -1985,7 +1983,7 @@ model WorkTeam {
   createdById Int?
   createdAt   DateTime @default(now())
 
-  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace WorkWorkspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   members   WorkTeamMember[]
 
   @@index([workspaceId])
@@ -2012,11 +2010,82 @@ model WorkProfilePriority {
   order       Float    @default(1000)
   createdAt   DateTime @default(now())
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user      User      @relation("WorkPriorityUser", fields: [userId], references: [id], onDelete: Cascade)
-  task      WorkTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace WorkWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User          @relation("WorkPriorityUser", fields: [userId], references: [id], onDelete: Cascade)
+  task      WorkTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@id([userId, taskId])
   @@index([workspaceId, userId])
   @@map("work_priorities")
+}
+
+/// A Work (ClickUp-style) workspace — completely separate from Boards workspaces
+model WorkWorkspace {
+  id          Int       @id @default(autoincrement())
+  uid         String    @unique
+  name        String
+  color       String    @default("#047857")
+  avatarUrl   String?
+  /// onboarding answers (what the team uses it for, how many people)
+  useCase     String?
+  teamSize    String?
+  createdById Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  createdBy   User                  @relation("WorkWorkspaceCreator", fields: [createdById], references: [id])
+  spaces      Space[]
+  members     WorkMember[]
+  teams       WorkTeam[]
+  priorities  WorkProfilePriority[]
+  reminders   WorkReminder[]
+  invitations WorkInvitation[]
+
+  @@map("work_workspaces")
+}
+
+/// Invites to a Work workspace (separate from Boards invitations)
+model WorkInvitation {
+  id          Int       @id @default(autoincrement())
+  workspaceId Int
+  email       String
+  role        WorkRole  @default(MEMBER)
+  token       String    @unique
+  status      String    @default("PENDING")
+  invitedById Int?
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace WorkWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User?         @relation("WorkInvitationInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([email])
+  @@map("work_invitations")
+}
+
+/// Work Inbox items (separate from Boards notifications)
+model WorkNotification {
+  id           String    @id @default(cuid())
+  recipientId  Int
+  type         String
+  title        String
+  message      String
+  taskId       Int?
+  metadata     Json?
+  isRead       Boolean   @default(false)
+  readAt       DateTime?
+  clearedAt    DateTime?
+  snoozedUntil DateTime?
+  eventKey     String?   @unique
+  createdAt    DateTime  @default(now())
+
+  recipient User @relation("WorkNotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, createdAt])
+  @@index([recipientId, isRead])
+  @@index([recipientId, clearedAt])
+  @@map("work_notifications")
 }
