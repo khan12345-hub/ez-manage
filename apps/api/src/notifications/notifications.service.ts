@@ -14,6 +14,27 @@ import { PushService } from '../push/push.service';
 @Injectable()
 export class NotificationsService implements OnModuleInit {
   private readonly loggedQueueErrors = new Set<string>();
+  /** presence: open notification streams per user (any tab, Boards or Work) */
+  private readonly openStreams = new Map<number, number>();
+  private readonly lastSeen = new Map<number, number>();
+
+  streamOpened(userId: number) {
+    this.openStreams.set(userId, (this.openStreams.get(userId) ?? 0) + 1);
+    this.lastSeen.set(userId, Date.now());
+  }
+  streamClosed(userId: number) {
+    const n = (this.openStreams.get(userId) ?? 1) - 1;
+    if (n <= 0) this.openStreams.delete(userId);
+    else this.openStreams.set(userId, n);
+    this.lastSeen.set(userId, Date.now());
+  }
+  isOnline(userId: number) {
+    return this.openStreams.has(userId);
+  }
+  seenAt(userId: number) {
+    const t = this.lastSeen.get(userId);
+    return t ? new Date(t) : null;
+  }
 
   constructor(
     @Inject(PrismaService)

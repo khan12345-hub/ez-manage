@@ -322,7 +322,44 @@ export interface WorkStats {
 export type SpacePermission = "full" | "edit" | "comment" | "view";
 export interface SpaceTemplate { id: string; name: string; category: string; description: string; color: string; icon: string; folders: { name: string; lists: string[] }[]; lists: string[]; statuses: { name: string; color: string }[] }
 
+export interface WorkPerson { role: WorkRole; title: string | null; timezone: string | null; managerId: number | null; user: WorkUser; online: boolean; teamIds: number[] }
+export interface WorkTeam { id: number; name: string; color: string; createdAt: string; memberIds: number[] }
+export interface WorkDirectory { people: WorkPerson[]; teams: WorkTeam[] }
+export interface ProfileTask {
+  id: number; uid: string; name: string; priority: WorkPriority | null; dueDate: string | null; startDate: string | null; completedAt: string | null;
+  status: { name: string; color: string; category: string } | null; list: { uid: string; name: string; space: { name: string } }; assignees: WorkUser[];
+}
+export interface FocusRow { task: { id: number; uid: string | null; name: string; status: { color: string; category: string } | null }; seconds: number; pct: number }
+export interface WorkProfile {
+  member: { role: WorkRole; title: string | null; timezone: string | null; since: string; user: WorkUser; status: { emoji: string | null; text: string | null } };
+  online: boolean;
+  manager: { title: string | null; user: WorkUser } | null;
+  reports: { title: string | null; user: WorkUser }[];
+  teams: { id: number; name: string; color: string }[];
+  counts: { tasks: number; comments: number };
+  priorities: ProfileTask[];
+  focused: FocusRow[];
+  canEdit: boolean;
+  canManage: boolean;
+}
+export interface ProfileTasks { today: ProfileTask[]; overdue: ProfileTask[]; next: ProfileTask[]; unscheduled: ProfileTask[]; done: ProfileTask[]; delegated: ProfileTask[] }
+export interface ProfileComment { id: number; content: string; createdAt: string; resolvedAt: string | null; taskId: number; user: WorkUser; _count: { replies: number }; task: { uid: string; name: string; list: { uid: string; name: string; space: { name: string } } } }
+export interface ProfileActivity { id: number; action: string; fromValue: unknown; toValue: unknown; createdAt: string; user: WorkUser; task: { uid: string; name: string; status: { color: string; category: string } | null; list: { uid: string; name: string; space: { name: string } } } }
+export interface WorkAnalytics { day: string; hours: number[]; people: { user: WorkUser; title: string | null; online: boolean; active: boolean; focused: FocusRow[] }[] }
+
 export const workApi = {
+  directory: (ws: string | number) => get<WorkDirectory>(`/work/workspaces/${ws}/directory`),
+  profile: (ws: string | number, userId: number) => get<WorkProfile>(`/work/workspaces/${ws}/profiles/${userId}`),
+  profileTasks: (ws: string | number, userId: number) => get<ProfileTasks>(`/work/workspaces/${ws}/profiles/${userId}/tasks`),
+  profileComments: (ws: string | number, userId: number, resolved = false) => get<ProfileComment[]>(`/work/workspaces/${ws}/profiles/${userId}/comments${resolved ? "?resolved=true" : ""}`),
+  profileActivity: (ws: string | number, userId: number) => get<ProfileActivity[]>(`/work/workspaces/${ws}/profiles/${userId}/activity`),
+  updateProfile: (ws: string | number, userId: number, body: { title?: string | null; timezone?: string | null; managerId?: number | null }) => patch<WorkProfile>(`/work/workspaces/${ws}/profiles/${userId}`, body),
+  addPriority: (ws: string | number, userId: number, taskId: number) => post(`/work/workspaces/${ws}/profiles/${userId}/priorities`, { taskId }),
+  removePriority: (ws: string | number, userId: number, taskId: number) => del(`/work/workspaces/${ws}/profiles/${userId}/priorities/${taskId}`),
+  createTeam: (ws: string | number, body: { name: string; color?: string; memberIds?: number[] }) => post<{ id: number }>(`/work/workspaces/${ws}/teams`, body),
+  updateTeam: (id: number, body: { name?: string; color?: string; memberIds?: number[] }) => patch(`/work/teams/${id}`, body),
+  deleteTeam: (id: number) => del(`/work/teams/${id}`),
+  analytics: (ws: string | number, day?: string) => get<WorkAnalytics>(`/work/workspaces/${ws}/analytics${day ? `?day=${day}` : ""}`),
   stats: (kind: StatsKind, uid: string) => get<WorkStats>(`/work/stats/${kind}/${uid}`),
   reminders: (workspace: string | number, done = false) => get<WorkReminder[]>(`/work/workspaces/${workspace}/reminders${done ? "?done=true" : ""}`),
   createReminder: (workspace: string | number, body: { title: string; description?: string; remindAt: string; assigneeId?: number; taskUid?: string }) =>

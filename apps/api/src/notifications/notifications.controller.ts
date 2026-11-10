@@ -112,6 +112,7 @@ export class NotificationsController {
     const userId = user.id;
 
     console.log(`[SSE] Opening notification stream for user ${userId}`);
+    this.notificationsService.streamOpened(userId);
 
     /**
      * Configure SSE response.
@@ -179,6 +180,7 @@ export class NotificationsController {
      */
     req.on('close', () => {
       console.log(`[SSE] Closing notification stream for user ${userId}`);
+      this.notificationsService.streamClosed(userId);
 
       clearInterval(heartbeat);
 

@@ -1,5 +1,8 @@
 "use client";
 
+import { useAuth } from "@/providers/AuthProvider";
+import { OnlineDot, useDirectory } from "./people";
+
 import { useMemo, useState } from "react";
 import { Check, Search, UserPlus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -121,34 +124,82 @@ export function AssigneePicker({
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [tab, setTab] = useState<"all" | "people" | "teams">("all");
+  const { user: me } = useAuth();
+  const { data: dir } = useDirectory(open);
   const selected = useMemo(() => new Set(value.map((v) => v.id)), [value]);
-  const shown = members.filter((m) => `${userName(m)} ${m.email}`.toLowerCase().includes(q.toLowerCase()));
+  const match = (m: WorkUser) => `${userName(m)} ${m.email ?? ""}`.toLowerCase().includes(q.toLowerCase());
+  const chosen = members.filter((m) => selected.has(m.id) && match(m));
+  const meRow = members.find((m) => m.id === me?.id && !selected.has(m.id) && match(m));
+  const others = members.filter((m) => !selected.has(m.id) && m.id !== me?.id && match(m));
+  const eligible = new Set(members.map((m) => m.id));
+  const teams = (dir?.teams ?? []).map((t) => ({ ...t, ids: t.memberIds.filter((id) => eligible.has(id)) })).filter((t) => t.ids.length && t.name.toLowerCase().includes(q.toLowerCase()));
   if (disabled) return <>{children}</>;
   const toggle = (id: number) => {
     const next = new Set(selected);
     next.has(id) ? next.delete(id) : next.add(id);
     onChange([...next]);
   };
+  const toggleTeam = (ids: number[]) => {
+    const all = ids.every((id) => selected.has(id));
+    const next = new Set(selected);
+    for (const id of ids) all ? next.delete(id) : next.add(id);
+    onChange([...next]);
+  };
+  const row = (m: WorkUser, label?: string) => (
+    <button key={m.id} type="button" onClick={() => toggle(m.id)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-accent">
+      <span className="relative"><Avatar user={m} size={22} />{dir && <OnlineDot online={dir.people.find((p) => p.user.id === m.id)?.online} className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5" />}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{label ?? userName(m)}</span>
+      {selected.has(m.id) && <Check className="h-3.5 w-3.5 text-primary" />}
+    </button>
+  );
+  const head = (t: string) => <p className="px-2 pb-1 pt-2 text-[11px] font-medium text-muted-foreground">{t}</p>;
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQ(""); }}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setQ(""); setTab("all"); } }}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-0">
-        <div className="flex items-center gap-2 border-b border-border px-2.5 py-2">
-          <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search people" className="w-full bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" />
-        </div>
-        <div className="max-h-64 overflow-y-auto p-1.5">
-          {shown.length === 0 && <p className="px-2 py-3 text-center text-xs text-muted-foreground">No one found</p>}
-          {shown.map((m) => (
-            <button key={m.id} type="button" onClick={() => toggle(m.id)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-accent">
-              <Avatar user={m} size={24} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium">{userName(m)}</span>
-                <span className="block truncate text-[11px] text-muted-foreground">{m.email}</span>
-              </span>
-              {selected.has(m.id) && <Check className="h-3.5 w-3.5 text-primary" />}
+      <PopoverContent align="start" className="w-72 p-0">
+        <div role="tablist" aria-label="Assign to" className="flex gap-1 px-2 pt-2">
+          {(["all", "people", "teams"] as const).map((t) => (
+            <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cn("rounded-md px-2 py-0.5 text-[12px] font-medium", tab === t ? "border border-border bg-background shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              {t === "all" ? "All" : t === "people" ? "People" : "Teams"}
             </button>
           ))}
+        </div>
+        <div className="flex items-center gap-2 border-b border-border px-2.5 py-2">
+          <Search className="h-3.5 w-3.5 text-muted-foreground" />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" aria-label="Search people" className="w-full bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" />
+        </div>
+        <div className="max-h-72 overflow-y-auto p-1.5">
+          {tab !== "teams" && (chosen.length > 0 || meRow) && (
+            <>
+              {head("Assignees")}
+              {meRow && row(meRow, "Me")}
+              {chosen.map((m) => row(m, m.id === me?.id ? "Me" : undefined))}
+            </>
+          )}
+          {tab !== "teams" && others.length > 0 && (
+            <>
+              {head("People")}
+              {others.map((m) => row(m))}
+            </>
+          )}
+          {tab !== "people" && teams.length > 0 && (
+            <>
+              {head("Teams")}
+              {teams.map((t) => {
+                const all = t.ids.every((id) => selected.has(id));
+                return (
+                  <button key={`t${t.id}`} type="button" onClick={() => toggleTeam(t.ids)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-accent">
+                    <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: t.color }}>{t.name[0]?.toUpperCase()}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{t.name}</span>
+                    <span className="text-[11px] text-muted-foreground">{t.ids.length}</span>
+                    {all && <Check className="h-3.5 w-3.5 text-primary" />}
+                  </button>
+                );
+              })}
+            </>
+          )}
+          {chosen.length + others.length + (meRow ? 1 : 0) + teams.length === 0 && <p className="px-2 py-3 text-center text-xs text-muted-foreground">No one found</p>}
         </div>
       </PopoverContent>
     </Popover>

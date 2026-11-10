@@ -7,6 +7,7 @@
 
 import { CreateSpaceDialog } from "@/app/(dashboard)/work/_components/CreateSpaceDialog";
 import { SpaceIcon } from "@/app/(dashboard)/work/_components/SpaceIcon";
+import { ProfilePanel } from "@/app/(dashboard)/work/_components/ProfilePanel";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -32,6 +33,7 @@ import {
   LayoutGrid,
   MessageSquare,
   Orbit,
+  UsersRound,
   PenTool,
   Search,
   SquareCheckBig,
@@ -102,6 +104,7 @@ const MORE_SOON = [
 const MORE_PAGES = [
   { id: "spaces", label: "All Spaces", path: "spaces", icon: Orbit },
   { id: "all-tasks", label: "All Tasks", path: "all-tasks", icon: ListChecks },
+  { id: "teams", label: "Teams", path: "teams", icon: UsersRound },
 ];
 
 const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13.5px] transition-colors";
@@ -611,6 +614,7 @@ export function WorkSidebar({
       )}
 
       {wsParam && <CreatePanel ws={wsParam} />}
+      {wsParam && <ProfilePanel />}
       <CreateSpaceDialog
         open={dialog?.kind === "space"}
         onOpenChange={(o) => !o && setDialog(null)}

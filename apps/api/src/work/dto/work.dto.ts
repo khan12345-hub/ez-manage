@@ -123,6 +123,24 @@ export class CreateCommentDto {
   /** people @mentioned in the comment */
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) mentionIds?: number[];
 }
+export class UpdateProfileDto {
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(80) title?: string | null;
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(60) timezone?: string | null;
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() managerId?: number | null;
+}
+export class PriorityDto {
+  @IsInt() taskId!: number;
+}
+export class CreateTeamDto {
+  @IsString() @IsNotEmpty() @MaxLength(60) name!: string;
+  @IsOptional() @Matches(HEX) color?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(500) @IsInt({ each: true }) memberIds?: number[];
+}
+export class UpdateTeamDto {
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(60) name?: string;
+  @IsOptional() @Matches(HEX) color?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(500) @IsInt({ each: true }) memberIds?: number[];
+}
 export class ToggleDto {
   @IsBoolean() on!: boolean;
 }

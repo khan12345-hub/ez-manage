@@ -126,6 +126,8 @@ model User {
   workListsCreated      WorkList[]             @relation("WorkListCreator")
   workTasksCreated      WorkTask[]             @relation("WorkTaskCreator")
   workMemberships       WorkMember[]           @relation("WorkMemberUser")
+  workTeamMemberships   WorkTeamMember[]       @relation("WorkTeamMemberUser")
+  workPriorities        WorkProfilePriority[]  @relation("WorkPriorityUser")
   workReactions         WorkCommentReaction[]
   workRemindersSet      WorkReminder[]         @relation("WorkReminderCreator")
   workRemindersFor      WorkReminder[]         @relation("WorkReminderAssignee")
@@ -380,12 +382,14 @@ model Workspace {
   members     WorkspaceMember[]
   invitations Invitation[]
 
-  chatChannels  ChatChannel[]
-  docs          WorkspaceDoc[]
-  inviteLinks   WorkspaceInviteLink[]
-  workSpaces    Space[]
-  workMembers   WorkMember[]
-  workReminders WorkReminder[]
+  chatChannels   ChatChannel[]
+  docs           WorkspaceDoc[]
+  inviteLinks    WorkspaceInviteLink[]
+  workSpaces     Space[]
+  workMembers    WorkMember[]
+  workTeams      WorkTeam[]
+  workPriorities WorkProfilePriority[]
+  workReminders  WorkReminder[]
 
   @@unique([createdById, name])
   @@map("workspaces")
@@ -1572,11 +1576,11 @@ model WorkTask {
   dependsOn   WorkTaskLink[]  @relation("WorkLinkFrom")
   dependedBy  WorkTaskLink[]  @relation("WorkLinkTo")
 
-  list        WorkList           @relation(fields: [listId], references: [id], onDelete: Cascade)
-  status      WorkStatus?        @relation(fields: [statusId], references: [id], onDelete: SetNull)
-  parent      WorkTask?          @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks    WorkTask[]         @relation("WorkSubtasks")
-  createdBy   User               @relation("WorkTaskCreator", fields: [createdById], references: [id])
+  list        WorkList              @relation(fields: [listId], references: [id], onDelete: Cascade)
+  status      WorkStatus?           @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  parent      WorkTask?             @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks    WorkTask[]            @relation("WorkSubtasks")
+  createdBy   User                  @relation("WorkTaskCreator", fields: [createdById], references: [id])
   assignees   WorkTaskAssignee[]
   comments    WorkComment[]
   attachments WorkAttachment[]
@@ -1584,6 +1588,7 @@ model WorkTask {
   fieldValues WorkFieldValue[]
   reminders   WorkReminder[]
   watches     WorkTaskWatch[]
+  priorities  WorkProfilePriority[]
   favorites   WorkFavorite[]
   extraLists  WorkTaskList[]
 
@@ -1806,6 +1811,10 @@ model WorkMember {
   workspaceId Int
   userId      Int
   role        WorkRole @default(MEMBER)
+  /// profile inside Work (ClickUp People): job title, who they report to, their time zone
+  title       String?
+  managerId   Int?
+  timezone    String?
   invitedById Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1965,4 +1974,49 @@ model WorkTaskList {
   @@id([taskId, listId])
   @@index([listId])
   @@map("work_task_lists")
+}
+
+/// Teams inside a Work workspace (ClickUp Teams: assign to a team, team cards)
+model WorkTeam {
+  id          Int      @id @default(autoincrement())
+  workspaceId Int
+  name        String
+  color       String   @default("#047857")
+  createdById Int?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members   WorkTeamMember[]
+
+  @@index([workspaceId])
+  @@map("work_teams")
+}
+
+model WorkTeamMember {
+  teamId Int
+  userId Int
+
+  team WorkTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User     @relation("WorkTeamMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@index([userId])
+  @@map("work_team_members")
+}
+
+/// a person's "Priorities" list on their profile (ordered tasks)
+model WorkProfilePriority {
+  workspaceId Int
+  userId      Int
+  taskId      Int
+  order       Float    @default(1000)
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation("WorkPriorityUser", fields: [userId], references: [id], onDelete: Cascade)
+  task      WorkTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([userId, taskId])
+  @@index([workspaceId, userId])
+  @@map("work_priorities")
 }

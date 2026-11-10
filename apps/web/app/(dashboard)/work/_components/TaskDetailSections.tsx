@@ -42,6 +42,7 @@ import { FileChip } from "./TaskFiles";
 import { Reactions } from "./Reactions";
 import { Thread } from "./Thread";
 import { CommentActions } from "./CommentActions";
+import { PersonHover } from "./people";
 import { AssigneePicker } from "./pickers";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
@@ -661,10 +662,10 @@ export function CommentCard({
   const people = [...new Map((replies ?? []).map((r) => [r.user.id, r.user])).values()].slice(0, 3);
   return (
     <li ref={ref} id={`comment-${c.id}`} className="group/c relative flex gap-2.5">
-      <Avatar user={c.user} size={28} />
+      <PersonHover user={c.user}><button type="button" aria-label={`${userName(c.user)} profile`} className="h-fit rounded-full"><Avatar user={c.user} size={28} /></button></PersonHover>
       <div className={cn("min-w-0 flex-1 rounded-lg border bg-card px-3 py-2 transition-shadow", c.assignee && !c.resolvedAt ? "border-[#b08d57]/60" : "border-border", highlight && "ring-2 ring-primary/40")}>
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-[13px] font-semibold">{userName(c.user)}</span>
+          <PersonHover user={c.user}><button type="button" className="text-[13px] font-semibold hover:underline">{userName(c.user)}</button></PersonHover>
           <span className="text-[11px] text-muted-foreground">{timeAgo(c.createdAt)}</span>
           {c.user.id === currentUserId && (
             <button type="button" aria-label="Delete comment" onClick={() => onDelete(c.id)} className="ml-auto rounded p-0.5 text-muted-foreground opacity-0 hover:text-destructive group-hover/c:opacity-100 focus:opacity-100">

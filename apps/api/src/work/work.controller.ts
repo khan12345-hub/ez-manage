@@ -9,7 +9,8 @@ import { WorkFieldsService } from './work-fields.service';
 import { WorkRemindersService } from './work-reminders.service';
 import { WorkExtrasService } from './work-extras.service';
 import { WorkStatsService, type StatsKind } from './work-stats.service';
-import { ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { WorkProfileService } from './work-profile.service';
+import { UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -57,6 +58,7 @@ export class WorkController {
     private readonly reminders: WorkRemindersService,
     private readonly extras: WorkExtrasService,
     private readonly stats: WorkStatsService,
+    private readonly profiles: WorkProfileService,
   ) {}
 
   // ── workspace level ──
@@ -350,6 +352,67 @@ export class WorkController {
   }
 
   // ── people & access (Work's own membership, separate from Boards) ──
+  // ── people: directory, profiles, teams, analytics ──
+  @Get('workspaces/:workspaceId/directory')
+  async directory(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.profiles.directory(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Get('workspaces/:workspaceId/profiles/:userId')
+  async profile(@Param('workspaceId') ws: string, @Param('userId', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.profiles.profile(await this.work.resolveWorkspaceId(ws), u.id, id);
+  }
+
+  @Get('workspaces/:workspaceId/profiles/:userId/tasks')
+  async profileTasks(@Param('workspaceId') ws: string, @Param('userId', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.profiles.tasks(await this.work.resolveWorkspaceId(ws), u.id, id);
+  }
+
+  @Get('workspaces/:workspaceId/profiles/:userId/comments')
+  async profileComments(@Param('workspaceId') ws: string, @Param('userId', ParseIntPipe) id: number, @Query('resolved') resolved: string, @CurrentUser() u: SessionUser) {
+    return this.profiles.comments(await this.work.resolveWorkspaceId(ws), u.id, id, resolved === 'true');
+  }
+
+  @Get('workspaces/:workspaceId/profiles/:userId/activity')
+  async profileActivity(@Param('workspaceId') ws: string, @Param('userId', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.profiles.activity(await this.work.resolveWorkspaceId(ws), u.id, id);
+  }
+
+  @Patch('workspaces/:workspaceId/profiles/:userId')
+  async updateProfile(@Param('workspaceId') ws: string, @Param('userId', ParseIntPipe) id: number, @Body() dto: UpdateProfileDto, @CurrentUser() u: SessionUser) {
+    return this.profiles.update(await this.work.resolveWorkspaceId(ws), u.id, id, dto);
+  }
+
+  @Post('workspaces/:workspaceId/profiles/:userId/priorities')
+  async addPriority(@Param('workspaceId') ws: string, @Param('userId', ParseIntPipe) id: number, @Body() dto: PriorityDto, @CurrentUser() u: SessionUser) {
+    return this.profiles.addPriority(await this.work.resolveWorkspaceId(ws), u.id, id, dto.taskId);
+  }
+
+  @Delete('workspaces/:workspaceId/profiles/:userId/priorities/:taskId')
+  async removePriority(@Param('workspaceId') ws: string, @Param('userId', ParseIntPipe) id: number, @Param('taskId', ParseIntPipe) taskId: number, @CurrentUser() u: SessionUser) {
+    return this.profiles.removePriority(await this.work.resolveWorkspaceId(ws), u.id, id, taskId);
+  }
+
+  @Post('workspaces/:workspaceId/teams')
+  async createTeam(@Param('workspaceId') ws: string, @Body() dto: CreateTeamDto, @CurrentUser() u: SessionUser) {
+    return this.profiles.createTeam(await this.work.resolveWorkspaceId(ws), u.id, dto);
+  }
+
+  @Patch('teams/:id')
+  updateTeam(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTeamDto, @CurrentUser() u: SessionUser) {
+    return this.profiles.updateTeam(id, u.id, dto);
+  }
+
+  @Delete('teams/:id')
+  deleteTeam(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.profiles.deleteTeam(id, u.id);
+  }
+
+  @Get('workspaces/:workspaceId/analytics')
+  async analytics(@Param('workspaceId') ws: string, @Query('day') day: string, @CurrentUser() u: SessionUser) {
+    return this.profiles.analytics(await this.work.resolveWorkspaceId(ws), u.id, day);
+  }
+
   @Get('space-templates')
   spaceTemplates() {
     return this.work.spaceTemplates();
