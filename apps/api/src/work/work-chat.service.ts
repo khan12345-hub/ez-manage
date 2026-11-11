@@ -298,10 +298,9 @@ export class WorkChatService {
   async schedule(channelUid: string, userId: number, dto: { content?: string; parentId?: number; mentionIds?: number[]; files?: any[]; sendAt: string }) {
     const { ch } = await this.channel(channelUid, userId, 'post');
     const content = (dto.content ?? '').trim();
-    const files = Array.isArray(dto.files) ? dto.files.slice(0, 10) : [];
+    const files = await this.ownFiles(userId, dto.files);
     if (!content && !files.length) throw new BadRequestException('Write a message.');
     if (content.length > 20000) throw new BadRequestException('That message is too long.');
-    for (const f of files) if (!f || typeof f.url !== 'string' || !/^https?:\/\//.test(f.url)) throw new BadRequestException('Invalid file.');
     const sendAt = this.checkSendAt(dto.sendAt);
     if (dto.parentId) {
       const parent = await this.prisma.workChatMessage.findFirst({ where: { id: dto.parentId, channelId: ch.id, deletedAt: null, parentId: null }, select: { id: true } });
@@ -678,7 +677,7 @@ export class WorkChatService {
   async send(channelUid: string, userId: number, dto: { content?: string; parentId?: number; kind?: string; title?: string; postType?: string; mentionIds?: number[]; files?: any[]; alsoInChannel?: boolean; forwarded?: Record<string, unknown> }) {
     const { ch, me, ws } = await this.channel(channelUid, userId, 'post');
     const content = (dto.content ?? '').trim();
-    const files = Array.isArray(dto.files) ? dto.files.slice(0, 10) : [];
+    const files = await this.ownFiles(userId, dto.files);
     if (!content && !files.length && !dto.forwarded) throw new BadRequestException('Write a message.');
     if (content.length > 20000) throw new BadRequestException('That message is too long.');
     const kind = dto.kind === 'post' ? 'post' : 'message';
@@ -689,8 +688,6 @@ export class WorkChatService {
       parent = await this.prisma.workChatMessage.findFirst({ where: { id: dto.parentId, channelId: ch.id, deletedAt: null }, select: { id: true, userId: true, parentId: true } });
       if (!parent || parent.parentId) throw new BadRequestException('Reply to a message in this channel.');
     }
-    // files must be ours (uploaded through /work/chat/files)
-    for (const f of files) if (!f || typeof f.url !== 'string' || !/^https?:\/\//.test(f.url)) throw new BadRequestException('Invalid file.');
     const mentions = [...new Set(dto.mentionIds ?? [])].filter((u) => u !== userId);
     const valid = mentions.length ? (await this.prisma.workMember.findMany({ where: { workspaceId: ch.workspaceId, userId: { in: mentions } }, select: { userId: true } })).map((m) => m.userId) : [];
     // posting in an open channel you haven't joined joins you (like ClickUp)
@@ -963,6 +960,43 @@ export class WorkChatService {
   }
 
   /* ── files ── */
+
+  /**
+   * Files on a message must be ones this person uploaded through Work chat. Only the ids are trusted:
+   * name, url, type and size always come from the database, never from the browser.
+   */
+  private async ownFiles(userId: number, raw: any[] | undefined) {
+    const list = Array.isArray(raw) ? raw : [];
+    if (list.length > 10) throw new BadRequestException('Up to 10 files per message.');
+    const ids = [...new Set(list.map((f) => Number(f?.id)))];
+    if (ids.some((i) => !Number.isInteger(i) || i <= 0)) throw new BadRequestException('Invalid file.');
+    if (!ids.length) return [];
+    const rows = await this.prisma.file.findMany({ where: { id: { in: ids }, uploadedById: userId, storageKey: { startsWith: 'work-chat/' } }, select: { id: true, fileName: true, url: true, mimeType: true, fileSize: true } });
+    if (rows.length !== ids.length) throw new BadRequestException('Invalid file.');
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return ids.map((i) => { const r = byId.get(i)!; return { id: r.id, name: r.fileName, url: r.url, mime: r.mimeType, size: r.fileSize }; });
+  }
+
+  /** Files tab of a channel: every file shared in it, newest first */
+  async channelFiles(channelUid: string, userId: number, o: { type?: string; q?: string; cursor?: string }) {
+    const { ch } = await this.channel(channelUid, userId);
+    const cursor = o.cursor ? new Date(o.cursor) : null;
+    const take = 40;
+    const rows = await this.prisma.workChatMessage.findMany({
+      where: {
+        channelId: ch.id, deletedAt: null, NOT: [{ files: { equals: Prisma.AnyNull } }, { files: { equals: [] } }],
+        ...(cursor && !isNaN(+cursor) ? { createdAt: { lt: cursor } } : {}),
+      },
+      orderBy: { createdAt: 'desc' }, take: take + 1,
+      select: { id: true, parentId: true, createdAt: true, files: true, user: { select: USER_MINI } },
+    });
+    const page = rows.slice(0, take);
+    const kind = (mime: string) => (mime.startsWith('image/') ? 'images' : mime === 'application/pdf' || /word|document|sheet|excel|presentation|powerpoint|text\/|csv/.test(mime) ? 'docs' : mime.startsWith('video/') || mime.startsWith('audio/') ? 'media' : 'other');
+    const q = (o.q ?? '').trim().toLowerCase();
+    const items = page.flatMap((m) => ((m.files as any[]) ?? []).map((f) => ({ ...f, kind: kind(f.mime ?? ''), messageId: m.id, parentId: m.parentId, createdAt: m.createdAt, user: m.user })))
+      .filter((f) => (!o.type || o.type === 'all' || f.kind === o.type) && (!q || String(f.name ?? '').toLowerCase().includes(q)));
+    return { items, hasMore: rows.length > take, nextCursor: rows.length > take ? page[page.length - 1]!.createdAt.toISOString() : null };
+  }
 
   async upload(workspaceId: number, userId: number, files: Express.Multer.File[]) {
     await this.access.requireWorkspace(workspaceId, userId, 'view');

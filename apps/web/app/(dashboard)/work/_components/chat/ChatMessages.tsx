@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
+import { MessageFiles } from "./ChatFiles";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlarmClock, Bookmark, BookmarkCheck, Check, Copy, FileText, Forward, Link2, ListPlus, MessageSquareReply, MoreHorizontal, Pencil, Pin, PinOff, Quote, SmilePlus, Trash2, UserCheck } from "lucide-react";
@@ -81,26 +82,6 @@ export function RichText({ text, members = [] }: { text: string; members?: WorkU
   if (code) out.push(<pre key="c-end" className="my-1 overflow-x-auto rounded-lg border border-border bg-muted/60 px-3 py-2 font-mono text-[12.5px]">{(code as string[]).join("\n")}</pre>);
   flush(lines.length);
   return <>{out}</>;
-}
-
-function Files({ files }: { files: ChatMessage["files"] }) {
-  if (!files?.length) return null;
-  return (
-    <div className="mt-1.5 flex flex-wrap gap-2">
-      {files.map((f) =>
-        f.mime?.startsWith("image/") ? (
-          <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-border">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={f.url} alt={f.name} className="max-h-64 max-w-[320px] object-cover" />
-          </a>
-        ) : (
-          <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] hover:bg-accent">
-            <FileText className="h-4 w-4 text-muted-foreground" /> <span className="max-w-[220px] truncate">{f.name}</span>
-          </a>
-        ),
-      )}
-    </div>
-  );
 }
 
 /** one message (or post) row with its hover toolbar */
@@ -187,13 +168,13 @@ export function MessageRow({
             <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: `${post.color}18`, color: post.color }}>{post.label}</span>
             <h3 className="mt-1.5 text-[17px] font-semibold leading-snug">{m.title}</h3>
             <div className="mt-1 text-[13.5px] leading-relaxed"><RichText text={m.content} members={members} /></div>
-            <Files files={m.files} />
+            <MessageFiles files={m.files} />
           </div>
         ) : (
           <div className="text-[13.5px] leading-relaxed">
             <RichText text={m.content} members={members} />
             {m.editedAt && <span className="ml-1 text-[11px] text-muted-foreground">(edited)</span>}
-            <Files files={m.files} />
+            <MessageFiles files={m.files} />
           </div>
         )}
         {!deleted && m.reactions.length > 0 && (

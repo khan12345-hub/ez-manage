@@ -391,6 +391,7 @@ export interface ChatScheduled {
   status: "pending" | "sending" | "sent" | "failed"; error: string | null; messageId: number | null; sentAt: string | null; createdAt: string;
   channel: { uid: string; kind: "channel" | "dm" | "group"; name: string | null; isPrivate: boolean; people: WorkUser[] };
 }
+export interface ChannelFileItem extends ChatFile { kind: "images" | "docs" | "media" | "other"; messageId: number; parentId: number | null; createdAt: string; user: WorkUser }
 export type ChannelViewKind = "list" | "board" | "doc";
 export interface ChannelViewTab {
   id: number; kind: ChannelViewKind; name: string; position: number;
@@ -450,6 +451,8 @@ export const workApi = {
   updateScheduledChat: (id: number, body: { content?: string; sendAt?: string }) => patch<ChatScheduled>(`/work/chat/scheduled/${id}`, body),
   deleteScheduledChat: (id: number) => del(`/work/chat/scheduled/${id}`),
   sendScheduledChat: (id: number) => post(`/work/chat/scheduled/${id}/send`),
+  channelFiles: (uid: string, o: { type?: string; q?: string; cursor?: string }) =>
+    get<{ items: ChannelFileItem[]; hasMore: boolean; nextCursor: string | null }>(`/work/chat/channels/${uid}/files?${new URLSearchParams(Object.entries(o).filter(([, v]) => !!v) as [string, string][])}`),
   channelViews: (uid: string) => get<ChannelViewTab[]>(`/work/chat/channels/${uid}/views`),
   addChannelView: (uid: string, body: { kind: ChannelViewKind; name?: string; listId?: number }) => post<ChannelViewTab>(`/work/chat/channels/${uid}/views`, body),
   updateChannelView: (id: number, body: { name?: string; content?: string }) => patch<ChannelViewTab>(`/work/chat/views/${id}`, body),

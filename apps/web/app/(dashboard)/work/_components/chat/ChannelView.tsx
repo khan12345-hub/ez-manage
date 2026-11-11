@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Archive, Bell, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, Bell, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -15,10 +15,11 @@ import { ChatComposer } from "./ChatComposer";
 import { useShareChannel } from "./ShareChannel";
 import { MessageList, MessageRow } from "./ChatMessages";
 import { ScheduledBanner } from "./Scheduled";
+import { FilesPanel } from "./ChatFiles";
 import { ChannelViewPanel, ChannelViewTabs, channelViewsKey, useChannelViews } from "./ChannelViews";
 import { channelKey, chatSidebarKey, messagesKey, threadKey, useChannelMessages, useChatEvents, useWs } from "./useChat";
 
-type Panel = "members" | "search" | "threads" | "pinned" | "settings" | null;
+type Panel = "members" | "search" | "threads" | "pinned" | "files" | "settings" | null;
 
 export function channelTitle(c: { kind: string; name: string | null }, people: WorkUser[] = []) {
   return c.kind === "channel" ? c.name ?? "channel" : people.map((p) => userName(p)).join(", ") || "Just you";
@@ -193,6 +194,7 @@ export function ChannelView({ uid }: { uid: string }) {
           {railBtn("search", "Search messages", Search)}
           {railBtn("threads", "Threads", MessageSquareReply)}
           {railBtn("pinned", "Pinned", Pin, ch.pinned.length)}
+          {railBtn("files", "Files", Paperclip)}
           {!isDm && railBtn("settings", "Channel settings", Settings2)}
         </nav>
       </div>
@@ -243,7 +245,7 @@ function SidePanel({ panel, ch, uid, members, onOpenThread, onClose }: { panel: 
   const archive = useMutation({ mutationFn: () => workApi.archiveChannel(uid), onSuccess: () => { qc.invalidateQueries({ queryKey: chatSidebarKey(ws) }); router.push(`/work/${ws}/chat/channels`); } });
   const add = useMutation({ mutationFn: (id: number) => workApi.addChannelMembers(uid, [id]), onSuccess: () => qc.invalidateQueries({ queryKey: channelKey(uid) }), onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't add.") });
   const removeM = useMutation({ mutationFn: (id: number) => workApi.removeChannelMember(uid, id), onSuccess: () => qc.invalidateQueries({ queryKey: channelKey(uid) }) });
-  const titles: Record<string, string> = { members: "Members", search: "Search", threads: "Threads", pinned: "Pinned", settings: "Channel settings" };
+  const titles: Record<string, string> = { members: "Members", search: "Search", threads: "Threads", pinned: "Pinned", files: "Files", settings: "Channel settings" };
   const inCh = new Set(ch.members.map((m) => m.user.id));
 
   return (
@@ -289,6 +291,7 @@ function SidePanel({ panel, ch, uid, members, onOpenThread, onClose }: { panel: 
             <a href={`/work/${ws}/chat/search${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ""}`} className="mt-3 flex items-center gap-1.5 text-[12.5px] font-medium text-primary hover:underline"><Search className="h-3.5 w-3.5" /> Search all chats</a>
           </>
         )}
+        {panel === "files" && <FilesPanel uid={uid} />}
         {panel === "threads" && (
           <ul className="space-y-2">
             {(threads?.items ?? []).filter((m) => m.replyCount > 0).reverse().map((m) => (

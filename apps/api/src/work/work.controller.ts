@@ -506,6 +506,11 @@ export class WorkController {
     return this.chat.deleteSection(id, u.id);
   }
 
+  @Get('chat/channels/:uid/files')
+  channelFiles(@Param('uid') uid: string, @Query('type') type: string, @Query('q') q: string, @Query('cursor') cursor: string, @CurrentUser() u: SessionUser) {
+    return this.chat.channelFiles(uid, u.id, { type: ['images', 'docs', 'media', 'other'].includes(type) ? type : undefined, q, cursor });
+  }
+
   @Post('chat/channels/:uid/scheduled')
   scheduleChat(@Param('uid') uid: string, @Body() dto: ScheduleChatDto, @CurrentUser() u: SessionUser) {
     return this.chat.schedule(uid, u.id, dto);
