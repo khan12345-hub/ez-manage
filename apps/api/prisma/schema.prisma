@@ -138,6 +138,7 @@ model User {
   workChatDrafts        WorkChatDraft[]        @relation("WorkChatDraftUser")
   workChatSections      WorkChatSection[]      @relation("WorkChatSectionUser")
   workChannelViewsBy    WorkChannelView[]      @relation("WorkChannelViewUpdatedBy")
+  workChatScheduled     WorkChatScheduled[]    @relation("WorkChatScheduledUser")
   workChatSaved         WorkChatSaved[]        @relation("WorkChatSavedUser")
   workTeamMemberships   WorkTeamMember[]       @relation("WorkTeamMemberUser")
   workPriorities        WorkProfilePriority[]  @relation("WorkPriorityUser")
@@ -2181,6 +2182,7 @@ model WorkChannel {
   messages  WorkChatMessage[]
   drafts    WorkChatDraft[]
   views     WorkChannelView[]
+  scheduled WorkChatScheduled[]
 
   @@index([workspaceId, kind])
   @@map("work_channels")
@@ -2292,6 +2294,33 @@ model WorkChannelView {
 
   @@index([channelId])
   @@map("work_channel_views")
+}
+
+/// a message written now, sent later (ClickUp "Schedule message")
+model WorkChatScheduled {
+  id         Int       @id @default(autoincrement())
+  channelId  Int
+  userId     Int
+  /// reply in this thread (null = in the channel)
+  parentId   Int?
+  content    String
+  mentionIds Int[]     @default([])
+  files      Json?
+  sendAt     DateTime
+  /// pending | sending | sent | failed
+  status     String    @default("pending")
+  error      String?
+  messageId  Int?
+  sentAt     DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  channel WorkChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation("WorkChatScheduledUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, sendAt])
+  @@index([userId, status])
+  @@map("work_chat_scheduled")
 }
 
 /// a person's own chat sidebar section (ClickUp "Create section")

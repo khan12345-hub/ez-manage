@@ -12,7 +12,7 @@ import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { WorkProfileService } from './work-profile.service';
 import { WorkAutomationsService } from './work-automations.service';
 import { WorkChatService } from './work-chat.service';
-import { ChatToTaskDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatSectionDto, ChatSectionOrderDto, ChannelSectionDto, ChannelViewDto, UpdateChannelViewDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { ChatToTaskDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatSectionDto, ChatSectionOrderDto, ChannelSectionDto, ChannelViewDto, UpdateChannelViewDto, ScheduleChatDto, UpdateScheduledChatDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -504,6 +504,31 @@ export class WorkController {
   @Delete('chat/sections/:id')
   deleteChatSection(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
     return this.chat.deleteSection(id, u.id);
+  }
+
+  @Post('chat/channels/:uid/scheduled')
+  scheduleChat(@Param('uid') uid: string, @Body() dto: ScheduleChatDto, @CurrentUser() u: SessionUser) {
+    return this.chat.schedule(uid, u.id, dto);
+  }
+
+  @Get('workspaces/:workspaceId/chat/scheduled')
+  async chatScheduled(@Param('workspaceId') ws: string, @Query('channel') channel: string, @CurrentUser() u: SessionUser) {
+    return this.chat.scheduledList(await this.work.resolveWorkspaceId(ws), u.id, channel || undefined);
+  }
+
+  @Patch('chat/scheduled/:id')
+  updateScheduledChat(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateScheduledChatDto, @CurrentUser() u: SessionUser) {
+    return this.chat.updateScheduled(id, u.id, dto);
+  }
+
+  @Delete('chat/scheduled/:id')
+  deleteScheduledChat(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.chat.deleteScheduled(id, u.id);
+  }
+
+  @Post('chat/scheduled/:id/send')
+  sendScheduledChat(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.chat.sendScheduledNow(id, u.id);
   }
 
   @Get('chat/channels/:uid/views')

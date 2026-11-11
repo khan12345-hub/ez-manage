@@ -386,6 +386,11 @@ export interface ChatSearchResult {
   channels: { uid: string; kind: string; name: string | null; isPrivate: boolean; joined: boolean; memberCount: number }[];
   hasMore: boolean; nextCursor: string | null;
 }
+export interface ChatScheduled {
+  id: number; parentId: number | null; content: string; mentionIds: number[]; files: ChatFile[]; sendAt: string;
+  status: "pending" | "sending" | "sent" | "failed"; error: string | null; messageId: number | null; sentAt: string | null; createdAt: string;
+  channel: { uid: string; kind: "channel" | "dm" | "group"; name: string | null; isPrivate: boolean; people: WorkUser[] };
+}
 export type ChannelViewKind = "list" | "board" | "doc";
 export interface ChannelViewTab {
   id: number; kind: ChannelViewKind; name: string; position: number;
@@ -440,6 +445,11 @@ export const workApi = {
   moveChannelToSection: (uid: string, sectionId: number | null) => put(`/work/chat/channels/${uid}/section`, { sectionId }),
   chatSearch: (ws: string, o: { q?: string; from?: string; in?: string; after?: string; has?: string; mentions?: boolean; kind?: string; cursor?: string }) =>
     get<ChatSearchResult>(`/work/workspaces/${ws}/chat/search?${new URLSearchParams(Object.entries(o).filter(([, v]) => v !== undefined && v !== "" && v !== false).map(([k, v]) => [k, String(v)]))}`),
+  scheduleChat: (uid: string, body: { content: string; parentId?: number; mentionIds?: number[]; files?: ChatFile[]; sendAt: string }) => post<ChatScheduled>(`/work/chat/channels/${uid}/scheduled`, body),
+  chatScheduled: (ws: string, channelUid?: string) => get<ChatScheduled[]>(`/work/workspaces/${ws}/chat/scheduled${channelUid ? `?channel=${channelUid}` : ""}`),
+  updateScheduledChat: (id: number, body: { content?: string; sendAt?: string }) => patch<ChatScheduled>(`/work/chat/scheduled/${id}`, body),
+  deleteScheduledChat: (id: number) => del(`/work/chat/scheduled/${id}`),
+  sendScheduledChat: (id: number) => post(`/work/chat/scheduled/${id}/send`),
   channelViews: (uid: string) => get<ChannelViewTab[]>(`/work/chat/channels/${uid}/views`),
   addChannelView: (uid: string, body: { kind: ChannelViewKind; name?: string; listId?: number }) => post<ChannelViewTab>(`/work/chat/channels/${uid}/views`, body),
   updateChannelView: (id: number, body: { name?: string; content?: string }) => patch<ChannelViewTab>(`/work/chat/views/${id}`, body),

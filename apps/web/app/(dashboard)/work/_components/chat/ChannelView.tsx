@@ -14,6 +14,7 @@ import { OnlineDot, useDirectory, useProfilePanel } from "../people";
 import { ChatComposer } from "./ChatComposer";
 import { useShareChannel } from "./ShareChannel";
 import { MessageList, MessageRow } from "./ChatMessages";
+import { ScheduledBanner } from "./Scheduled";
 import { ChannelViewPanel, ChannelViewTabs, channelViewsKey, useChannelViews } from "./ChannelViews";
 import { channelKey, chatSidebarKey, messagesKey, threadKey, useChannelMessages, useChatEvents, useWs } from "./useChat";
 
@@ -176,7 +177,10 @@ export function ChannelView({ uid }: { uid: string }) {
             ) : !ch.canPost ? (
               <p className="mx-4 mb-4 rounded-xl border border-dashed border-border bg-muted/40 px-4 py-3 text-center text-[13px] text-muted-foreground">You have <strong>View only</strong> access to this channel.</p>
             ) : (
+              <>
+              <ScheduledBanner channelUid={uid} />
               <ChatComposer channelUid={uid} members={members} placeholder={`Write to ${isDm ? title : `#${ch.name}`}`} initialDraft={draft} allowPost={!isDm && ["full", "edit"].includes(ch.myPermission ?? "edit")} />
+              </>
             )
           ) : null}
         </div>

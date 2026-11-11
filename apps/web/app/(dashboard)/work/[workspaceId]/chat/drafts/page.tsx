@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
@@ -8,11 +9,18 @@ import { cn } from "@/lib/utils";
 import { workApi } from "@/services/work.api";
 import { useWs } from "../../../_components/chat/useChat";
 import { ChatFeed } from "../../../_components/chat/ChatFeed";
+import { ScheduledList } from "../../../_components/chat/Scheduled";
 
-/** Drafts & Sent (ClickUp): unsent drafts per conversation, scheduled (soon), sent messages */
+/** Drafts & Sent (ClickUp): unsent drafts per conversation, scheduled messages, sent messages */
 export default function DraftsSentPage() {
+  return <Suspense fallback={null}><DraftsSent /></Suspense>;
+}
+
+function DraftsSent() {
   const ws = useWs();
-  const [tab, setTab] = useState<"drafts" | "scheduled" | "sent">("drafts");
+  const sp = useSearchParams();
+  const first = sp.get("tab");
+  const [tab, setTab] = useState<"drafts" | "scheduled" | "sent">(first === "scheduled" || first === "sent" ? first : "drafts");
   const { data: drafts = [] } = useQuery({ queryKey: ["work", "chat-drafts", ws], queryFn: () => workApi.chatDrafts(ws), enabled: tab === "drafts" });
   const { data: sent = [] } = useQuery({ queryKey: ["work", "chat-sent", ws], queryFn: () => workApi.chatSent(ws), enabled: tab === "sent" });
   return (
@@ -44,7 +52,7 @@ export default function DraftsSentPage() {
           ) : (
             <p className="py-14 text-center text-[13px] text-muted-foreground">You have no drafts.</p>
           ))}
-        {tab === "scheduled" && <p className="py-14 text-center text-[13px] text-muted-foreground">Scheduled messages are coming soon.</p>}
+        {tab === "scheduled" && <ScheduledList />}
         {tab === "sent" && <ChatFeed items={sent} ws={ws} empty="Messages you send show up here." />}
       </div>
     </div>

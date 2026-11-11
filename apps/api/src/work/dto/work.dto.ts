@@ -154,6 +154,17 @@ export class ChatSectionDto {
 export class ChatSectionOrderDto {
   @IsArray() @ArrayMaxSize(30) @IsInt({ each: true }) ids!: number[];
 }
+export class ScheduleChatDto {
+  @IsOptional() @IsString() @MaxLength(20000) content?: string;
+  @IsOptional() @IsInt() parentId?: number;
+  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsInt({ each: true }) mentionIds?: number[];
+  @IsOptional() @IsArray() @ArrayMaxSize(10) files?: any[];
+  @IsDateString() sendAt!: string;
+}
+export class UpdateScheduledChatDto {
+  @IsOptional() @IsString() @MaxLength(20000) content?: string;
+  @IsOptional() @IsDateString() sendAt?: string;
+}
 export class ChannelViewDto {
   @IsIn(['list', 'board', 'doc']) kind!: string;
   @IsOptional() @IsString() @MaxLength(60) name?: string;

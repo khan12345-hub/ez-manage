@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { userName, workApi, type ChatFile, type ChatMessage, type WorkUser } from "@/services/work.api";
 import { Avatar } from "../primitives";
 import { CHAT_QUOTE_EVENT } from "./ChatMessages";
+import { ScheduleButton, whenLabel } from "./Scheduled";
 import { CHAT_REACTIONS, POST_TYPES, addOwnMessage, chatSidebarKey, threadKey, useWs } from "./useChat";
 
 /** ClickUp chat composer: Message / Post, @mentions, files, emoji, Enter to send. */
@@ -76,6 +77,22 @@ export function ChatComposer({
       requestAnimationFrame(() => area.current?.focus());
     },
     onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't send."),
+  });
+  const schedule = useMutation({
+    mutationFn: (sendAt: string) =>
+      workApi.scheduleChat(channelUid, {
+        content: text.trim(), sendAt, files,
+        ...(parentId ? { parentId } : {}),
+        mentionIds: mentions.filter((m) => text.includes(`@${userName(m)}`)).map((m) => m.id),
+      }),
+    onSuccess: (s) => {
+      setText(""); setFiles([]); setMentions([]); setAlso(false);
+      workApi.chatDraft(channelUid, "", parentId).catch(() => {});
+      qc.invalidateQueries({ queryKey: ["work", "chat-scheduled", ws] });
+      toast.success(`Scheduled for ${whenLabel(s.sendAt)}`);
+      requestAnimationFrame(() => area.current?.focus());
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't schedule."),
   });
 
   const canSend = (!!text.trim() || files.length > 0) && (mode === "message" || !!title.trim()) && !send.isPending && !upload.isPending;
@@ -236,6 +253,7 @@ export function ChatComposer({
           </Popover>
           <span className="flex-1" />
           <span className="mr-2 hidden text-[11px] text-muted-foreground sm:inline">Enter to send · Shift+Enter for a new line</span>
+          {mode === "message" && <span className="mr-1"><ScheduleButton disabled={!canSend || schedule.isPending} onSchedule={(at) => schedule.mutate(at)} /></span>}
           <button type="button" aria-label={mode === "post" ? "Post" : "Send"} disabled={!canSend} onClick={() => send.mutate()} className="flex h-8 items-center gap-1.5 rounded-lg bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-40 dark:bg-primary dark:text-primary-foreground">
             {send.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SendHorizontal className="h-3.5 w-3.5" />} {mode === "post" ? "Post" : "Send"}
           </button>

@@ -23,7 +23,7 @@ export interface ChatCallEvent {
 }
 
 export interface WorkChatEvent {
-  type: "message" | "message_updated" | "typing" | "channel" | "views";
+  type: "message" | "message_updated" | "typing" | "channel" | "views" | "scheduled";
   channelUid: string;
   message?: any;
   userId?: number;

@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from 'prisma/prisma.service';
 import { Prisma } from 'generated/prisma/client';
@@ -275,6 +276,135 @@ export class WorkChatService {
     await this.prisma.workChannelMember.update({ where: { channelId_userId: { channelId: ch.id, userId } }, data: { hiddenAt: new Date(), lastReadAt: new Date() } });
     return { ok: true };
   }
+
+  // ---------- scheduled messages (written now, sent later) ----------
+
+  private scheduledSelect = {
+    id: true, parentId: true, content: true, mentionIds: true, files: true, sendAt: true, status: true, error: true, messageId: true, sentAt: true, createdAt: true,
+    channel: { select: { uid: true, kind: true, name: true, isPrivate: true, members: { select: { userId: true, user: { select: USER_MINI } } } } },
+  } as const;
+  private shapeScheduled(r: any, userId: number) {
+    const { channel: c, ...rest } = r;
+    return { ...rest, files: Array.isArray(r.files) ? r.files : [], channel: { uid: c.uid, kind: c.kind, name: c.name, isPrivate: c.isPrivate, people: c.kind === 'channel' ? [] : c.members.filter((m: any) => m.userId !== userId).map((m: any) => m.user) } };
+  }
+  private checkSendAt(v: string | Date) {
+    const at = new Date(v);
+    if (isNaN(+at)) throw new BadRequestException('Pick a date and time.');
+    if (+at < Date.now() + 55_000) throw new BadRequestException('Pick a time at least a minute from now.');
+    if (+at > Date.now() + 366 * 86_400_000) throw new BadRequestException('Schedule up to a year ahead.');
+    return at;
+  }
+
+  async schedule(channelUid: string, userId: number, dto: { content?: string; parentId?: number; mentionIds?: number[]; files?: any[]; sendAt: string }) {
+    const { ch } = await this.channel(channelUid, userId, 'post');
+    const content = (dto.content ?? '').trim();
+    const files = Array.isArray(dto.files) ? dto.files.slice(0, 10) : [];
+    if (!content && !files.length) throw new BadRequestException('Write a message.');
+    if (content.length > 20000) throw new BadRequestException('That message is too long.');
+    for (const f of files) if (!f || typeof f.url !== 'string' || !/^https?:\/\//.test(f.url)) throw new BadRequestException('Invalid file.');
+    const sendAt = this.checkSendAt(dto.sendAt);
+    if (dto.parentId) {
+      const parent = await this.prisma.workChatMessage.findFirst({ where: { id: dto.parentId, channelId: ch.id, deletedAt: null, parentId: null }, select: { id: true } });
+      if (!parent) throw new BadRequestException('Reply to a message in this channel.');
+    }
+    if ((await this.prisma.workChatScheduled.count({ where: { userId, status: { in: ['pending', 'failed'] } } })) >= 100) throw new BadRequestException('You have 100 scheduled messages already.');
+    const row = await this.prisma.workChatScheduled.create({
+      data: { channelId: ch.id, userId, parentId: dto.parentId ?? null, content, mentionIds: [...new Set(dto.mentionIds ?? [])], files, sendAt },
+      select: this.scheduledSelect,
+    });
+    this.push([userId], 'scheduled', { channelUid: ch.uid });
+    return this.shapeScheduled(row, userId);
+  }
+
+  /** my scheduled messages in a workspace (waiting, or failed and needing attention) */
+  async scheduledList(workspaceId: number, userId: number, channelUid?: string) {
+    await this.access.requireWorkspace(workspaceId, userId, 'view');
+    const rows = await this.prisma.workChatScheduled.findMany({
+      where: { userId, status: { in: ['pending', 'sending', 'failed'] }, channel: { workspaceId, archivedAt: null, ...(channelUid ? { uid: channelUid } : {}) } },
+      orderBy: { sendAt: 'asc' }, select: this.scheduledSelect,
+    });
+    return rows.map((r) => this.shapeScheduled(r, userId));
+  }
+
+  private async myScheduled(id: number, userId: number) {
+    const r = await this.prisma.workChatScheduled.findUnique({ where: { id }, select: { id: true, userId: true, status: true, channel: { select: { uid: true } } } });
+    if (!r || r.userId !== userId) throw new NotFoundException('Scheduled message not found.');
+    return r;
+  }
+
+  async updateScheduled(id: number, userId: number, dto: { content?: string; sendAt?: string }) {
+    const r = await this.myScheduled(id, userId);
+    if (!['pending', 'failed'].includes(r.status)) throw new BadRequestException('This message was already sent.');
+    const content = dto.content?.trim();
+    if (dto.content !== undefined && (!content || content.length > 20000)) throw new BadRequestException('Write a message (up to 20,000 characters).');
+    const row = await this.prisma.workChatScheduled.update({
+      where: { id },
+      // editing a failed message puts it back in the queue
+      data: { ...(content && { content }), ...(dto.sendAt && { sendAt: this.checkSendAt(dto.sendAt) }), status: 'pending', error: null },
+      select: this.scheduledSelect,
+    });
+    this.push([userId], 'scheduled', { channelUid: r.channel.uid });
+    return this.shapeScheduled(row, userId);
+  }
+
+  async deleteScheduled(id: number, userId: number) {
+    const r = await this.myScheduled(id, userId);
+    if (r.status === 'sending') throw new BadRequestException('This message is being sent right now.');
+    if (r.status === 'sent') throw new BadRequestException('This message was already sent.');
+    await this.prisma.workChatScheduled.delete({ where: { id } });
+    this.push([userId], 'scheduled', { channelUid: r.channel.uid });
+    return { ok: true };
+  }
+
+  async sendScheduledNow(id: number, userId: number) {
+    await this.myScheduled(id, userId);
+    const out = await this.deliverScheduled(id);
+    if (out.status === 'skipped') throw new BadRequestException('This message was already sent, or is being sent right now.');
+    if (out.status === 'failed') throw new BadRequestException(out.error ?? 'Could not send.');
+    return out;
+  }
+
+  /**
+   * Send one scheduled message as its author. Claims the row first so it is sent once, even if two
+   * workers run. Permissions are checked again at send time (the author may have lost access).
+   */
+  async deliverScheduled(id: number): Promise<{ status: 'sent' | 'failed' | 'skipped'; error?: string; messageId?: number }> {
+    const claimed = await this.prisma.workChatScheduled.updateMany({ where: { id, status: { in: ['pending', 'failed'] } }, data: { status: 'sending' } });
+    if (!claimed.count) return { status: 'skipped' };
+    const r = await this.prisma.workChatScheduled.findUniqueOrThrow({ where: { id }, select: { id: true, userId: true, parentId: true, content: true, mentionIds: true, files: true, channel: { select: { uid: true, name: true, kind: true, workspaceId: true, archivedAt: true } } } });
+    try {
+      if (r.channel.archivedAt) throw new BadRequestException('The channel was deleted.');
+      const m = await this.send(r.channel.uid, r.userId, { content: r.content, parentId: r.parentId ?? undefined, mentionIds: r.mentionIds, files: Array.isArray(r.files) ? (r.files as any[]) : [] });
+      await this.prisma.workChatScheduled.update({ where: { id }, data: { status: 'sent', sentAt: new Date(), messageId: m.id, error: null } });
+      this.push([r.userId], 'scheduled', { channelUid: r.channel.uid });
+      return { status: 'sent', messageId: m.id };
+    } catch (e: any) {
+      const error = (e?.response?.message ?? e?.message ?? 'Could not send.').toString().slice(0, 300);
+      await this.prisma.workChatScheduled.update({ where: { id }, data: { status: 'failed', error } });
+      this.push([r.userId], 'scheduled', { channelUid: r.channel.uid });
+      const ws = await this.prisma.workWorkspace.findUnique({ where: { id: r.channel.workspaceId }, select: { uid: true } });
+      await this.workNotify.send({
+        recipientId: r.userId, type: 'CHAT', title: `Your scheduled message to ${r.channel.kind === 'channel' ? `#${r.channel.name}` : 'a direct message'} wasn't sent`,
+        message: error, metadata: { event: 'chat_scheduled_failed', url: `/work/${ws?.uid}/chat/drafts?tab=scheduled`, channelUid: r.channel.uid },
+      }).catch(() => {});
+      return { status: 'failed', error };
+    }
+  }
+
+  /** every minute: send what is due; anything stuck "sending" for 10 minutes is marked failed (never sent twice) */
+  @Cron('* * * * *')
+  async sendDueScheduled() {
+    if (this.scheduling) return;
+    this.scheduling = true;
+    try {
+      await this.prisma.workChatScheduled.updateMany({ where: { status: 'sending', updatedAt: { lt: new Date(Date.now() - 10 * 60_000) } }, data: { status: 'failed', error: 'Sending was interrupted. Check the channel, then send it again.' } });
+      const due = await this.prisma.workChatScheduled.findMany({ where: { status: 'pending', sendAt: { lte: new Date() } }, orderBy: { sendAt: 'asc' }, take: 200, select: { id: true } });
+      for (const d of due) await this.deliverScheduled(d.id).catch(() => {});
+    } finally {
+      this.scheduling = false;
+    }
+  }
+  private scheduling = false;
 
   // ---------- Channel Views: List / Board / Doc tabs next to Chat ----------
 
