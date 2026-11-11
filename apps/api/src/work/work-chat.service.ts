@@ -85,7 +85,7 @@ export class WorkChatService {
       orderBy: [{ lastMessageAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'asc' }],
       select: {
         id: true, uid: true, kind: true, name: true, description: true, topic: true, isPrivate: true, locationType: true, locationId: true, lastMessageAt: true, createdAt: true,
-        members: { select: { userId: true, lastReadAt: true, muted: true, starred: true, notify: true, permission: true, hiddenAt: true, user: { select: USER_MINI } } },
+        members: { select: { userId: true, lastReadAt: true, muted: true, starred: true, notify: true, permission: true, hiddenAt: true, sectionId: true, user: { select: USER_MINI } } },
       },
     });
     const out: any[] = [];
@@ -101,7 +101,7 @@ export class WorkChatService {
         : 0;
       out.push({
         id: c.id, uid: c.uid, kind: c.kind, name: c.name, description: c.description, topic: c.topic, isPrivate: c.isPrivate, locationType: c.locationType, locationId: c.locationId,
-        lastMessageAt: c.lastMessageAt, joined: !!me, muted: !!me?.muted || me?.notify === 'none', starred: !!me?.starred, notify: me?.notify ?? 'all', permission: me?.permission ?? null, unread, mentions,
+        lastMessageAt: c.lastMessageAt, joined: !!me, muted: !!me?.muted || me?.notify === 'none', starred: !!me?.starred, notify: me?.notify ?? 'all', permission: me?.permission ?? null, sectionId: me?.sectionId ?? null, unread, mentions,
         memberCount: c.members.length,
         // DMs show the other person / people
         people: c.kind === 'channel' ? [] : c.members.filter((m) => m.userId !== userId).map((m) => m.user),
@@ -256,10 +256,12 @@ export class WorkChatService {
   }
 
   /** "Mark all as read" for the Channels or the Direct Messages section */
-  async markAllRead(workspaceId: number, userId: number, section: 'channels' | 'dms') {
+  async markAllRead(workspaceId: number, userId: number, section: 'channels' | 'dms' | number) {
     await this.access.requireWorkspace(workspaceId, userId, 'view');
     await this.prisma.workChannelMember.updateMany({
-      where: { userId, channel: { workspaceId, archivedAt: null, kind: section === 'channels' ? 'channel' : { in: ['dm', 'group'] } } },
+      where: typeof section === 'number'
+        ? { userId, sectionId: section, channel: { workspaceId, archivedAt: null } }
+        : { userId, sectionId: null, channel: { workspaceId, archivedAt: null, kind: section === 'channels' ? 'channel' : { in: ['dm', 'group'] } } },
       data: { lastReadAt: new Date() },
     });
     return { ok: true };
@@ -270,6 +272,64 @@ export class WorkChatService {
     const { ch, me } = await this.channel(channelUid, userId);
     if (ch.kind === 'channel' || !me) throw new BadRequestException('Only direct messages can be closed.');
     await this.prisma.workChannelMember.update({ where: { channelId_userId: { channelId: ch.id, userId } }, data: { hiddenAt: new Date(), lastReadAt: new Date() } });
+    return { ok: true };
+  }
+
+  // ---------- the person's own sidebar sections ----------
+
+  async sections(workspaceId: number, userId: number) {
+    await this.access.requireWorkspace(workspaceId, userId, 'view');
+    return this.prisma.workChatSection.findMany({ where: { workspaceId, userId }, orderBy: [{ position: 'asc' }, { id: 'asc' }], select: { id: true, name: true, position: true } });
+  }
+
+  async createSection(workspaceId: number, userId: number, name: string) {
+    await this.access.requireWorkspace(workspaceId, userId, 'view');
+    const n = (name ?? '').trim();
+    if (!n || n.length > 60) throw new BadRequestException('Name the section (up to 60 characters).');
+    const count = await this.prisma.workChatSection.count({ where: { workspaceId, userId } });
+    if (count >= 30) throw new BadRequestException('You can have up to 30 sections.');
+    const last = await this.prisma.workChatSection.findFirst({ where: { workspaceId, userId }, orderBy: { position: 'desc' }, select: { position: true } });
+    return this.prisma.workChatSection.create({ data: { workspaceId, userId, name: n, position: (last?.position ?? -1) + 1 }, select: { id: true, name: true, position: true } });
+  }
+
+  private async mySection(id: number, userId: number) {
+    const s = await this.prisma.workChatSection.findUnique({ where: { id } });
+    if (!s || s.userId !== userId) throw new NotFoundException('Section not found.');
+    return s;
+  }
+
+  async renameSection(id: number, userId: number, name: string) {
+    await this.mySection(id, userId);
+    const n = (name ?? '').trim();
+    if (!n || n.length > 60) throw new BadRequestException('Name the section (up to 60 characters).');
+    return this.prisma.workChatSection.update({ where: { id }, data: { name: n }, select: { id: true, name: true, position: true } });
+  }
+
+  /** conversations in it go back to Channels / Direct Messages */
+  async deleteSection(id: number, userId: number) {
+    await this.mySection(id, userId);
+    await this.prisma.workChatSection.delete({ where: { id } });
+    return { ok: true };
+  }
+
+  async reorderSections(workspaceId: number, userId: number, ids: number[]) {
+    const mine = await this.sections(workspaceId, userId);
+    const set = new Set(mine.map((s) => s.id));
+    const order = [...new Set(ids)];
+    if (order.length !== set.size || order.some((i) => !set.has(i))) throw new BadRequestException('Send every one of your sections, once.');
+    await this.prisma.$transaction(order.map((id, position) => this.prisma.workChatSection.update({ where: { id }, data: { position } })));
+    return this.sections(workspaceId, userId);
+  }
+
+  /** "Move to": put a conversation in one of your sections (null = back to the default) */
+  async moveToSection(channelUid: string, userId: number, sectionId: number | null) {
+    const { ch, me } = await this.channel(channelUid, userId);
+    if (!me) throw new BadRequestException('Join the channel first.');
+    if (sectionId !== null) {
+      const s = await this.mySection(sectionId, userId);
+      if (s.workspaceId !== ch.workspaceId) throw new BadRequestException('That section is in another workspace.');
+    }
+    await this.prisma.workChannelMember.update({ where: { channelId_userId: { channelId: ch.id, userId } }, data: { sectionId } });
     return { ok: true };
   }
 

@@ -148,6 +148,15 @@ export class ChannelPrefsDto {
   @IsOptional() @IsBoolean() starred?: boolean;
   @IsOptional() @IsIn(['all', 'mentions', 'none']) notify?: string;
 }
+export class ChatSectionDto {
+  @IsString() @MaxLength(60) name!: string;
+}
+export class ChatSectionOrderDto {
+  @IsArray() @ArrayMaxSize(30) @IsInt({ each: true }) ids!: number[];
+}
+export class ChannelSectionDto {
+  @IsOptional() @IsInt() sectionId?: number | null;
+}
 export class ChannelPermissionDto {
   @IsIn(['full', 'edit', 'comment', 'view']) permission!: string;
 }

@@ -12,7 +12,7 @@ import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { WorkProfileService } from './work-profile.service';
 import { WorkAutomationsService } from './work-automations.service';
 import { WorkChatService } from './work-chat.service';
-import { ChatToTaskDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { ChatToTaskDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatSectionDto, ChatSectionOrderDto, ChannelSectionDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -465,7 +465,37 @@ export class WorkController {
 
   @Post('workspaces/:workspaceId/chat/read-all')
   async chatReadAll(@Param('workspaceId') ws: string, @Query('section') section: string, @CurrentUser() u: SessionUser) {
-    return this.chat.markAllRead(await this.work.resolveWorkspaceId(ws), u.id, section === 'dms' ? 'dms' : 'channels');
+    return this.chat.markAllRead(await this.work.resolveWorkspaceId(ws), u.id, /^\d+$/.test(section ?? '') ? Number(section) : section === 'dms' ? 'dms' : 'channels');
+  }
+
+  @Get('workspaces/:workspaceId/chat/sections')
+  async chatSections(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.chat.sections(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Post('workspaces/:workspaceId/chat/sections')
+  async createChatSection(@Param('workspaceId') ws: string, @Body() dto: ChatSectionDto, @CurrentUser() u: SessionUser) {
+    return this.chat.createSection(await this.work.resolveWorkspaceId(ws), u.id, dto.name);
+  }
+
+  @Put('workspaces/:workspaceId/chat/sections/order')
+  async reorderChatSections(@Param('workspaceId') ws: string, @Body() dto: ChatSectionOrderDto, @CurrentUser() u: SessionUser) {
+    return this.chat.reorderSections(await this.work.resolveWorkspaceId(ws), u.id, dto.ids);
+  }
+
+  @Patch('chat/sections/:id')
+  renameChatSection(@Param('id', ParseIntPipe) id: number, @Body() dto: ChatSectionDto, @CurrentUser() u: SessionUser) {
+    return this.chat.renameSection(id, u.id, dto.name);
+  }
+
+  @Delete('chat/sections/:id')
+  deleteChatSection(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.chat.deleteSection(id, u.id);
+  }
+
+  @Put('chat/channels/:uid/section')
+  moveChannelToSection(@Param('uid') uid: string, @Body() dto: ChannelSectionDto, @CurrentUser() u: SessionUser) {
+    return this.chat.moveToSection(uid, u.id, dto.sectionId ?? null);
   }
 
   @Post('chat/channels/:uid/read')

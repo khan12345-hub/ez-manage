@@ -5,19 +5,20 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowUpDown, Bell, BellOff, Check, CheckCheck, ChevronDown, ChevronRight, Hash, LayoutGrid, Link2, Lock, MailOpen, MoreHorizontal, Pencil, Plus, Search, Star, Trash2, UserRound, Users, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Bell, BellOff, Check, CheckCheck, ChevronDown, ChevronRight, FolderInput, FolderPlus, Hash, LayoutGrid, Link2, ListOrdered, Lock, MailOpen, MoreHorizontal, Pencil, Plus, Search, Star, Trash2, UserRound, Users, XCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
-import { userName, workApi, workKeys, type ChatChannelRow } from "@/services/work.api";
+import { userName, workApi, workKeys, type ChatChannelRow, type ChatSection } from "@/services/work.api";
 import { Avatar } from "../primitives";
 import { OnlineDot, useDirectory, useProfilePanel } from "../people";
 import { ShareChannelDialog, useShareChannel } from "./ShareChannel";
 import { chatSidebarKey, useChatSidebar, useWs } from "./useChat";
 
 const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-[13.5px] transition-colors";
+const chatSectionsKey = (ws: string) => ["work", "chat-sections", ws] as const;
 
 type Show = "all" | "unread" | "mentions";
 type Sort = "recent" | "alpha";
@@ -44,6 +45,9 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
   const [creating, setCreating] = useState(false);
   const [messaging, setMessaging] = useState(false);
   const [renaming, setRenaming] = useState<{ uid: string; name: string } | null>(null);
+  const [sectionDlg, setSectionDlg] = useState<{ section?: ChatSection; moveUid?: string } | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const { data: sections = [] } = useQuery({ queryKey: chatSectionsKey(ws), queryFn: () => workApi.chatSections(ws), enabled: !!ws });
   useEffect(() => setPrefs(loadPrefs()), []);
   const pref = (k: string) => ({ ...DEFAULT_PREFS, ...(prefs[k] ?? {}) });
   const setPref = (k: string, p: Partial<SectionPrefs>) => {
@@ -65,10 +69,29 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
     return { rows: sorted.slice(0, p.limit), more: Math.max(0, sorted.length - p.limit) };
   };
   const label = (c: ChatChannelRow) => (c.kind === "channel" ? c.name ?? "" : c.people.length ? c.people.map((p) => (c.people.length > 1 ? p.firstName : userName(p))).join(", ") : `${user?.firstName ?? "You"} — You`);
+  const sectionIds = new Set(sections.map((s) => s.id));
+  const inSection = (c: ChatChannelRow) => c.sectionId != null && sectionIds.has(c.sectionId);
   const favorites = data.filter((c) => c.starred);
-  const channels = data.filter((c) => c.kind === "channel" && c.joined && !c.starred);
-  const dms = data.filter((c) => c.kind !== "channel" && !c.starred);
+  const channels = data.filter((c) => c.kind === "channel" && c.joined && !c.starred && !inSection(c));
+  const dms = data.filter((c) => c.kind !== "channel" && !c.starred && !inSection(c));
+  const sectionRows = (id: number) => data.filter((c) => c.sectionId === id && !c.starred && (c.kind !== "channel" || c.joined));
+  const refreshSections = () => { qc.invalidateQueries({ queryKey: chatSectionsKey(ws) }); refresh(); };
+  const sectionAct = useMutation({ mutationFn: (fn: () => Promise<unknown>) => fn(), onSuccess: refreshSections, onError: err });
   if (!ws) return null;
+
+  const moveMenu = (c: ChatChannelRow) => (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger><FolderInput className="mr-2 h-4 w-4" /> Move to</DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-52">
+        <DropdownMenuItem onClick={() => act.mutate(() => workApi.moveChannelToSection(c.uid, null))}>{c.kind === "channel" ? "Channels" : "Direct Messages"}{!inSection(c) && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>
+        {sections.map((s) => (
+          <DropdownMenuItem key={s.id} onClick={() => act.mutate(() => workApi.moveChannelToSection(c.uid, s.id))}><span className="truncate">{s.name}</span>{c.sectionId === s.id && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setSectionDlg({ moveUid: c.uid })}><FolderPlus className="mr-2 h-4 w-4" /> New section</DropdownMenuItem>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
 
   const badge = (c: ChatChannelRow) =>
     c.mentions > 0 ? <span className="rounded-full bg-destructive px-1.5 font-mono text-[10.5px] text-white">{c.mentions}</span>
@@ -86,6 +109,7 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
           <>
             <DropdownMenuItem onClick={() => navigator.clipboard.writeText(`${window.location.origin}${href(c.uid)}`).then(() => toast.success("Link copied"))}><Link2 className="mr-2 h-4 w-4" /> Copy link</DropdownMenuItem>
             <DropdownMenuItem onClick={() => act.mutate(() => workApi.channelPrefs(c.uid, { starred: !c.starred }))}><Star className="mr-2 h-4 w-4" /> {c.starred ? "Remove from Favorites" : "Favorite"}</DropdownMenuItem>
+            {moveMenu(c)}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setRenaming({ uid: c.uid, name: c.name ?? "" })}><Pencil className="mr-2 h-4 w-4" /> Rename</DropdownMenuItem>
             <DropdownMenuItem onClick={() => window.confirm(`Delete #${c.name}? Nobody can post in it any more.`) && act.mutate(() => workApi.archiveChannel(c.uid))} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
@@ -110,6 +134,7 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
           <>
             {c.people.length === 1 && <DropdownMenuItem onClick={() => openProfile(c.people[0]!.id)}><UserRound className="mr-2 h-4 w-4" /> View Profile</DropdownMenuItem>}
             <DropdownMenuItem onClick={() => act.mutate(() => workApi.channelPrefs(c.uid, { starred: !c.starred }))}><Star className="mr-2 h-4 w-4" /> {c.starred ? "Remove from Favorites" : "Favorite"}</DropdownMenuItem>
+            {moveMenu(c)}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => { act.mutate(() => workApi.closeDm(c.uid)); if (active(c.uid)) router.push(`/work/${ws}`); }}>
               <XCircle className="mr-2 h-4 w-4" />
@@ -143,37 +168,50 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
     );
   };
 
-  const sectionMenu = (k: "ch" | "dm") => {
-    const p = pref(k);
+  const sectionMenu = (k: "ch" | "dm" | ChatSection) => {
+    const custom = typeof k === "object" ? k : null;
+    const key = custom ? `s${custom.id}` : (k as string);
+    const title = custom ? custom.name : k === "ch" ? "Channels" : "Direct Messages";
+    const p = pref(key);
     return (
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <button type="button" aria-label={`${k === "ch" ? "Channels" : "Direct Messages"} options`} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+          <button type="button" aria-label={`${title} options`} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><MoreHorizontal className="h-3.5 w-3.5" /></button>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="start" className="w-56">
-          <DropdownMenuItem onClick={() => (k === "ch" ? router.push(`/work/${ws}/chat/channels`) : router.push(`/work/${ws}/teams`))}><LayoutGrid className="mr-2 h-4 w-4" /> {k === "ch" ? "Browse Channels" : "Browse people"}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => act.mutate(() => workApi.chatReadAll(ws, k === "ch" ? "channels" : "dms"))}><CheckCheck className="mr-2 h-4 w-4" /> Mark all as read</DropdownMenuItem>
+          {!custom && <DropdownMenuItem onClick={() => (k === "ch" ? router.push(`/work/${ws}/chat/channels`) : router.push(`/work/${ws}/teams`))}><LayoutGrid className="mr-2 h-4 w-4" /> {k === "ch" ? "Browse Channels" : "Browse people"}</DropdownMenuItem>}
+          <DropdownMenuItem onClick={() => act.mutate(() => workApi.chatReadAll(ws, custom ? custom.id : k === "ch" ? "channels" : "dms"))}><CheckCheck className="mr-2 h-4 w-4" /> Mark all as read</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {custom && <DropdownMenuItem onClick={() => setSectionDlg({ section: custom })}><Pencil className="mr-2 h-4 w-4" /> Rename section</DropdownMenuItem>}
+          <DropdownMenuItem onClick={() => setSectionDlg({})}><FolderPlus className="mr-2 h-4 w-4" /> Create section</DropdownMenuItem>
+          {sections.length > 1 && <DropdownMenuItem onClick={() => setReordering(true)}><ListOrdered className="mr-2 h-4 w-4" /> Reorder sections</DropdownMenuItem>}
           <DropdownMenuSeparator />
           <DropdownMenuSub>
             <DropdownMenuSubTrigger><ArrowUpDown className="mr-2 h-4 w-4" /> Show and sort</DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-48">
               <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium text-muted-foreground">Show in section</p>
               {([["all", "All"], ["unread", "Unread"], ["mentions", "Mentions Only"]] as const).map(([v, l]) => (
-                <DropdownMenuItem key={v} onClick={() => setPref(k, { show: v })}>{l}{p.show === v && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>
+                <DropdownMenuItem key={v} onClick={() => setPref(key, { show: v })}>{l}{p.show === v && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
               <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium text-muted-foreground">Sort section</p>
               {([["recent", "Recents"], ["alpha", "Alphabetically"]] as const).map(([v, l]) => (
-                <DropdownMenuItem key={v} onClick={() => setPref(k, { sort: v })}>{l}{p.sort === v && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>
+                <DropdownMenuItem key={v} onClick={() => setPref(key, { sort: v })}>{l}{p.sort === v && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>
               ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger><Hash className="mr-2 h-4 w-4" /> Limit <span className="ml-auto font-mono text-[11px] text-muted-foreground">{p.limit >= 999 ? "All" : p.limit}</span></DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-36">
-              {[10, 20, 40, 999].map((n) => <DropdownMenuItem key={n} onClick={() => setPref(k, { limit: n })}>{n >= 999 ? "Show all" : n}{p.limit === n && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>)}
+              {[10, 20, 40, 999].map((n) => <DropdownMenuItem key={n} onClick={() => setPref(key, { limit: n })}>{n >= 999 ? "Show all" : n}{p.limit === n && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}</DropdownMenuItem>)}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
+          {custom && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => window.confirm(`Delete the section "${custom.name}"? Its channels and messages move back to Channels and Direct Messages.`) && sectionAct.mutate(() => workApi.deleteChatSection(custom.id))} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete section</DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -181,8 +219,8 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
 
   const head = (k: string, title: string, extra: React.ReactNode) => (
     <div className="flex items-center gap-0.5 px-2 pb-1">
-      <button type="button" onClick={() => setOpen({ ...open, [k]: !open[k] })} className="flex flex-1 items-center gap-1 text-left text-[12px] font-semibold text-muted-foreground hover:text-foreground">
-        {title} {open[k] ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+      <button type="button" onClick={() => setOpen({ ...open, [k]: !(open[k] ?? true) })} aria-expanded={open[k] ?? true} className="flex flex-1 items-center gap-1 text-left text-[12px] font-semibold text-muted-foreground hover:text-foreground">
+        <span className="truncate">{title}</span> {(open[k] ?? true) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
       </button>
       {extra}
     </div>
@@ -198,6 +236,22 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
           {open.fav && <div className="space-y-px">{favorites.map(rowFor)}</div>}
         </section>
       )}
+      {sections.map((s) => {
+        const r = arrange(sectionRows(s.id), `s${s.id}`);
+        const k = `s${s.id}`;
+        return (
+          <section key={s.id} aria-label={s.name}>
+            {head(k, s.name, sectionMenu(s))}
+            {(open[k] ?? true) && (
+              <div className="space-y-px">
+                {r.rows.map(rowFor)}
+                {r.more > 0 && <button type="button" onClick={() => setPref(k, { limit: 999 })} className={cn(ROW, "text-muted-foreground hover:bg-accent/60")}>Show {r.more} more</button>}
+                {!r.rows.length && !r.more && <p className="px-2 py-1 text-[12px] text-muted-foreground">Use “Move to” on a channel or direct message to add it here.</p>}
+              </div>
+            )}
+          </section>
+        );
+      })}
       <section aria-label="Channels">
         {head("ch", "Channels", <>{sectionMenu("ch")}<button type="button" aria-label="Add Channel" title="Add Channel" onClick={() => setCreating(true)} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button></>)}
         {open.ch && (
@@ -223,8 +277,79 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
       {creating && <CreateChannelDialog onClose={() => setCreating(false)} />}
       {messaging && <NewMessageDialog onClose={() => setMessaging(false)} />}
       {renaming && <RenameChannelDialog uid={renaming.uid} name={renaming.name} onClose={() => setRenaming(null)} />}
+      {sectionDlg && <SectionNameDialog section={sectionDlg.section} moveUid={sectionDlg.moveUid} onClose={() => setSectionDlg(null)} />}
+      {reordering && <ReorderSectionsDialog sections={sections} onClose={() => setReordering(false)} />}
       <ShareChannelDialog />
     </div>
+  );
+}
+
+/** "Create section" / "Rename section"; a new section can take a conversation straight away ("Move to → New section") */
+function SectionNameDialog({ section, moveUid, onClose }: { section?: ChatSection; moveUid?: string; onClose: () => void }) {
+  const ws = useWs();
+  const qc = useQueryClient();
+  const [v, setV] = useState(section?.name ?? "");
+  const save = useMutation({
+    mutationFn: async () => {
+      if (section) return workApi.renameChatSection(section.id, v.trim());
+      const s = await workApi.createChatSection(ws, v.trim());
+      if (moveUid) await workApi.moveChannelToSection(moveUid, s.id);
+      return s;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: chatSectionsKey(ws) });
+      qc.invalidateQueries({ queryKey: chatSidebarKey(ws) });
+      toast.success(section ? "Section renamed" : "Section created");
+      onClose();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't save the section."),
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogTitle>{section ? "Rename section" : "Create section"}</DialogTitle>
+        <DialogDescription>{section ? "Only you see your sections." : "Group channels and direct messages your way. Only you see your sections."}</DialogDescription>
+        <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && v.trim() && save.mutate()} placeholder="e.g. Clients, Launch, Leadership" aria-label="Section name" maxLength={60} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-[14px] outline-none focus:border-primary/50" />
+        <div className="flex justify-end"><button type="button" disabled={!v.trim() || save.isPending} onClick={() => save.mutate()} className="h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">{section ? "Save" : "Create"}</button></div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** "Reorder sections": move your sections up and down */
+function ReorderSectionsDialog({ sections, onClose }: { sections: ChatSection[]; onClose: () => void }) {
+  const ws = useWs();
+  const qc = useQueryClient();
+  const [order, setOrder] = useState(sections);
+  const move = (i: number, d: -1 | 1) => {
+    const next = [...order];
+    const [x] = next.splice(i, 1);
+    next.splice(i + d, 0, x!);
+    setOrder(next);
+  };
+  const save = useMutation({
+    mutationFn: () => workApi.reorderChatSections(ws, order.map((s) => s.id)),
+    onSuccess: (rows) => { qc.setQueryData(chatSectionsKey(ws), rows); toast.success("Sections reordered"); onClose(); },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't reorder."),
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogTitle>Reorder sections</DialogTitle>
+        <DialogDescription>Your sections appear in this order, above Channels and Direct Messages.</DialogDescription>
+        <ol aria-label="Section order" className="space-y-1">
+          {order.map((s, i) => (
+            <li key={s.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-[13.5px]">
+              <span className="w-5 font-mono text-[11px] text-muted-foreground">{i + 1}</span>
+              <span className="flex-1 truncate font-medium">{s.name}</span>
+              <button type="button" aria-label={`Move ${s.name} up`} disabled={i === 0} onClick={() => move(i, -1)} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
+              <button type="button" aria-label={`Move ${s.name} down`} disabled={i === order.length - 1} onClick={() => move(i, 1)} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
+            </li>
+          ))}
+        </ol>
+        <div className="flex justify-end"><button type="button" disabled={save.isPending} onClick={() => save.mutate()} className="h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">Save order</button></div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

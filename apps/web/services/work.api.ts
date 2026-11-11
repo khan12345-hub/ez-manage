@@ -379,10 +379,11 @@ export interface ChatMessage {
 }
 export type ChatPermission = "full" | "edit" | "comment" | "view";
 export type ChatNotify = "all" | "mentions" | "none";
+export type ChatSection = { id: number; name: string; position: number };
 export interface ChatChannelRow {
   id: number; uid: string; kind: "channel" | "dm" | "group"; name: string | null; description: string | null; topic: string | null; isPrivate: boolean;
   locationType: string | null; locationId: number | null; lastMessageAt: string | null; joined: boolean; muted: boolean; starred: boolean;
-  notify: ChatNotify; permission: ChatPermission | null;
+  notify: ChatNotify; permission: ChatPermission | null; sectionId: number | null;
   unread: number; mentions: number; memberCount: number; people: WorkUser[];
 }
 export interface ChatChannelDetail {
@@ -418,7 +419,13 @@ export const workApi = {
   closeDm: (uid: string) => post(`/work/chat/channels/${uid}/close`),
   setChannelPermission: (uid: string, userId: number, permission: ChatPermission) => put(`/work/chat/channels/${uid}/permissions/${userId}`, { permission }),
   setAllChannelPermissions: (uid: string, permission: ChatPermission) => put(`/work/chat/channels/${uid}/permissions`, { permission }),
-  chatReadAll: (ws: string, section: "channels" | "dms") => post(`/work/workspaces/${ws}/chat/read-all?section=${section}`),
+  chatReadAll: (ws: string, section: "channels" | "dms" | number) => post(`/work/workspaces/${ws}/chat/read-all?section=${section}`),
+  chatSections: (ws: string) => get<ChatSection[]>(`/work/workspaces/${ws}/chat/sections`),
+  createChatSection: (ws: string, name: string) => post<ChatSection>(`/work/workspaces/${ws}/chat/sections`, { name }),
+  renameChatSection: (id: number, name: string) => patch<ChatSection>(`/work/chat/sections/${id}`, { name }),
+  deleteChatSection: (id: number) => del(`/work/chat/sections/${id}`),
+  reorderChatSections: (ws: string, ids: number[]) => put<ChatSection[]>(`/work/workspaces/${ws}/chat/sections/order`, { ids }),
+  moveChannelToSection: (uid: string, sectionId: number | null) => put(`/work/chat/channels/${uid}/section`, { sectionId }),
   readChannel: (uid: string) => post(`/work/chat/channels/${uid}/read`),
   chatTyping: (uid: string) => post(`/work/chat/channels/${uid}/typing`),
   chatDraft: (uid: string, content: string, parentId?: number) => put(`/work/chat/channels/${uid}/draft`, { content, ...(parentId ? { parentId } : {}) }),

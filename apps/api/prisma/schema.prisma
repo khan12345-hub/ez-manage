@@ -136,6 +136,7 @@ model User {
   workChatAssigned      WorkChatMessage[]      @relation("WorkChatAssignee")
   workChatReactions     WorkChatReaction[]     @relation("WorkChatReactionUser")
   workChatDrafts        WorkChatDraft[]        @relation("WorkChatDraftUser")
+  workChatSections      WorkChatSection[]      @relation("WorkChatSectionUser")
   workChatSaved         WorkChatSaved[]        @relation("WorkChatSavedUser")
   workTeamMemberships   WorkTeamMember[]       @relation("WorkTeamMemberUser")
   workPriorities        WorkProfilePriority[]  @relation("WorkPriorityUser")
@@ -2050,15 +2051,16 @@ model WorkWorkspace {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  createdBy   User                  @relation("WorkWorkspaceCreator", fields: [createdById], references: [id])
-  spaces      Space[]
-  members     WorkMember[]
-  teams       WorkTeam[]
-  priorities  WorkProfilePriority[]
-  reminders   WorkReminder[]
-  invitations WorkInvitation[]
-  automations WorkAutomation[]
-  channels    WorkChannel[]
+  createdBy    User                  @relation("WorkWorkspaceCreator", fields: [createdById], references: [id])
+  spaces       Space[]
+  members      WorkMember[]
+  teams        WorkTeam[]
+  priorities   WorkProfilePriority[]
+  reminders    WorkReminder[]
+  invitations  WorkInvitation[]
+  automations  WorkAutomation[]
+  channels     WorkChannel[]
+  chatSections WorkChatSection[]
 
   @@map("work_workspaces")
 }
@@ -2195,10 +2197,13 @@ model WorkChannelMember {
   notify     String    @default("all")
   /// "Close DM": hidden until a newer message arrives
   hiddenAt   DateTime?
+  /// the person's own sidebar section (null = the default Channels / Direct Messages)
+  sectionId  Int?
   joinedAt   DateTime  @default(now())
 
-  channel WorkChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  user    User        @relation("WorkChannelMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  channel WorkChannel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User             @relation("WorkChannelMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  section WorkChatSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
 
   @@id([channelId, userId])
   @@index([userId])
@@ -2261,6 +2266,23 @@ model WorkChatReaction {
 
   @@id([messageId, userId, emoji])
   @@map("work_chat_reactions")
+}
+
+/// a person's own chat sidebar section (ClickUp "Create section")
+model WorkChatSection {
+  id          Int      @id @default(autoincrement())
+  workspaceId Int
+  userId      Int
+  name        String
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workspace WorkWorkspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User                @relation("WorkChatSectionUser", fields: [userId], references: [id], onDelete: Cascade)
+  members   WorkChannelMember[]
+
+  @@index([workspaceId, userId])
+  @@map("work_chat_sections")
 }
 
 /// unsent text per channel / thread (ClickUp "Drafts & Sent")
