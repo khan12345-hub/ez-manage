@@ -468,6 +468,19 @@ export class WorkController {
     return this.chat.markAllRead(await this.work.resolveWorkspaceId(ws), u.id, /^\d+$/.test(section ?? '') ? Number(section) : section === 'dms' ? 'dms' : 'channels');
   }
 
+  @Get('workspaces/:workspaceId/chat/search')
+  async chatSearch(
+    @Param('workspaceId') ws: string,
+    @Query('q') q: string, @Query('from') from: string, @Query('in') inUid: string, @Query('after') after: string, @Query('before') before: string,
+    @Query('has') has: string, @Query('mentions') mentions: string, @Query('kind') kind: string, @Query('cursor') cursor: string,
+    @CurrentUser() u: SessionUser,
+  ) {
+    return this.chat.search(await this.work.resolveWorkspaceId(ws), u.id, {
+      q, from: /^\d+$/.test(from ?? '') ? Number(from) : undefined, in: inUid || undefined, after, before,
+      has: ['link', 'file', 'task'].includes(has) ? has : undefined, mentions: mentions === 'true', kind: kind === 'post' ? 'post' : undefined, cursor,
+    });
+  }
+
   @Get('workspaces/:workspaceId/chat/sections')
   async chatSections(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
     return this.chat.sections(await this.work.resolveWorkspaceId(ws), u.id);

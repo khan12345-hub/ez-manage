@@ -380,6 +380,12 @@ export interface ChatMessage {
 export type ChatPermission = "full" | "edit" | "comment" | "view";
 export type ChatNotify = "all" | "mentions" | "none";
 export type ChatSection = { id: number; name: string; position: number };
+export type ChatSearchHit = ChatMessage & { channel: { uid: string; kind: "channel" | "dm" | "group"; name: string | null; isPrivate: boolean; people: WorkUser[] } };
+export interface ChatSearchResult {
+  items: ChatSearchHit[];
+  channels: { uid: string; kind: string; name: string | null; isPrivate: boolean; joined: boolean; memberCount: number }[];
+  hasMore: boolean; nextCursor: string | null;
+}
 export type ChannelViewKind = "list" | "board" | "doc";
 export interface ChannelViewTab {
   id: number; kind: ChannelViewKind; name: string; position: number;
@@ -432,6 +438,8 @@ export const workApi = {
   deleteChatSection: (id: number) => del(`/work/chat/sections/${id}`),
   reorderChatSections: (ws: string, ids: number[]) => put<ChatSection[]>(`/work/workspaces/${ws}/chat/sections/order`, { ids }),
   moveChannelToSection: (uid: string, sectionId: number | null) => put(`/work/chat/channels/${uid}/section`, { sectionId }),
+  chatSearch: (ws: string, o: { q?: string; from?: string; in?: string; after?: string; has?: string; mentions?: boolean; kind?: string; cursor?: string }) =>
+    get<ChatSearchResult>(`/work/workspaces/${ws}/chat/search?${new URLSearchParams(Object.entries(o).filter(([, v]) => v !== undefined && v !== "" && v !== false).map(([k, v]) => [k, String(v)]))}`),
   channelViews: (uid: string) => get<ChannelViewTab[]>(`/work/chat/channels/${uid}/views`),
   addChannelView: (uid: string, body: { kind: ChannelViewKind; name?: string; listId?: number }) => post<ChannelViewTab>(`/work/chat/channels/${uid}/views`, body),
   updateChannelView: (id: number, body: { name?: string; content?: string }) => patch<ChannelViewTab>(`/work/chat/views/${id}`, body),

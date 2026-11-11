@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from 'prisma/prisma.service';
+import { Prisma } from 'generated/prisma/client';
 import { NotificationStreamService } from 'src/notifications/notification-stream.service';
 import { STORAGE_SERVICE } from 'src/storage/storage.module';
 import type { StorageProvider } from 'src/storage/storage.types';
@@ -477,6 +478,57 @@ export class WorkChatService {
     });
     const saved = new Set((await this.prisma.workChatSaved.findMany({ where: { userId, messageId: { in: rows.map((r) => r.id) } }, select: { messageId: true } })).map((s) => s.messageId));
     return { items: rows.reverse().map((m) => this.shape(m, userId, saved)), hasMore: rows.length === 50 };
+  }
+
+  /**
+   * Global chat search across every channel / DM the person can see (never private ones they're not in).
+   * Filters: from (author), in (channel uid), after / before (dates), has (link | file | task), mentions (me), kind (post).
+   */
+  async search(workspaceId: number, userId: number, o: { q?: string; from?: number; in?: string; after?: string; before?: string; has?: string; mentions?: boolean; kind?: string; cursor?: string }) {
+    const ws = await this.access.requireWorkspace(workspaceId, userId, 'view');
+    const q = (o.q ?? '').trim().slice(0, 200);
+    const filtered = !!(o.from || o.in || o.after || o.before || o.has || o.mentions || o.kind);
+    if (q.length < 2 && !filtered) return { items: [], channels: [], hasMore: false, nextCursor: null };
+    const visible = await this.prisma.workChannel.findMany({
+      where: { workspaceId, archivedAt: null, OR: [{ members: { some: { userId } } }, ...(ws.scope === 'all' ? [{ kind: 'channel', isPrivate: false }] : [])] },
+      select: { id: true, uid: true, kind: true, name: true, isPrivate: true, members: { select: { userId: true, hiddenAt: true, user: { select: USER_MINI } } } },
+    });
+    const byId = new Map(visible.map((c) => [c.id, c]));
+    let ids = visible.map((c) => c.id);
+    if (o.in) ids = visible.filter((c) => c.uid === o.in).map((c) => c.id);
+    const date = (s?: string) => { const d = s ? new Date(s) : null; return d && !isNaN(+d) ? d : null; };
+    const after = date(o.after), before = date(o.before), cursor = date(o.cursor);
+    const AND: Prisma.WorkChatMessageWhereInput[] = [
+      { channelId: { in: ids } }, { deletedAt: null }, { kind: { not: 'system' } },
+      ...(q.length >= 2 ? [{ OR: [{ content: { contains: q, mode: 'insensitive' as const } }, { title: { contains: q, mode: 'insensitive' as const } }] }] : []),
+      ...(o.from ? [{ userId: o.from }] : []),
+      ...(after ? [{ createdAt: { gte: after } }] : []),
+      ...(before ? [{ createdAt: { lt: before } }] : []),
+      ...(cursor ? [{ createdAt: { lt: cursor } }] : []),
+      ...(o.mentions ? [{ mentionIds: { has: userId } }] : []),
+      ...(o.kind === 'post' ? [{ kind: 'post' }] : []),
+      ...(o.has === 'link' ? [{ content: { contains: 'http', mode: 'insensitive' as const } }] : []),
+      ...(o.has === 'task' ? [{ taskId: { not: null } }] : []),
+      ...(o.has === 'file' ? [{ NOT: [{ files: { equals: Prisma.AnyNull } }, { files: { equals: [] } }] }] : []),
+    ];
+    const take = 30;
+    const rows = ids.length ? await this.prisma.workChatMessage.findMany({ where: { AND }, orderBy: { createdAt: 'desc' }, take: take + 1, select: MSG_SELECT }) : [];
+    const page = rows.slice(0, take);
+    const saved = new Set((await this.prisma.workChatSaved.findMany({ where: { userId, messageId: { in: page.map((r) => r.id) } }, select: { messageId: true } })).map((s) => s.messageId));
+    const where = (cid: number) => {
+      const c = byId.get(cid)!;
+      return { uid: c.uid, kind: c.kind, name: c.name, isPrivate: c.isPrivate, people: c.kind === 'channel' ? [] : c.members.filter((m) => m.userId !== userId).map((m) => m.user) };
+    };
+    // channels whose name matches (only on the first page)
+    const channels = !cursor && q.length >= 2
+      ? visible.filter((c) => c.kind === 'channel' && (c.name ?? '').includes(q.toLowerCase().replace(/^#/, ''))).slice(0, 8).map((c) => ({ ...where(c.id), joined: c.members.some((m) => m.userId === userId), memberCount: c.members.length }))
+      : [];
+    return {
+      items: page.map((m) => ({ ...this.shape(m, userId, saved), channel: where(m.channelId) })),
+      channels,
+      hasMore: rows.length > take,
+      nextCursor: rows.length > take ? page[page.length - 1]!.createdAt.toISOString() : null,
+    };
   }
 
   async thread(messageId: number, userId: number) {

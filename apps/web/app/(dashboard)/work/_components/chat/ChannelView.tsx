@@ -282,6 +282,7 @@ function SidePanel({ panel, ch, uid, members, onOpenThread, onClose }: { panel: 
               ))}
               {q.trim().length > 1 && found && !found.items.length && <li className="text-[12.5px] text-muted-foreground">No messages match.</li>}
             </ul>
+            <a href={`/work/${ws}/chat/search${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ""}`} className="mt-3 flex items-center gap-1.5 text-[12.5px] font-medium text-primary hover:underline"><Search className="h-3.5 w-3.5" /> Search all chats</a>
           </>
         )}
         {panel === "threads" && (

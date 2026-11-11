@@ -394,6 +394,13 @@ export function WorkSidebar({
               >
                 <Megaphone className="h-4 w-4 shrink-0" /> Posts
               </Link>
+              <Link
+                href={wsParam ? `/work/${wsParam}/chat/search` : "#"}
+                onClick={onMobileClose}
+                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/chat/search` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+              >
+                <Search className="h-4 w-4 shrink-0" /> Search Chat
+              </Link>
 
               {/* My Tasks */}
               <div className={cn(ROW, "py-[7px] text-foreground/80 hover:bg-accent/60")}>
