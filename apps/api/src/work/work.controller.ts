@@ -506,6 +506,16 @@ export class WorkController {
     return this.chat.deleteSection(id, u.id);
   }
 
+  @Get('workspaces/:workspaceId/chat/location')
+  async locationChannels(@Param('workspaceId') ws: string, @Query('type') type: string, @Query('uid') locUid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.locationChannels(await this.work.resolveWorkspaceId(ws), u.id, type, locUid);
+  }
+
+  @Get('chat/channels/:uid/location-tasks')
+  locationTasks(@Param('uid') uid: string, @Query('from') from: string, @Query('to') to: string, @CurrentUser() u: SessionUser) {
+    return this.chat.locationTasks(uid, u.id, { from, to });
+  }
+
   @Get('chat/channels/:uid/tasks')
   dmTasks(@Param('uid') uid: string, @Query('who') who: string, @Query('from') from: string, @Query('to') to: string, @CurrentUser() u: SessionUser) {
     return this.chat.dmTasks(uid, u.id, { who, from, to });

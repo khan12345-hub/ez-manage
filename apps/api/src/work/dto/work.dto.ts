@@ -136,6 +136,8 @@ export class UpdateChannelDto {
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(500) description?: string | null;
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(250) topic?: string | null;
   @IsOptional() @IsBoolean() isPrivate?: boolean;
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsIn(['space', 'folder', 'list']) locationType?: string | null;
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() locationId?: number | null;
 }
 export class DmDto {
   @IsArray() @ArrayMaxSize(8) @IsInt({ each: true }) userIds!: number[];

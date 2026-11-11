@@ -397,6 +397,16 @@ export interface DmTask {
   id: number; uid: string; name: string; priority: string | null; dueDate: string | null; startDate: string | null; completedAt: string | null; parentId: number | null;
   status: { name: string; color: string; category: string } | null; list: { uid: string; name: string; space: { name: string } }; assignees: WorkUser[];
 }
+export type ChatLocationType = "space" | "folder" | "list";
+export type ChatLocation =
+  | { type: ChatLocationType; locked: true }
+  | { type: ChatLocationType; locked: false; id: number; uid: string; name: string; space: { uid: string; name: string }; folder: { uid: string; name: string } | null; listCount: number };
+export interface LocationTask extends DmTask { listId: number; status: { id: number; name: string; color: string; category: string } | null }
+export interface LocationTasks {
+  location: Exclude<ChatLocation, { locked: true }>;
+  lists: { id: number; uid: string; name: string; color: string | null; folder: { name: string } | null; statuses: { id: number; name: string; color: string; category: string }[] }[];
+  tasks: LocationTask[];
+}
 export type ChannelViewKind = "list" | "board" | "doc";
 export interface ChannelViewTab {
   id: number; kind: ChannelViewKind; name: string; position: number;
@@ -414,11 +424,12 @@ export interface ChatChannelDetail {
   locationType: string | null; locationId: number | null; createdAt: string; joined: boolean; muted: boolean; starred: boolean; myRole: string | null;
   canManage: boolean; canPost: boolean; notify: ChatNotify; myPermission: ChatPermission | null;
   members: { role: string; permission: ChatPermission; workRole: WorkRole | null; joinedAt: string; user: WorkUser }[]; pinned: ChatMessage[];
+  location: ChatLocation | null;
 }
 
 export const workApi = {
   chatSidebar: (ws: string) => get<ChatChannelRow[]>(`/work/workspaces/${ws}/chat`),
-  createChannel: (ws: string, body: { name: string; description?: string; isPrivate?: boolean; memberIds?: number[]; locationType?: string; locationId?: number }) => post<{ uid: string; name: string }>(`/work/workspaces/${ws}/chat/channels`, body),
+  createChannel: (ws: string, body: { name: string; description?: string; isPrivate?: boolean; memberIds?: number[]; locationType?: ChatLocationType; locationId?: number }) => post<{ uid: string; name: string }>(`/work/workspaces/${ws}/chat/channels`, body),
   openDm: (ws: string, userIds: number[]) => post<{ uid: string; created: boolean }>(`/work/workspaces/${ws}/chat/dm`, { userIds }),
   chatDrafts: (ws: string) => get<{ content: string; parentId: number; updatedAt: string; channel: { uid: string; name: string | null; kind: string } }[]>(`/work/workspaces/${ws}/chat/drafts`),
   chatSent: (ws: string) => get<ChatMessage[]>(`/work/workspaces/${ws}/chat/sent`),
@@ -431,7 +442,7 @@ export const workApi = {
     return post<ChatFile[]>(`/work/workspaces/${ws}/chat/files`, fd);
   },
   channel: (uid: string) => get<ChatChannelDetail>(`/work/chat/channels/${uid}`),
-  updateChannel: (uid: string, body: { name?: string; description?: string | null; topic?: string | null; isPrivate?: boolean }) => patch(`/work/chat/channels/${uid}`, body),
+  updateChannel: (uid: string, body: { name?: string; description?: string | null; topic?: string | null; isPrivate?: boolean; locationType?: ChatLocationType | null; locationId?: number | null }) => patch(`/work/chat/channels/${uid}`, body),
   archiveChannel: (uid: string) => del(`/work/chat/channels/${uid}`),
   joinChannel: (uid: string) => post(`/work/chat/channels/${uid}/join`),
   leaveChannel: (uid: string) => post(`/work/chat/channels/${uid}/leave`),
@@ -463,6 +474,8 @@ export const workApi = {
   updateBookmark: (id: number, body: { url?: string; title?: string }) => patch<ChannelBookmark>(`/work/chat/bookmarks/${id}`, body),
   deleteBookmark: (id: number) => del(`/work/chat/bookmarks/${id}`),
   reorderBookmarks: (uid: string, ids: number[]) => put<ChannelBookmark[]>(`/work/chat/channels/${uid}/bookmarks/order`, { ids }),
+  locationChannels: (ws: string, type: ChatLocationType, uid: string) => get<{ locationId: number; channels: { uid: string; name: string; isPrivate: boolean; joined: boolean; memberCount: number }[] }>(`/work/workspaces/${ws}/chat/location?type=${type}&uid=${uid}`),
+  locationTasks: (uid: string, o: { from?: string; to?: string } = {}) => get<LocationTasks>(`/work/chat/channels/${uid}/location-tasks?${new URLSearchParams(Object.entries(o).filter(([, v]) => !!v) as [string, string][])}`),
   dmTasks: (uid: string, o: { who?: string; from?: string; to?: string }) => get<DmTask[]>(`/work/chat/channels/${uid}/tasks?${new URLSearchParams(Object.entries(o).filter(([, v]) => !!v) as [string, string][])}`),
   channelViews: (uid: string) => get<ChannelViewTab[]>(`/work/chat/channels/${uid}/views`),
   addChannelView: (uid: string, body: { kind: ChannelViewKind; name?: string; listId?: number }) => post<ChannelViewTab>(`/work/chat/channels/${uid}/views`, body),

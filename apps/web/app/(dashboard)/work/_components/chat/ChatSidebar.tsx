@@ -15,6 +15,7 @@ import { userName, workApi, workKeys, type ChatChannelRow, type ChatSection } fr
 import { Avatar } from "../primitives";
 import { OnlineDot, useDirectory, useProfilePanel } from "../people";
 import { ShareChannelDialog, useShareChannel } from "./ShareChannel";
+import { LocIcon, LocationPicker, type PickedLocation } from "./LocationChannel";
 import { chatSidebarKey, useChatSidebar, useWs } from "./useChat";
 
 const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-[13.5px] transition-colors";
@@ -152,6 +153,7 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
       <div key={c.uid} className={cn(ROW, "pr-1", active(c.uid) ? "bg-accent font-semibold text-accent-foreground" : c.unread && !c.muted ? "font-semibold text-foreground hover:bg-accent/60" : "text-foreground/80 hover:bg-accent/60")}>
         <Link href={href(c.uid)} onClick={onNavigate} className="flex min-w-0 flex-1 items-center gap-2">
           {c.kind === "channel" ? (
+            c.locationType ? <span className="relative shrink-0" title={`Linked to a ${c.locationType}`}><Hash className="h-4 w-4 text-muted-foreground" /><LocIcon type={c.locationType as "space" | "folder" | "list"} className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-sm bg-background text-primary" /></span> :
             <Hash className="h-4 w-4 shrink-0 text-muted-foreground" />
           ) : one ? (
             <span className="relative shrink-0"><Avatar user={one} size={18} /><OnlineDot online={online(one.id)} className="absolute -bottom-0.5 -right-0.5 h-2 w-2" /></span>
@@ -375,23 +377,21 @@ function RenameChannelDialog({ uid, name, onClose }: { uid: string; name: string
 }
 
 /** ClickUp "Create Channel": name, make private (+ who), add a list */
-export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
+export function CreateChannelDialog({ onClose, initialLocation = null, suggestedName = "" }: { onClose: () => void; initialLocation?: PickedLocation | null; suggestedName?: string }) {
   const ws = useWs();
   const qc = useQueryClient();
   const router = useRouter();
   const { user } = useAuth();
   const { data: dir } = useDirectory();
-  const { data: tree } = useQuery({ queryKey: workKeys.tree(ws), queryFn: () => workApi.tree(ws) });
-  const [name, setName] = useState("");
+  const [name, setName] = useState(suggestedName);
   const [isPrivate, setPrivate] = useState(false);
   const [ids, setIds] = useState<number[]>([]);
-  const [withList, setWithList] = useState(false);
-  const [listId, setListId] = useState<number | null>(null);
-  const lists = useMemo(() => (tree?.spaces ?? []).flatMap((s) => [...s.lists.map((l) => ({ id: l.id, name: `${s.name} / ${l.name}` })), ...s.folders.flatMap((f) => f.lists.map((l) => ({ id: l.id, name: `${s.name} / ${f.name} / ${l.name}` })))]), [tree]);
+  const [withList, setWithList] = useState(!!initialLocation);
+  const [loc, setLoc] = useState<PickedLocation | null>(initialLocation);
   const people = (dir?.people ?? []).filter((p) => p.user.id !== user?.id);
   const create = useMutation({
-    mutationFn: () => workApi.createChannel(ws, { name, isPrivate, ...(isPrivate && ids.length ? { memberIds: ids } : {}), ...(withList && listId ? { locationType: "list", locationId: listId } : {}) }),
-    onSuccess: (c) => { qc.invalidateQueries({ queryKey: chatSidebarKey(ws) }); toast.success(`#${c.name} created`); onClose(); router.push(`/work/${ws}/chat/${c.uid}`); },
+    mutationFn: () => workApi.createChannel(ws, { name, isPrivate, ...(isPrivate && ids.length ? { memberIds: ids } : {}), ...(withList && loc ? { locationType: loc.type, locationId: loc.id } : {}) }),
+    onSuccess: (c) => { qc.invalidateQueries({ queryKey: chatSidebarKey(ws) }); qc.invalidateQueries({ queryKey: ["work", "loc-channels"] }); toast.success(`#${c.name} created`); onClose(); router.push(`/work/${ws}/chat/${c.uid}`); },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't create the channel."),
   });
   return (
@@ -424,15 +424,10 @@ export function CreateChannelDialog({ onClose }: { onClose: () => void }) {
             <span className="flex-1"><span className="block text-[13.5px] font-medium">Add a List</span><span className="block text-[12.5px] text-muted-foreground">Attach a List to manage tasks and work</span></span>
             <Switch checked={withList} onCheckedChange={setWithList} aria-label="Add a List" />
           </div>
-          {withList && (
-            <select aria-label="List" value={listId ?? ""} onChange={(e) => setListId(Number(e.target.value) || null)} className="mt-2 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px]">
-              <option value="">Choose a list…</option>
-              {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          )}
+          {withList && <LocationPicker value={loc} onChange={setLoc} />}
         </div>
         <div className="flex justify-end border-t border-border bg-muted/30 px-6 py-3">
-          <button type="button" disabled={!name.trim() || create.isPending} onClick={() => create.mutate()} className="h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">Create</button>
+          <button type="button" disabled={!name.trim() || (withList && !loc) || create.isPending} onClick={() => create.mutate()} className="h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">Create</button>
         </div>
       </DialogContent>
     </Dialog>

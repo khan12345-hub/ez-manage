@@ -6,6 +6,7 @@ import { BarChart3, CalendarDays, Columns3, LayoutGrid, List as ListIcon, Plus, 
 import { LocationDashboard } from "../../../_components/Dashboard";
 import { trackPlace } from "../../../_components/recent";
 import { AutomateButton } from "../../../_components/Automations";
+import { LocationChannelButton } from "../../../_components/chat/LocationChannel";
 import { GalleryView } from "../../../_components/GalleryView";
 import { AddViewMenu, type WorkView } from "../../../_components/AddViewMenu";
 import { pushRecentList, useWorkCreate } from "@/store/work-create";
@@ -139,6 +140,7 @@ function ListPageInner() {
               <p className="font-mono text-[12px] text-muted-foreground">
                 {open} open · {doneCount} done
               </p>
+              <LocationChannelButton type="list" uid={list.uid} locationId={list.id} label={list.name} />
               {list.access.canEdit && <AutomateButton scope={{ spaceId: list.spaceId, folderId: list.folderId, listId: list.id, listUid: list.uid, label: list.name }} />}
               {list.access.canEdit && (
                 <button

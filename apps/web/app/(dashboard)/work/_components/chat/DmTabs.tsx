@@ -81,6 +81,19 @@ export function DmTasks({ uid, others }: { uid: string; others: WorkUser[] }) {
 /** DM "Calendar" tab: the same people's tasks on a month grid by due date */
 export function DmCalendar({ uid, others }: { uid: string; others: WorkUser[] }) {
   const [who, setWho] = useState<Who>("all");
+  return (
+    <TaskMonthCalendar
+      queryKey={["work", "dm-cal", uid, who]}
+      load={(from, to) => workApi.dmTasks(uid, { who, from, to })}
+      toolbar={<WhoFilter who={who} setWho={setWho} others={others} />}
+    />
+  );
+}
+
+type CalTask = Pick<DmTask, "id" | "uid" | "name" | "dueDate" | "completedAt" | "status">;
+
+/** a month grid of tasks by due date; `load` gets the visible window (6 weeks) */
+export function TaskMonthCalendar({ queryKey, load, toolbar }: { queryKey: unknown[]; load: (from: string, to: string) => Promise<CalTask[]>; toolbar?: React.ReactNode }) {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [open, setOpen] = useState<string | null>(null);
   const days = useMemo(() => {
@@ -89,9 +102,9 @@ export function DmCalendar({ uid, others }: { uid: string; others: WorkUser[] })
     return Array.from({ length: 42 }, (_, i) => new Date(first.getFullYear(), first.getMonth(), first.getDate() + i));
   }, [month]);
   const from = days[0]!, to = new Date(days[41]!.getFullYear(), days[41]!.getMonth(), days[41]!.getDate() + 1);
-  const { data = [] } = useQuery({ queryKey: ["work", "dm-cal", uid, who, from.toISOString()], queryFn: () => workApi.dmTasks(uid, { who, from: from.toISOString(), to: to.toISOString() }) });
+  const { data = [] } = useQuery({ queryKey: [...queryKey, from.toISOString()], queryFn: () => load(from.toISOString(), to.toISOString()) });
   const byDay = useMemo(() => {
-    const m = new Map<string, DmTask[]>();
+    const m = new Map<string, CalTask[]>();
     for (const t of data) if (t.dueDate) { const k = dayKey(new Date(t.dueDate)); m.set(k, [...(m.get(k) ?? []), t]); }
     return m;
   }, [data]);
@@ -100,7 +113,7 @@ export function DmCalendar({ uid, others }: { uid: string; others: WorkUser[] })
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-2.5">
-        <WhoFilter who={who} setWho={setWho} others={others} />
+        {toolbar}
         <div className="ml-auto flex items-center gap-1">
           <button type="button" onClick={() => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); }} className="h-7 rounded-md border border-border px-2 text-[12px] hover:bg-accent">Today</button>
           <button type="button" aria-label="Previous month" onClick={() => shift(-1)} className="rounded-md p-1 hover:bg-accent"><ChevronLeft className="h-4 w-4" /></button>

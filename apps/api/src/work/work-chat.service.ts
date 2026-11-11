@@ -120,6 +120,12 @@ export class WorkChatService {
     const others = [...new Set(dto.memberIds ?? [])].filter((id) => id !== userId);
     if (others.length && !(await this.access.areMembers(workspaceId, others))) throw new BadRequestException('Channels can only include Work members.');
     if (dto.locationType && !['space', 'folder', 'list'].includes(dto.locationType)) throw new BadRequestException('Unknown location.');
+    // the location must be in this workspace and visible to the creator
+    if (dto.locationType || dto.locationId) {
+      if (!dto.locationType || !dto.locationId) throw new BadRequestException('Pick a Space, Folder or List.');
+      const loc = await this.location(workspaceId, userId, dto.locationType, dto.locationId);
+      if (!loc) throw new BadRequestException('Pick a Space, Folder or List you can see in this workspace.');
+    }
     const ch = await this.prisma.workChannel.create({
       data: {
         uid: uid(), workspaceId, kind: 'channel', name, description: dto.description?.trim() || null, isPrivate: !!dto.isPrivate, createdById: userId,
@@ -165,12 +171,21 @@ export class WorkChatService {
       createdAt: ch.createdAt, joined: !!me, muted: !!me?.muted, starred: !!me?.starred, myRole: me?.role ?? null, notify: me?.notify ?? 'all',
       myPermission: ws.canManage ? 'full' : me?.permission ?? (ch.kind === 'channel' && !ch.isPrivate ? 'edit' : null),
       canManage: me?.role === 'owner' || me?.permission === 'full' || ws.canManage, canPost: ws.canManage || !me || me.permission !== 'view', members, pinned,
+      location: ch.locationType && ch.locationId ? await this.locationSummary(ch.workspaceId, userId, ch.locationType, ch.locationId) : null,
     };
   }
 
-  async update(channelUid: string, userId: number, dto: { name?: string; description?: string | null; topic?: string | null; isPrivate?: boolean }) {
+  async update(channelUid: string, userId: number, dto: { name?: string; description?: string | null; topic?: string | null; isPrivate?: boolean; locationType?: string | null; locationId?: number | null }) {
     const { ch } = await this.channel(channelUid, userId, 'manage');
     if (ch.kind !== 'channel') throw new BadRequestException('Direct messages have no settings.');
+    if (dto.locationType !== undefined) {
+      if (dto.locationType === null) await this.prisma.workChannel.update({ where: { id: ch.id }, data: { locationType: null, locationId: null } });
+      else {
+        if (!['space', 'folder', 'list'].includes(dto.locationType) || !dto.locationId) throw new BadRequestException('Pick a Space, Folder or List.');
+        if (!(await this.location(ch.workspaceId, userId, dto.locationType, dto.locationId))) throw new BadRequestException('Pick a Space, Folder or List you can see in this workspace.');
+        await this.prisma.workChannel.update({ where: { id: ch.id }, data: { locationType: dto.locationType, locationId: dto.locationId } });
+      }
+    }
     let name: string | undefined;
     if (dto.name !== undefined) {
       name = name2key(dto.name);
@@ -404,6 +419,93 @@ export class WorkChatService {
     }
   }
   private scheduling = false;
+
+  // ---------- channels attached to a Space / Folder / List ----------
+
+  /**
+   * A Space / Folder / List the viewer can see in this workspace, with the lists inside it.
+   * Returns null when it doesn't exist, is archived, is in another workspace, or is hidden from the viewer.
+   */
+  private async location(workspaceId: number, userId: number, type: string, id: number) {
+    try {
+      if (type === 'space') {
+        const sp = await this.prisma.space.findFirst({ where: { id, workspaceId, archivedAt: null }, select: { id: true, uid: true, name: true } });
+        if (!sp) return null;
+        await this.access.requireSpace(sp.id, userId, 'view');
+        const lists = await this.prisma.workList.findMany({ where: { spaceId: sp.id, archivedAt: null, OR: [{ folderId: null }, { folder: { archivedAt: null } }] }, select: { id: true } });
+        return { type, id: sp.id, uid: sp.uid, name: sp.name, space: { uid: sp.uid, name: sp.name }, folder: null, listIds: lists.map((l) => l.id) };
+      }
+      if (type === 'folder') {
+        const f = await this.prisma.workFolder.findFirst({ where: { id, archivedAt: null, space: { workspaceId, archivedAt: null } }, select: { id: true, uid: true, name: true, spaceId: true, space: { select: { uid: true, name: true } } } });
+        if (!f) return null;
+        await this.access.requireSpace(f.spaceId, userId, 'view');
+        const lists = await this.prisma.workList.findMany({ where: { folderId: f.id, archivedAt: null }, select: { id: true } });
+        return { type, id: f.id, uid: f.uid, name: f.name, space: f.space, folder: { uid: f.uid, name: f.name }, listIds: lists.map((l) => l.id) };
+      }
+      if (type === 'list') {
+        const l = await this.prisma.workList.findFirst({ where: { id, archivedAt: null, space: { workspaceId, archivedAt: null } }, select: { id: true, uid: true, name: true, spaceId: true, space: { select: { uid: true, name: true } }, folder: { select: { uid: true, name: true, archivedAt: true } } } });
+        if (!l || l.folder?.archivedAt) return null;
+        await this.access.requireSpace(l.spaceId, userId, 'view');
+        return { type, id: l.id, uid: l.uid, name: l.name, space: l.space, folder: l.folder ? { uid: l.folder.uid, name: l.folder.name } : null, listIds: [l.id] };
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  /** what the channel header shows; a location the viewer can't see stays anonymous */
+  private async locationSummary(workspaceId: number, userId: number, type: string, id: number) {
+    const loc = await this.location(workspaceId, userId, type, id);
+    if (!loc) return { type, locked: true as const };
+    const { listIds, ...rest } = loc;
+    return { ...rest, listCount: listIds.length, locked: false as const };
+  }
+
+  /** the channel(s) attached to a Space / Folder / List (its "Channel" tab) */
+  async locationChannels(workspaceId: number, userId: number, type: string, locUid: string) {
+    const ws = await this.access.requireWorkspace(workspaceId, userId, 'view');
+    if (!['space', 'folder', 'list'].includes(type)) throw new BadRequestException('Unknown location.');
+    const row = type === 'space' ? await this.prisma.space.findFirst({ where: { uid: locUid, workspaceId }, select: { id: true } })
+      : type === 'folder' ? await this.prisma.workFolder.findFirst({ where: { uid: locUid, space: { workspaceId } }, select: { id: true } })
+      : await this.prisma.workList.findFirst({ where: { uid: locUid, space: { workspaceId } }, select: { id: true } });
+    if (!row || !(await this.location(workspaceId, userId, type, row.id))) throw new NotFoundException('Not found.');
+    const chans = await this.prisma.workChannel.findMany({
+      where: { workspaceId, kind: 'channel', archivedAt: null, locationType: type, locationId: row.id, OR: [{ members: { some: { userId } } }, ...(ws.scope === 'all' ? [{ isPrivate: false }] : [])] },
+      orderBy: { createdAt: 'asc' },
+      select: { uid: true, name: true, isPrivate: true, members: { where: { userId }, select: { userId: true } }, _count: { select: { members: true } } },
+    });
+    return { locationId: row.id, channels: chans.map((c) => ({ uid: c.uid, name: c.name, isPrivate: c.isPrivate, joined: c.members.length > 0, memberCount: c._count.members })) };
+  }
+
+  /** every task in the channel's Space / Folder / List (its List, Board and Calendar tabs) */
+  async locationTasks(channelUid: string, userId: number, o: { from?: string; to?: string }) {
+    const { ch } = await this.channel(channelUid, userId);
+    if (!ch.locationType || !ch.locationId) throw new BadRequestException('This channel is not attached to a Space, Folder or List.');
+    const loc = await this.location(ch.workspaceId, userId, ch.locationType, ch.locationId);
+    if (!loc) throw new ForbiddenException("You don't have access to this channel's location.");
+    const from = o.from ? new Date(o.from) : null;
+    const to = o.to ? new Date(o.to) : null;
+    const window = from && to && !isNaN(+from) && !isNaN(+to) && +to > +from && +to - +from <= 62 * 86_400_000;
+    if ((o.from || o.to) && !window) throw new BadRequestException('Pick a date range of up to two months.');
+    const [lists, tasks] = await Promise.all([
+      this.prisma.workList.findMany({ where: { id: { in: loc.listIds } }, orderBy: [{ order: 'asc' }, { id: 'asc' }], select: { id: true, uid: true, name: true, color: true, folder: { select: { name: true } }, statuses: { orderBy: { order: 'asc' }, select: { id: true, name: true, color: true, category: true } } } }),
+      this.prisma.workTask.findMany({
+        where: { listId: { in: loc.listIds }, archivedAt: null, parentId: null, ...(window ? { dueDate: { gte: from!, lt: to! } } : {}) },
+        orderBy: [{ order: 'asc' }, { id: 'asc' }],
+        take: 1000,
+        select: {
+          id: true, uid: true, name: true, priority: true, dueDate: true, startDate: true, completedAt: true, parentId: true, listId: true,
+          status: { select: { id: true, name: true, color: true, category: true } },
+          list: { select: { uid: true, name: true, space: { select: { name: true } } } },
+          assignees: { select: { user: { select: USER_MINI } } },
+        },
+      }),
+    ]);
+    const { listIds, ...summary } = loc;
+    void listIds;
+    return { location: summary, lists, tasks: tasks.map((t) => ({ ...t, assignees: t.assignees.map((a) => a.user) })) };
+  }
 
   // ---------- DM Tasks / Calendar tabs ----------
 

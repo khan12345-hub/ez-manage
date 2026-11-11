@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Archive, Bell, Bookmark, CalendarDays, ListChecks, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, Bell, Bookmark, CalendarDays, Columns3, List, ListChecks, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -18,6 +19,7 @@ import { ScheduledBanner } from "./Scheduled";
 import { FilesPanel } from "./ChatFiles";
 import { BookmarkDialog, BookmarksBar } from "./Bookmarks";
 import { DmCalendar, DmTasks } from "./DmTabs";
+import { LocIcon, LocationBoard, LocationCalendar, LocationList, locationHref } from "./LocationChannel";
 import { ChannelViewPanel, ChannelViewTabs, channelViewsKey, useChannelViews } from "./ChannelViews";
 import { channelKey, chatSidebarKey, messagesKey, threadKey, useChannelMessages, useChatEvents, useWs } from "./useChat";
 
@@ -102,6 +104,11 @@ export function ChannelView({ uid }: { uid: string }) {
   const isDm = ch.kind !== "channel";
   const canEditViews = ch.canManage || ["full", "edit"].includes(ch.myPermission ?? "");
   const dmTab = isDm && (rawTab === "tasks" || rawTab === "calendar") ? rawTab : null;
+  const loc = ch.location && !ch.location.locked ? ch.location : null;
+  const locTab = loc && (rawTab === "list" || rawTab === "board" || rawTab === "calendar") ? rawTab : null;
+  const builtins = isDm
+    ? [{ id: "tasks", label: "Tasks", icon: ListChecks }, { id: "calendar", label: "Calendar", icon: CalendarDays }]
+    : loc ? [{ id: "list", label: "List", icon: List }, { id: "board", label: "Board", icon: Columns3 }, { id: "calendar", label: "Calendar", icon: CalendarDays }] : [];
   const title = channelTitle(ch, others);
   const typers = Object.values(typing).map((t) => t.name).filter(Boolean);
   const railBtn = (id: Exclude<Panel, null>, label: string, Icon: typeof Users, badge?: number) => (
@@ -125,6 +132,13 @@ export function ChannelView({ uid }: { uid: string }) {
           )
         ) : (
           <h1 className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold">
+            {loc && (
+              <nav aria-label="Location" className="flex min-w-0 items-center gap-1 text-[13px] font-normal text-muted-foreground">
+                {loc.type !== "space" && <><Link href={locationHref(ws, { type: "space", uid: loc.space.uid })} className="truncate hover:text-foreground hover:underline">{loc.space.name}</Link><span aria-hidden>/</span></>}
+                <Link href={locationHref(ws, loc)} className="flex min-w-0 items-center gap-1 font-medium text-foreground/80 hover:text-foreground hover:underline"><LocIcon type={loc.type} /> <span className="truncate">{loc.name}</span></Link>
+                <span aria-hidden>/</span>
+              </nav>
+            )}
             <Hash className="h-4 w-4 shrink-0 text-muted-foreground" /> <span className="truncate">{ch.name}</span>
             {ch.isPrivate && <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-label="Private" />}
           </h1>
@@ -152,9 +166,11 @@ export function ChannelView({ uid }: { uid: string }) {
       </header>
       <BookmarksBar uid={uid} canEdit={canEditViews && ch.joined} onAdd={() => setAddingBookmark(true)} />
       {addingBookmark && <BookmarkDialog uid={uid} onClose={() => setAddingBookmark(false)} />}
-      {(isDm || views.length > 0 || (canEditViews && ch.joined)) && <ChannelViewTabs uid={uid} views={views} active={dmTab ?? activeView?.id ?? null} canEdit={canEditViews && ch.joined} onSelect={(id) => setParam("tab", id ? String(id) : null)} builtins={isDm ? [{ id: "tasks", label: "Tasks", icon: ListChecks }, { id: "calendar", label: "Calendar", icon: CalendarDays }] : []} />}
+      {(builtins.length > 0 || views.length > 0 || (canEditViews && ch.joined)) && <ChannelViewTabs uid={uid} views={views} active={dmTab ?? locTab ?? activeView?.id ?? null} canEdit={canEditViews && ch.joined} onSelect={(id) => setParam("tab", id ? String(id) : null)} builtins={builtins} />}
 
-      {dmTab ? (
+      {locTab ? (
+        <div className="flex min-h-0 flex-1 flex-col">{locTab === "list" ? <LocationList uid={uid} /> : locTab === "board" ? <LocationBoard uid={uid} /> : <LocationCalendar uid={uid} />}</div>
+      ) : dmTab ? (
         <div className="flex min-h-0 flex-1 flex-col">{dmTab === "tasks" ? <DmTasks uid={uid} others={others} /> : <DmCalendar uid={uid} others={others} />}</div>
       ) : activeView ? (
         <div className="flex min-h-0 flex-1 flex-col"><ChannelViewPanel uid={uid} view={activeView} canEdit={canEditViews && ch.joined} members={members} /></div>
