@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AtSign, Loader2, Paperclip, SendHorizontal, Smile, X } from "lucide-react";
+import { AtSign, Bold, Code, Italic, Link2, List, ListOrdered, Loader2, Paperclip, SendHorizontal, Smile, SquareCode, Strikethrough, TextQuote, Type, X } from "lucide-react";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { userName, workApi, type ChatFile, type ChatMessage, type WorkUser } from "@/services/work.api";
@@ -27,6 +27,7 @@ export function ChatComposer({
   const [mentions, setMentions] = useState<WorkUser[]>([]);
   const [also, setAlso] = useState(false);
   const [mOpen, setMOpen] = useState(false);
+  const [fmt, setFmt] = useState(false);
   const [mq, setMq] = useState("");
   const area = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -84,6 +85,38 @@ export function ChatComposer({
     setText(text.slice(0, at) + s + text.slice(el?.selectionEnd ?? at));
     requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(at + s.length, at + s.length); });
   };
+  /** wrap the selection (or a placeholder) in markup, keeping it selected */
+  const wrap = (before: string, after = before, placeholder = "text") => {
+    const el = area.current;
+    const a = el?.selectionStart ?? text.length;
+    const b = el?.selectionEnd ?? a;
+    const sel = text.slice(a, b) || placeholder;
+    setText(text.slice(0, a) + before + sel + after + text.slice(b));
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(a + before.length, a + before.length + sel.length); });
+  };
+  /** prefix every selected line ("- ", "1. ", "> ") */
+  const lines = (make: (i: number) => string) => {
+    const el = area.current;
+    const a = el?.selectionStart ?? text.length;
+    const b = el?.selectionEnd ?? a;
+    const start = text.lastIndexOf("\n", a - 1) + 1;
+    const block = text.slice(start, b) || "";
+    const done = block.split("\n").map((l, i) => make(i) + l).join("\n");
+    setText(text.slice(0, start) + done + text.slice(b));
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(start + done.length, start + done.length); });
+  };
+  const FORMATS: { label: string; icon: typeof Bold; run: () => void; keys?: string }[] = [
+    { label: "Bold", icon: Bold, run: () => wrap("**"), keys: "Ctrl+B" },
+    { label: "Italic", icon: Italic, run: () => wrap("_"), keys: "Ctrl+I" },
+    { label: "Strikethrough", icon: Strikethrough, run: () => wrap("~~") },
+    { label: "Inline code", icon: Code, run: () => wrap("`", "`", "code") },
+    { label: "Code block", icon: SquareCode, run: () => wrap("```\n", "\n```", "code") },
+    { label: "Bulleted list", icon: List, run: () => lines(() => "- ") },
+    { label: "Numbered list", icon: ListOrdered, run: () => lines((i) => `${i + 1}. `) },
+    { label: "Quote", icon: TextQuote, run: () => lines(() => "> ") },
+    { label: "Link", icon: Link2, run: () => wrap("[", "](https://)", "link text") },
+  ];
+
   const mention = (m: WorkUser) => {
     const el = area.current;
     const at = el?.selectionStart ?? text.length;
@@ -123,6 +156,18 @@ export function ChatComposer({
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Post title" aria-label="Post title" maxLength={200} className="h-7 flex-1 bg-transparent text-[14px] font-semibold outline-none" />
           </div>
         )}
+        {fmt && (
+          <div role="toolbar" aria-label="Formatting" className="flex flex-wrap items-center gap-0.5 border-b border-border px-2 py-1">
+            {FORMATS.map((f, i) => (
+              <span key={f.label} className="flex items-center">
+                {(i === 4 || i === 5 || i === 8) && <span aria-hidden className="mx-1 h-4 w-px bg-border" />}
+                <button type="button" aria-label={f.label} title={f.keys ? `${f.label} (${f.keys})` : f.label} onMouseDown={(e) => e.preventDefault()} onClick={f.run} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+                  <f.icon className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <Popover open={mOpen} onOpenChange={setMOpen}>
           <PopoverAnchor asChild>
             <textarea
@@ -137,6 +182,11 @@ export function ChatComposer({
                 if (Date.now() - lastTyping.current > 3000) { lastTyping.current = Date.now(); workApi.chatTyping(channelUid).catch(() => {}); }
               }}
               onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "i")) {
+                  e.preventDefault();
+                  wrap(e.key === "b" ? "**" : "_");
+                  return;
+                }
                 if (e.key === "Enter" && !e.shiftKey && !mOpen) {
                   e.preventDefault();
                   if (canSend) send.mutate();
@@ -175,6 +225,7 @@ export function ChatComposer({
         )}
         <div className="flex items-center gap-0.5 px-2 pb-1.5 pt-1">
           <input ref={fileInput} type="file" multiple hidden aria-label="Attach files" onChange={(e) => { if (e.target.files?.length) upload.mutate(Array.from(e.target.files)); e.target.value = ""; }} />
+          <button type="button" aria-label="Formatting" aria-pressed={fmt} title="Formatting" onClick={() => setFmt(!fmt)} className={cn(tool, fmt && "bg-accent text-foreground")}><Type className="h-4 w-4" /></button>
           <button type="button" aria-label="Attach files" title="Attach" onClick={() => fileInput.current?.click()} className={tool}>{upload.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}</button>
           <button type="button" aria-label="Mention someone" title="Mention" onClick={() => { insert("@"); setMq(""); setMOpen(true); }} className={tool}><AtSign className="h-4 w-4" /></button>
           <Popover>

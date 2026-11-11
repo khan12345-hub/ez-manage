@@ -27,31 +27,58 @@ function dayLabel(iso: string) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 }
 
-/** text → links, @mentions, bullets and line breaks */
+/** text → links, @mentions, **bold**, _italic_, ~~strike~~, `code`, ```blocks```, lists, quotes */
 export function RichText({ text, members = [] }: { text: string; members?: WorkUser[] }) {
   const names = members.map((m) => userName(m)).filter(Boolean).sort((a, b) => b.length - a.length);
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`(https?:\\/\\/[^\\s<]+|\\*\\*[^*]+\\*\\*|@everyone|${names.length ? names.map((n) => `@${esc(n)}`).join("|") : "@\\u0000"})`, "g");
-  const inline = (line: string, k: string) =>
+  const mention = names.length ? names.map((n) => `@${esc(n)}`).join("|") : "@\\u0000";
+  const PATTERN = [
+    String.raw`\[[^\]]+\]\(https?:\/\/[^)\s]+\)`, // [text](url)
+    String.raw`https?:\/\/[^\s<)]+`, // bare links
+    "`[^`]+`", // `code`
+    String.raw`\*\*[^*]+\*\*`, // **bold**
+    "~~[^~]+~~", // ~~strike~~
+    String.raw`(?<![\w])_[^_\n]+_(?![\w])`, // _italic_
+    "@everyone",
+    mention,
+  ].join("|");
+  const re = new RegExp(`(${PATTERN})`, "g");
+  const inline = (line: string, k: string): React.ReactNode[] =>
     line.split(re).map((part, i) => {
-      if (/^https?:\/\//.test(part)) return <a key={`${k}${i}`} href={part} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline-offset-2 hover:underline">{part}</a>;
-      if (/^\*\*[^*]+\*\*$/.test(part)) return <strong key={`${k}${i}`}>{part.slice(2, -2)}</strong>;
-      if (part.startsWith("@") && (part === "@everyone" || names.includes(part.slice(1)))) return <span key={`${k}${i}`} className="rounded bg-primary/10 px-0.5 font-medium text-primary">{part}</span>;
-      return <Fragment key={`${k}${i}`}>{part}</Fragment>;
+      const key = `${k}${i}`;
+      if (!part) return null;
+      const md = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+      if (md) return <a key={key} href={md[2]} target="_blank" rel="noreferrer noopener" className="text-primary underline-offset-2 hover:underline">{md[1]}</a>;
+      if (/^https?:\/\//.test(part)) return <a key={key} href={part} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline-offset-2 hover:underline">{part}</a>;
+      if (/^`[^`]+`$/.test(part)) return <code key={key} className="rounded bg-muted px-1 py-0.5 font-mono text-[12.5px] text-[#b4451f] dark:text-[#f0a37f]">{part.slice(1, -1)}</code>;
+      if (/^\*\*[^*]+\*\*$/.test(part)) return <strong key={key}>{inline(part.slice(2, -2), `${key}b`)}</strong>;
+      if (/^~~[^~]+~~$/.test(part)) return <s key={key}>{part.slice(2, -2)}</s>;
+      if (/^_[^_]+_$/.test(part)) return <em key={key}>{part.slice(1, -1)}</em>;
+      if (part.startsWith("@") && (part === "@everyone" || names.includes(part.slice(1)))) return <span key={key} className="rounded bg-primary/10 px-0.5 font-medium text-primary">{part}</span>;
+      return <Fragment key={key}>{part}</Fragment>;
     });
   const lines = text.split("\n");
   const out: React.ReactNode[] = [];
   let bullets: string[] = [];
+  let numbers: string[] = [];
+  let code: string[] | null = null;
   const flush = (k: number) => {
-    if (!bullets.length) return;
-    out.push(<ul key={`u${k}`} className="my-0.5 list-disc space-y-0.5 pl-5">{bullets.map((b, i) => <li key={i}>{inline(b, `b${k}-${i}`)}</li>)}</ul>);
-    bullets = [];
+    if (bullets.length) { out.push(<ul key={`u${k}`} className="my-0.5 list-disc space-y-0.5 pl-5">{bullets.map((b, i) => <li key={i}>{inline(b, `b${k}-${i}`)}</li>)}</ul>); bullets = []; }
+    if (numbers.length) { out.push(<ol key={`o${k}`} className="my-0.5 list-decimal space-y-0.5 pl-5">{numbers.map((b, i) => <li key={i}>{inline(b, `n${k}-${i}`)}</li>)}</ol>); numbers = []; }
   };
   lines.forEach((l, i) => {
-    if (/^\s*[-•*]\s+/.test(l)) bullets.push(l.replace(/^\s*[-•*]\s+/, ""));
+    if (/^\s*```/.test(l)) {
+      if (code) { out.push(<pre key={`c${i}`} className="my-1 overflow-x-auto rounded-lg border border-border bg-muted/60 px-3 py-2 font-mono text-[12.5px] leading-relaxed">{code.join("\n")}</pre>); code = null; }
+      else { flush(i); code = []; }
+      return;
+    }
+    if (code) { code.push(l); return; }
+    if (/^\s*[-•*]\s+/.test(l)) { if (numbers.length) flush(i); bullets.push(l.replace(/^\s*[-•*]\s+/, "")); }
+    else if (/^\s*\d+[.)]\s+/.test(l)) { if (bullets.length) flush(i); numbers.push(l.replace(/^\s*\d+[.)]\s+/, "")); }
     else if (/^>\s?/.test(l)) { flush(i); out.push(<blockquote key={i} className="my-0.5 border-l-2 border-border pl-2.5 text-muted-foreground">{inline(l.replace(/^>\s?/, ""), `q${i}`)}</blockquote>); }
     else { flush(i); out.push(<span key={i} className="block min-h-[1.2em]">{inline(l, `l${i}`)}</span>); }
   });
+  if (code) out.push(<pre key="c-end" className="my-1 overflow-x-auto rounded-lg border border-border bg-muted/60 px-3 py-2 font-mono text-[12.5px]">{(code as string[]).join("\n")}</pre>);
   flush(lines.length);
   return <>{out}</>;
 }
