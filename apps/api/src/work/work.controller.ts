@@ -12,7 +12,7 @@ import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { WorkProfileService } from './work-profile.service';
 import { WorkAutomationsService } from './work-automations.service';
 import { WorkChatService } from './work-chat.service';
-import { ChatToTaskDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatSectionDto, ChatSectionOrderDto, ChannelSectionDto, ChannelViewDto, UpdateChannelViewDto, ScheduleChatDto, UpdateScheduledChatDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { ChatToTaskDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatSectionDto, ChatSectionOrderDto, ChannelSectionDto, ChannelViewDto, UpdateChannelViewDto, ScheduleChatDto, UpdateScheduledChatDto, BookmarkDto, UpdateBookmarkDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -504,6 +504,31 @@ export class WorkController {
   @Delete('chat/sections/:id')
   deleteChatSection(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
     return this.chat.deleteSection(id, u.id);
+  }
+
+  @Get('chat/channels/:uid/bookmarks')
+  channelBookmarks(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.bookmarks(uid, u.id);
+  }
+
+  @Post('chat/channels/:uid/bookmarks')
+  addBookmark(@Param('uid') uid: string, @Body() dto: BookmarkDto, @CurrentUser() u: SessionUser) {
+    return this.chat.addBookmark(uid, u.id, dto);
+  }
+
+  @Put('chat/channels/:uid/bookmarks/order')
+  reorderBookmarks(@Param('uid') uid: string, @Body() dto: ChatSectionOrderDto, @CurrentUser() u: SessionUser) {
+    return this.chat.reorderBookmarks(uid, u.id, dto.ids);
+  }
+
+  @Patch('chat/bookmarks/:id')
+  updateBookmark(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateBookmarkDto, @CurrentUser() u: SessionUser) {
+    return this.chat.updateBookmark(id, u.id, dto);
+  }
+
+  @Delete('chat/bookmarks/:id')
+  deleteBookmark(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.chat.deleteBookmark(id, u.id);
   }
 
   @Get('chat/channels/:uid/files')

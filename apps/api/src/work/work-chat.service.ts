@@ -405,6 +405,75 @@ export class WorkChatService {
   }
   private scheduling = false;
 
+  // ---------- Bookmarks: links pinned to the top of a channel ----------
+
+  /** only web links, or links to Work's own pages — never javascript:, data: and the like */
+  private cleanUrl(raw: string) {
+    const v = (raw ?? '').trim();
+    if (!v || v.length > 2000) throw new BadRequestException('Add a link (up to 2,000 characters).');
+    if (/^\/work\/[^\s]*$/.test(v)) return v;
+    let u: URL;
+    try { u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(v) ? v : `https://${v}`); } catch { throw new BadRequestException('That link is not valid.'); }
+    if (!['http:', 'https:'].includes(u.protocol) || !u.hostname.includes('.')) throw new BadRequestException('Use a web link (http or https).');
+    return u.toString();
+  }
+  private bookmarkTitle(title: string | undefined, url: string) {
+    const t = (title ?? '').trim();
+    if (t.length > 80) throw new BadRequestException('Keep the title under 80 characters.');
+    if (t) return t;
+    return url.startsWith('/work/') ? 'Work link' : new URL(url).hostname.replace(/^www\./, '');
+  }
+  private bookmarkRows(channelId: number) {
+    return this.prisma.workChannelBookmark.findMany({ where: { channelId }, orderBy: [{ position: 'asc' }, { id: 'asc' }], select: { id: true, title: true, url: true, position: true, createdAt: true, createdBy: { select: USER_MINI } } });
+  }
+
+  async bookmarks(channelUid: string, userId: number) {
+    const { ch } = await this.channel(channelUid, userId);
+    return this.bookmarkRows(ch.id);
+  }
+
+  async addBookmark(channelUid: string, userId: number, dto: { url: string; title?: string }) {
+    const { ch } = await this.channel(channelUid, userId, 'pin');
+    if ((await this.prisma.workChannelBookmark.count({ where: { channelId: ch.id } })) >= 30) throw new BadRequestException('A channel can have up to 30 bookmarks.');
+    const url = this.cleanUrl(dto.url);
+    const last = await this.prisma.workChannelBookmark.findFirst({ where: { channelId: ch.id }, orderBy: { position: 'desc' }, select: { position: true } });
+    const b = await this.prisma.workChannelBookmark.create({ data: { channelId: ch.id, url, title: this.bookmarkTitle(dto.title, url), position: (last?.position ?? -1) + 1, createdById: userId }, select: { id: true } });
+    this.push(await this.audience(ch), 'bookmarks', { channelUid: ch.uid });
+    return (await this.bookmarkRows(ch.id)).find((x) => x.id === b.id);
+  }
+
+  private async bookmarkFor(id: number, userId: number) {
+    const b = await this.prisma.workChannelBookmark.findUnique({ where: { id }, select: { id: true, url: true, channel: { select: { uid: true } } } });
+    if (!b) throw new NotFoundException('Bookmark not found.');
+    const { ch } = await this.channel(b.channel.uid, userId, 'pin');
+    return { b, ch };
+  }
+
+  async updateBookmark(id: number, userId: number, dto: { url?: string; title?: string }) {
+    const { b, ch } = await this.bookmarkFor(id, userId);
+    const url = dto.url !== undefined ? this.cleanUrl(dto.url) : b.url;
+    await this.prisma.workChannelBookmark.update({ where: { id }, data: { url, ...(dto.title !== undefined && { title: this.bookmarkTitle(dto.title, url) }) } });
+    this.push(await this.audience(ch), 'bookmarks', { channelUid: ch.uid });
+    return (await this.bookmarkRows(ch.id)).find((x) => x.id === id);
+  }
+
+  async deleteBookmark(id: number, userId: number) {
+    const { ch } = await this.bookmarkFor(id, userId);
+    await this.prisma.workChannelBookmark.delete({ where: { id } });
+    this.push(await this.audience(ch), 'bookmarks', { channelUid: ch.uid });
+    return { ok: true };
+  }
+
+  async reorderBookmarks(channelUid: string, userId: number, ids: number[]) {
+    const { ch } = await this.channel(channelUid, userId, 'pin');
+    const have = new Set((await this.prisma.workChannelBookmark.findMany({ where: { channelId: ch.id }, select: { id: true } })).map((x) => x.id));
+    const order = [...new Set(ids)];
+    if (order.length !== have.size || order.some((i) => !have.has(i))) throw new BadRequestException('Send every bookmark of this channel, once.');
+    await this.prisma.$transaction(order.map((bid, position) => this.prisma.workChannelBookmark.update({ where: { id: bid }, data: { position } })));
+    this.push(await this.audience(ch), 'bookmarks', { channelUid: ch.uid });
+    return this.bookmarkRows(ch.id);
+  }
+
   // ---------- Channel Views: List / Board / Doc tabs next to Chat ----------
 
   private async viewRows(channelId: number, userId: number) {

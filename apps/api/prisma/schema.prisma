@@ -139,6 +139,7 @@ model User {
   workChatSections      WorkChatSection[]      @relation("WorkChatSectionUser")
   workChannelViewsBy    WorkChannelView[]      @relation("WorkChannelViewUpdatedBy")
   workChatScheduled     WorkChatScheduled[]    @relation("WorkChatScheduledUser")
+  workChannelBookmarks  WorkChannelBookmark[]  @relation("WorkChannelBookmarkUser")
   workChatSaved         WorkChatSaved[]        @relation("WorkChatSavedUser")
   workTeamMemberships   WorkTeamMember[]       @relation("WorkTeamMemberUser")
   workPriorities        WorkProfilePriority[]  @relation("WorkPriorityUser")
@@ -2176,13 +2177,14 @@ model WorkChannel {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  workspace WorkWorkspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy User                @relation("WorkChannelCreator", fields: [createdById], references: [id])
+  workspace WorkWorkspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User                  @relation("WorkChannelCreator", fields: [createdById], references: [id])
   members   WorkChannelMember[]
   messages  WorkChatMessage[]
   drafts    WorkChatDraft[]
   views     WorkChannelView[]
   scheduled WorkChatScheduled[]
+  bookmarks WorkChannelBookmark[]
 
   @@index([workspaceId, kind])
   @@map("work_channels")
@@ -2321,6 +2323,23 @@ model WorkChatScheduled {
   @@index([status, sendAt])
   @@index([userId, status])
   @@map("work_chat_scheduled")
+}
+
+/// a link pinned to the top of a channel (ClickUp "Bookmarks")
+model WorkChannelBookmark {
+  id          Int      @id @default(autoincrement())
+  channelId   Int
+  title       String
+  url         String
+  position    Int      @default(0)
+  createdById Int?
+  createdAt   DateTime @default(now())
+
+  channel   WorkChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  createdBy User?       @relation("WorkChannelBookmarkUser", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([channelId])
+  @@map("work_channel_bookmarks")
 }
 
 /// a person's own chat sidebar section (ClickUp "Create section")

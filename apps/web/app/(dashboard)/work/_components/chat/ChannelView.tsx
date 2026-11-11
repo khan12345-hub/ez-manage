@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Archive, Bell, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, Bell, Bookmark, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -16,6 +16,7 @@ import { useShareChannel } from "./ShareChannel";
 import { MessageList, MessageRow } from "./ChatMessages";
 import { ScheduledBanner } from "./Scheduled";
 import { FilesPanel } from "./ChatFiles";
+import { BookmarkDialog, BookmarksBar } from "./Bookmarks";
 import { ChannelViewPanel, ChannelViewTabs, channelViewsKey, useChannelViews } from "./ChannelViews";
 import { channelKey, chatSidebarKey, messagesKey, threadKey, useChannelMessages, useChatEvents, useWs } from "./useChat";
 
@@ -37,6 +38,7 @@ export function ChannelView({ uid }: { uid: string }) {
   const thread = Number(sp.get("thread")) || null;
   const focus = Number(sp.get("message")) || null;
   const [panel, setPanel] = useState<Panel>(null);
+  const [addingBookmark, setAddingBookmark] = useState(false);
   const [typing, setTyping] = useState<Record<number, { name: string; at: number }>>({});
   const { data: ch, isError } = useQuery({ queryKey: channelKey(uid), queryFn: () => workApi.channel(uid), retry: false });
   const { data: page } = useChannelMessages(uid);
@@ -140,10 +142,13 @@ export function ChannelView({ uid }: { uid: string }) {
             <DropdownMenuItem onClick={() => navigator.clipboard.writeText(window.location.href.split("?")[0]!).then(() => toast.success("Link copied"))}>Copy link</DropdownMenuItem>
             {!isDm && <DropdownMenuItem onClick={() => setPanel("settings")}><Settings2 className="mr-2 h-4 w-4" /> Channel settings</DropdownMenuItem>}
             {!isDm && <DropdownMenuItem onClick={() => openShare(uid)}><Users className="mr-2 h-4 w-4" /> Sharing &amp; Permissions</DropdownMenuItem>}
+            {canEditViews && ch.joined && <DropdownMenuItem onClick={() => setAddingBookmark(true)}><Bookmark className="mr-2 h-4 w-4" /> Add bookmark</DropdownMenuItem>}
             {!isDm && ch.joined && (<><DropdownMenuSeparator /><DropdownMenuItem onClick={() => leave.mutate()}><LogOut className="mr-2 h-4 w-4" /> Leave channel</DropdownMenuItem></>)}
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
+      <BookmarksBar uid={uid} canEdit={canEditViews && ch.joined} onAdd={() => setAddingBookmark(true)} />
+      {addingBookmark && <BookmarkDialog uid={uid} onClose={() => setAddingBookmark(false)} />}
       {(views.length > 0 || (canEditViews && ch.joined)) && <ChannelViewTabs uid={uid} views={views} active={activeView?.id ?? null} canEdit={canEditViews && ch.joined} onSelect={(id) => setParam("tab", id ? String(id) : null)} />}
 
       {activeView ? (

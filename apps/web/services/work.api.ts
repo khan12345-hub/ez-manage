@@ -392,6 +392,7 @@ export interface ChatScheduled {
   channel: { uid: string; kind: "channel" | "dm" | "group"; name: string | null; isPrivate: boolean; people: WorkUser[] };
 }
 export interface ChannelFileItem extends ChatFile { kind: "images" | "docs" | "media" | "other"; messageId: number; parentId: number | null; createdAt: string; user: WorkUser }
+export interface ChannelBookmark { id: number; title: string; url: string; position: number; createdAt: string; createdBy: WorkUser | null }
 export type ChannelViewKind = "list" | "board" | "doc";
 export interface ChannelViewTab {
   id: number; kind: ChannelViewKind; name: string; position: number;
@@ -453,6 +454,11 @@ export const workApi = {
   sendScheduledChat: (id: number) => post(`/work/chat/scheduled/${id}/send`),
   channelFiles: (uid: string, o: { type?: string; q?: string; cursor?: string }) =>
     get<{ items: ChannelFileItem[]; hasMore: boolean; nextCursor: string | null }>(`/work/chat/channels/${uid}/files?${new URLSearchParams(Object.entries(o).filter(([, v]) => !!v) as [string, string][])}`),
+  channelBookmarks: (uid: string) => get<ChannelBookmark[]>(`/work/chat/channels/${uid}/bookmarks`),
+  addBookmark: (uid: string, body: { url: string; title?: string }) => post<ChannelBookmark>(`/work/chat/channels/${uid}/bookmarks`, body),
+  updateBookmark: (id: number, body: { url?: string; title?: string }) => patch<ChannelBookmark>(`/work/chat/bookmarks/${id}`, body),
+  deleteBookmark: (id: number) => del(`/work/chat/bookmarks/${id}`),
+  reorderBookmarks: (uid: string, ids: number[]) => put<ChannelBookmark[]>(`/work/chat/channels/${uid}/bookmarks/order`, { ids }),
   channelViews: (uid: string) => get<ChannelViewTab[]>(`/work/chat/channels/${uid}/views`),
   addChannelView: (uid: string, body: { kind: ChannelViewKind; name?: string; listId?: number }) => post<ChannelViewTab>(`/work/chat/channels/${uid}/views`, body),
   updateChannelView: (id: number, body: { name?: string; content?: string }) => patch<ChannelViewTab>(`/work/chat/views/${id}`, body),

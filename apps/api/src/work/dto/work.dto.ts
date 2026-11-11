@@ -154,6 +154,14 @@ export class ChatSectionDto {
 export class ChatSectionOrderDto {
   @IsArray() @ArrayMaxSize(30) @IsInt({ each: true }) ids!: number[];
 }
+export class BookmarkDto {
+  @IsString() @MaxLength(2000) url!: string;
+  @IsOptional() @IsString() @MaxLength(80) title?: string;
+}
+export class UpdateBookmarkDto {
+  @IsOptional() @IsString() @MaxLength(2000) url?: string;
+  @IsOptional() @IsString() @MaxLength(80) title?: string;
+}
 export class ScheduleChatDto {
   @IsOptional() @IsString() @MaxLength(20000) content?: string;
   @IsOptional() @IsInt() parentId?: number;
