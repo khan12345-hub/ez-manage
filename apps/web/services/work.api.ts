@@ -380,6 +380,12 @@ export interface ChatMessage {
 export type ChatPermission = "full" | "edit" | "comment" | "view";
 export type ChatNotify = "all" | "mentions" | "none";
 export type ChatSection = { id: number; name: string; position: number };
+export type ChannelViewKind = "list" | "board" | "doc";
+export interface ChannelViewTab {
+  id: number; kind: ChannelViewKind; name: string; position: number;
+  list: { id: number; uid: string; name: string } | null; locked: boolean;
+  content?: string; updatedAt: string; updatedBy: WorkUser | null;
+}
 export interface ChatChannelRow {
   id: number; uid: string; kind: "channel" | "dm" | "group"; name: string | null; description: string | null; topic: string | null; isPrivate: boolean;
   locationType: string | null; locationId: number | null; lastMessageAt: string | null; joined: boolean; muted: boolean; starred: boolean;
@@ -426,6 +432,11 @@ export const workApi = {
   deleteChatSection: (id: number) => del(`/work/chat/sections/${id}`),
   reorderChatSections: (ws: string, ids: number[]) => put<ChatSection[]>(`/work/workspaces/${ws}/chat/sections/order`, { ids }),
   moveChannelToSection: (uid: string, sectionId: number | null) => put(`/work/chat/channels/${uid}/section`, { sectionId }),
+  channelViews: (uid: string) => get<ChannelViewTab[]>(`/work/chat/channels/${uid}/views`),
+  addChannelView: (uid: string, body: { kind: ChannelViewKind; name?: string; listId?: number }) => post<ChannelViewTab>(`/work/chat/channels/${uid}/views`, body),
+  updateChannelView: (id: number, body: { name?: string; content?: string }) => patch<ChannelViewTab>(`/work/chat/views/${id}`, body),
+  deleteChannelView: (id: number) => del(`/work/chat/views/${id}`),
+  reorderChannelViews: (uid: string, ids: number[]) => put<ChannelViewTab[]>(`/work/chat/channels/${uid}/views/order`, { ids }),
   readChannel: (uid: string) => post(`/work/chat/channels/${uid}/read`),
   chatTyping: (uid: string) => post(`/work/chat/channels/${uid}/typing`),
   chatDraft: (uid: string, content: string, parentId?: number) => put(`/work/chat/channels/${uid}/draft`, { content, ...(parentId ? { parentId } : {}) }),

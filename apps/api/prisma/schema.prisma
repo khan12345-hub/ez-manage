@@ -137,6 +137,7 @@ model User {
   workChatReactions     WorkChatReaction[]     @relation("WorkChatReactionUser")
   workChatDrafts        WorkChatDraft[]        @relation("WorkChatDraftUser")
   workChatSections      WorkChatSection[]      @relation("WorkChatSectionUser")
+  workChannelViewsBy    WorkChannelView[]      @relation("WorkChannelViewUpdatedBy")
   workChatSaved         WorkChatSaved[]        @relation("WorkChatSavedUser")
   workTeamMemberships   WorkTeamMember[]       @relation("WorkTeamMemberUser")
   workPriorities        WorkProfilePriority[]  @relation("WorkPriorityUser")
@@ -1517,12 +1518,13 @@ model WorkList {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  space      Space          @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  folder     WorkFolder?    @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  createdBy  User           @relation("WorkListCreator", fields: [createdById], references: [id])
-  tasks      WorkTask[]
-  extraTasks WorkTaskList[]
-  statuses   WorkStatus[]
+  space        Space             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  folder       WorkFolder?       @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdBy    User              @relation("WorkListCreator", fields: [createdById], references: [id])
+  tasks        WorkTask[]
+  extraTasks   WorkTaskList[]
+  channelViews WorkChannelView[]
+  statuses     WorkStatus[]
 
   @@index([spaceId])
   @@index([folderId])
@@ -2178,6 +2180,7 @@ model WorkChannel {
   members   WorkChannelMember[]
   messages  WorkChatMessage[]
   drafts    WorkChatDraft[]
+  views     WorkChannelView[]
 
   @@index([workspaceId, kind])
   @@map("work_channels")
@@ -2266,6 +2269,29 @@ model WorkChatReaction {
 
   @@id([messageId, userId, emoji])
   @@map("work_chat_reactions")
+}
+
+/// a tab next to Chat in a channel / DM: a Work list (as List or Board) or a doc (ClickUp "Channel Views")
+model WorkChannelView {
+  id          Int      @id @default(autoincrement())
+  channelId   Int
+  /// list | board | doc
+  kind        String
+  name        String
+  listId      Int?
+  /// doc body (markdown)
+  content     String   @default("")
+  position    Int      @default(0)
+  updatedById Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  channel   WorkChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  list      WorkList?   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  updatedBy User?       @relation("WorkChannelViewUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([channelId])
+  @@map("work_channel_views")
 }
 
 /// a person's own chat sidebar section (ClickUp "Create section")

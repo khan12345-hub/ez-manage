@@ -275,6 +275,89 @@ export class WorkChatService {
     return { ok: true };
   }
 
+  // ---------- Channel Views: List / Board / Doc tabs next to Chat ----------
+
+  private async viewRows(channelId: number, userId: number) {
+    const rows = await this.prisma.workChannelView.findMany({
+      where: { channelId }, orderBy: [{ position: 'asc' }, { id: 'asc' }],
+      select: { id: true, kind: true, name: true, content: true, position: true, listId: true, updatedAt: true, updatedBy: { select: USER_MINI }, list: { select: { id: true, uid: true, name: true, archivedAt: true } } },
+    });
+    const out: any[] = [];
+    for (const v of rows) {
+      let list: { id: number; uid: string; name: string } | null = null;
+      let locked = false;
+      if (v.kind !== 'doc') {
+        // the list keeps its own permissions: people without access only see a locked tab
+        try { if (v.list && !v.list.archivedAt) { await this.access.requireList(v.list.id, userId, 'view'); list = { id: v.list.id, uid: v.list.uid, name: v.list.name }; } else locked = true; } catch { locked = true; }
+      }
+      out.push({ id: v.id, kind: v.kind, name: v.name, position: v.position, list, locked, content: v.kind === 'doc' ? v.content : undefined, updatedAt: v.updatedAt, updatedBy: v.updatedBy });
+    }
+    return out;
+  }
+
+  async views(channelUid: string, userId: number) {
+    const { ch } = await this.channel(channelUid, userId);
+    return this.viewRows(ch.id, userId);
+  }
+
+  async addView(channelUid: string, userId: number, dto: { kind: string; name?: string; listId?: number }) {
+    const { ch } = await this.channel(channelUid, userId, 'pin');
+    if (!['list', 'board', 'doc'].includes(dto.kind)) throw new BadRequestException('Pick List, Board or Doc.');
+    if ((await this.prisma.workChannelView.count({ where: { channelId: ch.id } })) >= 20) throw new BadRequestException('A channel can have up to 20 views.');
+    let name = (dto.name ?? '').trim();
+    let listId: number | null = null;
+    if (dto.kind !== 'doc') {
+      if (!dto.listId) throw new BadRequestException('Pick a list.');
+      await this.access.requireList(dto.listId, userId, 'view');
+      const l = await this.prisma.workList.findUniqueOrThrow({ where: { id: dto.listId }, select: { id: true, name: true, space: { select: { workspaceId: true } } } });
+      if (l.space.workspaceId !== ch.workspaceId) throw new BadRequestException('Pick a list in this workspace.');
+      listId = l.id;
+      name ||= l.name;
+    }
+    name ||= 'Doc';
+    if (name.length > 60) throw new BadRequestException('Keep the view name under 60 characters.');
+    const last = await this.prisma.workChannelView.findFirst({ where: { channelId: ch.id }, orderBy: { position: 'desc' }, select: { position: true } });
+    const v = await this.prisma.workChannelView.create({ data: { channelId: ch.id, kind: dto.kind, name, listId, position: (last?.position ?? -1) + 1, updatedById: userId } });
+    this.push(await this.audience(ch), 'views', { channelUid: ch.uid });
+    return (await this.viewRows(ch.id, userId)).find((x) => x.id === v.id);
+  }
+
+  private async viewFor(id: number, userId: number) {
+    const v = await this.prisma.workChannelView.findUnique({ where: { id }, select: { id: true, kind: true, channel: { select: { uid: true } } } });
+    if (!v) throw new NotFoundException('View not found.');
+    // 404 for people who can't see the channel, 403 for those who can but lack Edit access
+    const { ch } = await this.channel(v.channel.uid, userId, 'pin');
+    return { v, ch };
+  }
+
+  async updateView(id: number, userId: number, dto: { name?: string; content?: string }) {
+    const { v, ch } = await this.viewFor(id, userId);
+    const name = dto.name?.trim();
+    if (dto.name !== undefined && (!name || name.length > 60)) throw new BadRequestException('Name the view (up to 60 characters).');
+    if (dto.content !== undefined && v.kind !== 'doc') throw new BadRequestException('Only docs have content.');
+    if ((dto.content?.length ?? 0) > 100_000) throw new BadRequestException('The doc is too long.');
+    await this.prisma.workChannelView.update({ where: { id }, data: { ...(name && { name }), ...(dto.content !== undefined && { content: dto.content }), updatedById: userId } });
+    this.push(await this.audience(ch), 'views', { channelUid: ch.uid, viewId: id });
+    return (await this.viewRows(ch.id, userId)).find((x) => x.id === id);
+  }
+
+  async deleteView(id: number, userId: number) {
+    const { ch } = await this.viewFor(id, userId);
+    await this.prisma.workChannelView.delete({ where: { id } });
+    this.push(await this.audience(ch), 'views', { channelUid: ch.uid });
+    return { ok: true };
+  }
+
+  async reorderViews(channelUid: string, userId: number, ids: number[]) {
+    const { ch } = await this.channel(channelUid, userId, 'pin');
+    const have = new Set((await this.prisma.workChannelView.findMany({ where: { channelId: ch.id }, select: { id: true } })).map((x) => x.id));
+    const order = [...new Set(ids)];
+    if (order.length !== have.size || order.some((i) => !have.has(i))) throw new BadRequestException('Send every view of this channel, once.');
+    await this.prisma.$transaction(order.map((vid, position) => this.prisma.workChannelView.update({ where: { id: vid }, data: { position } })));
+    this.push(await this.audience(ch), 'views', { channelUid: ch.uid });
+    return this.viewRows(ch.id, userId);
+  }
+
   // ---------- the person's own sidebar sections ----------
 
   async sections(workspaceId: number, userId: number) {
@@ -504,9 +587,12 @@ export class WorkChatService {
     const who = `${f.user.firstName} ${f.user.lastName}`.trim();
     const link = `${process.env.FRONTEND_URL ?? ''}${await this.msgUrl(ch.workspaceId, ch.uid, m)}`;
     const name = (dto.name?.trim() || f.title || f.content.split('\n')[0] || 'Task from chat').slice(0, 200);
+    // check the list's workspace before creating anything
+    const target = await this.prisma.workList.findFirst({ where: { id: dto.listId, archivedAt: null }, select: { space: { select: { workspaceId: true } } } });
+    if (!target) throw new NotFoundException('List not found.');
+    if (target.space.workspaceId !== ch.workspaceId) throw new BadRequestException('Pick a list in this workspace.');
     const task = await this.work.createTask(dto.listId, userId, { name, description: `${f.content}\n\n— From a chat message by ${who}: ${link}` } as any);
-    const t = await this.prisma.workTask.findUniqueOrThrow({ where: { id: (task as any).id }, select: { id: true, uid: true, name: true, list: { select: { uid: true, space: { select: { workspaceId: true } } } } } });
-    if (t.list.space.workspaceId !== ch.workspaceId) throw new BadRequestException('Pick a list in this workspace.');
+    const t = await this.prisma.workTask.findUniqueOrThrow({ where: { id: (task as any).id }, select: { id: true, uid: true, name: true, list: { select: { uid: true } } } });
     await this.prisma.workChatMessage.update({ where: { id: messageId }, data: { taskId: t.id } });
     await this.updated(ch, messageId, userId);
     return { uid: t.uid, name: t.name, listUid: t.list.uid };

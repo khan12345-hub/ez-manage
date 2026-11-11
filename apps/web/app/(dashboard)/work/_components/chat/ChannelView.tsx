@@ -14,6 +14,7 @@ import { OnlineDot, useDirectory, useProfilePanel } from "../people";
 import { ChatComposer } from "./ChatComposer";
 import { useShareChannel } from "./ShareChannel";
 import { MessageList, MessageRow } from "./ChatMessages";
+import { ChannelViewPanel, ChannelViewTabs, channelViewsKey, useChannelViews } from "./ChannelViews";
 import { channelKey, chatSidebarKey, messagesKey, threadKey, useChannelMessages, useChatEvents, useWs } from "./useChat";
 
 type Panel = "members" | "search" | "threads" | "pinned" | "settings" | null;
@@ -37,6 +38,9 @@ export function ChannelView({ uid }: { uid: string }) {
   const [typing, setTyping] = useState<Record<number, { name: string; at: number }>>({});
   const { data: ch, isError } = useQuery({ queryKey: channelKey(uid), queryFn: () => workApi.channel(uid), retry: false });
   const { data: page } = useChannelMessages(uid);
+  const { data: views = [] } = useChannelViews(uid);
+  const tabId = Number(sp.get("tab")) || null;
+  const activeView = views.find((v) => v.id === tabId) ?? null;
   const { data: dir } = useDirectory();
   const { data: drafts = [] } = useQuery({ queryKey: ["work", "chat-drafts", ws], queryFn: () => workApi.chatDrafts(ws), staleTime: 30_000 });
   const [older, setOlder] = useState<ChatMessage[]>([]);
@@ -56,6 +60,7 @@ export function ChannelView({ uid }: { uid: string }) {
 
   useChatEvents((e) => {
     if (e.channelUid !== uid) return;
+    if (e.type === "views") { qc.invalidateQueries({ queryKey: channelViewsKey(uid) }); return; }
     if (e.type === "typing" && e.userId) setTyping((t) => ({ ...t, [e.userId!]: { name: e.name ?? "", at: Date.now() } }));
     if (e.type === "message" && e.message?.user?.id) setTyping((t) => { const n = { ...t }; delete n[e.message.user.id]; return n; });
     if (e.type === "channel") {
@@ -89,6 +94,7 @@ export function ChannelView({ uid }: { uid: string }) {
   if (!ch) return <div className="p-8"><div className="h-24 animate-pulse rounded-xl bg-muted" /></div>;
 
   const isDm = ch.kind !== "channel";
+  const canEditViews = ch.canManage || ["full", "edit"].includes(ch.myPermission ?? "");
   const title = channelTitle(ch, others);
   const typers = Object.values(typing).map((t) => t.name).filter(Boolean);
   const railBtn = (id: Exclude<Panel, null>, label: string, Icon: typeof Users, badge?: number) => (
@@ -136,7 +142,11 @@ export function ChannelView({ uid }: { uid: string }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
+      {(views.length > 0 || (canEditViews && ch.joined)) && <ChannelViewTabs uid={uid} views={views} active={activeView?.id ?? null} canEdit={canEditViews && ch.joined} onSelect={(id) => setParam("tab", id ? String(id) : null)} />}
 
+      {activeView ? (
+        <div className="flex min-h-0 flex-1 flex-col"><ChannelViewPanel uid={uid} view={activeView} canEdit={canEditViews && ch.joined} members={members} /></div>
+      ) : (
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <MessageList
@@ -182,6 +192,7 @@ export function ChannelView({ uid }: { uid: string }) {
           {!isDm && railBtn("settings", "Channel settings", Settings2)}
         </nav>
       </div>
+      )}
     </div>
   );
 }

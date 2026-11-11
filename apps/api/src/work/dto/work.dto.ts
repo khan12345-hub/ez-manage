@@ -154,6 +154,15 @@ export class ChatSectionDto {
 export class ChatSectionOrderDto {
   @IsArray() @ArrayMaxSize(30) @IsInt({ each: true }) ids!: number[];
 }
+export class ChannelViewDto {
+  @IsIn(['list', 'board', 'doc']) kind!: string;
+  @IsOptional() @IsString() @MaxLength(60) name?: string;
+  @IsOptional() @IsInt() listId?: number;
+}
+export class UpdateChannelViewDto {
+  @IsOptional() @IsString() @MaxLength(60) name?: string;
+  @IsOptional() @IsString() @MaxLength(100000) content?: string;
+}
 export class ChannelSectionDto {
   @IsOptional() @IsInt() sectionId?: number | null;
 }

@@ -12,7 +12,7 @@ import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { WorkProfileService } from './work-profile.service';
 import { WorkAutomationsService } from './work-automations.service';
 import { WorkChatService } from './work-chat.service';
-import { ChatToTaskDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatSectionDto, ChatSectionOrderDto, ChannelSectionDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { ChatToTaskDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatSectionDto, ChatSectionOrderDto, ChannelSectionDto, ChannelViewDto, UpdateChannelViewDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -491,6 +491,31 @@ export class WorkController {
   @Delete('chat/sections/:id')
   deleteChatSection(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
     return this.chat.deleteSection(id, u.id);
+  }
+
+  @Get('chat/channels/:uid/views')
+  channelViews(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.views(uid, u.id);
+  }
+
+  @Post('chat/channels/:uid/views')
+  addChannelView(@Param('uid') uid: string, @Body() dto: ChannelViewDto, @CurrentUser() u: SessionUser) {
+    return this.chat.addView(uid, u.id, dto);
+  }
+
+  @Put('chat/channels/:uid/views/order')
+  reorderChannelViews(@Param('uid') uid: string, @Body() dto: ChatSectionOrderDto, @CurrentUser() u: SessionUser) {
+    return this.chat.reorderViews(uid, u.id, dto.ids);
+  }
+
+  @Patch('chat/views/:id')
+  updateChannelView(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateChannelViewDto, @CurrentUser() u: SessionUser) {
+    return this.chat.updateView(id, u.id, dto);
+  }
+
+  @Delete('chat/views/:id')
+  deleteChannelView(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.chat.deleteView(id, u.id);
   }
 
   @Put('chat/channels/:uid/section')
