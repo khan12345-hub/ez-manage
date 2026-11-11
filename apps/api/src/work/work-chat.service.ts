@@ -484,6 +484,22 @@ export class WorkChatService {
     if (!ch.locationType || !ch.locationId) throw new BadRequestException('This channel is not attached to a Space, Folder or List.');
     const loc = await this.location(ch.workspaceId, userId, ch.locationType, ch.locationId);
     if (!loc) throw new ForbiddenException("You don't have access to this channel's location.");
+    return this.tasksIn(loc, o);
+  }
+
+  /** the same, for a Space / Folder / List page (no channel needed) */
+  async locationTasksByRef(workspaceId: number, userId: number, type: string, locUid: string, o: { from?: string; to?: string }) {
+    await this.access.requireWorkspace(workspaceId, userId, 'view');
+    if (!['space', 'folder', 'list'].includes(type)) throw new BadRequestException('Unknown location.');
+    const row = type === 'space' ? await this.prisma.space.findFirst({ where: { uid: locUid, workspaceId }, select: { id: true } })
+      : type === 'folder' ? await this.prisma.workFolder.findFirst({ where: { uid: locUid, space: { workspaceId } }, select: { id: true } })
+      : await this.prisma.workList.findFirst({ where: { uid: locUid, space: { workspaceId } }, select: { id: true } });
+    const loc = row ? await this.location(workspaceId, userId, type, row.id) : null;
+    if (!loc) throw new NotFoundException('Not found.');
+    return this.tasksIn(loc, o);
+  }
+
+  private async tasksIn(loc: NonNullable<Awaited<ReturnType<WorkChatService['location']>>>, o: { from?: string; to?: string }) {
     const from = o.from ? new Date(o.from) : null;
     const to = o.to ? new Date(o.to) : null;
     const window = from && to && !isNaN(+from) && !isNaN(+to) && +to > +from && +to - +from <= 62 * 86_400_000;

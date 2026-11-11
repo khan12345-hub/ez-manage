@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Archive, Bell, Bookmark, CalendarDays, Columns3, List, ListChecks, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, Bell, Bookmark, CalendarDays, Columns3, LayoutGrid, List, ListChecks, UsersRound, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -19,7 +19,7 @@ import { ScheduledBanner } from "./Scheduled";
 import { FilesPanel } from "./ChatFiles";
 import { BookmarkDialog, BookmarksBar } from "./Bookmarks";
 import { DmCalendar, DmTasks } from "./DmTabs";
-import { LocIcon, LocationBoard, LocationCalendar, LocationList, locationHref } from "./LocationChannel";
+import { LocIcon, LocationBoard, LocationCalendar, LocationList, LocationOverview, LocationTeam, locationHref } from "./LocationChannel";
 import { ChannelViewPanel, ChannelViewTabs, channelViewsKey, useChannelViews } from "./ChannelViews";
 import { channelKey, chatSidebarKey, messagesKey, threadKey, useChannelMessages, useChatEvents, useWs } from "./useChat";
 
@@ -29,7 +29,9 @@ export function channelTitle(c: { kind: string; name: string | null }, people: W
   return c.kind === "channel" ? c.name ?? "channel" : people.map((p) => userName(p)).join(", ") || "Just you";
 }
 
-export function ChannelView({ uid }: { uid: string }) {
+/** `embedded`: shown inside a Space / Folder page, which owns the "tab" URL parameter and its own task tabs */
+export function ChannelView({ uid, embedded = false }: { uid: string; embedded?: boolean }) {
+  const tabParam = embedded ? "ctab" : "tab";
   const ws = useWs();
   const qc = useQueryClient();
   const router = useRouter();
@@ -46,9 +48,9 @@ export function ChannelView({ uid }: { uid: string }) {
   const { data: ch, isError } = useQuery({ queryKey: channelKey(uid), queryFn: () => workApi.channel(uid), retry: false });
   const { data: page } = useChannelMessages(uid);
   const { data: views = [] } = useChannelViews(uid);
-  const tabId = Number(sp.get("tab")) || null;
+  const tabId = Number(sp.get(tabParam)) || null;
   const activeView = views.find((v) => v.id === tabId) ?? null;
-  const rawTab = sp.get("tab");
+  const rawTab = sp.get(tabParam);
   const { data: dir } = useDirectory();
   const { data: drafts = [] } = useQuery({ queryKey: ["work", "chat-drafts", ws], queryFn: () => workApi.chatDrafts(ws), staleTime: 30_000 });
   const [older, setOlder] = useState<ChatMessage[]>([]);
@@ -104,11 +106,11 @@ export function ChannelView({ uid }: { uid: string }) {
   const isDm = ch.kind !== "channel";
   const canEditViews = ch.canManage || ["full", "edit"].includes(ch.myPermission ?? "");
   const dmTab = isDm && (rawTab === "tasks" || rawTab === "calendar") ? rawTab : null;
-  const loc = ch.location && !ch.location.locked ? ch.location : null;
-  const locTab = loc && (rawTab === "list" || rawTab === "board" || rawTab === "calendar") ? rawTab : null;
+  const loc = !embedded && ch.location && !ch.location.locked ? ch.location : null;
+  const locTab = loc && (["overview", "list", "board", "calendar", "team"] as const).find((x) => x === rawTab) || null;
   const builtins = isDm
     ? [{ id: "tasks", label: "Tasks", icon: ListChecks }, { id: "calendar", label: "Calendar", icon: CalendarDays }]
-    : loc ? [{ id: "list", label: "List", icon: List }, { id: "board", label: "Board", icon: Columns3 }, { id: "calendar", label: "Calendar", icon: CalendarDays }] : [];
+    : loc ? [{ id: "overview", label: "Overview", icon: LayoutGrid }, { id: "list", label: "List", icon: List }, { id: "board", label: "Board", icon: Columns3 }, { id: "calendar", label: "Calendar", icon: CalendarDays }, { id: "team", label: "Team", icon: UsersRound }] : [];
   const title = channelTitle(ch, others);
   const typers = Object.values(typing).map((t) => t.name).filter(Boolean);
   const railBtn = (id: Exclude<Panel, null>, label: string, Icon: typeof Users, badge?: number) => (
@@ -166,10 +168,10 @@ export function ChannelView({ uid }: { uid: string }) {
       </header>
       <BookmarksBar uid={uid} canEdit={canEditViews && ch.joined} onAdd={() => setAddingBookmark(true)} />
       {addingBookmark && <BookmarkDialog uid={uid} onClose={() => setAddingBookmark(false)} />}
-      {(builtins.length > 0 || views.length > 0 || (canEditViews && ch.joined)) && <ChannelViewTabs uid={uid} views={views} active={dmTab ?? locTab ?? activeView?.id ?? null} canEdit={canEditViews && ch.joined} onSelect={(id) => setParam("tab", id ? String(id) : null)} builtins={builtins} />}
+      {(builtins.length > 0 || views.length > 0 || (canEditViews && ch.joined)) && <ChannelViewTabs uid={uid} views={views} active={dmTab ?? locTab ?? activeView?.id ?? null} canEdit={canEditViews && ch.joined} onSelect={(id) => setParam(tabParam, id ? String(id) : null)} builtins={builtins} />}
 
       {locTab ? (
-        <div className="flex min-h-0 flex-1 flex-col">{locTab === "list" ? <LocationList uid={uid} /> : locTab === "board" ? <LocationBoard uid={uid} /> : <LocationCalendar uid={uid} />}</div>
+        <div className="flex min-h-0 flex-1 flex-col">{locTab === "overview" ? <LocationOverview src={{ channelUid: uid }} /> : locTab === "list" ? <LocationList src={{ channelUid: uid }} /> : locTab === "board" ? <LocationBoard src={{ channelUid: uid }} /> : locTab === "team" ? <LocationTeam src={{ channelUid: uid }} /> : <LocationCalendar src={{ channelUid: uid }} />}</div>
       ) : dmTab ? (
         <div className="flex min-h-0 flex-1 flex-col">{dmTab === "tasks" ? <DmTasks uid={uid} others={others} /> : <DmCalendar uid={uid} others={others} />}</div>
       ) : activeView ? (

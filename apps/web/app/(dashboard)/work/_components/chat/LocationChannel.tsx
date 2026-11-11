@@ -12,6 +12,8 @@ import { SpaceIcon } from "../SpaceIcon";
 import { TaskDrawer } from "../TaskDrawer";
 import { TaskMonthCalendar } from "./DmTabs";
 import { CreateChannelDialog } from "./ChatSidebar";
+import { ChannelView } from "./ChannelView";
+import { useProfilePanel } from "../people";
 import { useWs } from "./useChat";
 
 export type PickedLocation = { type: ChatLocationType; id: number; label: string };
@@ -70,7 +72,19 @@ export function LocIcon({ type, className = "h-3.5 w-3.5 text-muted-foreground" 
 
 export const locationHref = (ws: string, loc: { type: ChatLocationType; uid: string }) => `/work/${ws}/${loc.type}/${loc.uid}`;
 
-const useLocationTasks = (uid: string) => useQuery({ queryKey: ["work", "loc-tasks", uid], queryFn: () => workApi.locationTasks(uid) });
+/** where location tasks come from: a channel attached to a location, or the Space / Folder / List itself */
+export type LocSrc = { channelUid: string } | { type: ChatLocationType; uid: string };
+const srcKey = (s: LocSrc) => ("channelUid" in s ? `ch:${s.channelUid}` : `${s.type}:${s.uid}`);
+function useLocationTasks(src: LocSrc) {
+  const ws = useWs();
+  return useQuery({
+    queryKey: ["work", "loc-tasks", srcKey(src)],
+    queryFn: () => ("channelUid" in src ? workApi.locationTasks(src.channelUid) : workApi.locationTasksByRef(ws, src.type, src.uid)),
+    enabled: "channelUid" in src || !!ws,
+  });
+}
+const loadWindow = (ws: string, src: LocSrc, from: string, to: string) =>
+  ("channelUid" in src ? workApi.locationTasks(src.channelUid, { from, to }) : workApi.locationTasksByRef(ws, src.type, src.uid, { from, to })).then((r) => r.tasks);
 
 function Due({ t }: { t: LocationTask }) {
   if (!t.dueDate) return <span className="text-muted-foreground">—</span>;
@@ -80,9 +94,9 @@ function Due({ t }: { t: LocationTask }) {
 }
 
 /** channel tab "List": every list of the location, each with its tasks grouped by status */
-export function LocationList({ uid }: { uid: string }) {
+export function LocationList({ src }: { src: LocSrc }) {
   const ws = useWs();
-  const { data, isLoading, isError } = useLocationTasks(uid);
+  const { data, isLoading, isError } = useLocationTasks(src);
   const [open, setOpen] = useState<string | null>(null);
   if (isError) return <p className="p-10 text-center text-[13px] text-muted-foreground">You don&apos;t have access to this channel&apos;s location.</p>;
   if (isLoading || !data) return <div className="p-6"><div className="h-40 animate-pulse rounded-xl bg-muted" /></div>;
@@ -144,8 +158,8 @@ function statusGroups(tasks: LocationTask[], own: St[]) {
 }
 
 /** channel tab "Board": tasks of every list as columns by status */
-export function LocationBoard({ uid }: { uid: string }) {
-  const { data, isLoading, isError } = useLocationTasks(uid);
+export function LocationBoard({ src }: { src: LocSrc }) {
+  const { data, isLoading, isError } = useLocationTasks(src);
   const [open, setOpen] = useState<string | null>(null);
   const columns = useMemo(() => {
     if (!data) return [];
@@ -182,8 +196,138 @@ export function LocationBoard({ uid }: { uid: string }) {
 }
 
 /** channel tab "Calendar" for the location */
-export function LocationCalendar({ uid }: { uid: string }) {
-  return <TaskMonthCalendar queryKey={["work", "loc-cal", uid]} load={async (from, to) => (await workApi.locationTasks(uid, { from, to })).tasks} />;
+export function LocationCalendar({ src }: { src: LocSrc }) {
+  const ws = useWs();
+  return <TaskMonthCalendar queryKey={["work", "loc-cal", srcKey(src)]} load={(from, to) => loadWindow(ws, src, from, to)} />;
+}
+
+const DAY = 86_400_000;
+const isOverdue = (t: LocationTask) => !!t.dueDate && !t.completedAt && new Date(t.dueDate) < new Date(new Date().setHours(0, 0, 0, 0));
+const isActive = (t: LocationTask) => !t.completedAt && (t.status?.category ?? "").toUpperCase() === "ACTIVE";
+const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
+function Bar({ value, className }: { value: number; className?: string }) {
+  return <span className={cn("block h-1.5 overflow-hidden rounded-full bg-muted", className)} role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}><span className="block h-full rounded-full bg-primary" style={{ width: `${value}%` }} /></span>;
+}
+function Stat({ label, value, tone }: { label: string; value: number | string; tone?: "bad" | "good" }) {
+  return (
+    <div className="rounded-xl border border-border bg-card px-4 py-3">
+      <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+      <p className={cn("mt-1 font-serif text-[28px] leading-none", tone === "bad" && "text-destructive", tone === "good" && "text-primary")}>{value}</p>
+    </div>
+  );
+}
+
+/** Overview: totals, progress per list, what is overdue */
+export function LocationOverview({ src }: { src: LocSrc }) {
+  const ws = useWs();
+  const { data, isLoading, isError } = useLocationTasks(src);
+  const [open, setOpen] = useState<string | null>(null);
+  if (isError) return <p className="p-10 text-center text-[13px] text-muted-foreground">You don&apos;t have access to this location.</p>;
+  if (isLoading || !data) return <div className="p-6"><div className="h-40 animate-pulse rounded-xl bg-muted" /></div>;
+  const t = data.tasks;
+  const done = t.filter((x) => x.completedAt).length;
+  const weekAgo = Date.now() - 7 * DAY;
+  const overdue = t.filter(isOverdue).sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
+  return (
+    <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <Stat label="Open" value={t.length - done} />
+        <Stat label="In progress" value={t.filter(isActive).length} />
+        <Stat label="Overdue" value={overdue.length} tone={overdue.length ? "bad" : undefined} />
+        <Stat label="Done · 7 days" value={t.filter((x) => x.completedAt && +new Date(x.completedAt) >= weekAgo).length} tone="good" />
+        <Stat label="Progress" value={`${pct(done, t.length)}%`} />
+      </div>
+      <section aria-label="Progress by list" className="mt-4 rounded-xl border border-border bg-card">
+        <h3 className="border-b border-border px-4 py-2.5 text-[13px] font-semibold">Progress by list</h3>
+        <ul className="divide-y divide-border">
+          {data.lists.map((l) => {
+            const lt = t.filter((x) => x.listId === l.id);
+            const ld = lt.filter((x) => x.completedAt).length;
+            const lo = lt.filter(isOverdue).length;
+            return (
+              <li key={l.id} className="flex items-center gap-4 px-4 py-2.5">
+                <Link href={`/work/${ws}/list/${l.uid}`} className="w-48 shrink-0 truncate text-[13px] font-medium hover:underline">{l.name}</Link>
+                <Bar value={pct(ld, lt.length)} className="flex-1" />
+                <span className="w-12 text-right font-mono text-[12px]">{pct(ld, lt.length)}%</span>
+                <span className="w-28 text-right font-mono text-[11.5px] text-muted-foreground">{ld}/{lt.length} done</span>
+                <span className={cn("w-20 text-right font-mono text-[11.5px]", lo ? "text-destructive" : "text-muted-foreground")}>{lo} overdue</span>
+              </li>
+            );
+          })}
+          {!data.lists.length && <li className="px-4 py-3 text-[12.5px] text-muted-foreground">No lists here yet.</li>}
+        </ul>
+      </section>
+      <section aria-label="Overdue" className="mt-4 rounded-xl border border-border bg-card">
+        <h3 className="border-b border-border px-4 py-2.5 text-[13px] font-semibold">Overdue <span className="font-mono font-normal text-muted-foreground">{overdue.length}</span></h3>
+        {!overdue.length ? <p className="px-4 py-3 text-[12.5px] text-muted-foreground">Nothing overdue. 👏</p> : (
+          <ul className="divide-y divide-border">
+            {overdue.slice(0, 12).map((x) => (
+              <li key={x.id}><button type="button" onClick={() => setOpen(x.uid)} className="flex w-full items-center gap-3 px-4 py-2 text-left text-[13px] hover:bg-accent/40"><span className="min-w-0 flex-1 truncate">{x.name}</span><span className="truncate text-[11.5px] text-muted-foreground">{x.list.name}</span><span className="flex -space-x-1.5">{x.assignees.slice(0, 3).map((a) => <Avatar key={a.id} user={a} size={20} />)}</span><span className="w-16 text-right font-mono text-[11.5px] font-semibold text-destructive">{new Date(x.dueDate!).toLocaleDateString([], { month: "short", day: "numeric" })}</span></button></li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <TaskDrawer taskUid={open} onClose={() => setOpen(null)} onOpenTask={setOpen} />
+    </div>
+  );
+}
+
+/** Team: who works here and how far along they are */
+export function LocationTeam({ src }: { src: LocSrc }) {
+  const { data, isLoading, isError } = useLocationTasks(src);
+  const openProfile = useProfilePanel((s) => s.open);
+  const [open, setOpen] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const people = useMemo(() => {
+    if (!data) return [];
+    const m = new Map<number, { user: LocationTask["assignees"][number]; tasks: LocationTask[] }>();
+    for (const t of data.tasks) for (const a of t.assignees) {
+      if (!m.has(a.id)) m.set(a.id, { user: a, tasks: [] });
+      m.get(a.id)!.tasks.push(t);
+    }
+    const weekAgo = Date.now() - 7 * DAY;
+    return [...m.values()].map((p) => {
+      const done = p.tasks.filter((t) => t.completedAt);
+      return { ...p, open: p.tasks.length - done.length, active: p.tasks.filter(isActive), overdue: p.tasks.filter(isOverdue), doneWeek: done.filter((t) => +new Date(t.completedAt!) >= weekAgo).length, progress: pct(done.length, p.tasks.length) };
+    }).sort((a, b) => b.open - a.open);
+  }, [data]);
+  if (isError) return <p className="p-10 text-center text-[13px] text-muted-foreground">You don&apos;t have access to this location.</p>;
+  if (isLoading || !data) return <div className="p-6"><div className="h-40 animate-pulse rounded-xl bg-muted" /></div>;
+  const unassigned = data.tasks.filter((t) => !t.assignees.length && !t.completedAt).length;
+  return (
+    <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
+      <ul aria-label="Team" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {people.map((p) => (
+          <li key={p.user.id} className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-3">
+              <Avatar user={p.user} size={34} />
+              <button type="button" onClick={() => openProfile(p.user.id)} className="min-w-0 flex-1 text-left"><span className="block truncate text-[14px] font-semibold hover:underline">{p.user.firstName} {p.user.lastName}</span><span className="block text-[11.5px] text-muted-foreground">{p.tasks.length} {p.tasks.length === 1 ? "task" : "tasks"} here</span></button>
+              <span className="font-serif text-[22px]">{p.progress}%</span>
+            </div>
+            <Bar value={p.progress} className="mt-3" />
+            <dl className="mt-3 grid grid-cols-4 gap-1 text-center">
+              {([["Open", p.open, ""], ["Working on", p.active.length, ""], ["Overdue", p.overdue.length, p.overdue.length ? "text-destructive" : ""], ["Done 7d", p.doneWeek, "text-primary"]] as const).map(([l, v, c]) => (
+                <div key={l}><dt className="font-mono text-[9.5px] uppercase tracking-wide text-muted-foreground">{l}</dt><dd className={cn("text-[16px] font-semibold", c)}>{v}</dd></div>
+              ))}
+            </dl>
+            {(p.active.length > 0 || p.overdue.length > 0) && (
+              <button type="button" aria-expanded={expanded === p.user.id} onClick={() => setExpanded(expanded === p.user.id ? null : p.user.id)} className="mt-2 text-[12px] font-medium text-primary hover:underline">{expanded === p.user.id ? "Hide" : "Show"} what they&apos;re on</button>
+            )}
+            {expanded === p.user.id && (
+              <ul className="mt-1.5 space-y-0.5">
+                {[...p.overdue, ...p.active.filter((t) => !p.overdue.includes(t))].slice(0, 10).map((t) => (
+                  <li key={t.id}><button type="button" onClick={() => setOpen(t.uid)} className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[12.5px] hover:bg-accent"><span className="h-2 w-2 shrink-0 rounded-full" style={{ background: t.status?.color ?? "#8a8f98" }} /><span className="min-w-0 flex-1 truncate">{t.name}</span>{isOverdue(t) && <span className="font-mono text-[10.5px] font-semibold text-destructive">overdue</span>}</button></li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+      {!people.length && <p className="py-10 text-center text-[13px] text-muted-foreground">Nobody is assigned to tasks here yet.</p>}
+      {unassigned > 0 && <p className="mt-3 text-[12.5px] text-muted-foreground">{unassigned} open {unassigned === 1 ? "task has" : "tasks have"} nobody assigned.</p>}
+      <TaskDrawer taskUid={open} onClose={() => setOpen(null)} onOpenTask={setOpen} />
+    </div>
+  );
 }
 
 /** the "Channel" tab on a Space / Folder / List page */
@@ -192,25 +336,29 @@ export function LocationChannelTab({ type, uid, locationId, label }: { type: Cha
   const [creating, setCreating] = useState(false);
   const { data, isLoading } = useQuery({ queryKey: ["work", "loc-channels", type, uid], queryFn: () => workApi.locationChannels(ws, type, uid), enabled: !!ws });
   const chans = data?.channels ?? [];
+  const [picked, setPicked] = useState<string | null>(null);
+  const current = chans.find((c) => c.uid === picked) ?? chans[0];
+  if (current) {
+    return (
+      <div className="flex h-[calc(100vh-232px)] min-h-[520px] flex-col overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-3 py-1.5 text-[12px]">
+          {chans.length > 1 ? (
+            <div role="tablist" aria-label="Location channels" className="flex gap-1">
+              {chans.map((c) => <button key={c.uid} type="button" role="tab" aria-selected={c.uid === current.uid} onClick={() => setPicked(c.uid)} className={cn("flex items-center gap-1 rounded-md px-2 py-0.5", c.uid === current.uid ? "bg-card font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")}>{c.isPrivate ? <Lock className="h-3 w-3" /> : <Hash className="h-3 w-3" />}{c.name}</button>)}
+            </div>
+          ) : <span className="text-muted-foreground">Channel for this {type}</span>}
+          <span className="flex-1" />
+          <button type="button" onClick={() => setCreating(true)} className="flex items-center gap-1 rounded-md px-2 py-0.5 font-medium text-primary hover:bg-accent"><MessageSquarePlus className="h-3.5 w-3.5" /> New channel</button>
+          <Link href={`/work/${ws}/chat/${current.uid}`} className="flex items-center gap-1 rounded-md px-2 py-0.5 font-medium text-primary hover:bg-accent"><ExternalLink className="h-3.5 w-3.5" /> Open full page</Link>
+        </div>
+        <div className="min-h-0 flex-1"><ChannelView key={current.uid} uid={current.uid} embedded /></div>
+        {creating && <CreateChannelDialog onClose={() => setCreating(false)} initialLocation={{ type, id: locationId, label }} suggestedName={label} />}
+      </div>
+    );
+  }
   return (
     <div className="mx-auto max-w-[720px] py-6">
-      {isLoading ? <div className="h-24 animate-pulse rounded-xl bg-muted" /> : chans.length ? (
-        <>
-          <h2 className="mb-2 text-[13px] font-semibold text-muted-foreground">Channels for this {type}</h2>
-          <ul aria-label="Location channels" className="space-y-2">
-            {chans.map((c) => (
-              <li key={c.uid}>
-                <Link href={`/work/${ws}/chat/${c.uid}`} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:bg-accent/40">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">{c.isPrivate ? <Lock className="h-4 w-4" /> : <Hash className="h-4 w-4" />}</span>
-                  <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold">#{c.name}</span><span className="block text-[12px] text-muted-foreground">{c.memberCount} {c.memberCount === 1 ? "member" : "members"}{c.joined ? "" : " · not joined"}</span></span>
-                  <span className="text-[12.5px] font-medium text-primary">Open channel →</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <button type="button" onClick={() => setCreating(true)} className="mt-3 flex items-center gap-1.5 text-[12.5px] font-medium text-primary hover:underline"><MessageSquarePlus className="h-3.5 w-3.5" /> Create another channel here</button>
-        </>
-      ) : (
+      {isLoading ? <div className="h-24 animate-pulse rounded-xl bg-muted" /> : (
         <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10"><Hash className="h-6 w-6 text-primary" /></span>
           <h2 className="mt-3 text-[16px] font-semibold">Chat about {label}</h2>

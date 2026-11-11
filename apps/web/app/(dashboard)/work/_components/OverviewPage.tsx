@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart3, Bookmark as BookmarkIcon, Hash, ExternalLink, FileText, Folder, FolderPlus, LayoutGrid, List as ListIcon, ListPlus, Lock, Paperclip, Plus, Trash2 } from "lucide-react";
+import { BarChart3, Bookmark as BookmarkIcon, CalendarDays, Columns3, Hash, UsersRound, ExternalLink, FileText, Folder, FolderPlus, LayoutGrid, List as ListIcon, ListPlus, Lock, Paperclip, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { userName, workApi, workKeys, type WorkOverviewList } from "@/services/work.api";
 import { NameDialog } from "./NameDialog";
@@ -13,10 +13,11 @@ import { LocationDashboard, Panel } from "./Dashboard";
 import { TaskDrawer } from "./TaskDrawer";
 import { SpaceIcon } from "./SpaceIcon";
 import { AutomateButton } from "./Automations";
-import { LocationChannelTab } from "./chat/LocationChannel";
+import { LocationBoard, LocationCalendar, LocationChannelTab, LocationList, LocationTeam } from "./chat/LocationChannel";
 import { loadBookmarks, recentPlaces, saveBookmarks, trackPlace, type Bookmark, type RecentPlace } from "./recent";
 
-type Tab = "channel" | "overview" | "dashboard";
+type Tab = "channel" | "overview" | "list" | "board" | "calendar" | "team" | "dashboard";
+const TABS: Tab[] = ["channel", "overview", "list", "board", "calendar", "team", "dashboard"];
 
 /** Space / Folder page (ClickUp): Overview cards and a Dashboard tab. */
 export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "folder"; uid: string; workspaceId: string }) {
@@ -29,7 +30,7 @@ export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "fold
     queryKey: key,
     queryFn: () => (kind === "space" ? workApi.spaceOverview(uid) : workApi.folderOverview(uid)),
   });
-  const tab: Tab = sp.get("tab") === "dashboard" ? "dashboard" : sp.get("tab") === "channel" ? "channel" : "overview";
+  const tab: Tab = TABS.find((t) => t === sp.get("tab")) ?? "overview";
   const taskUid = sp.get("task");
   const setParam = (k: string, v: string | null) => {
     const next = new URLSearchParams(sp.toString());
@@ -88,7 +89,7 @@ export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "fold
           )}
         </div>
         <nav role="tablist" aria-label="Views" className="mt-3 flex gap-1">
-          {([["channel", "Channel", Hash], ["overview", "Overview", LayoutGrid], ["dashboard", "Dashboard", BarChart3]] as const).map(([id, label, Icon]) => (
+          {([["channel", "Channel", Hash], ["overview", "Overview", LayoutGrid], ["list", "List", ListIcon], ["board", "Board", Columns3], ["calendar", "Calendar", CalendarDays], ["team", "Team", UsersRound], ["dashboard", "Dashboard", BarChart3]] as const).map(([id, label, Icon]) => (
             <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setParam("tab", id === "overview" ? null : id)} className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-2.5 pb-2 text-[13px] font-medium", tab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
               <Icon className="h-3.5 w-3.5" /> {label}
             </button>
@@ -99,6 +100,14 @@ export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "fold
       <div className="flex-1 bg-muted/20 px-4 py-4 sm:px-6">
         {tab === "channel" ? (
           <LocationChannelTab type={kind} uid={uid} locationId={kind === "space" ? data.space.id : data.folder!.id} label={title} />
+        ) : tab === "list" ? (
+          <LocationList src={{ type: kind, uid }} />
+        ) : tab === "board" ? (
+          <div className="flex h-[calc(100vh-232px)] min-h-[480px]"><LocationBoard src={{ type: kind, uid }} /></div>
+        ) : tab === "calendar" ? (
+          <div className="flex h-[calc(100vh-232px)] min-h-[560px] flex-col overflow-hidden rounded-xl border border-border bg-card"><LocationCalendar src={{ type: kind, uid }} /></div>
+        ) : tab === "team" ? (
+          <LocationTeam src={{ type: kind, uid }} />
         ) : tab === "dashboard" ? (
           <LocationDashboard kind={kind} uid={uid} onOpenTask={(t) => setParam("task", t)} />
         ) : (

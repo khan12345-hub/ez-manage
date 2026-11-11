@@ -475,6 +475,7 @@ export const workApi = {
   deleteBookmark: (id: number) => del(`/work/chat/bookmarks/${id}`),
   reorderBookmarks: (uid: string, ids: number[]) => put<ChannelBookmark[]>(`/work/chat/channels/${uid}/bookmarks/order`, { ids }),
   locationChannels: (ws: string, type: ChatLocationType, uid: string) => get<{ locationId: number; channels: { uid: string; name: string; isPrivate: boolean; joined: boolean; memberCount: number }[] }>(`/work/workspaces/${ws}/chat/location?type=${type}&uid=${uid}`),
+  locationTasksByRef: (ws: string, type: ChatLocationType, uid: string, o: { from?: string; to?: string } = {}) => get<LocationTasks>(`/work/workspaces/${ws}/location-tasks?${new URLSearchParams({ type, uid, ...Object.fromEntries(Object.entries(o).filter(([, v]) => !!v)) } as Record<string, string>)}`),
   locationTasks: (uid: string, o: { from?: string; to?: string } = {}) => get<LocationTasks>(`/work/chat/channels/${uid}/location-tasks?${new URLSearchParams(Object.entries(o).filter(([, v]) => !!v) as [string, string][])}`),
   dmTasks: (uid: string, o: { who?: string; from?: string; to?: string }) => get<DmTask[]>(`/work/chat/channels/${uid}/tasks?${new URLSearchParams(Object.entries(o).filter(([, v]) => !!v) as [string, string][])}`),
   channelViews: (uid: string) => get<ChannelViewTab[]>(`/work/chat/channels/${uid}/views`),

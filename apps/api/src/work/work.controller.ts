@@ -511,6 +511,11 @@ export class WorkController {
     return this.chat.locationChannels(await this.work.resolveWorkspaceId(ws), u.id, type, locUid);
   }
 
+  @Get('workspaces/:workspaceId/location-tasks')
+  async locationTasksByRef(@Param('workspaceId') ws: string, @Query('type') type: string, @Query('uid') locUid: string, @Query('from') from: string, @Query('to') to: string, @CurrentUser() u: SessionUser) {
+    return this.chat.locationTasksByRef(await this.work.resolveWorkspaceId(ws), u.id, type, locUid, { from, to });
+  }
+
   @Get('chat/channels/:uid/location-tasks')
   locationTasks(@Param('uid') uid: string, @Query('from') from: string, @Query('to') to: string, @CurrentUser() u: SessionUser) {
     return this.chat.locationTasks(uid, u.id, { from, to });
