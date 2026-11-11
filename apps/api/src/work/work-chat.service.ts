@@ -405,6 +405,46 @@ export class WorkChatService {
   }
   private scheduling = false;
 
+  // ---------- DM Tasks / Calendar tabs ----------
+
+  /**
+   * Tasks of the people in a DM, only from spaces the viewer can see.
+   * who: all (anyone here) | them (the others) | me | shared (me and someone else here, together)
+   * from / to: due-date window (calendar, includes completed); otherwise open tasks only.
+   */
+  async dmTasks(channelUid: string, userId: number, o: { who?: string; from?: string; to?: string }) {
+    const { ch, me, ws } = await this.channel(channelUid, userId);
+    if (ch.kind === 'channel' || !me) throw new BadRequestException('Tasks and Calendar are for direct messages.');
+    const others = ch.members.map((m) => m.userId).filter((u) => u !== userId);
+    const everyone = [userId, ...others];
+    const who = ['them', 'me', 'shared'].includes(o.who ?? '') ? o.who : 'all';
+    const people =
+      who === 'me' ? { assignees: { some: { userId } } }
+      : who === 'them' ? { assignees: { some: { userId: { in: others.length ? others : [-1] } } } }
+      : who === 'shared' ? { AND: [{ assignees: { some: { userId } } }, { assignees: { some: { userId: { in: others.length ? others : [-1] } } } }] }
+      : { assignees: { some: { userId: { in: everyone } } } };
+    const from = o.from ? new Date(o.from) : null;
+    const to = o.to ? new Date(o.to) : null;
+    const window = from && to && !isNaN(+from) && !isNaN(+to) && +to > +from && +to - +from <= 62 * 86_400_000;
+    if ((o.from || o.to) && !window) throw new BadRequestException('Pick a date range of up to two months.');
+    const rows = await this.prisma.workTask.findMany({
+      where: {
+        archivedAt: null, list: { archivedAt: null, space: { workspaceId: ch.workspaceId, archivedAt: null, ...this.access.visibleSpaces(ws, userId) } },
+        ...people,
+        ...(window ? { dueDate: { gte: from!, lt: to! } } : { completedAt: null }),
+      },
+      orderBy: [{ dueDate: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+      take: 300,
+      select: {
+        id: true, uid: true, name: true, priority: true, dueDate: true, startDate: true, completedAt: true, parentId: true,
+        status: { select: { name: true, color: true, category: true } },
+        list: { select: { uid: true, name: true, space: { select: { name: true } } } },
+        assignees: { select: { user: { select: USER_MINI } } },
+      },
+    });
+    return rows.map((t) => ({ ...t, assignees: t.assignees.map((a) => a.user) }));
+  }
+
   // ---------- Bookmarks: links pinned to the top of a channel ----------
 
   /** only web links, or links to Work's own pages — never javascript:, data: and the like */

@@ -393,6 +393,10 @@ export interface ChatScheduled {
 }
 export interface ChannelFileItem extends ChatFile { kind: "images" | "docs" | "media" | "other"; messageId: number; parentId: number | null; createdAt: string; user: WorkUser }
 export interface ChannelBookmark { id: number; title: string; url: string; position: number; createdAt: string; createdBy: WorkUser | null }
+export interface DmTask {
+  id: number; uid: string; name: string; priority: string | null; dueDate: string | null; startDate: string | null; completedAt: string | null; parentId: number | null;
+  status: { name: string; color: string; category: string } | null; list: { uid: string; name: string; space: { name: string } }; assignees: WorkUser[];
+}
 export type ChannelViewKind = "list" | "board" | "doc";
 export interface ChannelViewTab {
   id: number; kind: ChannelViewKind; name: string; position: number;
@@ -459,6 +463,7 @@ export const workApi = {
   updateBookmark: (id: number, body: { url?: string; title?: string }) => patch<ChannelBookmark>(`/work/chat/bookmarks/${id}`, body),
   deleteBookmark: (id: number) => del(`/work/chat/bookmarks/${id}`),
   reorderBookmarks: (uid: string, ids: number[]) => put<ChannelBookmark[]>(`/work/chat/channels/${uid}/bookmarks/order`, { ids }),
+  dmTasks: (uid: string, o: { who?: string; from?: string; to?: string }) => get<DmTask[]>(`/work/chat/channels/${uid}/tasks?${new URLSearchParams(Object.entries(o).filter(([, v]) => !!v) as [string, string][])}`),
   channelViews: (uid: string) => get<ChannelViewTab[]>(`/work/chat/channels/${uid}/views`),
   addChannelView: (uid: string, body: { kind: ChannelViewKind; name?: string; listId?: number }) => post<ChannelViewTab>(`/work/chat/channels/${uid}/views`, body),
   updateChannelView: (id: number, body: { name?: string; content?: string }) => patch<ChannelViewTab>(`/work/chat/views/${id}`, body),

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Archive, Bell, Bookmark, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, Bell, Bookmark, CalendarDays, ListChecks, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -17,6 +17,7 @@ import { MessageList, MessageRow } from "./ChatMessages";
 import { ScheduledBanner } from "./Scheduled";
 import { FilesPanel } from "./ChatFiles";
 import { BookmarkDialog, BookmarksBar } from "./Bookmarks";
+import { DmCalendar, DmTasks } from "./DmTabs";
 import { ChannelViewPanel, ChannelViewTabs, channelViewsKey, useChannelViews } from "./ChannelViews";
 import { channelKey, chatSidebarKey, messagesKey, threadKey, useChannelMessages, useChatEvents, useWs } from "./useChat";
 
@@ -45,6 +46,7 @@ export function ChannelView({ uid }: { uid: string }) {
   const { data: views = [] } = useChannelViews(uid);
   const tabId = Number(sp.get("tab")) || null;
   const activeView = views.find((v) => v.id === tabId) ?? null;
+  const rawTab = sp.get("tab");
   const { data: dir } = useDirectory();
   const { data: drafts = [] } = useQuery({ queryKey: ["work", "chat-drafts", ws], queryFn: () => workApi.chatDrafts(ws), staleTime: 30_000 });
   const [older, setOlder] = useState<ChatMessage[]>([]);
@@ -99,6 +101,7 @@ export function ChannelView({ uid }: { uid: string }) {
 
   const isDm = ch.kind !== "channel";
   const canEditViews = ch.canManage || ["full", "edit"].includes(ch.myPermission ?? "");
+  const dmTab = isDm && (rawTab === "tasks" || rawTab === "calendar") ? rawTab : null;
   const title = channelTitle(ch, others);
   const typers = Object.values(typing).map((t) => t.name).filter(Boolean);
   const railBtn = (id: Exclude<Panel, null>, label: string, Icon: typeof Users, badge?: number) => (
@@ -149,9 +152,11 @@ export function ChannelView({ uid }: { uid: string }) {
       </header>
       <BookmarksBar uid={uid} canEdit={canEditViews && ch.joined} onAdd={() => setAddingBookmark(true)} />
       {addingBookmark && <BookmarkDialog uid={uid} onClose={() => setAddingBookmark(false)} />}
-      {(views.length > 0 || (canEditViews && ch.joined)) && <ChannelViewTabs uid={uid} views={views} active={activeView?.id ?? null} canEdit={canEditViews && ch.joined} onSelect={(id) => setParam("tab", id ? String(id) : null)} />}
+      {(isDm || views.length > 0 || (canEditViews && ch.joined)) && <ChannelViewTabs uid={uid} views={views} active={dmTab ?? activeView?.id ?? null} canEdit={canEditViews && ch.joined} onSelect={(id) => setParam("tab", id ? String(id) : null)} builtins={isDm ? [{ id: "tasks", label: "Tasks", icon: ListChecks }, { id: "calendar", label: "Calendar", icon: CalendarDays }] : []} />}
 
-      {activeView ? (
+      {dmTab ? (
+        <div className="flex min-h-0 flex-1 flex-col">{dmTab === "tasks" ? <DmTasks uid={uid} others={others} /> : <DmCalendar uid={uid} others={others} />}</div>
+      ) : activeView ? (
         <div className="flex min-h-0 flex-1 flex-col"><ChannelViewPanel uid={uid} view={activeView} canEdit={canEditViews && ch.joined} members={members} /></div>
       ) : (
       <div className="flex min-h-0 flex-1">

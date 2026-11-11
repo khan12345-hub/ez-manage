@@ -506,6 +506,11 @@ export class WorkController {
     return this.chat.deleteSection(id, u.id);
   }
 
+  @Get('chat/channels/:uid/tasks')
+  dmTasks(@Param('uid') uid: string, @Query('who') who: string, @Query('from') from: string, @Query('to') to: string, @CurrentUser() u: SessionUser) {
+    return this.chat.dmTasks(uid, u.id, { who, from, to });
+  }
+
   @Get('chat/channels/:uid/bookmarks')
   channelBookmarks(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
     return this.chat.bookmarks(uid, u.id);

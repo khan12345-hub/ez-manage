@@ -30,7 +30,7 @@ const KIND: Record<ChannelViewKind, { label: string; icon: typeof ListIcon; hint
 const err = (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Something went wrong.");
 
 /** tab bar under the channel header: Chat + List / Board / Doc views (ClickUp "Channel Views") */
-export function ChannelViewTabs({ uid, views, active, canEdit, onSelect }: { uid: string; views: ChannelViewTab[]; active: number | null; canEdit: boolean; onSelect: (id: number | null) => void }) {
+export function ChannelViewTabs({ uid, views, active, canEdit, onSelect, builtins = [] }: { uid: string; views: ChannelViewTab[]; active: number | string | null; canEdit: boolean; onSelect: (id: number | string | null) => void; builtins?: { id: string; label: string; icon: typeof ListIcon }[] }) {
   const ws = useWs();
   const qc = useQueryClient();
   const [adding, setAdding] = useState<ChannelViewKind | null>(null);
@@ -44,7 +44,7 @@ export function ChannelViewTabs({ uid, views, active, canEdit, onSelect }: { uid
     ids.splice(i + d, 0, x!);
     reorder.mutate(ids);
   };
-  const tab = (id: number | null, label: string, Icon: typeof ListIcon, locked?: boolean) => (
+  const tab = (id: number | string | null, label: string, Icon: typeof ListIcon, locked?: boolean) => (
     <button type="button" role="tab" aria-selected={active === id} onClick={() => onSelect(id)} className={cn("-mb-px flex h-9 items-center gap-1.5 border-b-2 px-2.5 text-[12.5px] font-medium", active === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
       <Icon className="h-3.5 w-3.5" /> <span className="max-w-[160px] truncate">{label}</span> {locked && <Lock className="h-3 w-3" aria-label="No access" />}
     </button>
@@ -53,6 +53,7 @@ export function ChannelViewTabs({ uid, views, active, canEdit, onSelect }: { uid
     <div className="flex items-center gap-0.5 overflow-x-auto border-b border-border bg-card px-4">
       <div role="tablist" aria-label="Channel views" className="flex items-center gap-0.5">
         {tab(null, "Chat", MessageSquare)}
+        {builtins.map((b) => <span key={b.id}>{tab(b.id, b.label, b.icon)}</span>)}
         {views.map((v, i) => (
           <div key={v.id} className="group flex items-center">
             {tab(v.id, v.name, KIND[v.kind].icon, v.locked)}
