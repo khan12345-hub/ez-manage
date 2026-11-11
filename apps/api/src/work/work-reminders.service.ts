@@ -28,7 +28,7 @@ export class WorkRemindersService {
     private readonly workNotify: WorkNotifyService,
   ) {}
 
-  async create(workspaceId: number, userId: number, dto: { title: string; description?: string; remindAt: string; assigneeId?: number; taskUid?: string }) {
+  async create(workspaceId: number, userId: number, dto: { title: string; description?: string; remindAt: string; assigneeId?: number; taskUid?: string; url?: string }) {
     await this.access.requireWorkspace(workspaceId, userId, 'view');
     const at = new Date(dto.remindAt);
     if (Number.isNaN(at.getTime())) throw new BadRequestException('Pick a valid time.');
@@ -42,7 +42,7 @@ export class WorkRemindersService {
       taskId = t.id;
     }
     return this.prisma.workReminder.create({
-      data: { workspaceId, userId, assigneeId, title: dto.title.trim(), description: dto.description?.trim() || null, remindAt: at, taskId },
+      data: { workspaceId, userId, assigneeId, title: dto.title.trim(), description: dto.description?.trim() || null, remindAt: at, taskId, url: dto.url && dto.url.startsWith('/work/') ? dto.url : null },
       select: SELECT,
     });
   }
@@ -83,7 +83,7 @@ export class WorkRemindersService {
   async fireDue(userId: number) {
     const due = await this.prisma.workReminder.findMany({
       where: { assigneeId: userId, firedAt: null, doneAt: null, remindAt: { lte: new Date() } },
-      select: { id: true, title: true, description: true, workspaceId: true, userId: true, task: { select: { id: true, uid: true, name: true, list: { select: { uid: true, name: true } } } }, workspace: { select: { uid: true } }, user: { select: { firstName: true, lastName: true, avatarUrl: true } } },
+      select: { id: true, title: true, description: true, url: true, workspaceId: true, userId: true, task: { select: { id: true, uid: true, name: true, list: { select: { uid: true, name: true } } } }, workspace: { select: { uid: true } }, user: { select: { firstName: true, lastName: true, avatarUrl: true } } },
       take: 50,
     });
     for (const r of due) {
@@ -104,7 +104,7 @@ export class WorkRemindersService {
             reminderId: r.id,
             actorName: by,
             actorAvatar: r.userId === userId ? null : r.user.avatarUrl,
-            ...(r.task ? { taskUid: r.task.uid, taskName: r.task.name, listUid: r.task.list.uid, listName: r.task.list.name, url: `/work/${r.workspace.uid}/list/${r.task.list.uid}?task=${r.task.uid}` } : { url: `/work/${r.workspace.uid}` }),
+            ...(r.task ? { taskUid: r.task.uid, taskName: r.task.name, listUid: r.task.list.uid, listName: r.task.list.name, url: `/work/${r.workspace.uid}/list/${r.task.list.uid}?task=${r.task.uid}` } : { url: r.url ?? `/work/${r.workspace.uid}` }),
           },
           sendEmail: false,
         })

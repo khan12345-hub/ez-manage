@@ -7,6 +7,8 @@ import type { StorageProvider } from 'src/storage/storage.types';
 import { WorkAccessService } from './work-access.service';
 import { ALLOWED_MIME_TYPES } from './work-files.service';
 import { WorkNotifyService } from './work-notify.service';
+import { WorkRemindersService } from './work-reminders.service';
+import { WorkService } from './work.service';
 
 const USER_MINI = { id: true, firstName: true, lastName: true, avatarUrl: true, email: true } as const;
 const REACTIONS = ['👍', '❤️', '😂', '🎉', '👀', '🙏', '🔥', '✅', '🚀', '💯', '👏', '😮'];
@@ -16,6 +18,9 @@ const MSG_SELECT = {
   replyCount: true, lastReplyAt: true, alsoInChannel: true, pinnedAt: true, editedAt: true, deletedAt: true, createdAt: true, assigneeId: true, resolvedAt: true,
   user: { select: USER_MINI },
   reactions: { select: { emoji: true, userId: true } },
+  assignee: { select: USER_MINI },
+  task: { select: { uid: true, name: true, completedAt: true, list: { select: { uid: true } } } },
+  forwarded: true,
 } as const;
 const uid = () => randomUUID().replace(/-/g, '').slice(0, 12);
 const PERMS = ['full', 'edit', 'comment', 'view'];
@@ -34,6 +39,8 @@ export class WorkChatService {
     private readonly stream: NotificationStreamService,
     private readonly workNotify: WorkNotifyService,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageProvider,
+    private readonly work: WorkService,
+    private readonly reminders: WorkRemindersService,
   ) {}
 
   /* ── access ── */
@@ -343,11 +350,11 @@ export class WorkChatService {
     await this.prisma.workChatMessage.create({ data: { channelId, userId, kind: 'system', content: text } });
   }
 
-  async send(channelUid: string, userId: number, dto: { content?: string; parentId?: number; kind?: string; title?: string; postType?: string; mentionIds?: number[]; files?: any[]; alsoInChannel?: boolean }) {
+  async send(channelUid: string, userId: number, dto: { content?: string; parentId?: number; kind?: string; title?: string; postType?: string; mentionIds?: number[]; files?: any[]; alsoInChannel?: boolean; forwarded?: Record<string, unknown> }) {
     const { ch, me, ws } = await this.channel(channelUid, userId, 'post');
     const content = (dto.content ?? '').trim();
     const files = Array.isArray(dto.files) ? dto.files.slice(0, 10) : [];
-    if (!content && !files.length) throw new BadRequestException('Write a message.');
+    if (!content && !files.length && !dto.forwarded) throw new BadRequestException('Write a message.');
     if (content.length > 20000) throw new BadRequestException('That message is too long.');
     const kind = dto.kind === 'post' ? 'post' : 'message';
     if (kind === 'post' && (!dto.title?.trim() || (dto.postType && !POST_TYPES.includes(dto.postType)))) throw new BadRequestException('Posts need a title.');
@@ -367,7 +374,7 @@ export class WorkChatService {
     const msg = await this.prisma.workChatMessage.create({
       data: {
         channelId: ch.id, userId, parentId: parent?.id ?? null, kind, title: kind === 'post' ? dto.title!.trim().slice(0, 200) : null, postType: kind === 'post' ? dto.postType ?? 'announcement' : null,
-        content, mentionIds: valid, files, alsoInChannel: !!(parent && dto.alsoInChannel),
+        content, mentionIds: valid, files, alsoInChannel: !!(parent && dto.alsoInChannel), ...(dto.forwarded ? { forwarded: dto.forwarded as any } : {}),
       },
       select: MSG_SELECT,
     });
@@ -412,6 +419,98 @@ export class WorkChatService {
     if (!m || m.deletedAt) throw new NotFoundException('Message not found.');
     const ctx = await this.channel(m.channel.uid, userId);
     return { m, ...ctx };
+  }
+
+  private async msgUrl(workspaceId: number, channelUid: string, m: { id: number; parentId: number | null }) {
+    const ws = await this.prisma.workWorkspace.findUnique({ where: { id: workspaceId }, select: { uid: true } });
+    return `/work/${ws?.uid}/chat/${channelUid}?${m.parentId ? `thread=${m.parentId}&` : ''}message=${m.id}`;
+  }
+  private async full(messageId: number) {
+    return this.prisma.workChatMessage.findUniqueOrThrow({ where: { id: messageId }, select: { id: true, parentId: true, kind: true, title: true, content: true, taskId: true, assigneeId: true, userId: true, createdAt: true, user: { select: USER_MINI } } });
+  }
+  private async updated(ch: { id: number; uid: string; kind: string; isPrivate: boolean; workspaceId: number }, messageId: number, userId: number) {
+    const up = await this.prisma.workChatMessage.findUniqueOrThrow({ where: { id: messageId }, select: MSG_SELECT });
+    const shaped = this.shape(up, userId);
+    this.push(await this.audience(ch), 'message_updated', { channelUid: ch.uid, message: shaped });
+    return shaped;
+  }
+
+  /** "Create task" from a message: the text becomes the description with a link back here */
+  async toTask(messageId: number, userId: number, dto: { listId: number; name?: string }) {
+    const { m, ch } = await this.ownMessage(messageId, userId);
+    const f = await this.full(messageId);
+    if (f.kind === 'system') throw new BadRequestException('System messages cannot become tasks.');
+    if (f.taskId) throw new BadRequestException('A task was already created from this message.');
+    const who = `${f.user.firstName} ${f.user.lastName}`.trim();
+    const link = `${process.env.FRONTEND_URL ?? ''}${await this.msgUrl(ch.workspaceId, ch.uid, m)}`;
+    const name = (dto.name?.trim() || f.title || f.content.split('\n')[0] || 'Task from chat').slice(0, 200);
+    const task = await this.work.createTask(dto.listId, userId, { name, description: `${f.content}\n\n— From a chat message by ${who}: ${link}` } as any);
+    const t = await this.prisma.workTask.findUniqueOrThrow({ where: { id: (task as any).id }, select: { id: true, uid: true, name: true, list: { select: { uid: true, space: { select: { workspaceId: true } } } } } });
+    if (t.list.space.workspaceId !== ch.workspaceId) throw new BadRequestException('Pick a list in this workspace.');
+    await this.prisma.workChatMessage.update({ where: { id: messageId }, data: { taskId: t.id } });
+    await this.updated(ch, messageId, userId);
+    return { uid: t.uid, name: t.name, listUid: t.list.uid };
+  }
+
+  /** assign a message to someone (ClickUp "Assign") — it shows in their Inbox and Assigned Comments */
+  async assign(messageId: number, userId: number, assigneeId: number | null) {
+    const { m, ch, me, ws } = await this.ownMessage(messageId, userId);
+    if (!ws.canManage && (!me || me.permission === 'view')) throw new ForbiddenException('You can only view this channel.');
+    if (assigneeId !== null && !(await this.access.areMembers(ch.workspaceId, [assigneeId]))) throw new BadRequestException('Messages can only be assigned to Work members.');
+    if (assigneeId !== null && ch.kind !== 'channel' && !ch.members.some((x) => x.userId === assigneeId)) throw new BadRequestException('Assign to someone in this conversation.');
+    await this.prisma.workChatMessage.update({ where: { id: messageId }, data: { assigneeId, assignedById: assigneeId ? userId : null, resolvedAt: null } });
+    if (assigneeId && assigneeId !== userId) {
+      const f = await this.full(messageId);
+      const me2 = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true, avatarUrl: true } });
+      await this.workNotify.send({
+        recipientId: assigneeId, type: 'CHAT', title: `${`${me2?.firstName ?? ''} ${me2?.lastName ?? ''}`.trim()} assigned you a message`, message: f.content.slice(0, 140) || 'a message',
+        metadata: { event: 'assigned_comment', chat: true, url: await this.msgUrl(ch.workspaceId, ch.uid, m), channelUid: ch.uid, messageId, actorId: userId, actorName: `${me2?.firstName ?? ''} ${me2?.lastName ?? ''}`.trim(), actorAvatar: me2?.avatarUrl ?? null },
+      });
+    }
+    return this.updated(ch, messageId, userId);
+  }
+
+  async resolve(messageId: number, userId: number, resolved: boolean) {
+    const { ch, ws } = await this.ownMessage(messageId, userId);
+    const f = await this.full(messageId);
+    if (!f.assigneeId) throw new BadRequestException('This message is not assigned.');
+    if (![f.assigneeId, f.userId].includes(userId) && !ws.canManage) throw new ForbiddenException('Only the assignee, the author or an admin can resolve it.');
+    await this.prisma.workChatMessage.update({ where: { id: messageId }, data: { resolvedAt: resolved ? new Date() : null } });
+    return this.updated(ch, messageId, userId);
+  }
+
+  /** messages assigned to me (Assigned Comments page) */
+  async assignedToMe(workspaceId: number, userId: number, resolved: boolean) {
+    await this.access.requireWorkspace(workspaceId, userId, 'view');
+    const rows = await this.prisma.workChatMessage.findMany({
+      where: { assigneeId: userId, deletedAt: null, resolvedAt: resolved ? { not: null } : null, channel: { workspaceId, archivedAt: null, members: { some: { userId } } } },
+      orderBy: { createdAt: 'desc' }, take: 100,
+      select: { ...MSG_SELECT, channel: { select: { uid: true, name: true, kind: true } } },
+    });
+    return rows.map((r: any) => ({ ...this.shape(r, userId), channel: r.channel }));
+  }
+
+  /** "Remind me" about a message: it comes back to my Inbox at that time */
+  async remind(messageId: number, userId: number, remindAt: string) {
+    const { m, ch } = await this.ownMessage(messageId, userId);
+    const f = await this.full(messageId);
+    const who = `${f.user.firstName} ${f.user.lastName}`.trim();
+    const snippet = f.content.length > 80 ? `${f.content.slice(0, 80)}…` : f.content || 'a message';
+    return this.reminders.create(ch.workspaceId, userId, { title: `Message from ${who}: ${snippet}`, remindAt, url: await this.msgUrl(ch.workspaceId, ch.uid, m) });
+  }
+
+  /** forward a message to another channel / DM (with an optional note) */
+  async forward(messageId: number, userId: number, targetUid: string, note?: string) {
+    const { ch } = await this.ownMessage(messageId, userId);
+    const f = await this.full(messageId);
+    if (f.kind === 'system') throw new BadRequestException('System messages cannot be forwarded.');
+    return this.send(targetUid, userId, {
+      content: note?.trim() ?? '',
+      forwarded: {
+        messageId: f.id, authorName: `${f.user.firstName} ${f.user.lastName}`.trim(), authorAvatar: f.user.avatarUrl,
+        channelUid: ch.uid, channelName: ch.kind === 'channel' ? ch.name : null, title: f.title, content: f.content.slice(0, 4000), createdAt: f.createdAt,
+      },
+    });
   }
 
   async edit(messageId: number, userId: number, dto: { content: string; title?: string }) {

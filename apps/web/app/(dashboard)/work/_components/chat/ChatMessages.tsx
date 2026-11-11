@@ -3,7 +3,9 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bookmark, BookmarkCheck, Copy, FileText, Link2, MessageSquareReply, MoreHorizontal, Pencil, Pin, PinOff, Quote, SmilePlus, Trash2 } from "lucide-react";
+import { AlarmClock, Bookmark, BookmarkCheck, Check, Copy, FileText, Forward, Link2, ListPlus, MessageSquareReply, MoreHorizontal, Pencil, Pin, PinOff, Quote, SmilePlus, Trash2, UserCheck } from "lucide-react";
+import { SnoozePicker } from "../../[workspaceId]/inbox/SnoozePicker";
+import { CreateTaskFromMessage, ForwardMessage, MessageExtras } from "./MessageActions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -83,6 +85,9 @@ export function MessageRow({
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(m.content);
+  const [dialog, setDialog] = useState<null | "task" | "forward">(null);
+  const [remindOpen, setRemindOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
   const refresh = (up?: ChatMessage) => {
     if (up) qc.setQueryData<{ items: ChatMessage[]; hasMore: boolean }>(messagesKey(channelUid), (old) => old && { ...old, items: old.items.map((x) => (x.id === up.id ? { ...up, mine: x.mine, saved: x.saved } : x)) });
     qc.invalidateQueries({ queryKey: threadKey(m.parentId ?? m.id) });
@@ -99,6 +104,16 @@ export function MessageRow({
   });
   const edit = useMutation({ mutationFn: () => workApi.editChat(m.id, draft.trim()), onSuccess: (up) => { setEditing(false); refresh(up); }, onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't edit.") });
   const remove = useMutation({ mutationFn: () => workApi.deleteChat(m.id), onSuccess: () => qc.invalidateQueries({ queryKey: messagesKey(channelUid) }), onError: () => toast.error("Couldn't delete.") });
+  const remind = useMutation({
+    mutationFn: (at: Date) => workApi.chatRemind(m.id, at.toISOString()),
+    onSuccess: (_r, at) => toast.success(`I'll remind you ${at.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}`),
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't set the reminder."),
+  });
+  const assign = useMutation({
+    mutationFn: (id: number | null) => workApi.chatAssign(m.id, id),
+    onSuccess: (up) => { refresh(up); toast.success(up.assignee ? `Assigned to ${userName(up.assignee)}` : "Unassigned"); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't assign."),
+  });
   const link = () => `${window.location.origin}${window.location.pathname}?${m.parentId ? `thread=${m.parentId}&` : ""}message=${m.id}`;
 
   if (m.kind === "system") {
@@ -163,6 +178,7 @@ export function MessageRow({
             ))}
           </div>
         )}
+        {!deleted && <MessageExtras m={m} me={me} channelUid={channelUid} members={members} />}
         {!inThread && m.replyCount > 0 && onOpenThread && (
           <button type="button" onClick={() => onOpenThread(m.id)} className="mt-1 flex items-center gap-1.5 rounded-md py-0.5 text-[12px] font-semibold text-primary hover:underline">
             <MessageSquareReply className="h-3.5 w-3.5" /> {m.replyCount} {m.replyCount === 1 ? "reply" : "replies"}
@@ -185,9 +201,28 @@ export function MessageRow({
           <button type="button" aria-label="Quote" title="Quote" onClick={() => window.dispatchEvent(new CustomEvent(CHAT_QUOTE_EVENT, { detail: { channelUid, text: m.content, author: userName(m.user), thread: inThread ? m.parentId : null } }))} className={btn}><Quote className="h-4 w-4" /></button>
           <button type="button" aria-label="Copy link to message" title="Copy link" onClick={() => navigator.clipboard.writeText(link()).then(() => toast.success("Link copied"))} className={btn}><Link2 className="h-4 w-4" /></button>
           <button type="button" aria-label={m.saved ? "Remove from Saved" : "Save for later"} title={m.saved ? "Saved" : "Save for later"} onClick={() => save.mutate()} className={cn(btn, m.saved && "text-[#b08d57]")}>{m.saved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}</button>
+          <Popover open={remindOpen} onOpenChange={setRemindOpen}>
+            <PopoverTrigger asChild><button type="button" aria-label="Remind me" title="Remind me in Inbox" className={btn}><AlarmClock className="h-4 w-4" /></button></PopoverTrigger>
+            <PopoverContent align="end" className="w-auto p-0"><SnoozePicker onPick={(d) => { remind.mutate(d); setRemindOpen(false); }} /></PopoverContent>
+          </Popover>
+          <Popover open={assignOpen} onOpenChange={setAssignOpen}>
+            <PopoverTrigger asChild><button type="button" aria-label="Assign message" title={m.assignee ? `Assigned to ${userName(m.assignee)}` : "Assign"} className={cn(btn, m.assignee && "text-[#b08d57]")}><UserCheck className="h-4 w-4" /></button></PopoverTrigger>
+            <PopoverContent align="end" className="max-h-72 w-60 overflow-y-auto p-1">
+              <p className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Assign to</p>
+              {members.map((u) => (
+                <button key={u.id} type="button" onClick={() => { assign.mutate(m.assignee?.id === u.id ? null : u.id); setAssignOpen(false); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent">
+                  <Avatar user={u} size={20} /> <span className="flex-1 truncate">{u.id === me ? "Me" : userName(u)}</span>{m.assignee?.id === u.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                </button>
+              ))}
+              {m.assignee && <button type="button" onClick={() => { assign.mutate(null); setAssignOpen(false); }} className="mt-1 w-full rounded-md border-t border-border px-2 pt-1.5 text-left text-[12.5px] text-muted-foreground hover:text-foreground">Unassign</button>}
+            </PopoverContent>
+          </Popover>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild><button type="button" aria-label="More message actions" className={btn}><MoreHorizontal className="h-4 w-4" /></button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
+              {!m.task && <DropdownMenuItem onClick={() => setDialog("task")}><ListPlus className="mr-2 h-4 w-4" /> Create task</DropdownMenuItem>}
+              <DropdownMenuItem onClick={() => setDialog("forward")}><Forward className="mr-2 h-4 w-4" /> Forward</DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => pin.mutate()}>{m.pinnedAt ? <><PinOff className="mr-2 h-4 w-4" /> Unpin</> : <><Pin className="mr-2 h-4 w-4" /> Pin to channel</>}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigator.clipboard.writeText(m.content).then(() => toast.success("Text copied"))}><Copy className="mr-2 h-4 w-4" /> Copy text</DropdownMenuItem>
               {m.mine && (
@@ -201,6 +236,8 @@ export function MessageRow({
           </DropdownMenu>
         </div>
       )}
+      {dialog === "task" && <CreateTaskFromMessage m={m} channelUid={channelUid} onClose={() => setDialog(null)} />}
+      {dialog === "forward" && <ForwardMessage m={m} onClose={() => setDialog(null)} />}
     </li>
   );
 }

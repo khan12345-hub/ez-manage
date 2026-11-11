@@ -12,7 +12,7 @@ import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { WorkProfileService } from './work-profile.service';
 import { WorkAutomationsService } from './work-automations.service';
 import { WorkChatService } from './work-chat.service';
-import { ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { ChatToTaskDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -491,6 +491,41 @@ export class WorkController {
   @Post('chat/channels/:uid/messages')
   sendChat(@Param('uid') uid: string, @Body() dto: ChatMessageDto, @CurrentUser() u: SessionUser) {
     return this.chat.send(uid, u.id, dto);
+  }
+
+  @Post('chat/messages/:id/task')
+  chatToTask(@Param('id', ParseIntPipe) id: number, @Body() dto: ChatToTaskDto, @CurrentUser() u: SessionUser) {
+    return this.chat.toTask(id, u.id, dto);
+  }
+
+  @Post('chat/messages/:id/assign')
+  chatAssign(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignCommentDto, @CurrentUser() u: SessionUser) {
+    return this.chat.assign(id, u.id, dto.assigneeId);
+  }
+
+  @Post('chat/messages/:id/resolve')
+  chatResolve(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.chat.resolve(id, u.id, true);
+  }
+
+  @Post('chat/messages/:id/reopen')
+  chatReopen(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.chat.resolve(id, u.id, false);
+  }
+
+  @Post('chat/messages/:id/remind')
+  chatRemind(@Param('id', ParseIntPipe) id: number, @Body() dto: ChatRemindDto, @CurrentUser() u: SessionUser) {
+    return this.chat.remind(id, u.id, dto.remindAt);
+  }
+
+  @Post('chat/messages/:id/forward')
+  chatForward(@Param('id', ParseIntPipe) id: number, @Body() dto: ChatForwardDto, @CurrentUser() u: SessionUser) {
+    return this.chat.forward(id, u.id, dto.channelUid, dto.note);
+  }
+
+  @Get('workspaces/:workspaceId/chat/assigned')
+  async chatAssigned(@Param('workspaceId') ws: string, @Query('resolved') resolved: string, @CurrentUser() u: SessionUser) {
+    return this.chat.assignedToMe(await this.work.resolveWorkspaceId(ws), u.id, resolved === 'true');
   }
 
   @Get('chat/messages/:id/thread')

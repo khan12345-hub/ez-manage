@@ -165,6 +165,17 @@ export class EditChatMessageDto {
   @IsString() @MaxLength(20000) content!: string;
   @IsOptional() @IsString() @MaxLength(200) title?: string;
 }
+export class ChatToTaskDto {
+  @IsInt() listId!: number;
+  @IsOptional() @IsString() @MaxLength(200) name?: string;
+}
+export class ChatRemindDto {
+  @IsDateString() remindAt!: string;
+}
+export class ChatForwardDto {
+  @IsString() @IsNotEmpty() @MaxLength(40) channelUid!: string;
+  @IsOptional() @IsString() @MaxLength(5000) note?: string;
+}
 export class ChatDraftDto {
   @IsString() @MaxLength(20000) content!: string;
   @IsOptional() @IsInt() parentId?: number;

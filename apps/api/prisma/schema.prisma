@@ -133,6 +133,7 @@ model User {
   workChannelsCreated   WorkChannel[]          @relation("WorkChannelCreator")
   workChannelMembers    WorkChannelMember[]    @relation("WorkChannelMemberUser")
   workChatMessages      WorkChatMessage[]      @relation("WorkChatAuthor")
+  workChatAssigned      WorkChatMessage[]      @relation("WorkChatAssignee")
   workChatReactions     WorkChatReaction[]     @relation("WorkChatReactionUser")
   workChatDrafts        WorkChatDraft[]        @relation("WorkChatDraftUser")
   workChatSaved         WorkChatSaved[]        @relation("WorkChatSavedUser")
@@ -1581,21 +1582,22 @@ model WorkTask {
   dependsOn   WorkTaskLink[]  @relation("WorkLinkFrom")
   dependedBy  WorkTaskLink[]  @relation("WorkLinkTo")
 
-  list        WorkList              @relation(fields: [listId], references: [id], onDelete: Cascade)
-  status      WorkStatus?           @relation(fields: [statusId], references: [id], onDelete: SetNull)
-  parent      WorkTask?             @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks    WorkTask[]            @relation("WorkSubtasks")
-  createdBy   User                  @relation("WorkTaskCreator", fields: [createdById], references: [id])
-  assignees   WorkTaskAssignee[]
-  comments    WorkComment[]
-  attachments WorkAttachment[]
-  webLinks    WorkWebLink[]
-  fieldValues WorkFieldValue[]
-  reminders   WorkReminder[]
-  watches     WorkTaskWatch[]
-  priorities  WorkProfilePriority[]
-  favorites   WorkFavorite[]
-  extraLists  WorkTaskList[]
+  list         WorkList              @relation(fields: [listId], references: [id], onDelete: Cascade)
+  status       WorkStatus?           @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  parent       WorkTask?             @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks     WorkTask[]            @relation("WorkSubtasks")
+  createdBy    User                  @relation("WorkTaskCreator", fields: [createdById], references: [id])
+  assignees    WorkTaskAssignee[]
+  comments     WorkComment[]
+  attachments  WorkAttachment[]
+  webLinks     WorkWebLink[]
+  fieldValues  WorkFieldValue[]
+  reminders    WorkReminder[]
+  watches      WorkTaskWatch[]
+  priorities   WorkProfilePriority[]
+  favorites    WorkFavorite[]
+  extraLists   WorkTaskList[]
+  chatMessages WorkChatMessage[]     @relation("WorkChatTask")
 
   @@index([listId, order])
   @@index([statusId])
@@ -1915,6 +1917,7 @@ model WorkReminder {
   description String?
   remindAt    DateTime
   taskId      Int?
+  url         String?
   firedAt     DateTime?
   doneAt      DateTime?
   createdAt   DateTime  @default(now())
@@ -2223,12 +2226,17 @@ model WorkChatMessage {
   /// also posted to the channel from a thread
   alsoInChannel Boolean   @default(false)
   assigneeId    Int?
+  assignedById  Int?
+  taskId        Int?
+  forwarded     Json?
   resolvedAt    DateTime?
   pinnedAt      DateTime?
   editedAt      DateTime?
   deletedAt     DateTime?
   createdAt     DateTime  @default(now())
 
+  assignee  User?              @relation("WorkChatAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  task      WorkTask?          @relation("WorkChatTask", fields: [taskId], references: [id], onDelete: SetNull)
   channel   WorkChannel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
   user      User               @relation("WorkChatAuthor", fields: [userId], references: [id], onDelete: Cascade)
   parent    WorkChatMessage?   @relation("WorkChatThread", fields: [parentId], references: [id], onDelete: Cascade)

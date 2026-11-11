@@ -372,6 +372,9 @@ export interface ChatMessage {
   content: string; mentionIds: number[]; files: ChatFile[]; replyCount: number; lastReplyAt: string | null; alsoInChannel: boolean;
   pinnedAt: string | null; editedAt: string | null; deletedAt: string | null; createdAt: string; user: WorkUser;
   reactions: { emoji: string; userIds: number[] }[]; saved: boolean; mine: boolean;
+  assigneeId: number | null; resolvedAt: string | null; assignee: WorkUser | null;
+  task: { uid: string; name: string; completedAt: string | null; list: { uid: string } } | null;
+  forwarded: { messageId: number; authorName: string; authorAvatar: string | null; channelUid: string; channelName: string | null; title: string | null; content: string; createdAt: string } | null;
   channel?: { uid: string; name: string | null; kind: string }; reason?: "mention" | "reply";
 }
 export type ChatPermission = "full" | "edit" | "comment" | "view";
@@ -428,6 +431,12 @@ export const workApi = {
   reactChat: (id: number, emoji: string) => post<ChatMessage>(`/work/chat/messages/${id}/reactions`, { emoji }),
   pinChat: (id: number, on: boolean) => put<ChatMessage>(`/work/chat/messages/${id}/pin`, { on }),
   saveChat: (id: number, on: boolean) => put(`/work/chat/messages/${id}/save`, { on }),
+  chatToTask: (id: number, listId: number, name?: string) => post<{ uid: string; name: string; listUid: string }>(`/work/chat/messages/${id}/task`, { listId, ...(name ? { name } : {}) }),
+  chatAssign: (id: number, assigneeId: number | null) => post<ChatMessage>(`/work/chat/messages/${id}/assign`, { assigneeId }),
+  chatResolve: (id: number, resolved: boolean) => post<ChatMessage>(`/work/chat/messages/${id}/${resolved ? "resolve" : "reopen"}`),
+  chatRemind: (id: number, remindAt: string) => post(`/work/chat/messages/${id}/remind`, { remindAt }),
+  chatForward: (id: number, channelUid: string, note?: string) => post<ChatMessage>(`/work/chat/messages/${id}/forward`, { channelUid, ...(note ? { note } : {}) }),
+  chatAssigned: (ws: string, resolved = false) => get<ChatMessage[]>(`/work/workspaces/${ws}/chat/assigned${resolved ? "?resolved=true" : ""}`),
   automations: (spaceId: number, at: { folderId?: number | null; listId?: number | null } = {}) =>
     get<WorkAutomation[]>(`/work/spaces/${spaceId}/automations?${at.folderId ? `folderId=${at.folderId}&` : ""}${at.listId ? `listId=${at.listId}` : ""}`),
   createAutomation: (spaceId: number, body: { name?: string; folderId?: number; listId?: number; trigger: AutomationTrigger; conditions?: AutomationCondition[]; actions: AutomationAction[] }) =>

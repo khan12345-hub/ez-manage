@@ -4,7 +4,8 @@ import { Suspense, useMemo, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowRight, CheckCircle2, CircleDashed, RotateCcw, Search } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, CircleDashed, MessageSquare, RotateCcw, Search } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -39,6 +40,13 @@ function AssignedCommentsInner() {
   const { data: counts } = useQuery({
     queryKey: ["work", "assigned-comments", workspaceId, "counts"],
     queryFn: async () => ({ toMe: (await workApi.assignedComments(workspaceId, "to-me", false)).length, byMe: (await workApi.assignedComments(workspaceId, "by-me", false)).length }),
+  });
+  const { data: chat = [] } = useQuery({ queryKey: ["work", "chat-assigned", workspaceId, showResolved], queryFn: () => workApi.chatAssigned(workspaceId, showResolved), enabled: mode === "to-me" });
+  const chatRows = chat.filter((m) => !q.trim() || `${m.content} ${m.channel?.name ?? ""}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const resolveChat = useMutation({
+    mutationFn: (m: (typeof chat)[number]) => workApi.chatResolve(m.id, !m.resolvedAt),
+    onSuccess: (_r, m) => { qc.invalidateQueries({ queryKey: ["work", "chat-assigned", workspaceId] }); toast.success(m.resolvedAt ? "Reopened" : "Resolved"); },
+    onError: () => toast.error("Couldn't update that message."),
   });
   const term = q.trim().toLowerCase();
   const rows = useMemo(() => (data as any[]).filter((c) => !term || `${c.content} ${c.task.name} ${c.task.list.name}`.toLowerCase().includes(term)), [data, term]);
@@ -82,14 +90,15 @@ function AssignedCommentsInner() {
       <div className="px-6 pb-8">
         {isLoading ? (
           <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />)}</div>
-        ) : rows.length === 0 ? (
+        ) : rows.length === 0 && chatRows.length === 0 ? (
           <div className="flex flex-col items-center py-24 text-center">
             <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card text-primary"><CheckCircle2 className="h-6 w-6" /></span>
             <p className="font-serif text-[22px]">{term ? "Nothing matches" : mode === "to-me" ? "No comments waiting on you" : "You haven't delegated any comments"}</p>
             <p className="mt-1 max-w-sm text-[13px] text-muted-foreground">Assign a comment from the comment box in a task (the person icon) to turn it into an action item.</p>
           </div>
         ) : (
-          <ul className="overflow-hidden rounded-xl border border-border bg-card">
+          <>
+          {rows.length > 0 && <ul className="overflow-hidden rounded-xl border border-border bg-card">
             {rows.map((c: any) => (
               <li key={c.id} className={cn("group flex items-start gap-3 border-b border-border/70 px-4 py-3 last:border-b-0 hover:bg-accent/30", c.resolvedAt && "bg-muted/25")}>
                 {c.resolvedAt ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> : <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-[#b08d57]" />}
@@ -115,7 +124,28 @@ function AssignedCommentsInner() {
                 </button>
               </li>
             ))}
-          </ul>
+          </ul>}
+          {mode === "to-me" && chatRows.length > 0 && (
+            <section aria-label="Assigned in chat" className="mt-5">
+              <h2 className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-muted-foreground"><MessageSquare className="h-4 w-4" /> From Chat <span className="font-mono text-[11px]">{chatRows.length}</span></h2>
+              <ul className="overflow-hidden rounded-xl border border-border bg-card">
+                {chatRows.map((m) => (
+                  <li key={m.id} className={cn("flex items-start gap-3 border-b border-border/70 px-4 py-3 last:border-b-0 hover:bg-accent/30", m.resolvedAt && "bg-muted/25")}>
+                    {m.resolvedAt ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> : <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-[#b08d57]" />}
+                    <Link href={`/work/${workspaceId}/chat/${m.channel?.uid}?${m.parentId ? `thread=${m.parentId}&` : ""}message=${m.id}`} className="min-w-0 flex-1">
+                      <span className="block text-[12.5px] text-muted-foreground">{m.channel?.kind === "channel" ? `#${m.channel?.name}` : "Direct message"}</span>
+                      <span className={cn("mt-1 line-clamp-2 block text-[14px]", m.resolvedAt && "text-muted-foreground line-through")}>{m.content}</span>
+                      <span className="mt-1.5 flex items-center gap-1.5 text-[12px] text-muted-foreground"><Avatar user={m.user} size={16} /> {userName(m.user)} <span className="opacity-50">·</span> {when(m.createdAt)}</span>
+                    </Link>
+                    <button type="button" onClick={() => resolveChat.mutate(m)} className={cn("flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-[12.5px] font-semibold", m.resolvedAt ? "text-muted-foreground hover:bg-muted" : "bg-primary/10 text-primary hover:bg-primary/15")}>
+                      {m.resolvedAt ? <><RotateCcw className="h-3.5 w-3.5" /> Reopen</> : <><CheckCircle2 className="h-3.5 w-3.5" /> Resolve</>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          </>
         )}
       </div>
 
