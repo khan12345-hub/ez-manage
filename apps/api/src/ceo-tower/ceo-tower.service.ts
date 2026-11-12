@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { isDoneCategory, resolveStatusCategory, type StatusCategory } from 'src/common/status-category';
 
@@ -136,6 +136,36 @@ export class CeoTowerService {
 
   private overdue(f: TaskFact & { _tz?: string }) {
     return !f.done && !!f.due && f.due < ymd(new Date(), f._tz ?? 'UTC');
+  }
+
+  // ---------- a person, as the CEO sees them ----------
+
+  /**
+   * Where this person works among the CEO's companies, and which of the CEO's Work companies
+   * can reach them (messages and assignments go through Work, as the CEO).
+   * People outside the CEO's companies are not found.
+   */
+  async person(userId: number, personId: number) {
+    const own = await this.require(userId);
+    const [boards, work, user] = await Promise.all([
+      this.prisma.workspaceMember.findMany({ where: { userId: personId, deletedAt: null, workspaceId: { in: own.boards.map((w) => w.id) } }, select: { role: true, workspaceId: true } }),
+      this.prisma.workMember.findMany({ where: { userId: personId, workspaceId: { in: own.work.map((w) => w.id) } }, select: { role: true, workspaceId: true, title: true } }),
+      this.prisma.user.findFirst({ where: { id: personId, deletedAt: null }, select: { ...USER_MINI, email: true } }),
+    ]);
+    if (!user || (!boards.length && !work.length)) throw new NotFoundException('This person is not in your companies.');
+    const bName = new Map(own.boards.map((w) => [w.id, w]));
+    const wName = new Map(own.work.map((w) => [w.id, w]));
+    return {
+      user,
+      title: work.find((m) => m.title)?.title ?? null,
+      memberships: [
+        ...boards.map((m) => ({ key: `boards:${m.workspaceId}`, source: 'boards' as const, name: bName.get(m.workspaceId)!.name, uid: bName.get(m.workspaceId)!.uid, role: m.role })),
+        ...work.map((m) => ({ key: `work:${m.workspaceId}`, source: 'work' as const, name: wName.get(m.workspaceId)!.name, uid: wName.get(m.workspaceId)!.uid, role: m.role })),
+      ],
+      // Work companies where a DM / assignment can reach them
+      reach: work.map((m) => ({ key: `work:${m.workspaceId}`, uid: wName.get(m.workspaceId)!.uid, name: wName.get(m.workspaceId)!.name })),
+      isMe: personId === userId,
+    };
   }
 
   // ---------- Attention → For you: people asking the CEO for something ----------

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
@@ -16,20 +16,22 @@ const PRIORITIES: { v: WorkPriority | ""; label: string }[] = [{ v: "", label: "
  * "Assign task" from CEO Tower: creates the task through Work's own API, so Work's
  * permissions, notifications and automations all apply exactly as if it were made in Work.
  */
-export function AssignTaskDialog({ companies, defaultCompany, onClose }: { companies: CeoCompany[]; people: unknown[]; defaultCompany: string | null; onClose: () => void }) {
+export function AssignTaskDialog({ companies, defaultCompany, defaultAssignee, onClose }: { companies: CeoCompany[]; people: unknown[]; defaultCompany: string | null; defaultAssignee?: number; onClose: () => void }) {
   const qc = useQueryClient();
   const [key, setKey] = useState(defaultCompany ?? companies[0]?.key ?? "");
   const co = companies.find((c) => c.key === key);
   const [listId, setListId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [assignees, setAssignees] = useState<number[]>([]);
+  const [assignees, setAssignees] = useState<number[]>(defaultAssignee ? [defaultAssignee] : []);
   const [due, setDue] = useState("");
   const [priority, setPriority] = useState<WorkPriority | "">("HIGH");
   const { data: tree } = useQuery({ queryKey: ["work", "tree", co?.uid], queryFn: () => workApi.tree(co!.uid), enabled: !!co });
   const { data: dir } = useQuery({ queryKey: ["work", "directory", co?.uid], queryFn: () => workApi.directory(co!.uid), enabled: !!co });
   const lists = useMemo(() => (tree?.spaces ?? []).flatMap((s) => [...s.lists.map((l) => ({ id: l.id, label: `${s.name} / ${l.name}` })), ...s.folders.flatMap((f) => f.lists.map((l) => ({ id: l.id, label: `${s.name} / ${f.name} / ${l.name}` })))]), [tree]);
   const members = (dir?.people ?? []).filter((p) => p.role !== "GUEST" || assignees.includes(p.user.id));
+  // a preselected person who isn't in this company can't be assigned here
+  useEffect(() => { if (dir) setAssignees((a) => a.filter((id) => dir.people.some((p) => p.user.id === id))); }, [dir]);
   const create = useMutation({
     mutationFn: () => workApi.createTask(listId!, {
       name: name.trim(), assigneeIds: assignees, ...(description.trim() ? { description: description.trim() } : {}),

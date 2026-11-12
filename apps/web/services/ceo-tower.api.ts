@@ -33,7 +33,14 @@ export interface CeoTasks { state: CeoTaskState; counts: Record<CeoTaskState, nu
 export type CeoForYouKind = "assigned" | "mention" | "reply" | "comment" | "message";
 export interface CeoForYouItem { source: "boards" | "work"; id: string; kind: CeoForYouKind; title: string; message: string; at: string; href: string | null; actor: string | null }
 
+export interface CeoPersonDetail {
+  user: CeoPerson & { email: string }; title: string | null; isMe: boolean;
+  memberships: { key: string; source: "boards" | "work"; name: string; uid: string; role: string }[];
+  reach: { key: string; uid: string; name: string }[];
+}
+
 export const ceoApi = {
+  person: async (id: number) => (await api.get<CeoPersonDetail>(`/ceo-tower/people/${id}`)).data,
   forYou: async () => (await api.get<{ count: number; items: CeoForYouItem[] }>("/ceo-tower/for-you")).data,
   markForYouRead: async (source: "boards" | "work", id: string) => (await api.post("/ceo-tower/for-you/read", { source, id })).data,
   tasks: async (o: { source: CeoSource; company?: string | null; person?: number | null; state: CeoTaskState; q?: string }) =>

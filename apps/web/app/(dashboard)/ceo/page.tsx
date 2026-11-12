@@ -13,6 +13,9 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "../work/_components/primitives";
 import { TasksView } from "./_components/TasksView";
+import { CompanyPanel, type PanelTab } from "./_components/CompanyPanel";
+import { MessageDialog } from "./_components/MessageDialog";
+import { AssignTaskDialog } from "./_components/AssignTaskDialog";
 import { SourceBadge, fmtDate } from "./_components/bits";
 
 type View = "portfolio" | "tasks" | "team" | "boards" | "work" | "ai";
@@ -57,6 +60,9 @@ export default function CeoTowerPage() {
   const [company, setCompany] = useState<CeoCompany | null>(null);
   const [q, setQ] = useState("");
   const [attention, setAttention] = useState(false);
+  const [panel, setPanel] = useState<{ company: CeoCompany; start: PanelTab } | null>(null);
+  const [messageTo, setMessageTo] = useState<CeoOverview["people"][number]["user"] | null>(null);
+  const [assignTo, setAssignTo] = useState<number | null>(null);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["ceo-tower", "overview", source, company?.key ?? null],
     queryFn: () => ceoApi.overview(source, company?.key),
@@ -110,7 +116,7 @@ export default function CeoTowerPage() {
           </button>
           <span className="flex items-center gap-2 border-l border-border pl-3">
             {user && <Avatar user={{ id: user.id, firstName: user.firstName, lastName: user.lastName, avatarUrl: (user as any).avatarUrl ?? null, email: user.email } as any} size={30} />}
-            <span className="hidden sm:block"><span className="block text-[13px] font-semibold leading-tight">{user?.firstName} {user?.lastName}</span><span className="block text-[11px] text-muted-foreground">Owner · {data ? `${data.owned.boards + data.owned.work} companies` : "…"}</span></span>
+            <span className="hidden 2xl:block"><span className="block text-[13px] font-semibold leading-tight">{user?.firstName} {user?.lastName}</span><span className="block text-[11px] text-muted-foreground">Owner · {data ? `${data.owned.boards + data.owned.work} companies` : "…"}</span></span>
           </span>
         </div>
         {company && (
@@ -161,14 +167,15 @@ export default function CeoTowerPage() {
                       <div className={cn("rounded-xl border p-3.5 transition-colors", on ? "border-primary/50 bg-primary/5" : c.health === "critical" ? "border-destructive/30 bg-destructive/[0.03]" : "border-border hover:border-primary/30")}>
                         <button type="button" onClick={() => setCompany(on ? null : c)} aria-pressed={on} className="block w-full text-left">
                           <span className="flex items-center gap-2"><span className={cn("h-2 w-2 shrink-0 rounded-full", h.dot)} /><span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{c.name}</span><SourceBadge source={c.source} /><span className={cn("rounded-full px-2 py-0.5 text-[10.5px] font-semibold ring-1", h.cls)}>{h.label}</span></span>
-                          <span className="mt-2 grid grid-cols-4 gap-1 text-[11.5px]">
-                            <span>Open <strong className="block text-[14px]">{c.stats.open}</strong></span>
-                            <span>Overdue <strong className={cn("block text-[14px]", c.stats.overdue && "text-destructive")}>{c.stats.overdue}</strong></span>
-                            <span>Working <strong className="block text-[14px]">{c.stats.inProgress}</strong></span>
-                            <span>People <strong className="block text-[14px]">{c.people}</strong></span>
-                          </span>
-                          <span className="mt-2 flex items-center gap-2"><span className="flex-1"><Bar value={c.stats.progress} /></span><span className="font-mono text-[11px] text-muted-foreground">{c.stats.progress}%</span></span>
                         </button>
+                        <span className="mt-2 grid grid-cols-4 gap-1 text-[11.5px]">
+                          {([["Open", c.stats.open, { tab: "tasks", state: "open" }, ""], ["Overdue", c.stats.overdue, { tab: "tasks", state: "overdue" }, c.stats.overdue ? "text-destructive" : ""], ["Working", c.stats.inProgress, { tab: "tasks", state: "in_progress" }, ""], ["People", c.people, { tab: "people" }, ""]] as const).map(([label, n, start, cls]) => (
+                            <button key={label} type="button" aria-label={`${c.name}: ${n} ${label.toLowerCase()} — show`} onClick={() => setPanel({ company: c, start: start as PanelTab })} className="rounded-md px-1 py-0.5 text-left hover:bg-accent">
+                              {label} <strong className={cn("block text-[14px] underline-offset-2 hover:underline", cls)}>{n}</strong>
+                            </button>
+                          ))}
+                        </span>
+                        <span className="mt-2 flex items-center gap-2"><span className="flex-1"><Bar value={c.stats.progress} /></span><span className="font-mono text-[11px] text-muted-foreground">{c.stats.progress}%</span></span>
                         <Link href={companyHref(c)} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">Open in {c.source === "work" ? "Work" : "Boards"} <ArrowRight className="h-3 w-3" /></Link>
                       </div>
                     </li>
@@ -202,6 +209,12 @@ export default function CeoTowerPage() {
                       </span>
                     </div>
                     <span className="mt-2 flex items-center gap-2"><span className="flex-1"><Bar value={p.stats.progress} /></span><span className="font-mono text-[10.5px] text-muted-foreground">{p.stats.progress}%</span></span>
+                    {p.user.id !== user?.id && (
+                      <span className="mt-2 flex gap-1.5">
+                        <button type="button" onClick={() => setMessageTo(p.user)} aria-label={`Message ${p.user.firstName} ${p.user.lastName}`} className="rounded-md border border-border px-2 py-0.5 text-[11.5px] font-medium hover:bg-accent">Message</button>
+                        <button type="button" onClick={() => setAssignTo(p.user.id)} aria-label={`Assign a task to ${p.user.firstName} ${p.user.lastName}`} disabled={!companies.some((c) => c.source === "work")} className="rounded-md border border-border px-2 py-0.5 text-[11.5px] font-medium hover:bg-accent disabled:opacity-50">Assign task</button>
+                      </span>
+                    )}
                   </li>
                 ))}
                 {!data.people.length && <li className="py-6 text-center text-[12.5px] text-muted-foreground">No people yet.</li>}
@@ -238,6 +251,9 @@ export default function CeoTowerPage() {
         </div>
       )}
 
+      {panel && <CompanyPanel company={panel.company} start={panel.start} workCompanies={companies.filter((c) => c.source === "work")} onClose={() => setPanel(null)} />}
+      {messageTo && <MessageDialog person={messageTo} onClose={() => setMessageTo(null)} />}
+      {assignTo && <AssignTaskDialog companies={companies.filter((c) => c.source === "work")} people={[]} defaultCompany={company?.source === "work" ? company.key : null} defaultAssignee={assignTo} onClose={() => setAssignTo(null)} />}
       {attention && data && <AttentionDialog data={data} forYou={forYou?.items ?? []} onClose={() => setAttention(false)} onPick={(key) => { const c = companies.find((x) => x.key === key); if (c) setCompany(c); setAttention(false); }} />}
     </div>
   );

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { CeoTowerService, type Source } from './ceo-tower.service';
@@ -11,6 +11,11 @@ export class CeoTowerController {
   @Get('access')
   access(@CurrentUser() u: SessionUser) {
     return this.tower.access(u.id);
+  }
+
+  @Get('people/:id')
+  person(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.tower.person(u.id, id);
   }
 
   @Get('for-you')
