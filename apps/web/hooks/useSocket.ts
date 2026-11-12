@@ -19,7 +19,7 @@ export function useSocket(userId: number | undefined) {
       const raw = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
       const baseUrl = /^https?:\/\/.+/.test(raw) ? raw : "";
       sharedSocket = io(`${baseUrl}/chat`, {
-        auth: { userId },
+        withCredentials: true, // the server reads who we are from the session cookie
         transports: ["websocket"],
         autoConnect: true,
       });

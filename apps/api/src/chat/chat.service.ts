@@ -98,6 +98,33 @@ export class ChatService {
     if (!member) throw new ForbiddenException('You are not a member of this channel');
   }
 
+  /** Live-socket checks: is this user in the channel right now? */
+  async isChannelMember(channelId: number, userId: number): Promise<boolean> {
+    if (!Number.isInteger(channelId) || channelId <= 0) return false;
+    const member = await this.prisma.chatMember.findUnique({
+      where: { channelId_userId: { channelId, userId } },
+      select: { userId: true },
+    });
+    return !!member;
+  }
+
+  async channelInfo(channelId: number) {
+    return this.prisma.chatChannel.findUnique({
+      where: { id: channelId },
+      select: { id: true, workspaceId: true, type: true },
+    });
+  }
+
+  /** A call message really belongs to this channel (stops one channel's call being rewritten from another). */
+  async isCallMessageIn(messageId: number, channelId: number): Promise<boolean> {
+    if (!Number.isInteger(messageId) || messageId <= 0) return false;
+    const msg = await this.prisma.chatMessage.findFirst({
+      where: { id: messageId, channelId, callType: { not: null } },
+      select: { id: true },
+    });
+    return !!msg;
+  }
+
   async assertNotGeneralChannel(channelId: number) {
     const channel = await this.prisma.chatChannel.findUnique({ where: { id: channelId } });
     if (channel?.name === 'general') {
@@ -107,9 +134,21 @@ export class ChatService {
 
   async assertWorkspaceMember(workspaceId: number, userId: number) {
     const member = await this.prisma.workspaceMember.findFirst({
-      where: { workspaceId, userId },
+      where: { workspaceId, userId, deletedAt: null },
     });
     if (!member) throw new ForbiddenException('You are not a member of this workspace');
+  }
+
+  /** Keep only the ids of people who are active members of this workspace. */
+  async onlyWorkspaceMembers(workspaceId: number, ids: unknown[]): Promise<number[]> {
+    const wanted = [...new Set(ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+    if (!wanted.length) return [];
+    const rows = await this.prisma.workspaceMember.findMany({
+      where: { workspaceId, userId: { in: wanted }, deletedAt: null },
+      select: { userId: true },
+    });
+    const ok = new Set(rows.map((r) => r.userId));
+    return wanted.filter((id) => ok.has(id));
   }
 
   // ── Channels ──────────────────────────────────────────────────────────────
@@ -307,6 +346,10 @@ export class ChatService {
       where: { channelId_userId: { channelId, userId } },
     });
     if (!member) throw new ForbiddenException('Not a member of this channel');
+    if (parentId != null) {
+      const parent = await this.prisma.chatMessage.findFirst({ where: { id: parentId, channelId }, select: { id: true } });
+      if (!parent) throw new ForbiddenException('That message is not in this channel');
+    }
 
     const message = await this.prisma.chatMessage.create({
       data: { channelId, userId, content, attachmentUrl, attachmentType, parentId },
@@ -374,6 +417,12 @@ export class ChatService {
   }
 
   async assignMessage(messageId: number, assigneeId: number, assignerId: number) {
+    const target = await this.prisma.chatMessage.findUnique({ where: { id: messageId }, select: { channelId: true } });
+    if (!target) throw new NotFoundException('Message not found');
+    await this.assertChannelMember(target.channelId, assignerId);
+    if (!(await this.isChannelMember(target.channelId, assigneeId))) {
+      throw new ForbiddenException('That person is not in this channel');
+    }
     const msg = await this.prisma.chatMessage.update({
       where: { id: messageId },
       data: { assignedToId: assigneeId, assignedById: assignerId },

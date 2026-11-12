@@ -5,15 +5,13 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import * as dotenv from 'dotenv';
 import helmet from 'helmet';
 import compression from 'compression';
-import session from 'express-session';
-import connectPgSimple from 'connect-pg-simple';
 import cookieParser from 'cookie-parser';
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import * as express from 'express';
 
 import { AppModule } from './app.module';
-import { postgresProvider } from './database/postgres.provider';
+import { allowedOrigins as originsAllowed, sessionMiddleware } from './common/session.middleware';
 
 // .env search: handles both ts-node (src/) and compiled (dist/src/)
 // - compiled: __dirname = apps/api/dist/src  →  ../../.env = apps/api/.env ✓
@@ -68,10 +66,7 @@ async function bootstrap() {
   );
 
   // ── CORS ───────────────────────────────────────────────────────────────────
-  const allowedOrigins = [
-    process.env.FRONTEND_URL ?? 'http://localhost:3000',
-    'https://manage.ezify.pk',
-  ].filter(Boolean);
+  const allowedOrigins = originsAllowed();
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -104,34 +99,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // ── Session (must be before the /uploads auth guard) ───────────────────────
-  const PgSession = connectPgSimple(session);
-
-  app.use(
-    session({
-      store: new PgSession({
-        pool: postgresProvider.useFactory(),
-        tableName: 'sessions',
-        createTableIfMissing: true,
-        ttl: 7 * 24 * 60 * 60, // 7 days in seconds
-        pruneSessionInterval: 24 * 60 * 60, // prune expired sessions daily
-      }),
-      secret: process.env.SESSION_SECRET!,
-      proxy: true,
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production'
-          ? 'none'
-          : 'lax',
-        domain: process.env.NODE_ENV === 'production'
-          ? '.ezify.pk'
-          : undefined,
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      },
-    }),
-  );
+  app.use(sessionMiddleware());
 
   // ── Authenticated static file serving ──────────────────────────────────────
   // Require a valid session before serving any uploaded file.

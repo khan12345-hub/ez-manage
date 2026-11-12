@@ -18,6 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ChatService } from './chat.service';
+import { ChatAccessGuard } from './chat-access.guard';
 import { ChatGateway } from './chat.gateway';
 import { ScheduledMessagesService } from './scheduled-messages.service';
 import { STORAGE_SERVICE } from '../storage/storage.module';
@@ -50,6 +51,10 @@ export class GlobalChatController {
     @CurrentUser() user: SessionUser,
     @Body() body: { roomName: string },
   ) {
+    // Room names are `ez-ch<channelId>-<time>` — only that channel's members may join the call.
+    const m = /^ez-ch(\d+)-\d+$/.exec(String(body?.roomName ?? ''));
+    if (!m) throw new BadRequestException('Unknown call room');
+    await this.chatService.assertChannelMember(Number(m[1]), user.id);
     const profile = await this.chatService.getUserName(user.id);
     const userName = profile ?? `User ${user.id}`;
     const token = await this.livekitService.createToken(String(user.id), userName, body.roomName);
@@ -73,7 +78,7 @@ export class GlobalChatController {
 }
 
 @Controller('workspaces/:workspaceId/chat')
-@UseGuards(SessionAuthGuard)
+@UseGuards(SessionAuthGuard, ChatAccessGuard)
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
@@ -101,12 +106,13 @@ export class ChatController {
     @Body() body: { name: string; description?: string; memberIds?: number[] },
   ) {
     const id = await this.workspaceService.resolveId(workspaceId);
+    const memberIds = await this.chatService.onlyWorkspaceMembers(id, body.memberIds ?? []);
     return this.chatService.createChannel(
       id,
       user.id,
       body.name,
       body.description,
-      body.memberIds ?? [],
+      memberIds,
     );
   }
 
@@ -139,11 +145,13 @@ export class ChatController {
   }
 
   @Post('channels/:channelId/leave')
-  leaveChannel(
+  async leaveChannel(
     @Param('channelId', ParseIntPipe) channelId: number,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.chatService.leaveChannel(channelId, user.id);
+    const result = await this.chatService.leaveChannel(channelId, user.id);
+    this.chatGateway.removeSocketFromChannel(user.id, channelId);
+    return result;
   }
 
   @Get('channels/:channelId/members')
@@ -159,8 +167,13 @@ export class ChatController {
     @CurrentUser() caller: SessionUser,
   ) {
     await this.chatService.assertChannelMember(channelId, caller.id);
-    const result = await this.chatService.addChannelMember(channelId, body.userId);
-    this.chatGateway.addSocketToChannel(body.userId, channelId);
+    const id = await this.workspaceService.resolveId(workspaceId);
+    const channel = await this.chatService.channelInfo(channelId);
+    if (channel?.type !== 'CHANNEL') throw new BadRequestException('People can only be added to channels');
+    const [target] = await this.chatService.onlyWorkspaceMembers(id, [Number(body?.userId)]);
+    if (!target) throw new BadRequestException('That person is not in this workspace');
+    const result = await this.chatService.addChannelMember(channelId, target);
+    this.chatGateway.addSocketToChannel(target, channelId);
     return result;
   }
 
@@ -173,7 +186,9 @@ export class ChatController {
   ) {
     await this.chatService.assertChannelMember(channelId, caller.id);
     await this.chatService.assertNotGeneralChannel(channelId);
-    return this.chatService.removeChannelMember(channelId, userId);
+    const result = await this.chatService.removeChannelMember(channelId, userId);
+    this.chatGateway.removeSocketFromChannel(userId, channelId);
+    return result;
   }
 
   @Post('channels/:channelId/upload')
@@ -232,7 +247,10 @@ export class ChatController {
     @Body() body: { userId: number },
   ) {
     const id = await this.workspaceService.resolveId(workspaceId);
-    const otherId = Number(body.userId);
+    const otherId = Number(body?.userId);
+    if (otherId === user.id) throw new BadRequestException('Pick someone else');
+    const [other] = await this.chatService.onlyWorkspaceMembers(id, [otherId]);
+    if (!other) throw new BadRequestException('That person is not in this workspace');
     try {
       const dm = await this.chatService.getOrCreateDM(user.id, otherId, id);
       this.chatGateway.addSocketToChannel(user.id, dm.id);
@@ -349,7 +367,7 @@ export class ChatController {
     @CurrentUser() user: SessionUser,
     @Body() body: { assigneeId: number },
   ) {
-    return this.chatService.assignMessage(messageId, body.assigneeId, user.id);
+    return this.chatService.assignMessage(messageId, Number(body?.assigneeId), user.id);
   }
 
   // ── Message Search ────────────────────────────────────────────────────────
