@@ -17,7 +17,7 @@ const ago = (iso: string | null) => { if (!iso) return "—"; const h = Math.rou
 const fullName = (p: CeoPerson) => `${p.firstName} ${p.lastName}`.trim();
 
 /** CEO Tower → Team: everyone across your companies, their load and progress */
-export function TeamView({ source, company, workCompanies }: { source: CeoSource; company: string | null; workCompanies: CeoCompany[] }) {
+export function TeamView({ source, company, companies }: { source: CeoSource; company: string | null; companies: CeoCompany[] }) {
   const { data = [], isLoading } = useQuery({ queryKey: ["ceo-tower", "team", source, company], queryFn: () => ceoApi.team(source, company), refetchInterval: 60_000 });
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>("attention");
@@ -80,13 +80,13 @@ export function TeamView({ source, company, workCompanies }: { source: CeoSource
           </table>
         </div>
       )}
-      {open && <PersonPanel person={open} workCompanies={workCompanies} onClose={() => setOpen(null)} />}
+      {open && <PersonPanel person={open} companies={companies} onClose={() => setOpen(null)} />}
     </section>
   );
 }
 
 /** one person in depth, with Message / Assign */
-export function PersonPanel({ person, workCompanies, onClose }: { person: CeoPerson; workCompanies: CeoCompany[]; onClose: () => void }) {
+export function PersonPanel({ person, companies, onClose }: { person: CeoPerson; companies: CeoCompany[]; onClose: () => void }) {
   const [days, setDays] = useState(7);
   const { data: r, isLoading } = useQuery({ queryKey: ["ceo-tower", "person-report", person.id, days], queryFn: () => ceoApi.personReport(person.id, days) });
   const [message, setMessage] = useState(false);
@@ -117,7 +117,7 @@ export function PersonPanel({ person, workCompanies, onClose }: { person: CeoPer
           {r && !r.isMe && (
             <div className="mt-3 flex gap-2">
               <button type="button" onClick={() => setMessage(true)} className="flex h-8 items-center gap-1.5 rounded-lg bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground"><MessageSquare className="h-3.5 w-3.5" /> Message</button>
-              <button type="button" disabled={!workCompanies.length} onClick={() => setAssign(true)} className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-medium hover:bg-accent disabled:opacity-50"><Plus className="h-3.5 w-3.5" /> Assign task</button>
+              <button type="button" disabled={!companies.length} onClick={() => setAssign(true)} className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-medium hover:bg-accent disabled:opacity-50"><Plus className="h-3.5 w-3.5" /> Assign task</button>
             </div>
           )}
         </div>
@@ -152,7 +152,7 @@ export function PersonPanel({ person, workCompanies, onClose }: { person: CeoPer
           )}
         </div>
         {message && <MessageDialog person={person} onClose={() => setMessage(false)} />}
-        {assign && <AssignTaskDialog companies={workCompanies} people={[]} defaultCompany={workCompanies[0]?.key ?? null} defaultAssignee={person.id} onClose={() => setAssign(false)} />}
+        {assign && <AssignTaskDialog companies={r ? companies.filter((c) => r.memberships.some((m) => m.key === c.key)) : companies} people={[]} defaultCompany={r?.memberships[0]?.key ?? null} defaultAssignee={person.id} onClose={() => setAssign(false)} />}
       </SheetContent>
     </Sheet>
   );

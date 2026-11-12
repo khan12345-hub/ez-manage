@@ -30,7 +30,8 @@ export function CompanyPanel({ company, start, workCompanies, place = null, onCl
   const tasks = useQuery({ queryKey: ["ceo-tower", "tasks", "all", company.key, person?.id ?? null, state, "", place?.type ?? null, place?.id ?? null], queryFn: () => ceoApi.tasks({ source: "all", company: company.key, person: person?.id ?? null, state, place }), enabled: tab === "tasks" });
   const people = useQuery({ queryKey: ["ceo-tower", "overview", "all", company.key], queryFn: () => ceoApi.overview("all", company.key), enabled: tab === "people" || !!sharing });
   const team = people.data?.people ?? [];
-  const assignable = company.source === "work" ? [company] : workCompanies;
+  const assignable = [company];
+  void workCompanies;
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>

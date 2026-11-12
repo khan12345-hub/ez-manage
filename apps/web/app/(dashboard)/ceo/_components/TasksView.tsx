@@ -36,7 +36,7 @@ export function TasksView({ source, company, overview }: { source: CeoSource; co
     refetchInterval: 60_000,
   });
   const people = overview?.people ?? [];
-  const workCompanies = (overview?.companies ?? []).filter((c) => c.source === "work");
+  const allCompanies = overview?.companies ?? [];
 
   return (
     <section aria-label="Tasks" className="rounded-2xl border border-border bg-card">
@@ -50,7 +50,7 @@ export function TasksView({ source, company, overview }: { source: CeoSource; co
           {people.map((p) => <option key={p.user.id} value={p.user.id}>{p.user.firstName} {p.user.lastName}</option>)}
         </select>
         <label className="flex h-9 w-60 items-center gap-2 rounded-lg border border-border bg-background px-2.5"><Search className="h-3.5 w-3.5 text-muted-foreground" /><input value={text} onChange={(e) => setText(e.target.value)} placeholder="Find a task, board or list" aria-label="Find a task" className="w-full bg-transparent text-[13px] outline-none" /></label>
-        <button type="button" onClick={() => setAssigning(true)} disabled={!workCompanies.length} title={workCompanies.length ? undefined : "Assigning works for Work companies"} className="flex h-9 items-center gap-1.5 rounded-lg bg-forest px-3.5 text-[13px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-50 dark:bg-primary dark:text-primary-foreground"><Plus className="h-4 w-4" /> Assign task</button>
+        <button type="button" onClick={() => setAssigning(true)} disabled={!allCompanies.length} className="flex h-9 items-center gap-1.5 rounded-lg bg-forest px-3.5 text-[13px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-50 dark:bg-primary dark:text-primary-foreground"><Plus className="h-4 w-4" /> Assign task</button>
       </header>
       <div role="tablist" aria-label="Task states" className="flex flex-wrap gap-1.5 border-b border-border px-5 py-2.5">
         {STATES.map((s) => {
@@ -98,7 +98,7 @@ export function TasksView({ source, company, overview }: { source: CeoSource; co
           {data.truncated && <p className="px-5 py-3 text-[12px] text-muted-foreground">Showing the first {data.tasks.length} of {data.total}. Narrow it down with a company, person or search.</p>}
         </div>
       )}
-      {assigning && <AssignTaskDialog companies={workCompanies} people={people} defaultCompany={company?.startsWith("work:") ? company : null} onClose={() => setAssigning(false)} />}
+      {assigning && <AssignTaskDialog companies={allCompanies} people={people} defaultCompany={company} onClose={() => setAssigning(false)} />}
     </section>
   );
 }

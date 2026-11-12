@@ -158,7 +158,7 @@ export default function CeoTowerPage() {
           </div>
 
           {view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} />
-            : view === "team" ? <TeamView source={source} company={company?.key ?? null} workCompanies={companies.filter((c) => c.source === "work")} />
+            : view === "team" ? <TeamView source={source} company={company?.key ?? null} companies={companies} />
             : view === "boards" || view === "work" ? <ProductView product={view} company={company?.source === view ? company.key : null} companies={companies} />
             : view === "tasks" ? <TasksView source={source} company={company?.key ?? null} overview={data} /> : (
           <div className="grid gap-4 lg:grid-cols-3">
@@ -221,7 +221,7 @@ export default function CeoTowerPage() {
                     {p.user.id !== user?.id && (
                       <span className="mt-2 flex gap-1.5">
                         <button type="button" onClick={() => setMessageTo(p.user)} aria-label={`Message ${p.user.firstName} ${p.user.lastName}`} className="rounded-md border border-border px-2 py-0.5 text-[11.5px] font-medium hover:bg-accent">Message</button>
-                        <button type="button" onClick={() => setAssignTo(p.user.id)} aria-label={`Assign a task to ${p.user.firstName} ${p.user.lastName}`} disabled={!companies.some((c) => c.source === "work")} className="rounded-md border border-border px-2 py-0.5 text-[11.5px] font-medium hover:bg-accent disabled:opacity-50">Assign task</button>
+                        <button type="button" onClick={() => setAssignTo(p.user.id)} aria-label={`Assign a task to ${p.user.firstName} ${p.user.lastName}`} disabled={!companies.length} className="rounded-md border border-border px-2 py-0.5 text-[11.5px] font-medium hover:bg-accent disabled:opacity-50">Assign task</button>
                       </span>
                     )}
                   </li>
@@ -265,7 +265,7 @@ export default function CeoTowerPage() {
 
       {panel && <CompanyPanel company={panel.company} start={panel.start} workCompanies={companies.filter((c) => c.source === "work")} onClose={() => setPanel(null)} />}
       {messageTo && <MessageDialog person={messageTo} onClose={() => setMessageTo(null)} />}
-      {assignTo && <AssignTaskDialog companies={companies.filter((c) => c.source === "work")} people={[]} defaultCompany={company?.source === "work" ? company.key : null} defaultAssignee={assignTo} onClose={() => setAssignTo(null)} />}
+      {assignTo && <AssignTaskDialog companies={companies} people={[]} defaultCompany={company?.key ?? null} defaultAssignee={assignTo} onClose={() => setAssignTo(null)} />}
       {attention && data && <AttentionDialog data={data} forYou={forYou?.items ?? []} onClose={() => setAttention(false)} onPick={(key) => { const c = companies.find((x) => x.key === key); if (c) setCompany(c); setAttention(false); }} />}
     </div>
   );
