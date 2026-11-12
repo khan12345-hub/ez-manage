@@ -1,12 +1,59 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { CeoTowerService, type Source } from './ceo-tower.service';
+import { CeoAiService } from './ceo-ai.service';
 
 /** CEO Tower: read-only, for workspace owners (checked in the service on every call) */
 @Controller('ceo-tower')
 export class CeoTowerController {
-  constructor(private readonly tower: CeoTowerService) {}
+  constructor(
+    private readonly tower: CeoTowerService,
+    private readonly ai: CeoAiService,
+  ) {}
+
+  // ---------- Executive AI ----------
+
+  @Get('ai/status')
+  async aiStatus(@CurrentUser() u: SessionUser) {
+    if (!(await this.tower.access(u.id)).allowed) throw new ForbiddenException('CEO Tower is for workspace owners.');
+    return this.ai.status();
+  }
+
+  @Post('ai/chat')
+  aiChat(@Body() b: { message?: string; conversationId?: string }, @CurrentUser() u: SessionUser) {
+    return this.ai.chatTurn(u.id, String(b.message ?? ''), b.conversationId ? String(b.conversationId) : undefined);
+  }
+
+  @Get('ai/conversations')
+  async aiConversations(@CurrentUser() u: SessionUser) {
+    if (!(await this.tower.access(u.id)).allowed) throw new ForbiddenException('CEO Tower is for workspace owners.');
+    return this.ai.conversations(u.id);
+  }
+
+  @Get('ai/conversations/:id')
+  aiConversation(@Param('id') id: string, @CurrentUser() u: SessionUser) {
+    return this.ai.conversation(u.id, id);
+  }
+
+  @Post('ai/actions/:id/confirm')
+  aiConfirm(@Param('id') id: string, @CurrentUser() u: SessionUser) {
+    return this.ai.decide(u.id, id, true);
+  }
+
+  @Post('ai/actions/:id/cancel')
+  aiCancel(@Param('id') id: string, @CurrentUser() u: SessionUser) {
+    return this.ai.decide(u.id, id, false);
+  }
+
+  /** testing only: run one AI tool directly, without the model (off unless CEO_AI_DEV_TOOLS=1) */
+  @Post('ai/dev/tool')
+  async aiDevTool(@Body() b: { name?: string; input?: Record<string, any>; conversationId?: string }, @CurrentUser() u: SessionUser) {
+    if (process.env.CEO_AI_DEV_TOOLS !== '1' || process.env.NODE_ENV === 'production') throw new NotFoundException();
+    if (!(await this.tower.access(u.id)).allowed) throw new ForbiddenException('CEO Tower is for workspace owners.');
+    const conv = await this.ai.ensureConversation(u.id, b.conversationId ? String(b.conversationId) : undefined);
+    return { conversationId: conv, result: await this.ai.runTool(u.id, conv, String(b.name ?? ''), b.input ?? {}) };
+  }
 
   @Get('access')
   access(@CurrentUser() u: SessionUser) {

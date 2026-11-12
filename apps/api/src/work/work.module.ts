@@ -23,6 +23,8 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
 @Module({
   imports: [StorageModule, NotificationsModule, MailModule],
   controllers: [WorkController],
+  // CEO Tower acts through Work's own services (as the CEO, with Work's permissions)
+  exports: [WorkService, WorkChatService],
   providers: [WorkService, WorkAccessService, WorkDetailService, WorkFilesService, WorkPeopleService, WorkInboxService, WorkOverviewService, WorkFieldsService, WorkRemindersService, WorkExtrasService, WorkStatsService, WorkProfileService, WorkNotifyService, WorkAutomationsService, WorkChatService],
 })
 export class WorkModule {}

@@ -2342,6 +2342,42 @@ model WorkChannelBookmark {
   @@map("work_channel_bookmarks")
 }
 
+/// CEO Tower → Executive AI: one conversation (append-only Claude message history, kept on the server)
+model CeoAiConversation {
+  id        String   @id @default(cuid())
+  userId    Int
+  title     String?
+  /// Anthropic message params, appended to, never edited
+  messages  Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actions CeoAiAction[]
+
+  @@index([userId, updatedAt])
+  @@map("ceo_ai_conversations")
+}
+
+/// an action the AI proposed (message people, assign a task); runs only after the CEO confirms
+model CeoAiAction {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         Int
+  /// message | assign_task
+  kind           String
+  payload        Json
+  /// pending | done | cancelled | failed
+  status         String    @default("pending")
+  result         Json?
+  createdAt      DateTime  @default(now())
+  decidedAt      DateTime?
+
+  conversation CeoAiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("ceo_ai_actions")
+}
+
 /// a person's own chat sidebar section (ClickUp "Create section")
 model WorkChatSection {
   id          Int      @id @default(autoincrement())

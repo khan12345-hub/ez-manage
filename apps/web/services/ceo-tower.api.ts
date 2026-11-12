@@ -39,7 +39,19 @@ export interface CeoPersonDetail {
   reach: { key: string; uid: string; name: string }[];
 }
 
+export interface CeoAiAction {
+  id: string; kind: "message" | "assign_task"; status: "pending" | "running" | "done" | "failed" | "cancelled"; createdAt: string; decidedAt: string | null;
+  payload: any; result: any;
+}
+export interface CeoAiTurn { conversationId: string; reply: string; used: string[]; actions: CeoAiAction[] }
+export interface CeoAiConversation { id: string; title: string | null; messages: { role: "user" | "assistant"; text: string }[]; actions: CeoAiAction[] }
+
 export const ceoApi = {
+  aiStatus: async () => (await api.get<{ configured: boolean; model: string }>("/ceo-tower/ai/status")).data,
+  aiChat: async (message: string, conversationId?: string | null) => (await api.post<CeoAiTurn>("/ceo-tower/ai/chat", { message, ...(conversationId ? { conversationId } : {}) }, { timeout: 180_000 })).data,
+  aiConversations: async () => (await api.get<{ id: string; title: string | null; updatedAt: string }[]>("/ceo-tower/ai/conversations")).data,
+  aiConversation: async (id: string) => (await api.get<CeoAiConversation>(`/ceo-tower/ai/conversations/${id}`)).data,
+  aiDecide: async (id: string, confirm: boolean) => (await api.post<CeoAiAction>(`/ceo-tower/ai/actions/${id}/${confirm ? "confirm" : "cancel"}`)).data,
   person: async (id: number) => (await api.get<CeoPersonDetail>(`/ceo-tower/people/${id}`)).data,
   forYou: async () => (await api.get<{ count: number; items: CeoForYouItem[] }>("/ceo-tower/for-you")).data,
   markForYouRead: async (source: "boards" | "work", id: string) => (await api.post("/ceo-tower/for-you/read", { source, id })).data,

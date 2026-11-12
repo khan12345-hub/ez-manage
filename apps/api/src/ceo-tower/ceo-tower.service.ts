@@ -24,6 +24,8 @@ type TaskFact = {
   status: { label: string; color: string } | null;
   priority?: string | null;
   href: string;
+  /** the list (Work) or board (Boards) the task lives in */
+  place: { type: 'list' | 'board'; id: number };
 };
 
 const USER_MINI = { id: true, firstName: true, lastName: true, avatarUrl: true } as const;
@@ -111,7 +113,7 @@ export class CeoTowerService {
       return {
         source: 'boards' as const, companyKey: `boards:${b.workspaceId}`, id: t.id, uid: String(t.id), name: t.name, where: b.name,
         due, done, active: !done && cat === 'ACTIVE', doneAt: done ? t.updatedAt : null, assignees: people, _tz: tz.get(b.workspaceId),
-        status, href: `/workspace/${wsUid.get(b.workspaceId)}/board/${b.uid}?taskId=${t.id}`,
+        status, href: `/workspace/${wsUid.get(b.workspaceId)}/board/${b.uid}?taskId=${t.id}`, place: { type: 'board' as const, id: b.id },
       };
     });
   }
@@ -121,7 +123,7 @@ export class CeoTowerService {
     if (!ws.length) return [];
     const tasks = await this.prisma.workTask.findMany({
       where: { parentId: null, archivedAt: null, list: { archivedAt: null, space: { workspaceId: { in: ws.map((w) => w.id) }, archivedAt: null } } },
-      select: { id: true, uid: true, name: true, dueDate: true, completedAt: true, priority: true, status: { select: { category: true, name: true, color: true } }, list: { select: { uid: true, name: true, space: { select: { workspaceId: true } } } }, assignees: { select: { userId: true } } },
+      select: { id: true, uid: true, name: true, dueDate: true, completedAt: true, priority: true, status: { select: { category: true, name: true, color: true } }, list: { select: { id: true, uid: true, name: true, space: { select: { workspaceId: true } } } }, assignees: { select: { userId: true } } },
       take: 20000,
     });
     const wsUid = new Map(ws.map((w) => [w.id, w.uid]));
@@ -131,6 +133,7 @@ export class CeoTowerService {
       doneAt: t.completedAt, assignees: t.assignees.map((a) => a.userId),
       status: t.status ? { label: t.status.name, color: t.status.color } : null, priority: t.priority,
       href: `/work/${wsUid.get(t.list.space.workspaceId)}/list/${t.list.uid}?task=${t.uid}`,
+      place: { type: 'list' as const, id: t.list.id },
     }));
   }
 
@@ -283,7 +286,7 @@ export class CeoTowerService {
       state, counts, total: list.length, truncated: list.length > limit,
       tasks: page.map((f) => ({
         source: f.source, id: f.id, uid: f.uid, name: f.name, where: f.where, company: companies.get(f.companyKey)!, due: f.due, done: f.done, active: f.active,
-        overdue: this.overdue(f), doneAt: f.doneAt, status: f.status, priority: f.priority ?? null, href: f.href,
+        overdue: this.overdue(f), doneAt: f.doneAt, status: f.status, priority: f.priority ?? null, href: f.href, place: f.place,
         assignees: f.assignees.map((i) => userById.get(i)).filter(Boolean),
       })),
     };

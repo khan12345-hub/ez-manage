@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "../work/_components/primitives";
 import { TasksView } from "./_components/TasksView";
+import { AI_PROMPTS, AiView } from "./_components/AiView";
 import { CompanyPanel, type PanelTab } from "./_components/CompanyPanel";
 import { MessageDialog } from "./_components/MessageDialog";
 import { AssignTaskDialog } from "./_components/AssignTaskDialog";
@@ -25,7 +26,7 @@ const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean 
   { id: "team", label: "Team", icon: Users, ready: false },
   { id: "boards", label: "Boards", icon: LayoutGrid, ready: false },
   { id: "work", label: "Work", icon: CheckCircle2, ready: false },
-  { id: "ai", label: "Executive AI", icon: Sparkles, ready: false },
+  { id: "ai", label: "Executive AI", icon: Sparkles, ready: true },
 ];
 const HEALTH: Record<CeoHealth, { label: string; cls: string; dot: string }> = {
   healthy: { label: "Healthy", cls: "bg-primary/10 text-primary ring-primary/20", dot: "bg-primary" },
@@ -60,6 +61,9 @@ export default function CeoTowerPage() {
   const [company, setCompany] = useState<CeoCompany | null>(null);
   const [q, setQ] = useState("");
   const [attention, setAttention] = useState(false);
+  const [aiAsk, setAiAsk] = useState<string | null>(null);
+  const [aiText, setAiText] = useState("");
+  const askAi = (q: string) => { if (!q.trim()) return; setAiAsk(q.trim()); setAiText(""); setView("ai"); };
   const [panel, setPanel] = useState<{ company: CeoCompany; start: PanelTab } | null>(null);
   const [messageTo, setMessageTo] = useState<CeoOverview["people"][number]["user"] | null>(null);
   const [assignTo, setAssignTo] = useState<number | null>(null);
@@ -151,7 +155,7 @@ export default function CeoTowerPage() {
             ))}
           </div>
 
-          {view === "tasks" ? <TasksView source={source} company={company?.key ?? null} overview={data} /> : (
+          {view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} /> : view === "tasks" ? <TasksView source={source} company={company?.key ?? null} overview={data} /> : (
           <div className="grid gap-4 lg:grid-cols-3">
             {/* companies */}
             <Panel icon={Building2} title="Companies & Portfolio" kicker="Every company you own" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{companies.length} active</span>}
@@ -239,11 +243,14 @@ export default function CeoTowerPage() {
                   {!data.attention.overdue.length && <li className="text-[12.5px] text-muted-foreground">Nothing overdue. 👏</li>}
                 </ul>
               </Panel>
-              <Panel icon={Bot} title="Ask Executive AI" kicker="Coming in step 5 · Claude" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground ring-1 ring-border">Soon</span>}>
+              <Panel icon={Bot} title="Ask Executive AI" kicker="Live data · acts only after you confirm" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] text-primary ring-1 ring-primary/25">Ready</span>}>
                 <div className="flex flex-wrap gap-1.5">
-                  {["Khan kia kar raha hai?", "Kaun se tasks in progress hain?", "Kis ki team peeche hai?", "Overdue > 48h"].map((c) => <span key={c} className="rounded-lg border border-border px-2.5 py-1 text-[12px] text-muted-foreground">{c}</span>)}
+                  {AI_PROMPTS.slice(0, 4).map((c) => <button key={c} type="button" onClick={() => askAi(c)} className="rounded-lg border border-border px-2.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground">{c}</button>)}
                 </div>
-                <p className="mt-3 rounded-xl border border-dashed border-border bg-muted/30 p-3 text-[12.5px] text-muted-foreground">Ask anything about your companies in plain words: who is doing what, progress of a person, team, folder or list, what is stuck. It reads live data only and never changes anything.</p>
+                <div className="mt-3 flex gap-2">
+                  <input value={aiText} onChange={(e) => setAiText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && askAi(aiText)} placeholder="Ask AI: e.g. Who is falling behind today?" aria-label="Ask AI" className="h-10 flex-1 rounded-xl border border-border bg-background px-3 text-[13px] outline-none focus:border-primary/50" />
+                  <button type="button" aria-label="Ask AI" onClick={() => askAi(aiText)} disabled={!aiText.trim()} className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest text-forest-foreground disabled:opacity-40 dark:bg-primary dark:text-primary-foreground"><ArrowRight className="h-4 w-4" /></button>
+                </div>
               </Panel>
             </div>
           </div>
