@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
@@ -12,12 +13,15 @@ import { ChatService } from './chat.service';
 import { NotificationStreamService } from '../notifications/notification-stream.service';
 import { PushService } from '../push/push.service';
 import { LivekitService } from '../livekit/livekit.service';
+import { allowedOrigins, sessionMiddleware } from '../common/session.middleware';
+
+const isId = (v: unknown): v is number => Number.isInteger(v) && (v as number) > 0;
 
 @WebSocketGateway({
-  cors: { origin: '*', credentials: true },
+  cors: { origin: (origin: string | undefined, cb: (e: Error | null, ok?: boolean) => void) => cb(null, !origin || allowedOrigins().includes(origin)), credentials: true },
   namespace: '/chat',
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Namespace;
 
   // userId → Set of socketIds
@@ -53,10 +57,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly livekitService: LivekitService,
   ) {}
 
+  /** Read the login session from the cookie on every socket handshake (same as HTTP). */
+  afterInit(ns: Namespace) {
+    const engine = (ns as any).server?.engine ?? (ns as any).engine;
+    engine?.use(sessionMiddleware());
+  }
+
+  /** Who this socket really is — from the session cookie, never from what the browser says. */
   async handleConnection(client: Socket) {
-    const userId = Number(client.handshake.auth?.userId);
-    if (!userId) { client.disconnect(); return; }
+    // Another website can't open a socket with our user's cookie (cross-site WebSocket hijacking)
+    const origin = client.handshake.headers.origin;
+    if (origin && !allowedOrigins().includes(origin)) { client.disconnect(true); return; }
+    const user = (client.request as any)?.session?.user;
+    const userId = Number(user?.id);
+    if (!isId(userId)) { client.disconnect(true); return; }
     client.data.userId = userId;
+    client.data.userName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
 
     if (!this.onlineUsers.has(userId)) this.onlineUsers.set(userId, new Set());
     this.onlineUsers.get(userId)!.add(client.id);
@@ -87,6 +103,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const clientSocket = this.server.sockets.get(socketId);
       if (clientSocket) clientSocket.join(`channel:${channelId}`);
     }
+  }
+
+  // Called after someone leaves / is removed — stop live delivery to them
+  removeSocketFromChannel(userId: number, channelId: number) {
+    for (const socketId of this.onlineUsers.get(userId) ?? []) {
+      this.server.sockets.get(socketId)?.leave(`channel:${channelId}`);
+    }
+    if (this.activeChannel.get(userId) === channelId) this.activeChannel.delete(userId);
   }
 
   // Notify a user of a new DM and auto-join their socket to the DM room
@@ -127,9 +151,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { channelId: number },
   ) {
-    client.join(`channel:${data.channelId}`);
-    this.activeChannel.set(client.data.userId, data.channelId);
-    return { joined: data.channelId };
+    const channelId = data?.channelId;
+    if (!(await this.chatService.isChannelMember(channelId, client.data.userId))) {
+      return { error: 'Not a member of this channel' };
+    }
+    client.join(`channel:${channelId}`);
+    this.activeChannel.set(client.data.userId, channelId);
+    return { joined: channelId };
+  }
+
+  /** Room events only come from sockets already in that room (joined after a membership check). */
+  private inRoom(client: Socket, channelId: unknown): channelId is number {
+    return isId(channelId) && client.rooms.has(`channel:${channelId}`);
   }
 
   @SubscribeMessage('channel:leave')
@@ -149,8 +182,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { channelId: number; content: string; attachmentUrl?: string; attachmentType?: string; parentId?: number },
   ) {
     const userId = client.data.userId;
-    const plainText = data.content?.replace(/<[^>]*>/g, '').trim() ?? '';
-    if (!userId || (!plainText && !data.attachmentUrl)) return;
+    if (!userId || !data || !isId(data.channelId) || typeof data.content !== 'string') return;
+    if (data.parentId != null && !isId(data.parentId)) return;
+    const plainText = data.content.replace(/<[^>]*>/g, '').trim();
+    if (!plainText && !data.attachmentUrl) return;
 
     if (this.isRateLimited(userId)) {
       client.emit('error:rate_limited', {
@@ -160,14 +195,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    const message = await this.chatService.saveMessage(
-      data.channelId,
-      userId,
-      data.content?.trim() ?? '',
-      data.attachmentUrl,
-      data.attachmentType,
-      data.parentId,
-    );
+    let message: Awaited<ReturnType<ChatService['saveMessage']>>;
+    try {
+      message = await this.chatService.saveMessage(
+        data.channelId,
+        userId,
+        data.content.trim(),
+        data.attachmentUrl,
+        data.attachmentType,
+        data.parentId,
+      );
+    } catch (e: any) {
+      return { error: e?.message ?? 'Could not send' };
+    }
 
     // Broadcast to everyone in channel room (including sender)
     this.server.to(`channel:${data.channelId}`).emit('message:new', message);
@@ -213,9 +253,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { channelId: number; userName: string },
   ) {
+    if (!this.inRoom(client, data?.channelId)) return;
     client.to(`channel:${data.channelId}`).emit('typing:start', {
       userId: client.data.userId,
-      userName: data.userName,
+      userName: client.data.userName || data.userName,
       channelId: data.channelId,
     });
   }
@@ -225,6 +266,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { channelId: number },
   ) {
+    if (!this.inRoom(client, data?.channelId)) return;
     client.to(`channel:${data.channelId}`).emit('typing:stop', {
       userId: client.data.userId,
       channelId: data.channelId,
@@ -243,7 +285,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     const userId = client.data.userId;
-    if (!userId) return;
+    if (!userId || !isId(data?.channelId)) return;
+    if (!(await this.chatService.isChannelMember(data.channelId, userId))) return { error: 'Not a member of this channel' };
+    // Trust the channel, not the browser: its real workspace and type, and the caller's real name
+    const channel = await this.chatService.channelInfo(data.channelId);
+    if (!channel) return { error: 'Channel not found' };
+    const callerName = client.data.userName || data.callerName;
+    const callType = data.callType === 'voice' ? 'voice' : 'video';
 
     // Generate a unique LiveKit room name for this call
     const roomName = this.livekitService.roomName(data.channelId);
@@ -253,7 +301,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       livekitToken = await this.livekitService.createToken(
         String(userId),
-        data.callerName,
+        callerName,
         roomName,
       );
     } catch (e) {
@@ -263,17 +311,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Save a system call message so it appears in chat history
     let callMessageId: number | undefined;
     try {
-      const callMsg = await this.chatService.saveCallMessage(data.channelId, userId, data.callType);
+      const callMsg = await this.chatService.saveCallMessage(data.channelId, userId, callType);
       callMessageId = callMsg.id;
       this.server.to(`channel:${data.channelId}`).emit('message:new', callMsg);
     } catch {}
 
     const payload = {
       channelId:    data.channelId,
-      callType:     data.callType,
+      callType,
       roomName,
-      workspaceId:  data.workspaceId,
-      callerName:   data.callerName,
+      workspaceId:  channel.workspaceId,
+      callerName,
       channelName:  data.channelName,
       callerUserId: userId,
       callMessageId,
@@ -291,8 +339,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         alreadyNotified.add(m.userId);
         this.notificationStream.emitRaw(m.userId, 'chat_call', payload);
       }
-      if (data.workspaceId) {
-        const wsMembers = await this.chatService.getWorkspaceMemberIds(data.workspaceId);
+      // Workspace-wide ring only for channels — a direct message call rings just its members
+      if (channel.workspaceId && channel.type === 'CHANNEL') {
+        const wsMembers = await this.chatService.getWorkspaceMemberIds(channel.workspaceId);
         for (const memberId of wsMembers) {
           if (alreadyNotified.has(memberId)) continue;
           alreadyNotified.add(memberId);
@@ -311,10 +360,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly finalizedCalls = new Set<number>();
 
   @SubscribeMessage('call:joined')
-  handleCallJoined(
+  async handleCallJoined(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { channelId: number; callMessageId?: number },
   ) {
+    if (!this.inRoom(client, data?.channelId)) return;
+    if (data.callMessageId != null && !(await this.chatService.isCallMessageIn(data.callMessageId, data.channelId))) return;
     if (data.callMessageId) this.answeredCalls.add(data.callMessageId);
     // Tell the caller to start their duration timer
     client.to(`channel:${data.channelId}`).emit('call:joined', { callMessageId: data.callMessageId });
@@ -325,6 +376,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { channelId: number; callMessageId?: number; duration?: number },
   ) {
+    if (!this.inRoom(client, data?.channelId)) return;
+    if (data.callMessageId != null && !(await this.chatService.isCallMessageIn(data.callMessageId, data.channelId))) return;
+    const duration = Number.isFinite(data.duration) && data.duration! >= 0 && data.duration! < 86_400 ? Math.round(data.duration!) : undefined;
     // Dismiss incoming-call toast on the other side
     client.to(`channel:${data.channelId}`).emit('call:ended', { channelId: data.channelId });
 
@@ -340,7 +394,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.answeredCalls.delete(data.callMessageId);
         // If nobody ever joined, mark as missed (no duration)
         const callStatus   = wasAnswered ? 'ended' : 'missed';
-        const callDuration = wasAnswered ? data.duration : undefined;
+        const callDuration = wasAnswered ? duration : undefined;
         const updated = await this.chatService.updateCallStatus(
           data.callMessageId,
           callStatus,
@@ -379,7 +433,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { channelId: number; callMessageId?: number },
   ) {
     const userId = client.data.userId;
-    if (!userId) return;
+    if (!userId || !this.inRoom(client, data?.channelId)) return;
+    if (data.callMessageId != null && !(await this.chatService.isCallMessageIn(data.callMessageId, data.channelId))) return;
 
     try {
       const members = await this.chatService.getChannelMembersFull(data.channelId);

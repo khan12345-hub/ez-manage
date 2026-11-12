@@ -71,7 +71,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const baseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "";
     if (!socket || !socket.connected) {
       socket = io(`${baseUrl}/chat`, {
-        auth: { userId: user.id },
+        withCredentials: true, // the server reads who we are from the session cookie
         transports: ["websocket"],
       });
     }
