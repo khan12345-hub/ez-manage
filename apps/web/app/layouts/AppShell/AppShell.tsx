@@ -298,7 +298,7 @@ export function AppShell({ children }: AppShellProps) {
               <CallToast />
               <CallDeclinedToast />
               <GlobalLiveKitPanel />
-              <PushPermissionBanner top={isWorkPage} />
+              <PushPermissionBanner top={isWorkPage || isCeoPage} />
             </NotificationStreamProvider>
           </ImportJobProvider>
         </ChatProvider>

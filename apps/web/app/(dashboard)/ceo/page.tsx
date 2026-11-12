@@ -10,11 +10,13 @@ import { useAuth } from "@/providers/AuthProvider";
 import { BrandMark } from "@/app/layouts/AppShell/Sidebar/ProductNav";
 import { ceoApi, useCeoAccess, type CeoCompany, type CeoHealth, type CeoOverview, type CeoSource } from "@/services/ceo-tower.api";
 import { Avatar } from "../work/_components/primitives";
+import { TasksView } from "./_components/TasksView";
+import { SourceBadge, fmtDate } from "./_components/bits";
 
 type View = "portfolio" | "tasks" | "team" | "boards" | "work" | "ai";
 const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean }[] = [
   { id: "portfolio", label: "Portfolio", icon: Building2, ready: true },
-  { id: "tasks", label: "Tasks", icon: ListChecks, ready: false },
+  { id: "tasks", label: "Tasks", icon: ListChecks, ready: true },
   { id: "team", label: "Team", icon: Users, ready: false },
   { id: "boards", label: "Boards", icon: LayoutGrid, ready: false },
   { id: "work", label: "Work", icon: CheckCircle2, ready: false },
@@ -26,12 +28,8 @@ const HEALTH: Record<CeoHealth, { label: string; cls: string; dot: string }> = {
   critical: { label: "Action needed", cls: "bg-destructive/10 text-destructive ring-destructive/25", dot: "bg-destructive" },
 };
 const companyHref = (c: { source: "boards" | "work"; uid: string }) => (c.source === "work" ? `/work/${c.uid}` : `/workspace/${c.uid}`);
-const fmtDate = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString([], { month: "short", day: "numeric" });
 const ago = (iso: string) => { const h = Math.round((Date.now() - +new Date(iso)) / 3_600_000); return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; };
 
-function SourceBadge({ source }: { source: "boards" | "work" }) {
-  return <span className={cn("rounded px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-wide", source === "work" ? "bg-product-work/12 text-product-work" : "bg-product-boards/12 text-product-boards dark:text-[#a5b4fc]")}>{source}</span>;
-}
 function Bar({ value }: { value: number }) {
   return <span className="block h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}><span className="block h-full rounded-full bg-primary" style={{ width: `${value}%` }} /></span>;
 }
@@ -143,6 +141,7 @@ export default function CeoTowerPage() {
             ))}
           </div>
 
+          {view === "tasks" ? <TasksView source={source} company={company?.key ?? null} overview={data} /> : (
           <div className="grid gap-4 lg:grid-cols-3">
             {/* companies */}
             <Panel icon={Building2} title="Companies & Portfolio" kicker="Every company you own" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{companies.length} active</span>}
@@ -177,7 +176,7 @@ export default function CeoTowerPage() {
 
             {/* people */}
             <Panel icon={Users} title="Management & Teams" kicker="Who carries the work" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{data.kpis.people} people</span>}
-              footer={<span className="flex items-center justify-between"><span>Total open: <strong className="text-destructive">{data.kpis.open} tasks</strong></span><span className="text-muted-foreground">Full Team view · next step</span></span>}>
+              footer={<span className="flex items-center justify-between"><span>Total open: <strong className="text-destructive">{data.kpis.open} tasks</strong></span><button type="button" onClick={() => setView("tasks")} className="font-semibold text-primary hover:underline">View all tasks →</button></span>}>
               <div className="mb-3 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-1.5 text-[11.5px] font-semibold">
                 <span className="flex items-center gap-1.5 text-destructive"><span className="h-2 w-2 rounded-full bg-destructive" />Overdue</span>
                 <span className="flex items-center gap-1.5 text-[#8a6a35] dark:text-[#d9bd8c]"><span className="h-2 w-2 rounded-full bg-[#b08d57]" />Working on</span>
@@ -231,6 +230,7 @@ export default function CeoTowerPage() {
               </Panel>
             </div>
           </div>
+          )}
         </div>
       )}
 

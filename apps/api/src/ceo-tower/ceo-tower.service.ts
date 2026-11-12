@@ -21,6 +21,9 @@ type TaskFact = {
   active: boolean;
   doneAt: Date | null;
   assignees: number[];
+  status: { label: string; color: string } | null;
+  priority?: string | null;
+  href: string;
 };
 
 const USER_MINI = { id: true, firstName: true, lastName: true, avatarUrl: true } as const;
@@ -65,7 +68,8 @@ export class CeoTowerService {
   private async boardsFacts(ws: { id: number; uid: string; name: string; timezone: string | null }[]): Promise<(TaskFact & { _tz?: string })[]> {
     if (!ws.length) return [];
     const tz = new Map(ws.map((w) => [w.id, w.timezone || 'UTC']));
-    const boards = await this.prisma.board.findMany({ where: { workspaceId: { in: ws.map((w) => w.id) } }, select: { id: true, name: true, workspaceId: true } });
+    const wsUid = new Map(ws.map((w) => [w.id, w.uid]));
+    const boards = await this.prisma.board.findMany({ where: { workspaceId: { in: ws.map((w) => w.id) } }, select: { id: true, uid: true, name: true, workspaceId: true } });
     if (!boards.length) return [];
     const columns = await this.prisma.boardColumn.findMany({
       where: { boardId: { in: boards.map((b) => b.id) }, type: { in: ['STATUS', 'DATE', 'PLAIN_DATE', 'PERSON'] } },
@@ -90,10 +94,15 @@ export class CeoTowerService {
     return tasks.map((t) => {
       const b = boardOf.get(t.group.boardId)!;
       let cat: StatusCategory | null = null, due: string | null = null, people: number[] = [];
+      let status: { label: string; color: string } | null = null;
       for (const cell of t.cells) {
         const c = colById.get(cell.columnId);
         if (!c) continue;
-        if (c.type === 'STATUS') cat = resolveStatusCategory(cell.value, c.statusOptions);
+        if (c.type === 'STATUS') {
+          cat = resolveStatusCategory(cell.value, c.statusOptions);
+          const v = cell.value as any;
+          if (v?.label) status = { label: String(v.label), color: String(v.color ?? '#8a8f98') };
+        }
         else if (c.type === 'PERSON') people = (((cell.value as any)?.users ?? []) as any[]).map((u) => Number(u?.id)).filter(Number.isInteger);
         else due = dateOf(cell.value);
       }
@@ -102,6 +111,7 @@ export class CeoTowerService {
       return {
         source: 'boards' as const, companyKey: `boards:${b.workspaceId}`, id: t.id, uid: String(t.id), name: t.name, where: b.name,
         due, done, active: !done && cat === 'ACTIVE', doneAt: done ? t.updatedAt : null, assignees: people, _tz: tz.get(b.workspaceId),
+        status, href: `/workspace/${wsUid.get(b.workspaceId)}/board/${b.uid}?taskId=${t.id}`,
       };
     });
   }
@@ -111,18 +121,79 @@ export class CeoTowerService {
     if (!ws.length) return [];
     const tasks = await this.prisma.workTask.findMany({
       where: { parentId: null, archivedAt: null, list: { archivedAt: null, space: { workspaceId: { in: ws.map((w) => w.id) }, archivedAt: null } } },
-      select: { id: true, uid: true, name: true, dueDate: true, completedAt: true, status: { select: { category: true } }, list: { select: { name: true, space: { select: { workspaceId: true } } } }, assignees: { select: { userId: true } } },
+      select: { id: true, uid: true, name: true, dueDate: true, completedAt: true, priority: true, status: { select: { category: true, name: true, color: true } }, list: { select: { uid: true, name: true, space: { select: { workspaceId: true } } } }, assignees: { select: { userId: true } } },
       take: 20000,
     });
+    const wsUid = new Map(ws.map((w) => [w.id, w.uid]));
     return tasks.map((t) => ({
       source: 'work' as const, companyKey: `work:${t.list.space.workspaceId}`, id: t.id, uid: t.uid, name: t.name, where: t.list.name,
       due: t.dueDate ? t.dueDate.toISOString().slice(0, 10) : null, done: !!t.completedAt, active: !t.completedAt && t.status?.category === 'ACTIVE',
       doneAt: t.completedAt, assignees: t.assignees.map((a) => a.userId),
+      status: t.status ? { label: t.status.name, color: t.status.color } : null, priority: t.priority,
+      href: `/work/${wsUid.get(t.list.space.workspaceId)}/list/${t.list.uid}?task=${t.uid}`,
     }));
   }
 
   private overdue(f: TaskFact & { _tz?: string }) {
     return !f.done && !!f.due && f.due < ymd(new Date(), f._tz ?? 'UTC');
+  }
+
+  // ---------- the Tasks view: every task, filtered ----------
+
+  /**
+   * state: open | in_progress | overdue | due_week | done_week | unassigned | all
+   * company: "boards:<id>" / "work:<id>"; person: a user id; q: words in the task name
+   */
+  async tasks(userId: number, o: { source?: Source; company?: string; person?: number; state?: string; q?: string; limit?: number }) {
+    const own = await this.require(userId);
+    const source = o.source ?? 'all';
+    let boardsWs = source === 'work' ? [] : own.boards;
+    let workWs = source === 'boards' ? [] : own.work;
+    if (o.company) {
+      boardsWs = boardsWs.filter((w) => `boards:${w.id}` === o.company);
+      workWs = workWs.filter((w) => `work:${w.id}` === o.company);
+      if (!boardsWs.length && !workWs.length) throw new ForbiddenException('That company is not one of yours.');
+    }
+    const facts: (TaskFact & { _tz?: string })[] = [...(await this.boardsFacts(boardsWs)), ...(await this.workFacts(workWs))];
+    const today = (f: TaskFact & { _tz?: string }) => ymd(new Date(), f._tz ?? 'UTC');
+    const weekAgo = Date.now() - 7 * DAY;
+    const inWeek = (f: TaskFact & { _tz?: string }) => !!f.due && f.due >= today(f) && f.due <= ymd(new Date(Date.now() + 7 * DAY), f._tz ?? 'UTC');
+    const state = o.state ?? 'open';
+    const q = (o.q ?? '').trim().toLowerCase();
+    const counts = {
+      open: facts.filter((f) => !f.done).length,
+      in_progress: facts.filter((f) => f.active).length,
+      overdue: facts.filter((f) => this.overdue(f)).length,
+      due_week: facts.filter((f) => !f.done && inWeek(f)).length,
+      done_week: facts.filter((f) => f.done && f.doneAt && +f.doneAt >= weekAgo).length,
+      unassigned: facts.filter((f) => !f.done && !f.assignees.length).length,
+      all: facts.length,
+    };
+    const list = facts.filter((f) =>
+      (state === 'open' ? !f.done : state === 'in_progress' ? f.active : state === 'overdue' ? this.overdue(f) : state === 'due_week' ? !f.done && inWeek(f)
+        : state === 'done_week' ? f.done && !!f.doneAt && +f.doneAt >= weekAgo : state === 'unassigned' ? !f.done && !f.assignees.length : true)
+      && (!o.person || f.assignees.includes(o.person))
+      && (!q || f.name.toLowerCase().includes(q) || f.where.toLowerCase().includes(q)));
+    // overdue first, then by due date, undated last; done lists newest first
+    list.sort((a, b) => state === 'done_week' ? +(b.doneAt ?? 0) - +(a.doneAt ?? 0)
+      : (+this.overdue(b) - +this.overdue(a)) || (a.due ?? '9999').localeCompare(b.due ?? '9999') || a.name.localeCompare(b.name));
+    const limit = Math.min(Math.max(o.limit ?? 300, 1), 1000);
+    const page = list.slice(0, limit);
+    const ids = [...new Set(page.flatMap((f) => f.assignees))];
+    const users = ids.length ? await this.prisma.user.findMany({ where: { id: { in: ids } }, select: USER_MINI }) : [];
+    const userById = new Map(users.map((u) => [u.id, u]));
+    type Co = { key: string; name: string; source: 'boards' | 'work'; uid: string };
+    const companies = new Map<string, Co>();
+    for (const w of own.boards) companies.set(`boards:${w.id}`, { key: `boards:${w.id}`, name: w.name, source: 'boards', uid: w.uid });
+    for (const w of own.work) companies.set(`work:${w.id}`, { key: `work:${w.id}`, name: w.name, source: 'work', uid: w.uid });
+    return {
+      state, counts, total: list.length, truncated: list.length > limit,
+      tasks: page.map((f) => ({
+        source: f.source, id: f.id, uid: f.uid, name: f.name, where: f.where, company: companies.get(f.companyKey)!, due: f.due, done: f.done, active: f.active,
+        overdue: this.overdue(f), doneAt: f.doneAt, status: f.status, priority: f.priority ?? null, href: f.href,
+        assignees: f.assignees.map((i) => userById.get(i)).filter(Boolean),
+      })),
+    };
   }
 
   // ---------- the Task view: KPIs, companies, people, updates ----------

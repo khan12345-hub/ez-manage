@@ -21,7 +21,18 @@ export interface CeoOverview {
   };
 }
 
+export type CeoTaskState = "open" | "in_progress" | "overdue" | "due_week" | "done_week" | "unassigned" | "all";
+export interface CeoTask {
+  source: "boards" | "work"; id: number; uid: string; name: string; where: string;
+  company: { key: string; name: string; source: "boards" | "work"; uid: string };
+  due: string | null; done: boolean; active: boolean; overdue: boolean; doneAt: string | null;
+  status: { label: string; color: string } | null; priority: string | null; href: string; assignees: CeoPerson[];
+}
+export interface CeoTasks { state: CeoTaskState; counts: Record<CeoTaskState, number>; total: number; truncated: boolean; tasks: CeoTask[] }
+
 export const ceoApi = {
+  tasks: async (o: { source: CeoSource; company?: string | null; person?: number | null; state: CeoTaskState; q?: string }) =>
+    (await api.get<CeoTasks>(`/ceo-tower/tasks?${new URLSearchParams(Object.entries({ ...o, company: o.company ?? "", person: o.person ? String(o.person) : "" }).filter(([, v]) => v !== "" && v != null) as [string, string][])}`)).data,
   access: async () => (await api.get<{ allowed: boolean; boards: number; work: number }>("/ceo-tower/access")).data,
   overview: async (source: CeoSource, company?: string | null) =>
     (await api.get<CeoOverview>(`/ceo-tower/overview?${new URLSearchParams({ source, ...(company ? { company } : {}) })}`)).data,
