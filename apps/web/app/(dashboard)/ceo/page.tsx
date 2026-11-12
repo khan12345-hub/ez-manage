@@ -3,12 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowRight, BarChart3, Bot, Building2, CheckCircle2, Crown, LayoutGrid, ListChecks, Search, Sparkles, Users, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, AtSign, BarChart3, Bot, Building2, CheckCircle2, Crown, Inbox, LayoutGrid, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { BrandMark } from "@/app/layouts/AppShell/Sidebar/ProductNav";
-import { ceoApi, useCeoAccess, type CeoCompany, type CeoHealth, type CeoOverview, type CeoSource } from "@/services/ceo-tower.api";
+import { ceoApi, useCeoAccess, type CeoCompany, type CeoForYouItem, type CeoForYouKind, type CeoHealth, type CeoOverview, type CeoSource } from "@/services/ceo-tower.api";
+import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "../work/_components/primitives";
 import { TasksView } from "./_components/TasksView";
 import { SourceBadge, fmtDate } from "./_components/bits";
@@ -63,6 +65,7 @@ export default function CeoTowerPage() {
   });
   // the company list stays complete while one company is in scope
   const { data: all } = useQuery({ queryKey: ["ceo-tower", "overview", source, null], queryFn: () => ceoApi.overview(source), enabled: access.allowed && !!company });
+  const { data: forYou } = useQuery({ queryKey: ["ceo-tower", "for-you"], queryFn: ceoApi.forYou, enabled: access.allowed, refetchInterval: 60_000 });
   const companies = (company ? all?.companies : data?.companies) ?? [];
   const shown = companies.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()));
 
@@ -77,7 +80,8 @@ export default function CeoTowerPage() {
     );
   }
 
-  const attentionCount = (data?.attention.companies.length ?? 0) + (data?.attention.overdue.length ? 1 : 0);
+  const forYouCount = forYou?.count ?? 0;
+  const attentionCount = forYouCount + (data?.attention.companies.length ?? 0) + (data?.attention.overdue.length ? 1 : 0);
   return (
     <div className="min-h-full bg-[#f6f8f6] dark:bg-background">
       {/* header */}
@@ -102,7 +106,7 @@ export default function CeoTowerPage() {
             ))}
           </div>
           <button type="button" onClick={() => setAttention(true)} disabled={!attentionCount} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold ring-1", attentionCount ? "bg-destructive/8 text-destructive ring-destructive/25 hover:bg-destructive/12" : "text-muted-foreground ring-border")}>
-            <span className={cn("h-2 w-2 rounded-full", attentionCount ? "bg-destructive" : "bg-primary")} /> Attention needed ({attentionCount})
+            <span className={cn("h-2 w-2 rounded-full", attentionCount ? "bg-destructive" : "bg-primary")} /> Attention needed ({attentionCount}){forYouCount > 0 && <span className="ml-0.5 rounded-full bg-destructive px-1.5 font-mono text-[10.5px] text-white">{forYouCount} for you</span>}
           </button>
           <span className="flex items-center gap-2 border-l border-border pl-3">
             {user && <Avatar user={{ id: user.id, firstName: user.firstName, lastName: user.lastName, avatarUrl: (user as any).avatarUrl ?? null, email: user.email } as any} size={30} />}
@@ -234,29 +238,57 @@ export default function CeoTowerPage() {
         </div>
       )}
 
-      {attention && data && <AttentionDialog data={data} onClose={() => setAttention(false)} onPick={(key) => { const c = companies.find((x) => x.key === key); if (c) setCompany(c); setAttention(false); }} />}
+      {attention && data && <AttentionDialog data={data} forYou={forYou?.items ?? []} onClose={() => setAttention(false)} onPick={(key) => { const c = companies.find((x) => x.key === key); if (c) setCompany(c); setAttention(false); }} />}
     </div>
   );
 }
 
-function AttentionDialog({ data, onClose, onPick }: { data: CeoOverview; onClose: () => void; onPick: (key: string) => void }) {
-  const [tab, setTab] = useState<"companies" | "overdue">(data.attention.companies.length ? "companies" : "overdue");
+const KIND: Record<CeoForYouKind, { label: string; icon: typeof Inbox }> = {
+  assigned: { label: "Assigned to you", icon: UserPlus },
+  mention: { label: "Mentioned you", icon: AtSign },
+  reply: { label: "Replied to you", icon: MessageSquareReply },
+  comment: { label: "Commented", icon: MessageSquare },
+  message: { label: "Message", icon: MessageSquare },
+};
+
+function AttentionDialog({ data, forYou, onClose, onPick }: { data: CeoOverview; forYou: CeoForYouItem[]; onClose: () => void; onPick: (key: string) => void }) {
+  const router = useRouter();
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<"foryou" | "companies" | "overdue">(forYou.length ? "foryou" : data.attention.companies.length ? "companies" : "overdue");
+  const read = useMutation({ mutationFn: (i: CeoForYouItem) => ceoApi.markForYouRead(i.source, i.id), onSettled: () => qc.invalidateQueries({ queryKey: ["ceo-tower", "for-you"] }) });
+  const open = (i: CeoForYouItem) => { read.mutate(i); if (i.href) router.push(i.href); else onClose(); };
   const overdue = useMemo(() => data.attention.overdue, [data]);
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[640px]">
         <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-destructive" /> Attention needed</DialogTitle>
-        <DialogDescription>Companies at risk and the tasks that slipped past their due date.</DialogDescription>
+        <DialogDescription>What people need from you, companies at risk, and tasks that slipped past their due date.</DialogDescription>
         <div role="tablist" aria-label="Attention" className="flex gap-1">
-          {([["companies", `Companies (${data.attention.companies.length})`], ["overdue", `Overdue tasks (${overdue.length})`]] as const).map(([id, l]) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("rounded-md px-2.5 py-1 text-[12.5px] font-medium", tab === id ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>{l}</button>)}
+          {([["foryou", `For you (${forYou.length})`], ["companies", `Companies (${data.attention.companies.length})`], ["overdue", `Overdue tasks (${overdue.length})`]] as const).map(([id, l]) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("rounded-md px-2.5 py-1 text-[12.5px] font-medium", tab === id ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>{l}</button>)}
         </div>
         <ul className="max-h-[52vh] space-y-1.5 overflow-y-auto">
-          {tab === "companies" ? data.attention.companies.map((c) => (
+          {tab === "foryou" ? forYou.map((i) => {
+            const K = KIND[i.kind] ?? KIND.comment;
+            return (
+              <li key={`${i.source}-${i.id}`}>
+                <button type="button" onClick={() => open(i)} className="flex w-full items-start gap-3 rounded-lg border border-border px-3 py-2 text-left text-[13px] hover:bg-accent/50">
+                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><K.icon className="h-3.5 w-3.5" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2"><span className="truncate font-semibold">{i.title}</span><SourceBadge source={i.source} /></span>
+                    <span className="mt-0.5 line-clamp-2 block text-[12.5px] text-muted-foreground">{i.message}</span>
+                    <span className="mt-0.5 block font-mono text-[10.5px] text-muted-foreground">{K.label} · {new Date(i.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                  </span>
+                  {i.href && <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                </button>
+              </li>
+            );
+          }) : tab === "companies" ? data.attention.companies.map((c) => (
             <li key={c.key}><button type="button" onClick={() => onPick(c.key)} className="flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-left text-[13px] hover:bg-accent/50"><span className="flex-1 font-medium">{c.name}</span><SourceBadge source={c.source} /><span className="font-mono text-[12px] text-destructive">{c.overdue} overdue</span><ArrowRight className="h-3.5 w-3.5 text-muted-foreground" /></button></li>
           )) : overdue.map((o) => (
             <li key={`${o.source}-${o.task.id}`} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-[13px]"><span className="min-w-0 flex-1"><span className="block truncate font-medium">{o.task.name}</span><span className="block truncate text-[11.5px] text-muted-foreground">{o.company} / {o.where} · {o.people.join(", ") || "unassigned"}</span></span><SourceBadge source={o.source} /><span className="font-mono text-[12px] font-semibold text-destructive">{fmtDate(o.due)}</span></li>
           ))}
           {tab === "companies" && !data.attention.companies.length && <li className="py-6 text-center text-[12.5px] text-muted-foreground">Every company is healthy.</li>}
+          {tab === "foryou" && !forYou.length && <li className="py-6 text-center text-[12.5px] text-muted-foreground">Nothing waiting for you. Assignments, mentions, replies and messages for you show up here.</li>}
         </ul>
       </DialogContent>
     </Dialog>

@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { CeoTowerService, type Source } from './ceo-tower.service';
@@ -11,6 +11,16 @@ export class CeoTowerController {
   @Get('access')
   access(@CurrentUser() u: SessionUser) {
     return this.tower.access(u.id);
+  }
+
+  @Get('for-you')
+  forYou(@CurrentUser() u: SessionUser) {
+    return this.tower.forYou(u.id);
+  }
+
+  @Post('for-you/read')
+  forYouRead(@Body() b: { source?: string; id?: string | number }, @CurrentUser() u: SessionUser) {
+    return this.tower.markForYouRead(u.id, b.source === 'boards' ? 'boards' : 'work', String(b.id ?? '').slice(0, 64));
   }
 
   @Get('tasks')

@@ -30,7 +30,12 @@ export interface CeoTask {
 }
 export interface CeoTasks { state: CeoTaskState; counts: Record<CeoTaskState, number>; total: number; truncated: boolean; tasks: CeoTask[] }
 
+export type CeoForYouKind = "assigned" | "mention" | "reply" | "comment" | "message";
+export interface CeoForYouItem { source: "boards" | "work"; id: string; kind: CeoForYouKind; title: string; message: string; at: string; href: string | null; actor: string | null }
+
 export const ceoApi = {
+  forYou: async () => (await api.get<{ count: number; items: CeoForYouItem[] }>("/ceo-tower/for-you")).data,
+  markForYouRead: async (source: "boards" | "work", id: string) => (await api.post("/ceo-tower/for-you/read", { source, id })).data,
   tasks: async (o: { source: CeoSource; company?: string | null; person?: number | null; state: CeoTaskState; q?: string }) =>
     (await api.get<CeoTasks>(`/ceo-tower/tasks?${new URLSearchParams(Object.entries({ ...o, company: o.company ?? "", person: o.person ? String(o.person) : "" }).filter(([, v]) => v !== "" && v != null) as [string, string][])}`)).data,
   access: async () => (await api.get<{ allowed: boolean; boards: number; work: number }>("/ceo-tower/access")).data,

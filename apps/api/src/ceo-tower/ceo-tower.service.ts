@@ -138,6 +138,69 @@ export class CeoTowerService {
     return !f.done && !!f.due && f.due < ymd(new Date(), f._tz ?? 'UTC');
   }
 
+  // ---------- Attention → For you: people asking the CEO for something ----------
+
+  /**
+   * Unread items aimed at the CEO from both products: tasks assigned to them, @mentions,
+   * replies, comments on their work, comments assigned to them, chat DMs / mentions / replies.
+   * Status changes, reactions, reminders and form submissions are left out on purpose.
+   */
+  async forYou(userId: number) {
+    await this.require(userId);
+    const since = new Date(Date.now() - 30 * DAY);
+    const [work, boards] = await Promise.all([
+      this.prisma.workNotification.findMany({
+        where: { recipientId: userId, isRead: false, clearedAt: null, createdAt: { gte: since }, type: { in: ['TASK_ASSIGNED', 'COMMENT_MENTION', 'COMMENT_REPLY', 'COMMENT_CREATED', 'CHAT'] } },
+        orderBy: { createdAt: 'desc' }, take: 80,
+        select: { id: true, type: true, title: true, message: true, metadata: true, createdAt: true },
+      }),
+      this.prisma.notification.findMany({
+        where: { recipientId: userId, product: 'boards', isRead: false, clearedAt: null, createdAt: { gte: since }, type: { in: ['TASK_ASSIGNED', 'COMMENT_MENTION', 'COMMENT_REPLY', 'COMMENT_CREATED', 'FILE_COMMENT'] } },
+        orderBy: { createdAt: 'desc' }, take: 80,
+        select: { id: true, type: true, title: true, message: true, entityType: true, entityId: true, metadata: true, createdAt: true },
+      }),
+    ]);
+    const kindOf = (type: string, event?: string) =>
+      event === 'reaction' ? null
+      : type === 'TASK_ASSIGNED' || event === 'assigned_comment' ? 'assigned'
+      : type === 'COMMENT_MENTION' || event === 'chat_mention' || event === 'mention' ? 'mention'
+      : type === 'COMMENT_REPLY' || event === 'chat_reply' || event === 'reply' ? 'reply'
+      : event === 'chat_dm' ? 'message'
+      : type === 'CHAT' ? 'message'
+      : 'comment';
+    // Boards links: board (+ task) from the notification's metadata / entity
+    const boardIds = [...new Set(boards.map((n) => Number((n.metadata as any)?.boardId ?? (n.entityType === 'BOARD' ? n.entityId : NaN))).filter(Number.isInteger))];
+    const boardRows = boardIds.length ? await this.prisma.board.findMany({ where: { id: { in: boardIds } }, select: { id: true, uid: true, workspace: { select: { uid: true } } } }) : [];
+    const boardById = new Map(boardRows.map((b) => [b.id, b]));
+    const items = [
+      ...work.map((n) => {
+        const m = (n.metadata ?? {}) as Record<string, any>;
+        const kind = kindOf(n.type, m.event);
+        return kind && { source: 'work' as const, id: n.id, kind, title: n.title, message: n.message, at: n.createdAt, href: typeof m.url === 'string' && m.url.startsWith('/work/') ? m.url : null, actor: m.actorName ?? null };
+      }),
+      ...boards.map((n) => {
+        const m = (n.metadata ?? {}) as Record<string, any>;
+        const kind = kindOf(n.type, m.event);
+        const b = boardById.get(Number(m.boardId ?? (n.entityType === 'BOARD' ? n.entityId : NaN)));
+        const taskId = Number(m.taskId ?? (n.entityType === 'TASK' ? n.entityId : NaN));
+        const href = b ? `/workspace/${b.workspace.uid}/board/${b.uid}${Number.isInteger(taskId) ? `?taskId=${taskId}` : ''}` : null;
+        return kind && { source: 'boards' as const, id: n.id, kind, title: n.title, message: n.message, at: n.createdAt, href, actor: m.actorName ?? m.senderName ?? null };
+      }),
+    ].filter(Boolean).sort((a, b) => +b!.at - +a!.at).slice(0, 60) as { source: 'work' | 'boards'; id: string; kind: string; title: string; message: string; at: Date; href: string | null; actor: string | null }[];
+    return { count: items.length, items };
+  }
+
+  /** opening an item marks it read in the CEO's own inbox (the only write CEO Tower makes) */
+  async markForYouRead(userId: number, source: 'work' | 'boards', id: string) {
+    await this.require(userId);
+    if (source === 'work') {
+      await this.prisma.workNotification.updateMany({ where: { id, recipientId: userId }, data: { isRead: true, readAt: new Date() } });
+    } else {
+      await this.prisma.notification.updateMany({ where: { id, recipientId: userId, product: 'boards' }, data: { isRead: true, readAt: new Date() } });
+    }
+    return { ok: true };
+  }
+
   // ---------- the Tasks view: every task, filtered ----------
 
   /**
