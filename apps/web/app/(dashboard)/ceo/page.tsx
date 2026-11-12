@@ -13,6 +13,8 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "../work/_components/primitives";
 import { TasksView } from "./_components/TasksView";
+import { TeamView } from "./_components/TeamView";
+import { ProductView } from "./_components/ProductView";
 import { AI_PROMPTS, AiView } from "./_components/AiView";
 import { CompanyPanel, type PanelTab } from "./_components/CompanyPanel";
 import { MessageDialog } from "./_components/MessageDialog";
@@ -23,9 +25,9 @@ type View = "portfolio" | "tasks" | "team" | "boards" | "work" | "ai";
 const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean }[] = [
   { id: "portfolio", label: "Portfolio", icon: Building2, ready: true },
   { id: "tasks", label: "Tasks", icon: ListChecks, ready: true },
-  { id: "team", label: "Team", icon: Users, ready: false },
-  { id: "boards", label: "Boards", icon: LayoutGrid, ready: false },
-  { id: "work", label: "Work", icon: CheckCircle2, ready: false },
+  { id: "team", label: "Team", icon: Users, ready: true },
+  { id: "boards", label: "Boards", icon: LayoutGrid, ready: true },
+  { id: "work", label: "Work", icon: CheckCircle2, ready: true },
   { id: "ai", label: "Executive AI", icon: Sparkles, ready: true },
 ];
 const HEALTH: Record<CeoHealth, { label: string; cls: string; dot: string }> = {
@@ -155,7 +157,10 @@ export default function CeoTowerPage() {
             ))}
           </div>
 
-          {view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} /> : view === "tasks" ? <TasksView source={source} company={company?.key ?? null} overview={data} /> : (
+          {view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} />
+            : view === "team" ? <TeamView source={source} company={company?.key ?? null} workCompanies={companies.filter((c) => c.source === "work")} />
+            : view === "boards" || view === "work" ? <ProductView product={view} company={company?.source === view ? company.key : null} companies={companies} />
+            : view === "tasks" ? <TasksView source={source} company={company?.key ?? null} overview={data} /> : (
           <div className="grid gap-4 lg:grid-cols-3">
             {/* companies */}
             <Panel icon={Building2} title="Companies & Portfolio" kicker="Every company you own" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{companies.length} active</span>}

@@ -240,17 +240,52 @@ export class CeoTowerService {
    * state: open | in_progress | overdue | due_week | done_week | unassigned | all
    * company: "boards:<id>" / "work:<id>"; person: a user id; q: words in the task name
    */
-  async tasks(userId: number, o: { source?: Source; company?: string; person?: number; state?: string; q?: string; limit?: number }) {
+  /** the CEO's companies narrowed by product / one company, and their task facts */
+  private async scoped(userId: number, source: Source = 'all', company?: string) {
     const own = await this.require(userId);
-    const source = o.source ?? 'all';
     let boardsWs = source === 'work' ? [] : own.boards;
     let workWs = source === 'boards' ? [] : own.work;
-    if (o.company) {
-      boardsWs = boardsWs.filter((w) => `boards:${w.id}` === o.company);
-      workWs = workWs.filter((w) => `work:${w.id}` === o.company);
+    if (company) {
+      boardsWs = boardsWs.filter((w) => `boards:${w.id}` === company);
+      workWs = workWs.filter((w) => `work:${w.id}` === company);
       if (!boardsWs.length && !workWs.length) throw new ForbiddenException('That company is not one of yours.');
     }
     const facts: (TaskFact & { _tz?: string })[] = [...(await this.boardsFacts(boardsWs)), ...(await this.workFacts(workWs))];
+    return { own, boardsWs, workWs, facts };
+  }
+
+  /** a place → which task facts belong to it (spaces / folders roll up their lists) */
+  private async placeFilter(own: Awaited<ReturnType<CeoTowerService['owned']>>, place: { type: string; id: number }) {
+    if (place.type === 'board') {
+      if (!(await this.prisma.board.findFirst({ where: { id: place.id, workspaceId: { in: own.boards.map((b) => b.id) } }, select: { id: true } }))) throw new ForbiddenException('That board is not in your companies.');
+      return (f: TaskFact) => f.place.type === 'board' && f.place.id === place.id;
+    }
+    const mine = { workspaceId: { in: own.work.map((w) => w.id) } };
+    const exists = place.type === 'list' ? await this.prisma.workList.findFirst({ where: { id: place.id, space: mine }, select: { id: true } })
+      : place.type === 'folder' ? await this.prisma.workFolder.findFirst({ where: { id: place.id, space: mine }, select: { id: true } })
+      : place.type === 'space' ? await this.prisma.space.findFirst({ where: { id: place.id, ...mine }, select: { id: true } }) : null;
+    if (!exists) throw new ForbiddenException('That place is not in your companies.');
+    const where = place.type === 'list' ? { id: place.id } : place.type === 'folder' ? { folderId: place.id } : { spaceId: place.id };
+    const lists = await this.prisma.workList.findMany({ where: { ...where, space: mine }, select: { id: true } });
+    const set = new Set(lists.map((l) => l.id));
+    return (f: TaskFact) => f.place.type === 'list' && set.has(f.place.id);
+  }
+
+  private stats(list: (TaskFact & { _tz?: string })[]) {
+    const open = list.filter((f) => !f.done);
+    const weekAgo = Date.now() - 7 * DAY;
+    return {
+      total: list.length, open: open.length, done: list.length - open.length,
+      inProgress: open.filter((f) => f.active).length, overdue: open.filter((f) => this.overdue(f)).length,
+      doneWeek: list.filter((f) => f.done && f.doneAt && +f.doneAt >= weekAgo).length,
+      progress: list.length ? Math.round(((list.length - open.length) / list.length) * 100) : 0,
+    };
+  }
+
+  async tasks(userId: number, o: { source?: Source; company?: string; person?: number; state?: string; q?: string; limit?: number; place?: { type: string; id: number } }) {
+    const { own, facts: allFacts } = await this.scoped(userId, o.source ?? 'all', o.company);
+    const inPlace = o.place ? await this.placeFilter(own, o.place) : null;
+    const facts = inPlace ? allFacts.filter(inPlace) : allFacts;
     const today = (f: TaskFact & { _tz?: string }) => ymd(new Date(), f._tz ?? 'UTC');
     const weekAgo = Date.now() - 7 * DAY;
     const inWeek = (f: TaskFact & { _tz?: string }) => !!f.due && f.due >= today(f) && f.due <= ymd(new Date(Date.now() + 7 * DAY), f._tz ?? 'UTC');
@@ -290,6 +325,134 @@ export class CeoTowerService {
         assignees: f.assignees.map((i) => userById.get(i)).filter(Boolean),
       })),
     };
+  }
+
+  // ---------- Team: everyone across the companies ----------
+
+  async team(userId: number, source: Source = 'all', company?: string) {
+    const { boardsWs, workWs, facts } = await this.scoped(userId, source, company);
+    const [bm, wm] = await Promise.all([
+      this.prisma.workspaceMember.findMany({ where: { workspaceId: { in: boardsWs.map((w) => w.id) }, deletedAt: null }, select: { workspaceId: true, userId: true, role: true } }),
+      this.prisma.workMember.findMany({ where: { workspaceId: { in: workWs.map((w) => w.id) } }, select: { workspaceId: true, userId: true, role: true, title: true, managerId: true } }),
+    ]);
+    const ids = [...new Set([...bm, ...wm].map((m) => m.userId))];
+    const [users, lastChat] = await Promise.all([
+      this.prisma.user.findMany({ where: { id: { in: ids }, deletedAt: null }, select: USER_MINI }),
+      ids.length && workWs.length ? this.prisma.workChatMessage.groupBy({ by: ['userId'], _max: { createdAt: true }, where: { userId: { in: ids }, deletedAt: null, channel: { workspaceId: { in: workWs.map((w) => w.id) } } } }) : [],
+    ]);
+    const name = new Map([...boardsWs.map((w) => [`boards:${w.id}`, w.name] as const), ...workWs.map((w) => [`work:${w.id}`, w.name] as const)]);
+    const byUser = new Map<number, typeof facts>();
+    for (const f of facts) for (const u of f.assignees) byUser.set(u, [...(byUser.get(u) ?? []), f]);
+    const last = new Map((lastChat as { userId: number; _max: { createdAt: Date | null } }[]).map((r) => [r.userId, r._max.createdAt]));
+    const userName = new Map(users.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]));
+    return users.map((u) => {
+      const work = wm.filter((m) => m.userId === u.id);
+      const memberships = [
+        ...bm.filter((m) => m.userId === u.id).map((m) => ({ key: `boards:${m.workspaceId}`, source: 'boards' as const, name: name.get(`boards:${m.workspaceId}`)!, role: m.role })),
+        ...work.map((m) => ({ key: `work:${m.workspaceId}`, source: 'work' as const, name: name.get(`work:${m.workspaceId}`)!, role: m.role })),
+      ];
+      const managerId = work.find((m) => m.managerId)?.managerId ?? null;
+      return {
+        user: u, title: work.find((m) => m.title)?.title ?? null, manager: managerId ? { id: managerId, name: userName.get(managerId) ?? null } : null,
+        reports: wm.filter((m) => m.managerId === u.id).map((m) => m.userId).filter((v, i, a) => a.indexOf(v) === i).length,
+        memberships, stats: this.stats(byUser.get(u.id) ?? []), lastActive: last.get(u.id) ?? null,
+      };
+    }).sort((a, b) => b.stats.overdue - a.stats.overdue || b.stats.open - a.stats.open || a.user.firstName.localeCompare(b.user.firstName));
+  }
+
+  /** one person in depth: work in hand, overdue, finished, and who they talk to (counts only) */
+  async personReport(userId: number, personId: number, days = 7) {
+    const p = await this.person(userId, personId);
+    const all = (await this.tasks(userId, { person: personId, state: 'all', limit: 1000 })).tasks;
+    const since = Date.now() - days * DAY;
+    const soon = ymd(new Date(Date.now() + 7 * DAY));
+    const own = await this.owned(userId);
+    const [team, reports] = await Promise.all([
+      this.prisma.workTeam.findMany({ where: { workspaceId: { in: own.work.map((w) => w.id) }, members: { some: { userId: personId } } }, select: { name: true } }),
+      this.prisma.workMember.findMany({ where: { workspaceId: { in: own.work.map((w) => w.id) }, managerId: personId }, select: { userId: true } }),
+    ]);
+    return {
+      ...p,
+      days,
+      counts: { open: all.filter((t) => !t.done).length, inProgress: all.filter((t) => t.active).length, overdue: all.filter((t) => t.overdue).length, doneInWindow: all.filter((t) => t.done && t.doneAt && +new Date(t.doneAt) >= since).length },
+      inProgress: all.filter((t) => t.active).slice(0, 20),
+      overdue: all.filter((t) => t.overdue).slice(0, 20),
+      dueSoon: all.filter((t) => !t.done && !t.overdue && !!t.due && t.due <= soon).slice(0, 15),
+      finished: all.filter((t) => t.done && t.doneAt && +new Date(t.doneAt) >= since).slice(0, 20),
+      talkingWith: (await this.chatActivity(own.work.map((w) => w.id), days, personId)).conversations.slice(0, 12),
+      teams: [...new Set(team.map((t) => t.name))],
+      directReports: [...new Set(reports.map((r) => r.userId))],
+    };
+  }
+
+  /** message counts per conversation (never contents) in the CEO's Work companies */
+  async chatActivity(workIds: number[], days: number, personId?: number, channelsOnly = false) {
+    if (!workIds.length) return { window_days: days, conversations: [] as { conversation: string; kind: string; messages: number; sent_by_person?: number; last_message_at: Date | null; workspaceId: number; uid: string }[] };
+    const since = new Date(Date.now() - days * DAY);
+    const counts = await this.prisma.workChatMessage.groupBy({
+      by: ['channelId'], _count: { _all: true },
+      where: { deletedAt: null, kind: { not: 'system' }, createdAt: { gte: since }, channel: { workspaceId: { in: workIds }, archivedAt: null, ...(channelsOnly ? { kind: 'channel' } : {}), ...(personId ? { members: { some: { userId: personId } } } : {}) } },
+    });
+    const chans = await this.prisma.workChannel.findMany({ where: { id: { in: counts.map((c) => c.channelId) } }, select: { id: true, uid: true, workspaceId: true, kind: true, name: true, lastMessageAt: true, members: { select: { user: { select: { id: true, firstName: true, lastName: true } } } } } });
+    const byId = new Map(chans.map((c) => [c.id, c]));
+    const sent = personId ? await this.prisma.workChatMessage.groupBy({ by: ['channelId'], _count: { _all: true }, where: { userId: personId, deletedAt: null, createdAt: { gte: since }, channelId: { in: counts.map((c) => c.channelId) } } }) : [];
+    const sentBy = new Map(sent.map((s) => [s.channelId, s._count._all]));
+    return {
+      window_days: days,
+      conversations: counts.map((c) => {
+        const ch = byId.get(c.channelId)!;
+        const names = ch.members.map((m) => `${m.user.firstName} ${m.user.lastName}`.trim());
+        return {
+          conversation: ch.kind === 'channel' ? `#${ch.name}` : `DM: ${names.join(' & ')}`,
+          kind: ch.kind, messages: c._count._all, ...(personId ? { sent_by_person: sentBy.get(c.channelId) ?? 0 } : {}),
+          last_message_at: ch.lastMessageAt, workspaceId: ch.workspaceId, uid: ch.uid,
+        };
+      }).sort((a, b) => b.messages - a.messages).slice(0, 25),
+    };
+  }
+
+  // ---------- Boards / Work: each company's structure with progress ----------
+
+  async structure(userId: number, product: 'boards' | 'work', company?: string) {
+    const { boardsWs, workWs, facts } = await this.scoped(userId, product, company);
+    const people = (l: typeof facts) => new Set(l.flatMap((f) => f.assignees)).size;
+    if (product === 'boards') {
+      const boards = await this.prisma.board.findMany({ where: { workspaceId: { in: boardsWs.map((w) => w.id) } }, orderBy: { name: 'asc' }, select: { id: true, uid: true, name: true, workspaceId: true } });
+      return boardsWs.map((w) => ({
+        key: `boards:${w.id}`, uid: w.uid, name: w.name,
+        stats: this.stats(facts.filter((f) => f.companyKey === `boards:${w.id}`)),
+        boards: boards.filter((b) => b.workspaceId === w.id).map((b) => {
+          const l = facts.filter((f) => f.place.type === 'board' && f.place.id === b.id);
+          return { id: b.id, uid: b.uid, name: b.name, stats: this.stats(l), people: people(l), href: `/workspace/${w.uid}/board/${b.uid}` };
+        }).sort((a, b) => b.stats.overdue - a.stats.overdue || b.stats.open - a.stats.open),
+      }));
+    }
+    const [spaces, activity] = await Promise.all([
+      this.prisma.space.findMany({
+        where: { workspaceId: { in: workWs.map((w) => w.id) }, archivedAt: null }, orderBy: [{ order: 'asc' }, { id: 'asc' }],
+        select: { id: true, uid: true, name: true, color: true, workspaceId: true, isPrivate: true,
+          folders: { where: { archivedAt: null }, orderBy: [{ order: 'asc' }, { id: 'asc' }], select: { id: true, uid: true, name: true, lists: { where: { archivedAt: null }, orderBy: [{ order: 'asc' }, { id: 'asc' }], select: { id: true, uid: true, name: true } } } },
+          lists: { where: { archivedAt: null, folderId: null }, orderBy: [{ order: 'asc' }, { id: 'asc' }], select: { id: true, uid: true, name: true } } },
+      }),
+      this.chatActivity(workWs.map((w) => w.id), 7, undefined, true),
+    ]);
+    const ofList = (id: number) => facts.filter((f) => f.place.type === 'list' && f.place.id === id);
+    return workWs.map((w) => ({
+      key: `work:${w.id}`, uid: w.uid, name: w.name,
+      stats: this.stats(facts.filter((f) => f.companyKey === `work:${w.id}`)),
+      channels: activity.conversations.filter((c) => c.workspaceId === w.id).slice(0, 6).map((c) => ({ name: c.conversation, messages: c.messages, href: `/work/${w.uid}/chat/${c.uid}` })),
+      spaces: spaces.filter((s) => s.workspaceId === w.id).map((s) => {
+        const listRow = (l: { id: number; uid: string; name: string }) => { const t = ofList(l.id); return { type: 'list' as const, id: l.id, name: l.name, stats: this.stats(t), people: people(t), href: `/work/${w.uid}/list/${l.uid}` }; };
+        const folders = s.folders.map((f) => {
+          const lists = f.lists.map(listRow);
+          const t = f.lists.flatMap((l) => ofList(l.id));
+          return { type: 'folder' as const, id: f.id, name: f.name, stats: this.stats(t), people: people(t), href: `/work/${w.uid}/folder/${f.uid}`, lists };
+        });
+        const lists = s.lists.map(listRow);
+        const t = [...s.folders.flatMap((f) => f.lists), ...s.lists].flatMap((l) => ofList(l.id));
+        return { type: 'space' as const, id: s.id, name: s.name, color: s.color, isPrivate: s.isPrivate, stats: this.stats(t), people: people(t), href: `/work/${w.uid}/space/${s.uid}`, folders, lists };
+      }),
+    }));
   }
 
   // ---------- the Task view: KPIs, companies, people, updates ----------

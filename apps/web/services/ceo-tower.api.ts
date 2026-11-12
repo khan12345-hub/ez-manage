@@ -46,6 +46,18 @@ export interface CeoAiAction {
 export interface CeoAiTurn { conversationId: string; reply: string; used: string[]; actions: CeoAiAction[] }
 export interface CeoAiConversation { id: string; title: string | null; messages: { role: "user" | "assistant"; text: string }[]; actions: CeoAiAction[] }
 
+export type CeoPlace = { type: "space" | "folder" | "list" | "board"; id: number; name: string };
+export interface CeoTeamRow {
+  user: CeoPerson; title: string | null; manager: { id: number; name: string | null } | null; reports: number;
+  memberships: { key: string; source: "boards" | "work"; name: string; role: string }[]; stats: CeoStats; lastActive: string | null;
+}
+export interface CeoPersonReport extends CeoPersonDetail {
+  days: number; counts: { open: number; inProgress: number; overdue: number; doneInWindow: number };
+  inProgress: CeoTask[]; overdue: CeoTask[]; dueSoon: CeoTask[]; finished: CeoTask[];
+  talkingWith: { conversation: string; kind: string; messages: number; sent_by_person?: number; last_message_at: string | null }[];
+  teams: string[]; directReports: number[];
+}
+
 export const ceoApi = {
   aiStatus: async () => (await api.get<{ configured: boolean; model: string }>("/ceo-tower/ai/status")).data,
   aiChat: async (message: string, conversationId?: string | null) => (await api.post<CeoAiTurn>("/ceo-tower/ai/chat", { message, ...(conversationId ? { conversationId } : {}) }, { timeout: 180_000 })).data,
@@ -55,8 +67,14 @@ export const ceoApi = {
   person: async (id: number) => (await api.get<CeoPersonDetail>(`/ceo-tower/people/${id}`)).data,
   forYou: async () => (await api.get<{ count: number; items: CeoForYouItem[] }>("/ceo-tower/for-you")).data,
   markForYouRead: async (source: "boards" | "work", id: string) => (await api.post("/ceo-tower/for-you/read", { source, id })).data,
-  tasks: async (o: { source: CeoSource; company?: string | null; person?: number | null; state: CeoTaskState; q?: string }) =>
-    (await api.get<CeoTasks>(`/ceo-tower/tasks?${new URLSearchParams(Object.entries({ ...o, company: o.company ?? "", person: o.person ? String(o.person) : "" }).filter(([, v]) => v !== "" && v != null) as [string, string][])}`)).data,
+  tasks: async (o: { source: CeoSource; company?: string | null; person?: number | null; state: CeoTaskState; q?: string; place?: CeoPlace | null }) => {
+    const { place, ...rest } = o;
+    const params = { ...rest, company: o.company ?? "", person: o.person ? String(o.person) : "", placeType: place?.type ?? "", placeId: place ? String(place.id) : "" };
+    return (await api.get<CeoTasks>(`/ceo-tower/tasks?${new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "" && v != null) as [string, string][])}`)).data;
+  },
+  team: async (source: CeoSource, company?: string | null) => (await api.get<CeoTeamRow[]>(`/ceo-tower/team?${new URLSearchParams({ source, ...(company ? { company } : {}) })}`)).data,
+  personReport: async (id: number, days = 7) => (await api.get<CeoPersonReport>(`/ceo-tower/people/${id}/report?days=${days}`)).data,
+  structure: async (product: "boards" | "work", company?: string | null) => (await api.get<any[]>(`/ceo-tower/structure?${new URLSearchParams({ product, ...(company ? { company } : {}) })}`)).data,
   access: async () => (await api.get<{ allowed: boolean; boards: number; work: number }>("/ceo-tower/access")).data,
   overview: async (source: CeoSource, company?: string | null) =>
     (await api.get<CeoOverview>(`/ceo-tower/overview?${new URLSearchParams({ source, ...(company ? { company } : {}) })}`)).data,

@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, ListChecks, MessageSquare, Plus, Share2, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { ceoApi, type CeoCompany, type CeoPerson, type CeoTask, type CeoTaskState } from "@/services/ceo-tower.api";
+import { ceoApi, type CeoCompany, type CeoPerson, type CeoPlace, type CeoTask, type CeoTaskState } from "@/services/ceo-tower.api";
 import { Avatar } from "../../work/_components/primitives";
 import { AssignTaskDialog } from "./AssignTaskDialog";
 import { MessageDialog } from "./MessageDialog";
@@ -20,14 +20,14 @@ const fullName = (p: CeoPerson) => `${p.firstName} ${p.lastName}`.trim();
  * A company's tasks and people right inside CEO Tower, with actions: message a person,
  * assign them a task, share a task with someone, or open it in its product.
  */
-export function CompanyPanel({ company, start, workCompanies, onClose }: { company: CeoCompany; start: PanelTab; workCompanies: CeoCompany[]; onClose: () => void }) {
+export function CompanyPanel({ company, start, workCompanies, place = null, onClose }: { company: CeoCompany; start: PanelTab; workCompanies: CeoCompany[]; place?: CeoPlace | null; onClose: () => void }) {
   const [tab, setTab] = useState<"tasks" | "people">(start.tab);
   const [state, setState] = useState<CeoTaskState>(start.tab === "tasks" ? start.state : "open");
   const [person, setPerson] = useState<CeoPerson | null>(null);
   const [message, setMessage] = useState<{ to: CeoPerson; text?: string; heading?: string } | null>(null);
   const [assignTo, setAssignTo] = useState<CeoPerson | null>(null);
   const [sharing, setSharing] = useState<CeoTask | null>(null);
-  const tasks = useQuery({ queryKey: ["ceo-tower", "tasks", "all", company.key, person?.id ?? null, state, ""], queryFn: () => ceoApi.tasks({ source: "all", company: company.key, person: person?.id ?? null, state }), enabled: tab === "tasks" });
+  const tasks = useQuery({ queryKey: ["ceo-tower", "tasks", "all", company.key, person?.id ?? null, state, "", place?.type ?? null, place?.id ?? null], queryFn: () => ceoApi.tasks({ source: "all", company: company.key, person: person?.id ?? null, state, place }), enabled: tab === "tasks" });
   const people = useQuery({ queryKey: ["ceo-tower", "overview", "all", company.key], queryFn: () => ceoApi.overview("all", company.key), enabled: tab === "people" || !!sharing });
   const team = people.data?.people ?? [];
   const assignable = company.source === "work" ? [company] : workCompanies;
@@ -36,8 +36,8 @@ export function CompanyPanel({ company, start, workCompanies, onClose }: { compa
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-[720px]">
         <div className="border-b border-border px-6 pb-3 pt-5">
-          <SheetTitle className="flex items-center gap-2 font-serif text-[24px] font-normal">{company.name} <SourceBadge source={company.source} /></SheetTitle>
-          <SheetDescription className="mt-0.5 text-[12.5px]">{company.stats.open} open · {company.stats.overdue} overdue · {company.stats.inProgress} working on · {company.people} people · {company.stats.progress}% done</SheetDescription>
+          <SheetTitle className="flex items-center gap-2 font-serif text-[24px] font-normal">{place ? place.name : company.name} <SourceBadge source={company.source} /></SheetTitle>
+          <SheetDescription className="mt-0.5 text-[12.5px]">{place ? <span className="capitalize">{place.type} in {company.name}</span> : `${company.stats.open} open · ${company.stats.overdue} overdue · ${company.stats.inProgress} working on · ${company.people} people · ${company.stats.progress}% done`}</SheetDescription>
           <div role="tablist" aria-label="Company panel" className="mt-3 flex gap-1">
             {([["tasks", "Tasks", ListChecks], ["people", "People", Users]] as const).map(([id, l, I]) => (
               <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold", tab === id ? "bg-forest text-forest-foreground dark:bg-primary dark:text-primary-foreground" : "text-muted-foreground hover:bg-accent")}><I className="h-3.5 w-3.5" /> {l}</button>

@@ -245,19 +245,13 @@ export class CeoAiService {
       case 'person_report': {
         const pid = int(input.person_id);
         if (!pid) throw new BadRequestException('person_id is required.');
-        const p = await this.tower.person(userId, pid);
-        const all = await this.tower.tasks(userId, { person: pid, state: 'all', limit: 1000 });
-        const t = all.tasks;
-        const since = Date.now() - days * DAY;
-        const mini = (x: (typeof t)[number]) => ({ task: x.name, company: x.company.name, where: x.where, status: x.status?.label ?? null, due: x.due, overdue: x.overdue });
+        const r = await this.tower.personReport(userId, pid, days);
+        const mini = (x: any) => ({ task: x.name, company: x.company.name, where: x.where, status: x.status?.label ?? null, due: x.due, overdue: x.overdue });
         return {
-          person: { id: p.user.id, name: name2(p.user), title: p.title, companies: p.memberships.map((m) => `${m.name} (${m.source}, ${m.role})`) },
-          counts: { open: t.filter((x) => !x.done).length, in_progress: t.filter((x) => x.active).length, overdue: t.filter((x) => x.overdue).length, done_in_window: t.filter((x) => x.done && x.doneAt && +new Date(x.doneAt) >= since).length },
-          in_progress: t.filter((x) => x.active).slice(0, 15).map(mini),
-          overdue: t.filter((x) => x.overdue).slice(0, 15).map(mini),
-          due_soon: t.filter((x) => !x.done && !x.overdue && x.due && x.due <= new Date(Date.now() + 7 * DAY).toISOString().slice(0, 10)).slice(0, 10).map(mini),
-          finished_recently: t.filter((x) => x.done && x.doneAt && +new Date(x.doneAt) >= since).slice(0, 15).map(mini),
-          talking_with: (await this.chatActivity(workIds, days, pid)).conversations.slice(0, 10),
+          person: { id: r.user.id, name: name2(r.user), title: r.title, companies: r.memberships.map((m) => `${m.name} (${m.source}, ${m.role})`), teams: r.teams, direct_reports: r.directReports.length },
+          counts: r.counts, in_progress: r.inProgress.slice(0, 15).map(mini), overdue: r.overdue.slice(0, 15).map(mini), due_soon: r.dueSoon.slice(0, 10).map(mini),
+          finished_recently: r.finished.slice(0, 15).map(mini),
+          talking_with: r.talkingWith.slice(0, 10).map(({ conversation, kind, messages, sent_by_person, last_message_at }) => ({ conversation, kind, messages, sent_by_person, last_message_at })),
           window_days: days,
         };
       }
@@ -269,15 +263,13 @@ export class CeoAiService {
           this.prisma.workMember.findMany({ where: { workspaceId: { in: workIds }, managerId: pid }, select: { userId: true } }),
           this.prisma.workTeam.findMany({ where: { workspaceId: { in: workIds }, members: { some: { userId: pid } } }, select: { name: true, members: { select: { userId: true } } } }),
         ]);
-        const ids = [...new Set([...reports.map((r) => r.userId), ...teams.flatMap((t) => t.members.map((m) => m.userId))])].filter((i) => i !== pid);
-        const rows: { person_id: number; name: string; open: number; in_progress: number; overdue: number; done_this_week: number }[] = [];
-        for (const id of ids.slice(0, 25)) {
-          const u = await this.prisma.user.findUnique({ where: { id }, select: { id: true, firstName: true, lastName: true } });
-          if (!u) continue;
-          const c = (await this.tower.tasks(userId, { person: id, state: 'all', limit: 1000 })).tasks;
-          rows.push({ person_id: id, name: name2(u), open: c.filter((x) => !x.done).length, in_progress: c.filter((x) => x.active).length, overdue: c.filter((x) => x.overdue).length, done_this_week: c.filter((x) => x.done && x.doneAt && +new Date(x.doneAt) >= Date.now() - 7 * DAY).length });
-        }
-        return { direct_reports: reports.map((r) => r.userId), teams: teams.map((t) => t.name), members: rows };
+        const ids = new Set([...reports.map((r) => r.userId), ...teams.flatMap((t) => t.members.map((m) => m.userId))].filter((i) => i !== pid));
+        // one pass over all tasks for everyone (not one query per person)
+        const people = (await this.tower.team(userId)).filter((p) => ids.has(p.user.id));
+        return {
+          direct_reports: [...new Set(reports.map((r) => r.userId))], teams: teams.map((t) => t.name),
+          members: people.map((p) => ({ person_id: p.user.id, name: name2(p.user), title: p.title, open: p.stats.open, in_progress: p.stats.inProgress, overdue: p.stats.overdue, done_this_week: p.stats.doneWeek, progress_pct: p.stats.progress })),
+        };
       }
       case 'list_tasks': {
         const r = await this.tower.tasks(userId, {
@@ -332,8 +324,10 @@ export class CeoAiService {
           overdue_tasks: all.filter((t: any) => t.overdue).slice(0, 10).map((t: any) => ({ task: t.name, due: t.due, people: t.assignees.map((a: any) => name2(a)) })),
         };
       }
-      case 'chat_activity':
-        return this.chatActivity(workIds, days, int(input.person_id));
+      case 'chat_activity': {
+        const r = await this.tower.chatActivity(workIds, days, int(input.person_id));
+        return { window_days: r.window_days, conversations: r.conversations.map(({ conversation, kind, messages, sent_by_person, last_message_at }) => ({ conversation, kind, messages, sent_by_person, last_message_at })) };
+      }
       case 'propose_message': {
         const ids = [...new Set((Array.isArray(input.person_ids) ? input.person_ids : []).map(Number).filter(Number.isInteger))].filter((i) => i !== userId);
         const text = String(input.text ?? '').trim();
@@ -377,32 +371,6 @@ export class CeoAiService {
       this.prisma.workMember.findMany({ where: { workspaceId: { in: own.work.map((x) => x.id) } }, select: { userId: true } }),
     ]);
     return [...new Set([...b, ...w].map((x) => x.userId))];
-  }
-
-  /** message counts per conversation (never contents) in the CEO's Work companies */
-  private async chatActivity(workIds: number[], days: number, personId?: number) {
-    if (!workIds.length) return { window_days: days, conversations: [] };
-    const since = new Date(Date.now() - days * DAY);
-    const counts = await this.prisma.workChatMessage.groupBy({
-      by: ['channelId'], _count: { _all: true },
-      where: { deletedAt: null, kind: { not: 'system' }, createdAt: { gte: since }, channel: { workspaceId: { in: workIds }, archivedAt: null, ...(personId ? { members: { some: { userId: personId } } } : {}) } },
-    });
-    const chans = await this.prisma.workChannel.findMany({ where: { id: { in: counts.map((c) => c.channelId) } }, select: { id: true, kind: true, name: true, lastMessageAt: true, members: { select: { user: { select: { id: true, firstName: true, lastName: true } } } } } });
-    const byId = new Map(chans.map((c) => [c.id, c]));
-    const sent = personId ? await this.prisma.workChatMessage.groupBy({ by: ['channelId'], _count: { _all: true }, where: { userId: personId, deletedAt: null, createdAt: { gte: since }, channelId: { in: counts.map((c) => c.channelId) } } }) : [];
-    const sentBy = new Map(sent.map((s) => [s.channelId, s._count._all]));
-    return {
-      window_days: days,
-      conversations: counts.map((c) => {
-        const ch = byId.get(c.channelId)!;
-        const names = ch.members.map((m) => `${m.user.firstName} ${m.user.lastName}`.trim());
-        return {
-          conversation: ch.kind === 'channel' ? `#${ch.name}` : `DM: ${names.join(' & ')}`,
-          kind: ch.kind, messages: c._count._all, ...(personId ? { sent_by_person: sentBy.get(c.channelId) ?? 0 } : {}),
-          last_message_at: ch.lastMessageAt,
-        };
-      }).sort((a, b) => b.messages - a.messages).slice(0, 25),
-    };
   }
 
   // ---------- confirming / cancelling a proposed action ----------

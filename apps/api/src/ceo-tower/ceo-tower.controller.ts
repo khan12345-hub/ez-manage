@@ -60,6 +60,21 @@ export class CeoTowerController {
     return this.tower.access(u.id);
   }
 
+  @Get('team')
+  team(@Query('source') source: string, @Query('company') company: string, @CurrentUser() u: SessionUser) {
+    return this.tower.team(u.id, (['boards', 'work'].includes(source) ? source : 'all') as Source, /^(boards|work):\d+$/.test(company ?? '') ? company : undefined);
+  }
+
+  @Get('structure')
+  structure(@Query('product') product: string, @Query('company') company: string, @CurrentUser() u: SessionUser) {
+    return this.tower.structure(u.id, product === 'boards' ? 'boards' : 'work', /^(boards|work):\d+$/.test(company ?? '') ? company : undefined);
+  }
+
+  @Get('people/:id/report')
+  personReport(@Param('id', ParseIntPipe) id: number, @Query('days') days: string, @CurrentUser() u: SessionUser) {
+    return this.tower.personReport(u.id, id, Math.min(Math.max(Number(days) || 7, 1), 90));
+  }
+
   @Get('people/:id')
   person(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
     return this.tower.person(u.id, id);
@@ -84,6 +99,7 @@ export class CeoTowerController {
       state: ['open', 'in_progress', 'overdue', 'due_week', 'done_week', 'unassigned', 'all'].includes(q.state) ? q.state : 'open',
       q: (q.q ?? '').slice(0, 100),
       limit: /^\d+$/.test(q.limit ?? '') ? Number(q.limit) : undefined,
+      place: ['space', 'folder', 'list', 'board'].includes(q.placeType) && /^\d+$/.test(q.placeId ?? '') ? { type: q.placeType, id: Number(q.placeId) } : undefined,
     });
   }
 
