@@ -33,6 +33,12 @@ export class WorkPeopleService {
   async createWorkspace(userId: number, dto: { name: string; color?: string; useCase?: string; teamSize?: string; inviteEmails?: string[] }) {
     const name = dto.name.trim();
     if (!name) throw new BadRequestException('Name your workspace.');
+    // Work is by invitation: only people already in Work (or the super admin) can start a new Work workspace
+    const [me, inWork] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { systemRole: true } }),
+      this.prisma.workMember.findFirst({ where: { userId, role: { in: ['OWNER', 'ADMIN', 'MEMBER'] }, workspace: { deletedAt: null } }, select: { userId: true } }),
+    ]);
+    if (me?.systemRole !== 'SUPER_ADMIN' && !inWork) throw new ForbiddenException('Ask an admin to invite you to Work.');
     const ws = await this.prisma.workWorkspace.create({
       data: {
         uid: randomUUID().replace(/-/g, '').slice(0, 12),

@@ -37,6 +37,7 @@ import { getBoards } from "@/services/boards.api";
 import { useInviteModalStore } from "@/store/invite-modal";
 import { useGroupStore } from "@/store/create-group-store";
 import { useCommandPalette } from "@/store/command-palette";
+import { useProductAccess } from "@/hooks/useProductAccess";
 
 /** Product dot — same colours as the sidebar switcher and the home cards. */
 function Dot({ className }: { className: string }) {
@@ -83,6 +84,7 @@ export function CommandPalette() {
 
   const firstWorkspaceUid = (workspaces as any[])[0]?.uid ?? (workspaces as any[])[0]?.id;
   const boardsHome = workspaceUid ?? firstWorkspaceUid;
+  const products = useProductAccess();
 
   const run = (fn: () => void) => {
     setOpen(false);
@@ -113,29 +115,32 @@ export function CommandPalette() {
         )}
 
         <CommandGroup heading="Products">
-          <CommandItem
-            value="product boards"
-            disabled={!boardsHome}
-            onSelect={() => run(() => router.push(`/workspace/${boardsHome}`))}
-          >
-            <Dot className="bg-product-boards" />
-            Boards
-            <CommandShortcut>Workspaces</CommandShortcut>
-          </CommandItem>
-          <CommandItem
-            value="product work spaces lists tasks"
-            disabled={!boardsHome}
-            onSelect={() => run(() => router.push(`/work/${boardsHome}`))}
-          >
-            <Dot className="bg-product-work" />
-            Work
-            <CommandShortcut>Spaces & lists</CommandShortcut>
-          </CommandItem>
-          {isSuperAdmin && (
-            <CommandItem value="product ceo control tower" disabled>
+          {products.hasBoards && (
+            <CommandItem
+              value="product boards"
+              disabled={!boardsHome}
+              onSelect={() => run(() => router.push(`/workspace/${boardsHome}`))}
+            >
+              <Dot className="bg-product-boards" />
+              Boards
+              <CommandShortcut>Workspaces</CommandShortcut>
+            </CommandItem>
+          )}
+          {products.hasWork && products.workHref && (
+            <CommandItem
+              value="product work spaces lists tasks"
+              onSelect={() => run(() => router.push(products.workHref!))}
+            >
+              <Dot className="bg-product-work" />
+              Work
+              <CommandShortcut>Spaces & lists</CommandShortcut>
+            </CommandItem>
+          )}
+          {products.hasCeo && (
+            <CommandItem value="product ceo control tower" onSelect={() => run(() => router.push("/ceo"))}>
               <Dot className="bg-product-ceo" />
-              CEO Control Tower
-              <CommandShortcut>Soon</CommandShortcut>
+              CEO Tower
+              <CommandShortcut>Portfolio</CommandShortcut>
             </CommandItem>
           )}
         </CommandGroup>

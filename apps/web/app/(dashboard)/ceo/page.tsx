@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowRight, AtSign, CalendarClock, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, Inbox, LayoutGrid, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, AtSign, CalendarClock, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, Inbox, KeyRound, LayoutGrid, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -22,6 +22,7 @@ import { CompanyPanel, type PanelTab } from "./_components/CompanyPanel";
 import { MessageDialog } from "./_components/MessageDialog";
 import { AssignTaskDialog } from "./_components/AssignTaskDialog";
 import { SourceBadge, fmtDate } from "./_components/bits";
+import { ShareAccessDialog } from "./_components/ShareAccessDialog";
 
 type View = "portfolio" | "tasks" | "team" | "boards" | "work" | "meetings" | "email" | "ai";
 const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean }[] = [
@@ -67,6 +68,7 @@ export default function CeoTowerPage() {
   const [company, setCompany] = useState<CeoCompany | null>(null);
   const [q, setQ] = useState("");
   const [attention, setAttention] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [aiAsk, setAiAsk] = useState<string | null>(null);
   const [aiText, setAiText] = useState("");
   const askAi = (q: string) => { if (!q.trim()) return; setAiAsk(q.trim()); setAiText(""); setView("ai"); };
@@ -90,7 +92,7 @@ export default function CeoTowerPage() {
       <div className="flex h-full flex-col items-center justify-center p-10 text-center">
         <Crown className="h-8 w-8 text-[#b08d57]" />
         <h1 className="mt-3 font-serif text-[26px]">CEO Tower</h1>
-        <p className="mt-1 max-w-[420px] text-[13.5px] text-muted-foreground">CEO Tower is for workspace owners. It shows every Boards and Work company you own in one place.</p>
+        <p className="mt-1 max-w-[420px] text-[13.5px] text-muted-foreground">CEO Tower is for company owners and the people they share it with. Ask an owner to share it with you.</p>
         <Link href="/home" className="mt-4 text-[13px] font-semibold text-primary hover:underline">Back to home</Link>
       </div>
     );
@@ -124,9 +126,14 @@ export default function CeoTowerPage() {
           <button type="button" onClick={() => setAttention(true)} disabled={!attentionCount} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold ring-1", attentionCount ? "bg-destructive/8 text-destructive ring-destructive/25 hover:bg-destructive/12" : "text-muted-foreground ring-border")}>
             <span className={cn("h-2 w-2 rounded-full", attentionCount ? "bg-destructive" : "bg-primary")} /> Attention needed ({attentionCount}){forYouCount > 0 && <span className="ml-0.5 rounded-full bg-destructive px-1.5 font-mono text-[10.5px] text-white">{forYouCount} for you</span>}
           </button>
+          {access.canShare && (
+            <button type="button" onClick={() => setSharing(true)} title="Share CEO Tower" className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12.5px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground">
+              <KeyRound className="h-3.5 w-3.5 text-[#b08d57]" /> Access
+            </button>
+          )}
           <span className="flex items-center gap-2 border-l border-border pl-3">
             {user && <Avatar user={{ id: user.id, firstName: user.firstName, lastName: user.lastName, avatarUrl: (user as any).avatarUrl ?? null, email: user.email } as any} size={30} />}
-            <span className="hidden 2xl:block"><span className="block text-[13px] font-semibold leading-tight">{user?.firstName} {user?.lastName}</span><span className="block text-[11px] text-muted-foreground">Owner · {data ? `${data.owned.boards + data.owned.work} companies` : "…"}</span></span>
+            <span className="hidden 2xl:block"><span className="block text-[13px] font-semibold leading-tight">{user?.firstName} {user?.lastName}</span><span className="block text-[11px] text-muted-foreground">{access.canShare ? "Owner" : access.sharedBy.length ? `Shared by ${access.sharedBy.map((o) => o.name).join(", ")}` : "Shared"} · {data ? `${data.owned.boards + data.owned.work} companies` : "…"}</span></span>
           </span>
         </div>
         {company && (
@@ -136,6 +143,12 @@ export default function CeoTowerPage() {
           </div>
         )}
       </header>
+      {!access.canShare && access.sharedBy.length > 0 && (
+        <p className="border-b border-border bg-[#b08d57]/8 px-5 py-1.5 text-[12px] text-muted-foreground">
+          <KeyRound className="mr-1 inline h-3 w-3 text-[#b08d57]" /> {access.sharedBy.map((o) => o.name).join(", ")} shared CEO Tower with you — you see their companies.
+        </p>
+      )}
+      {sharing && <ShareAccessDialog onClose={() => setSharing(false)} />}
 
       {isError ? <p className="p-10 text-center text-[13px] text-muted-foreground">Couldn&apos;t load CEO Tower.</p> : !data || isLoading ? (
         <div className="grid gap-4 p-5 lg:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="h-[520px] animate-pulse rounded-2xl bg-muted" />)}</div>
@@ -169,7 +182,7 @@ export default function CeoTowerPage() {
             : view === "tasks" ? <TasksView source={source} company={company?.key ?? null} overview={data} /> : (
           <div className="grid gap-4 lg:grid-cols-3">
             {/* companies */}
-            <Panel icon={Building2} title="Companies & Portfolio" kicker="Every company you own" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{companies.length} active</span>}
+            <Panel icon={Building2} title="Companies & Portfolio" kicker={access.canShare ? "Every company you own" : "Every company shared with you"} badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{companies.length} active</span>}
               footer={<span className="flex items-center justify-between"><span>Scope: <strong>{company ? company.name : `All ${companies.length} companies`}</strong></span>{company && <button type="button" onClick={() => setCompany(null)} className="font-semibold text-primary hover:underline">Reset</button>}</span>}>
               <p className="mb-2 text-[12.5px] text-muted-foreground">Click a company to focus the whole tower on it.</p>
               <label className="mb-3 flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-2.5"><Search className="h-3.5 w-3.5 text-muted-foreground" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search company by name" aria-label="Search companies" className="w-full bg-transparent text-[13px] outline-none" /></label>

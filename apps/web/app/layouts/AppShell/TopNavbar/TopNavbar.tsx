@@ -15,6 +15,7 @@ import { RunningTimer } from "./RunningTimer";
 import { WorkInboxBell } from "./WorkInboxBell";
 import { WorkInviteModal, useWorkInvite } from "@/app/(dashboard)/work/_components/WorkInviteModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useProductAccess } from "@/hooks/useProductAccess";
 import { GlobalSearchModal } from "@/app/(dashboard)/workspace/[workspaceId]/board/[boardId]/BoardHeader/GlobalSearch/GlobalSearchModal";
 
 interface TopNavbarProps {
@@ -25,6 +26,7 @@ interface TopNavbarProps {
 
 export function TopNavbar({ onMenuToggle, product = "boards" }: TopNavbarProps) {
   const isWork = product === "work";
+  const products = useProductAccess();
   const openWorkInvite = useWorkInvite((s) => s.setOpen);
   const openInviteModal = useInviteModalStore((state) => state.open);
   const setPaletteOpen = useCommandPalette((s) => s.setPaletteOpen);
@@ -52,15 +54,15 @@ export function TopNavbar({ onMenuToggle, product = "boards" }: TopNavbarProps) 
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* Back to module launcher — desktop only */}
-        <Link
+        {/* Back to module launcher — desktop only, and only when there is more than one product */}
+        {products.productCount > 1 && <Link
           href="/home"
           className="mr-3 hidden shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex"
           title="All products"
         >
           <LayoutGrid className="h-3.5 w-3.5" />
           <span>Products</span>
-        </Link>
+        </Link>}
 
         {/* Search bar */}
         <div className="flex flex-1 justify-center px-1 sm:px-6">

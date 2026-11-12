@@ -1,5 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { WorkNotifyService } from 'src/work/work-notify.service';
+import { NotificationType } from 'generated/prisma/enums';
 import { isDoneCategory, resolveStatusCategory, type StatusCategory } from 'src/common/status-category';
 
 /**
@@ -42,10 +45,27 @@ const dateOf = (v: unknown): string | null => {
 
 @Injectable()
 export class CeoTowerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly notifications?: NotificationsService,
+    @Optional() private readonly workNotify?: WorkNotifyService,
+  ) {}
 
-  /** the companies this person owns, in each product */
+  /**
+   * The companies this person sees in CEO Tower: the ones they own, plus the ones
+   * owned by anyone who shared CEO Tower with them.
+   */
   async owned(userId: number) {
+    const own = await this.ownOnly(userId);
+    const grants = await this.prisma.ceoAccessGrant.findMany({ where: { userId }, select: { ownerId: true } });
+    if (!grants.length) return own;
+    const shared = await Promise.all(grants.filter((g) => g.ownerId !== userId).map((g) => this.ownOnly(g.ownerId)));
+    const merge = <T extends { id: number }>(lists: T[][]) => [...new Map(lists.flat().map((x) => [x.id, x] as [number, T])).values()];
+    return { boards: merge([own.boards, ...shared.map((x) => x.boards)]), work: merge([own.work, ...shared.map((x) => x.work)]) };
+  }
+
+  /** only the companies this person really owns (decides who may share access) */
+  async ownOnly(userId: number) {
     const [boards, work] = await Promise.all([
       this.prisma.workspaceMember.findMany({ where: { userId, role: 'OWNER', deletedAt: null }, select: { workspace: { select: { id: true, uid: true, name: true, timezone: true } } } }),
       this.prisma.workMember.findMany({ where: { userId, role: 'OWNER', workspace: { deletedAt: null } }, select: { workspace: { select: { id: true, uid: true, name: true } } } }),
@@ -54,8 +74,70 @@ export class CeoTowerService {
   }
 
   async access(userId: number) {
-    const o = await this.owned(userId);
-    return { allowed: o.boards.length + o.work.length > 0, boards: o.boards.length, work: o.work.length };
+    const [mine, o, grants] = await Promise.all([this.ownOnly(userId), this.owned(userId), this.prisma.ceoAccessGrant.findMany({ where: { userId }, select: { ownerId: true } })]);
+    const owners = grants.length ? await this.prisma.user.findMany({ where: { id: { in: grants.map((g) => g.ownerId) } }, select: { id: true, firstName: true, lastName: true } }) : [];
+    // a share only counts while the person who shared still owns something
+    const sharedBy: { id: number; name: string }[] = [];
+    for (const u of owners) {
+      const theirs = await this.ownOnly(u.id);
+      if (theirs.boards.length + theirs.work.length) sharedBy.push({ id: u.id, name: `${u.firstName} ${u.lastName}`.trim() });
+    }
+    return {
+      allowed: o.boards.length + o.work.length > 0,
+      /** true when they own a company themselves: only owners can share CEO Tower */
+      canShare: mine.boards.length + mine.work.length > 0,
+      sharedBy,
+      boards: o.boards.length,
+      work: o.work.length,
+    };
+  }
+
+  // ---------- sharing CEO Tower ----------
+
+  private async requireOwner(ownerId: number) {
+    const mine = await this.ownOnly(ownerId);
+    if (!mine.boards.length && !mine.work.length) throw new ForbiddenException('Only company owners can share CEO Tower.');
+    return mine;
+  }
+
+  /** who this owner has shared CEO Tower with */
+  async accessGrants(ownerId: number) {
+    await this.requireOwner(ownerId);
+    const rows = await this.prisma.ceoAccessGrant.findMany({ where: { ownerId }, orderBy: { createdAt: 'asc' } });
+    const users = await this.prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { ...USER_MINI, email: true } });
+    const byId = new Map(users.map((u) => [u.id, u]));
+    return rows.filter((r) => byId.has(r.userId)).map((r) => ({ id: r.id, user: byId.get(r.userId)!, createdAt: r.createdAt }));
+  }
+
+  /** share CEO Tower with someone in one of your companies: they see your companies, nothing else */
+  async grantAccess(ownerId: number, userId: number) {
+    const mine = await this.requireOwner(ownerId);
+    if (!Number.isInteger(userId) || userId <= 0) throw new BadRequestException('Pick a person.');
+    if (userId === ownerId) throw new BadRequestException('You already have CEO Tower.');
+    const [b, w] = await Promise.all([
+      this.prisma.workspaceMember.findFirst({ where: { userId, deletedAt: null, workspaceId: { in: mine.boards.map((x) => x.id) } }, select: { id: true } }),
+      this.prisma.workMember.findFirst({ where: { userId, workspaceId: { in: mine.work.map((x) => x.id) } }, select: { userId: true } }),
+    ]);
+    if (!b && !w) throw new BadRequestException('You can only share with people in your companies.');
+    const existing = await this.prisma.ceoAccessGrant.findUnique({ where: { ownerId_userId: { ownerId, userId } } });
+    if (existing) return { ok: true, already: true };
+    await this.prisma.ceoAccessGrant.create({ data: { ownerId, userId } });
+
+    const owner = await this.prisma.user.findUnique({ where: { id: ownerId }, select: { firstName: true, lastName: true } });
+    const who = owner ? `${owner.firstName} ${owner.lastName}`.trim() : 'An owner';
+    const title = `${who} shared CEO Tower with you`;
+    const message = 'You can now see their companies in CEO Tower. Open it from the CEO tile.';
+    if (b) await this.notifications?.notify({ recipientId: userId, type: NotificationType.CEO_TASK_REMINDER, title, message, metadata: { url: '/ceo' } }).catch(() => {});
+    if (w) await this.workNotify?.send({ recipientId: userId, type: 'CEO_ACCESS', title, message, metadata: { event: 'ceo_access', url: '/ceo' } }).catch(() => {});
+    return { ok: true };
+  }
+
+  /** take CEO Tower access back: it stops at once */
+  async revokeAccess(ownerId: number, userId: number) {
+    await this.requireOwner(ownerId);
+    const r = await this.prisma.ceoAccessGrant.deleteMany({ where: { ownerId, userId } });
+    if (!r.count) throw new NotFoundException('That person does not have access from you.');
+    return { ok: true };
   }
 
   private async require(userId: number) {

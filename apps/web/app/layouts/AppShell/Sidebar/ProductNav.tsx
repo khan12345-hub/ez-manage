@@ -49,7 +49,7 @@ export function ProductSwitcher({
   void showCeo; // kept for callers; CEO Tower now follows ownership, not the platform role
   const items: { key: ProductKey; href?: string; soon?: boolean }[] = [];
   if (active === "boards" || access.hasBoards) items.push({ key: "boards", href: active === "boards" ? boardsHref : boardsHref ?? access.boardsHref });
-  if (active === "work" || !access.loading) items.push({ key: "work", href: active === "work" ? workHref : workHref ?? access.workHref ?? "/work/create" });
+  if (active === "work" || access.hasWork) items.push({ key: "work", href: active === "work" ? workHref : workHref ?? access.workHref });
   if (ceo.allowed) items.push({ key: "ceo", href: "/ceo" });
   if (items.length < 2) return null; // only one product: no switcher needed
 

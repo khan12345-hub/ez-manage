@@ -8,5 +8,5 @@ export function postLoginPath(search?: string): string {
   const qs = search ?? (typeof window !== "undefined" ? window.location.search : "");
   const redirect = new URLSearchParams(qs).get("redirect");
   const isSafe = !!redirect && redirect.startsWith("/") && !redirect.startsWith("//") && !redirect.startsWith("/\\");
-  return isSafe ? redirect! : "/dashboard";
+  return isSafe ? redirect! : "/home";
 }

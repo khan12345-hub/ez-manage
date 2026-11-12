@@ -27,6 +27,15 @@ export class WorkspaceService {
       throw new BadRequestException('Workspace name is required.');
     }
 
+    // Boards is by invitation: only people already in Boards (or the super admin) can start a new Boards workspace
+    const [me, inBoards] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { systemRole: true } }),
+      this.prisma.workspaceMember.findFirst({ where: { userId, deletedAt: null }, select: { id: true } }),
+    ]);
+    if (me?.systemRole !== 'SUPER_ADMIN' && !inBoards) {
+      throw new ForbiddenException('Ask an admin to invite you to Boards.');
+    }
+
     const existingWorkspace = await this.prisma.workspace.findFirst({
       where: {
         createdById: userId,

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useProductAccess } from "@/hooks/useProductAccess";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,11 @@ const STEPS = ["name", "use", "size", "invite"] as const;
 /** Create a Work workspace (ClickUp onboarding): name & colour → use → team size → invite. */
 export default function CreateWorkWorkspacePage() {
   const router = useRouter();
+  // Work is by invitation: only people already in Work (or the super admin) start a new workspace
+  const access = useProductAccess();
+  useEffect(() => {
+    if (!access.loading && !access.canCreateWork) router.replace(access.onlyHref ?? "/home");
+  }, [access.loading, access.canCreateWork, access.onlyHref, router]);
   const qc = useQueryClient();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");

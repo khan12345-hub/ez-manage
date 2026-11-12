@@ -20,6 +20,7 @@ import { getSocket } from "@/components/Chat/ChatProvider";
 import { playRingtone } from "@/lib/sounds";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { CommandPalette } from "@/components/CommandPalette";
+import { ProductGate } from "@/components/ProductGate";
 import { WorkCommandPalette } from "@/components/WorkCommandPalette";
 import { TaskDetailsSheet } from "@/app/(dashboard)/workspace/[workspaceId]/board/Task/TaskDetailDrawer/Updates/TaskDetailsDrawer";
 
@@ -252,6 +253,7 @@ export function AppShell({ children }: AppShellProps) {
         <ChatProvider>
           <ImportJobProvider>
             <NotificationStreamProvider userId={user?.id}>
+              <ProductGate />
               {isCeoPage ? (
                 <main className="flex-1 overflow-auto bg-background ez-page-surface">{children}</main>
               ) : (

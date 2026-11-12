@@ -2422,3 +2422,17 @@ model WorkChatSaved {
   @@id([userId, messageId])
   @@map("work_chat_saved")
 }
+
+/// CEO Tower shared access: an owner lets someone see CEO Tower for the owner's companies.
+model CeoAccessGrant {
+  id        Int      @id @default(autoincrement())
+  /// the owner who shared (their owned companies are what the person sees)
+  ownerId   Int
+  /// the person given access
+  userId    Int
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, userId])
+  @@index([userId])
+  @@map("ceo_access_grants")
+}

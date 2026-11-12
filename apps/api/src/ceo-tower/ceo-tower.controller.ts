@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { CeoTowerService, type Source } from './ceo-tower.service';
@@ -97,6 +97,22 @@ export class CeoTowerController {
   @Get('access')
   access(@CurrentUser() u: SessionUser) {
     return this.tower.access(u.id);
+  }
+
+  /** owners: who they've shared CEO Tower with */
+  @Get('access/shared')
+  accessGrants(@CurrentUser() u: SessionUser) {
+    return this.tower.accessGrants(u.id);
+  }
+
+  @Post('access/shared')
+  grantAccess(@CurrentUser() u: SessionUser, @Body() body: { userId: number }) {
+    return this.tower.grantAccess(u.id, Number(body?.userId));
+  }
+
+  @Delete('access/shared/:userId')
+  revokeAccess(@CurrentUser() u: SessionUser, @Param('userId', ParseIntPipe) userId: number) {
+    return this.tower.revokeAccess(u.id, userId);
   }
 
   @Get('team')

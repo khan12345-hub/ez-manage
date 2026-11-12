@@ -94,13 +94,19 @@ export const ceoApi = {
   team: async (source: CeoSource, company?: string | null) => (await api.get<CeoTeamRow[]>(`/ceo-tower/team?${new URLSearchParams({ source, ...(company ? { company } : {}) })}`)).data,
   personReport: async (id: number, days = 7) => (await api.get<CeoPersonReport>(`/ceo-tower/people/${id}/report?days=${days}`)).data,
   structure: async (product: "boards" | "work", company?: string | null) => (await api.get<any[]>(`/ceo-tower/structure?${new URLSearchParams({ product, ...(company ? { company } : {}) })}`)).data,
-  access: async () => (await api.get<{ allowed: boolean; boards: number; work: number }>("/ceo-tower/access")).data,
+  access: async () => (await api.get<CeoAccess>("/ceo-tower/access")).data,
+  sharedWith: async () => (await api.get<CeoAccessGrant[]>("/ceo-tower/access/shared")).data,
+  share: async (userId: number) => (await api.post<{ ok: boolean; already?: boolean }>("/ceo-tower/access/shared", { userId })).data,
+  unshare: async (userId: number) => (await api.delete(`/ceo-tower/access/shared/${userId}`)).data,
   overview: async (source: CeoSource, company?: string | null) =>
     (await api.get<CeoOverview>(`/ceo-tower/overview?${new URLSearchParams({ source, ...(company ? { company } : {}) })}`)).data,
 };
 
-/** may this person open CEO Tower? (owners of at least one Boards or Work workspace) */
+export type CeoAccess = { allowed: boolean; canShare: boolean; sharedBy: { id: number; name: string }[]; boards: number; work: number };
+export type CeoAccessGrant = { id: number; user: { id: number; firstName: string; lastName: string; avatarUrl: string | null; email: string }; createdAt: string };
+
+/** may this person open CEO Tower? (company owners, and people an owner shared it with) */
 export function useCeoAccess() {
-  const q = useQuery({ queryKey: ["ceo-tower", "access"], queryFn: ceoApi.access, staleTime: 5 * 60_000, retry: false });
-  return { allowed: !!q.data?.allowed, loading: q.isLoading };
+  const q = useQuery({ queryKey: ["ceo-tower", "access"], queryFn: ceoApi.access, staleTime: 60_000, retry: false });
+  return { allowed: !!q.data?.allowed, canShare: !!q.data?.canShare, sharedBy: q.data?.sharedBy ?? [], loading: q.isLoading };
 }

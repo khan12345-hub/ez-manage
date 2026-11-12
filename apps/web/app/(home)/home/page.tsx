@@ -9,7 +9,8 @@
 
 import { useCeoAccess } from "@/services/ceo-tower.api";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -396,12 +397,17 @@ export default function HomePage() {
   // Boards and Work have separate access: only show what this person can open
   const access = useProductAccess();
   const ceo = useCeoAccess();
-  const productCount = (access.hasBoards ? 1 : 0) + (access.hasWork ? 1 : 0) + (ceo.allowed ? 1 : 0);
+  const productCount = access.productCount;
+  // only one product: no launcher needed, open it straight away
+  const router = useRouter();
+  useEffect(() => {
+    if (!access.loading && access.onlyHref) router.replace(access.onlyHref);
+  }, [access.loading, access.onlyHref, router]);
   const { meetings } = useDashboardMeetings();
 
   const wsList = (workspaces as any[] | undefined) ?? [];
   const firstWorkspace = wsList[0];
-  const boardsHref = firstWorkspace ? `/workspace/${firstWorkspace.uid ?? firstWorkspace.id}` : "/dashboard";
+  const boardsHref = firstWorkspace ? `/workspace/${firstWorkspace.uid ?? firstWorkspace.id}` : undefined;
 
   // boardId → board URL, and the number of boards this user is on
   const { boardLink, boardCount } = useMemo(() => {
@@ -690,9 +696,11 @@ export default function HomePage() {
                   </span>
                 )}
                 <span className="flex-1" />
-                <Link href="/dashboard" className="text-[13px] font-semibold text-primary hover:underline">
-                  All my work
-                </Link>
+                {access.hasBoards && (
+                  <Link href="/dashboard" className="text-[13px] font-semibold text-primary hover:underline">
+                    All my work
+                  </Link>
+                )}
               </div>
 
               {tasksLoading ? (

@@ -57,6 +57,7 @@ import { useCommandPalette } from "@/store/command-palette";
 import { useWorkCreate } from "@/store/work-create";
 import { RunningTimer } from "./RunningTimer";
 import { WorkInboxBell } from "./WorkInboxBell";
+import { useProductAccess } from "@/hooks/useProductAccess";
 
 export const MUTE_KEY = "ez:work:muteUntil";
 export function isWorkMuted() {
@@ -75,6 +76,7 @@ export function WorkTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const params = useParams<{ workspaceId?: string }>();
   const ws = String(params.workspaceId ?? "");
   const { user } = useAuth();
+  const access = useProductAccess();
   const logout = useLogout();
   const { theme, setTheme } = useTheme();
   const setPaletteOpen = useCommandPalette((s) => s.setPaletteOpen);
@@ -141,7 +143,7 @@ export function WorkTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
                 {w.uid === current?.uid && <Check className="h-4 w-4 text-primary" />}
               </button>
             ))}
-            <button type="button" onClick={() => go("/work/create")} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-4 w-4" /> Create Workspace</button>
+            {access.canCreateWork && <button type="button" onClick={() => go("/work/create")} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-4 w-4" /> Create Workspace</button>}
             <div className="my-1 h-px bg-border" />
             <button type="button" onClick={() => go(`/work/${ws}/settings`)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent"><Settings className="h-4 w-4 text-muted-foreground" /> Workspace settings</button>
             <button type="button" onClick={() => go(`/work/${ws}/people`)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent"><Users className="h-4 w-4 text-muted-foreground" /> People</button>

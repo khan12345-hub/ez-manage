@@ -66,7 +66,7 @@ export default function SetupAccountPage() {
     onSuccess: () => {
       toast.success(`Account Setup Completed!`);
       queryClient.invalidateQueries({ queryKey: ["me"] });
-      router.push("/workspace/1");
+      router.push("/home");
     },
     onError: (error: any) => {
       const errorMsg =
