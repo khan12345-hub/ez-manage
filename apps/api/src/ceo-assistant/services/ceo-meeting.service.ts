@@ -1,9 +1,10 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from 'prisma/prisma.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { NotificationType } from 'generated/prisma/enums';
 import { CreateMeetingDto, UpdateMeetingDto } from '../dto/meeting.dto';
+import { WorkNotifyService } from 'src/work/work-notify.service';
 
 @Injectable()
 export class CeoMeetingService {
@@ -12,7 +13,16 @@ export class CeoMeetingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    @Optional() private readonly workNotify?: WorkNotifyService,
   ) {}
+
+  /** a meeting notice: the usual (Boards) notification, plus the Work inbox for people who use Work */
+  private async tell(n: { recipientId: number; title: string; message: string; sendEmail: boolean; meetingId?: number }) {
+    await this.notifications.notify({ recipientId: n.recipientId, type: NotificationType.CEO_TASK_REMINDER, title: n.title, message: n.message, sendEmail: n.sendEmail });
+    if (!this.workNotify) return;
+    const inWork = await this.prisma.workMember.findFirst({ where: { userId: n.recipientId, workspace: { deletedAt: null } }, select: { workspaceId: true } });
+    if (inWork) await this.workNotify.send({ recipientId: n.recipientId, type: 'MEETING', title: n.title, message: n.message, metadata: { event: 'meeting', meetingId: n.meetingId ?? null } }).catch(() => {});
+  }
 
   async createMeeting(createdById: number, dto: CreateMeetingDto) {
     const creator = await this.prisma.user.findUnique({
@@ -47,11 +57,8 @@ export class CeoMeetingService {
 
     await Promise.allSettled(
       attendees.map(({ id, email }) =>
-        this.notifications
-          .notify({
-            recipientId: id,
-            type: NotificationType.CEO_TASK_REMINDER,
-            title: `Meeting Scheduled: ${dto.title}`,
+        this.tell({ recipientId: id,
+                        title: `Meeting Scheduled: ${dto.title}`,
             message: `${creatorName} has scheduled a meeting on ${dateStr}.`,
             sendEmail: true,
           })
@@ -157,10 +164,8 @@ export class CeoMeetingService {
     if (timeChanged) {
       await Promise.allSettled(
         updated.attendees.map(({ user }) =>
-          this.notifications.notify({
-            recipientId: user.id,
-            type: NotificationType.CEO_TASK_REMINDER,
-            title: `Meeting Rescheduled: ${updated.title}`,
+          this.tell({ recipientId: user.id,
+                        title: `Meeting Rescheduled: ${updated.title}`,
             message: `The meeting has been moved to ${dateStr}.`,
             sendEmail: true,
           }).catch((err: Error) => this.logger.warn(`Reschedule notify failed: ${err.message}`)),
@@ -172,10 +177,8 @@ export class CeoMeetingService {
     if (addedUsers.length) {
       await Promise.allSettled(
         addedUsers.map(({ id, email }) =>
-          this.notifications.notify({
-            recipientId: id,
-            type: NotificationType.CEO_TASK_REMINDER,
-            title: `You've been added to: ${updated.title}`,
+          this.tell({ recipientId: id,
+                        title: `You've been added to: ${updated.title}`,
             message: `You are now an attendee for the meeting scheduled on ${dateStr}.`,
             sendEmail: true,
           }).catch((err: Error) => this.logger.warn(`Add-attendee notify failed for ${email}: ${err.message}`)),
@@ -187,10 +190,8 @@ export class CeoMeetingService {
     if (removedUsers.length) {
       await Promise.allSettled(
         removedUsers.map(({ id, email }) =>
-          this.notifications.notify({
-            recipientId: id,
-            type: NotificationType.CEO_TASK_REMINDER,
-            title: `Removed from meeting: ${updated.title}`,
+          this.tell({ recipientId: id,
+                        title: `Removed from meeting: ${updated.title}`,
             message: `You have been removed from the meeting scheduled on ${dateStr}.`,
             sendEmail: false,
           }).catch((err: Error) => this.logger.warn(`Remove-attendee notify failed for ${email}: ${err.message}`)),
@@ -218,11 +219,8 @@ export class CeoMeetingService {
     const dateStr = this.formatDate(meeting.scheduledAt);
     await Promise.allSettled(
       meeting.attendees.map(({ user }) =>
-        this.notifications
-          .notify({
-            recipientId: user.id,
-            type: NotificationType.CEO_TASK_REMINDER,
-            title: `Meeting Cancelled: ${meeting.title}`,
+        this.tell({ recipientId: user.id,
+                        title: `Meeting Cancelled: ${meeting.title}`,
             message: `The meeting scheduled for ${dateStr} has been cancelled.`,
             sendEmail: false,
           })
@@ -268,11 +266,8 @@ export class CeoMeetingService {
 
         await Promise.allSettled(
           recipients.map((user) =>
-            this.notifications
-              .notify({
-                recipientId: user.id,
-                type: NotificationType.CEO_TASK_REMINDER,
-                title: `Reminder: ${meeting.title}`,
+            this.tell({ recipientId: user.id,
+                                title: `Reminder: ${meeting.title}`,
                 message: `Your meeting starts in ${w.label}. Scheduled for ${dateStr}.`,
                 sendEmail: w.sendEmail,
               })

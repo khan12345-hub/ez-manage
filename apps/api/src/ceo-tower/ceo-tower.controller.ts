@@ -1,8 +1,9 @@
-import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { CeoTowerService, type Source } from './ceo-tower.service';
 import { CeoAiService } from './ceo-ai.service';
+import { CeoCommsService } from './ceo-comms.service';
 
 /** CEO Tower: read-only, for workspace owners (checked in the service on every call) */
 @Controller('ceo-tower')
@@ -10,7 +11,45 @@ export class CeoTowerController {
   constructor(
     private readonly tower: CeoTowerService,
     private readonly ai: CeoAiService,
+    private readonly comms: CeoCommsService,
   ) {}
+
+  // ---------- Meetings & Email ----------
+
+  @Get('audiences')
+  audiences(@CurrentUser() u: SessionUser) {
+    return this.comms.audiences(u.id);
+  }
+
+  @Get('meetings')
+  meetings(@Query('when') when: string, @CurrentUser() u: SessionUser) {
+    return this.comms.listMeetings(u.id, when === 'past' ? 'past' : 'upcoming');
+  }
+
+  @Post('meetings')
+  createMeeting(@Body() b: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds: number[] }, @CurrentUser() u: SessionUser) {
+    return this.comms.createMeeting(u.id, b);
+  }
+
+  @Patch('meetings/:id')
+  updateMeeting(@Param('id', ParseIntPipe) id: number, @Body() b: { title?: string; description?: string | null; meetingLink?: string | null; scheduledAt?: string; attendeeIds?: number[] }, @CurrentUser() u: SessionUser) {
+    return this.comms.updateMeeting(u.id, id, b);
+  }
+
+  @Post('meetings/:id/cancel')
+  cancelMeeting(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.comms.cancelMeeting(u.id, id);
+  }
+
+  @Get('email/history')
+  emailHistory(@CurrentUser() u: SessionUser) {
+    return this.comms.emailHistory(u.id);
+  }
+
+  @Post('email')
+  email(@Body() b: { recipientIds: number[]; subject: string; body: string }, @CurrentUser() u: SessionUser) {
+    return this.comms.email(u.id, b);
+  }
 
   // ---------- Executive AI ----------
 

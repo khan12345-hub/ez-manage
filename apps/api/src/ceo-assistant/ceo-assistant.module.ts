@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { WorkModule } from 'src/work/work.module';
 import { BullModule } from '@nestjs/bullmq';
 
 import { CeoAssistantController } from './ceo-assistant.controller';
@@ -19,6 +20,7 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
     BullModule.registerQueue({ name: CEO_EMAIL_QUEUE }),
     MailModule,
     NotificationsModule,
+    WorkModule,
   ],
   controllers: [CeoAssistantController],
   providers: [
@@ -31,5 +33,7 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
     CeoSettingsService,
     CeoEmailProcessor,
   ],
+  // CEO Tower schedules meetings through the same service (same reminders)
+  exports: [CeoMeetingService],
 })
 export class CeoAssistantModule {}

@@ -4,6 +4,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { WorkService } from 'src/work/work.service';
 import { WorkChatService } from 'src/work/work-chat.service';
 import { CeoTowerService } from './ceo-tower.service';
+import { CeoCommsService } from './ceo-comms.service';
 
 /**
  * CEO Tower → Executive AI.
@@ -32,7 +33,9 @@ How to answer:
 - "Team progress" = the person's direct reports and the teams they are in, each with open / overdue / done.
 
 Actions:
-- You cannot send messages or create tasks yourself. When the CEO asks you to message someone or assign work, use propose_message / propose_assign_task. That only prepares the action; the CEO sees a card and must press Confirm.
+- You cannot send messages, emails, invites or create tasks yourself. When the CEO asks you to message someone, email them, set up a meeting or assign work, use propose_message / propose_email / propose_meeting / propose_assign_task.
+- "Management" and team names: resolve them with list_audiences. Meetings need a date AND time; if the CEO did not give one, ask. Times are in the CEO's local time; send scheduled_at as ISO 8601 with the timezone offset if you know it.
+- Chat message vs email: "message" means a chat DM; "email" / "mail" means an email. That only prepares the action; the CEO sees a card and must press Confirm.
 - After proposing, tell the CEO exactly what is ready and that it will go out only when they confirm. Never claim something was sent.
 - For "message everyone" style requests, resolve the exact people with tools first and list them in the proposal.
 - Write messages in a professional, friendly tone, in the language the CEO used.`;
@@ -73,6 +76,14 @@ const TOOLS: ToolDef[] = [
     person_ids: { type: 'array', items: { type: 'integer' }, description: 'Recipients (from find_people / reports).' },
     text: { type: 'string', description: 'The message, written as the CEO.' },
   }, ['person_ids', 'text']),
+  tool('list_audiences', 'Groups the CEO can address: management (owners, admins and managers), Work teams with members, and everyone per company. Returns person ids.', {}),
+  tool('propose_email', 'Prepare an email from the CEO to people ({first_name} is replaced per person). NOT sent until the CEO confirms.', {
+    person_ids: { type: 'array', items: { type: 'integer' } }, subject: { type: 'string' }, body: { type: 'string', description: 'Plain text, written as the CEO.' },
+  }, ['person_ids', 'subject', 'body']),
+  tool('propose_meeting', 'Prepare a meeting with invitations (attendees are notified, and reminded 24 h, 1 h and 15 min before). NOT created until the CEO confirms.', {
+    title: { type: 'string' }, scheduled_at: { type: 'string', description: 'ISO 8601 date-time, e.g. 2026-11-14T15:00:00+05:00' },
+    attendee_ids: { type: 'array', items: { type: 'integer' } }, description: { type: 'string', description: 'Agenda (optional).' }, meeting_link: { type: 'string', description: 'Video call link (optional).' },
+  }, ['title', 'scheduled_at', 'attendee_ids']),
   tool('propose_assign_task', 'Prepare a new Work task assigned to people. It is NOT created until the CEO confirms in the UI.', {
     list_id: { type: 'integer', description: 'A Work list id from find_places.' },
     task_name: { type: 'string' }, assignee_ids: { type: 'array', items: { type: 'integer' } },
@@ -91,6 +102,7 @@ export class CeoAiService {
     private readonly tower: CeoTowerService,
     private readonly work: WorkService,
     private readonly chat: WorkChatService,
+    private readonly comms: CeoCommsService,
   ) {}
 
   configured() {
@@ -343,6 +355,44 @@ export class CeoAiService {
         const a = await this.prisma.ceoAiAction.create({ data: { conversationId, userId, kind: 'message', payload: { people, text } } });
         return { actionId: a.id, status: 'proposed — waiting for the CEO to confirm', recipients: people.map((p) => p.name), not_reachable: people.filter((p) => !p.reachable).map((p) => p.name) };
       }
+      case 'list_audiences': {
+        const a = await this.comms.audiences(userId);
+        const ids = [...new Set([...a.management, ...a.teams.flatMap((t) => t.people), ...a.companies.flatMap((c) => c.people)])];
+        const users = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true } });
+        const nm = new Map(users.map((u) => [u.id, name2(u)]));
+        const named = (l: number[]) => l.map((i) => ({ person_id: i, name: nm.get(i) ?? String(i) }));
+        return { management: named(a.management), teams: a.teams.map((t) => ({ team: t.name, company: t.company, people: named(t.people) })), companies: a.companies.map((c) => ({ company: c.name, product: c.source, people: c.people.length })) };
+      }
+      case 'propose_email': {
+        const ids = [...new Set((Array.isArray(input.person_ids) ? input.person_ids : []).map(Number).filter(Number.isInteger))].filter((i) => i !== userId);
+        const subject = String(input.subject ?? '').trim(), body = String(input.body ?? '').trim();
+        if (!ids.length || !subject || !body) throw new BadRequestException('Give recipients, a subject and the email text.');
+        const people: { id: number; name: string }[] = [];
+        for (const id of ids.slice(0, 200)) {
+          const p = await this.tower.person(userId, id).catch(() => null);
+          if (!p) throw new BadRequestException(`Person ${id} is not in your companies.`);
+          people.push({ id, name: name2(p.user) });
+        }
+        const a = await this.prisma.ceoAiAction.create({ data: { conversationId, userId, kind: 'email', payload: { people, subject: subject.slice(0, 200), body: body.slice(0, 20000) } } });
+        return { actionId: a.id, status: 'proposed — waiting for the CEO to confirm', to: people.map((p) => p.name), subject };
+      }
+      case 'propose_meeting': {
+        const ids = [...new Set((Array.isArray(input.attendee_ids) ? input.attendee_ids : []).map(Number).filter(Number.isInteger))].filter((i) => i !== userId);
+        const title = String(input.title ?? '').trim();
+        const at = new Date(String(input.scheduled_at ?? ''));
+        if (!title || !ids.length) throw new BadRequestException('Give a title and at least one attendee.');
+        if (isNaN(+at) || +at < Date.now()) throw new BadRequestException('Give a future date and time for the meeting.');
+        const link = String(input.meeting_link ?? '').trim();
+        if (link && !/^https?:\/\//i.test(link)) throw new BadRequestException('The meeting link must be a web link.');
+        const people: { id: number; name: string }[] = [];
+        for (const id of ids.slice(0, 200)) {
+          const p = await this.tower.person(userId, id).catch(() => null);
+          if (!p) throw new BadRequestException(`Person ${id} is not in your companies.`);
+          people.push({ id, name: name2(p.user) });
+        }
+        const a = await this.prisma.ceoAiAction.create({ data: { conversationId, userId, kind: 'meeting', payload: { title: title.slice(0, 255), scheduledAt: at.toISOString(), people, description: String(input.description ?? '').slice(0, 5000) || null, meetingLink: link || null } } });
+        return { actionId: a.id, status: 'proposed — waiting for the CEO to confirm', title, when: at.toISOString(), attendees: people.map((p) => p.name) };
+      }
       case 'propose_assign_task': {
         const listId = int(input.list_id);
         const taskName = String(input.task_name ?? '').trim();
@@ -402,6 +452,13 @@ export class CeoAiService {
         }
         result = { sent, failed };
         if (!sent.length) status = 'failed';
+      } else if (a.kind === 'email') {
+        const r = await this.comms.email(userId, { recipientIds: p.people.map((x: any) => x.id), subject: p.subject, body: p.body });
+        result = { sent: r.results.filter((x) => x.status === 'sent').map((x) => x.name), failed: r.results.filter((x) => x.status !== 'sent').map((x) => ({ name: x.name, reason: x.error ?? x.status })) };
+        if (!r.sent) status = 'failed';
+      } else if (a.kind === 'meeting') {
+        const m: any = await this.comms.createMeeting(userId, { title: p.title, scheduledAt: p.scheduledAt, attendeeIds: p.people.map((x: any) => x.id), description: p.description ?? undefined, meetingLink: p.meetingLink ?? undefined });
+        result = { meetingId: m.id, title: m.title, scheduledAt: m.scheduledAt };
       } else if (a.kind === 'assign_task') {
         const t: any = await this.work.createTask(p.listId, userId, { name: p.name, assigneeIds: p.assignees.map((x: any) => x.id), ...(p.description ? { description: p.description } : {}), ...(p.due ? { dueDate: new Date(`${p.due}T17:00:00Z`).toISOString() } : {}), ...(p.priority ? { priority: p.priority } : {}) } as any);
         result = { taskUid: t.uid, name: t.name };

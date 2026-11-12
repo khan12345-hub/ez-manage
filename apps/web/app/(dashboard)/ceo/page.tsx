@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowRight, AtSign, BarChart3, Bot, Building2, CheckCircle2, Crown, Inbox, LayoutGrid, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, AtSign, CalendarClock, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, Inbox, LayoutGrid, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -14,6 +14,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "../work/_components/primitives";
 import { TasksView } from "./_components/TasksView";
 import { TeamView } from "./_components/TeamView";
+import { MeetingsView } from "./_components/MeetingsView";
+import { EmailView } from "./_components/EmailView";
 import { ProductView } from "./_components/ProductView";
 import { AI_PROMPTS, AiView } from "./_components/AiView";
 import { CompanyPanel, type PanelTab } from "./_components/CompanyPanel";
@@ -21,13 +23,15 @@ import { MessageDialog } from "./_components/MessageDialog";
 import { AssignTaskDialog } from "./_components/AssignTaskDialog";
 import { SourceBadge, fmtDate } from "./_components/bits";
 
-type View = "portfolio" | "tasks" | "team" | "boards" | "work" | "ai";
+type View = "portfolio" | "tasks" | "team" | "boards" | "work" | "meetings" | "email" | "ai";
 const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean }[] = [
   { id: "portfolio", label: "Portfolio", icon: Building2, ready: true },
   { id: "tasks", label: "Tasks", icon: ListChecks, ready: true },
   { id: "team", label: "Team", icon: Users, ready: true },
   { id: "boards", label: "Boards", icon: LayoutGrid, ready: true },
   { id: "work", label: "Work", icon: CheckCircle2, ready: true },
+  { id: "meetings", label: "Meetings", icon: CalendarClock, ready: true },
+  { id: "email", label: "Email", icon: Mail, ready: true },
   { id: "ai", label: "Executive AI", icon: Sparkles, ready: true },
 ];
 const HEALTH: Record<CeoHealth, { label: string; cls: string; dot: string }> = {
@@ -158,6 +162,8 @@ export default function CeoTowerPage() {
           </div>
 
           {view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} />
+            : view === "meetings" ? <MeetingsView />
+            : view === "email" ? <EmailView />
             : view === "team" ? <TeamView source={source} company={company?.key ?? null} companies={companies} />
             : view === "boards" || view === "work" ? <ProductView product={view} company={company?.source === view ? company.key : null} companies={companies} />
             : view === "tasks" ? <TasksView source={source} company={company?.key ?? null} overview={data} /> : (

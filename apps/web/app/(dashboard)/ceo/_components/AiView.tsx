@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { ceoApi, type CeoAiAction } from "@/services/ceo-tower.api";
 import { RichText } from "../../work/_components/chat/ChatMessages";
 
-export const AI_PROMPTS = ["Khan kia kar raha hai?", "Kaun se tasks in progress hain?", "Kis ki team peeche hai?", "Kya overdue hai 48 ghante se zyada?", "Sab managers ko weekly update ka message bhej do"];
+export const AI_PROMPTS = ["Khan kia kar raha hai?", "Kaun se tasks in progress hain?", "Kis ki team peeche hai?", "Kya overdue hai 48 ghante se zyada?", "Management ko kal 11 baje review meeting ka invite bhej do", "Sab managers ko weekly update ka email bhej do"];
 const CONV_KEY = "ez:ceo:ai:conversation";
 
 type Line = { role: "user" | "assistant"; text: string; used?: string[] };
@@ -60,7 +60,7 @@ export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; on
     mutationFn: ({ id, confirm }: { id: string; confirm: boolean }) => ceoApi.aiDecide(id, confirm),
     onSuccess: (a) => {
       setActions((all) => all.map((x) => (x.id === a.id ? a : x)));
-      if (a.status === "done") toast.success(a.kind === "message" ? `Sent to ${(a.result?.sent ?? []).join(", ")}` : `Task created: ${a.result?.name}`);
+      if (a.status === "done") toast.success(a.kind === "message" || a.kind === "email" ? `Sent to ${(a.result?.sent ?? []).join(", ")}` : a.kind === "meeting" ? "Meeting scheduled — invitations sent" : `Task created: ${a.result?.name}`);
       else if (a.status === "failed") toast.error("It could not be done — see the card.");
       qc.invalidateQueries({ queryKey: ["ceo-tower"] });
     },
@@ -139,13 +139,28 @@ export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; on
 /** what the AI prepared; nothing happens until Confirm */
 function ActionCard({ a, busy, onDecide }: { a: CeoAiAction; busy: boolean; onDecide: (confirm: boolean) => void }) {
   const p = a.payload ?? {};
-  const title = a.kind === "message" ? `Message ${p.people?.length ?? 0} ${p.people?.length === 1 ? "person" : "people"}` : "Create and assign a task";
+  const n = p.people?.length ?? 0;
+  const title = a.kind === "message" ? `Message ${n} ${n === 1 ? "person" : "people"}` : a.kind === "email" ? `Email ${n} ${n === 1 ? "person" : "people"}` : a.kind === "meeting" ? "Schedule a meeting" : "Create and assign a task";
   return (
     <article aria-label={title} className={cn("rounded-2xl border p-4", a.status === "pending" ? "border-[#b08d57]/50 bg-[#b08d57]/5" : a.status === "done" ? "border-primary/30 bg-primary/5" : "border-border bg-muted/30")}>
       <p className="flex items-center gap-2 text-[13px] font-semibold">{a.kind === "message" ? <MessageSquarePlus className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />} {title}
         <span className={cn("ml-auto rounded-full px-2 py-0.5 font-mono text-[10.5px] uppercase", a.status === "pending" ? "bg-[#b08d57]/20 text-[#8a6a35] dark:text-[#d9bd8c]" : a.status === "done" ? "bg-primary/15 text-primary" : a.status === "failed" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground")}>{a.status === "pending" ? "waiting for you" : a.status}</span>
       </p>
-      {a.kind === "message" ? (
+      {a.kind === "email" ? (
+        <>
+          <p className="mt-2 text-[12.5px] text-muted-foreground">To: {(p.people ?? []).map((x: any) => x.name).join(", ")}</p>
+          <p className="mt-1 text-[13px] font-semibold">{p.subject}</p>
+          <blockquote className="mt-1 whitespace-pre-wrap rounded-lg border-l-4 border-[#b08d57]/50 bg-background px-3 py-2 text-[13px]">{p.body}</blockquote>
+        </>
+      ) : a.kind === "meeting" ? (
+        <dl className="mt-2 grid grid-cols-[90px_1fr] gap-x-3 gap-y-1 text-[12.5px]">
+          <dt className="text-muted-foreground">Meeting</dt><dd className="font-medium">{p.title}</dd>
+          <dt className="text-muted-foreground">When</dt><dd>{p.scheduledAt ? new Date(p.scheduledAt).toLocaleString([], { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}</dd>
+          <dt className="text-muted-foreground">Invite</dt><dd>{(p.people ?? []).map((x: any) => x.name).join(", ")}</dd>
+          {p.meetingLink && <><dt className="text-muted-foreground">Link</dt><dd className="truncate">{p.meetingLink}</dd></>}
+          {p.description && <><dt className="text-muted-foreground">Agenda</dt><dd className="whitespace-pre-wrap">{p.description}</dd></>}
+        </dl>
+      ) : a.kind === "message" ? (
         <>
           <p className="mt-2 text-[12.5px] text-muted-foreground">To: {(p.people ?? []).map((x: any) => x.name + (x.reachable === false ? " (not in Work — can't receive)" : "")).join(", ")}</p>
           <blockquote className="mt-2 whitespace-pre-wrap rounded-lg border-l-4 border-[#b08d57]/50 bg-background px-3 py-2 text-[13px]">{p.text}</blockquote>
@@ -166,7 +181,7 @@ function ActionCard({ a, busy, onDecide }: { a: CeoAiAction; busy: boolean; onDe
           <button type="button" disabled={busy} onClick={() => onDecide(false)} className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[13px] font-medium hover:bg-accent disabled:opacity-50"><X className="h-4 w-4" /> Cancel</button>
         </div>
       ) : a.status === "done" ? (
-        <p className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium text-primary"><CheckCircle2 className="h-3.5 w-3.5" /> {a.kind === "message" ? `Sent to ${(a.result?.sent ?? []).join(", ")}` : `Task created: ${a.result?.name}`}{a.result?.failed?.length ? <span className="text-destructive"> · not sent to {a.result.failed.map((f: any) => f.name).join(", ")}</span> : null}</p>
+        <p className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium text-primary"><CheckCircle2 className="h-3.5 w-3.5" /> {a.kind === "message" || a.kind === "email" ? `Sent to ${(a.result?.sent ?? []).join(", ")}` : a.kind === "meeting" ? `Meeting scheduled — invitations sent` : `Task created: ${a.result?.name}`}{a.result?.failed?.length ? <span className="text-destructive"> · not sent to {a.result.failed.map((f: any) => f.name).join(", ")}</span> : null}</p>
       ) : a.status === "failed" ? (
         <p className="mt-2 flex items-center gap-1.5 text-[12.5px] text-destructive"><XCircle className="h-3.5 w-3.5" /> {a.result?.error ?? (a.result?.failed ?? []).map((f: any) => `${f.name}: ${f.reason}`).join("; ") ?? "Could not be done."}</p>
       ) : a.status === "cancelled" ? <p className="mt-2 text-[12.5px] text-muted-foreground">Cancelled — nothing was sent.</p> : null}

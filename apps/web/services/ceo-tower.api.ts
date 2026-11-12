@@ -40,7 +40,7 @@ export interface CeoPersonDetail {
 }
 
 export interface CeoAiAction {
-  id: string; kind: "message" | "assign_task"; status: "pending" | "running" | "done" | "failed" | "cancelled"; createdAt: string; decidedAt: string | null;
+  id: string; kind: "message" | "assign_task" | "email" | "meeting"; status: "pending" | "running" | "done" | "failed" | "cancelled"; createdAt: string; decidedAt: string | null;
   payload: any; result: any;
 }
 export interface CeoAiTurn { conversationId: string; reply: string; used: string[]; actions: CeoAiAction[] }
@@ -58,7 +58,26 @@ export interface CeoPersonReport extends CeoPersonDetail {
   teams: string[]; directReports: number[];
 }
 
+export interface CeoAudiences {
+  management: number[];
+  teams: { id: number; name: string; company: string; people: number[] }[];
+  companies: { key: string; name: string; source: "boards" | "work"; people: number[] }[];
+}
+export interface CeoMeeting {
+  id: number; title: string; description: string | null; meetingLink: string | null; scheduledAt: string; cancelledAt: string | null;
+  attendees: { userId: number; user: CeoPerson & { email: string } }[];
+}
+export interface CeoEmailRow { id: number; subject: string; body: string; deliveryStatus: string; sentAt: string; recipient: CeoPerson & { email: string } }
+export interface CeoEmailResult { sent: number; failed: number; notSent: number; results: { id: number; name: string; status: "sent" | "failed" | "not_sent"; error?: string }[] }
+
 export const ceoApi = {
+  audiences: async () => (await api.get<CeoAudiences>("/ceo-tower/audiences")).data,
+  meetings: async (when: "upcoming" | "past") => (await api.get<CeoMeeting[]>(`/ceo-tower/meetings?when=${when}`)).data,
+  createMeeting: async (b: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds: number[] }) => (await api.post<CeoMeeting>("/ceo-tower/meetings", b)).data,
+  updateMeeting: async (id: number, b: { title?: string; description?: string | null; meetingLink?: string | null; scheduledAt?: string; attendeeIds?: number[] }) => (await api.patch<CeoMeeting>(`/ceo-tower/meetings/${id}`, b)).data,
+  cancelMeeting: async (id: number) => (await api.post(`/ceo-tower/meetings/${id}/cancel`)).data,
+  email: async (b: { recipientIds: number[]; subject: string; body: string }) => (await api.post<CeoEmailResult>("/ceo-tower/email", b, { timeout: 180_000 })).data,
+  emailHistory: async () => (await api.get<CeoEmailRow[]>("/ceo-tower/email/history")).data,
   aiStatus: async () => (await api.get<{ configured: boolean; model: string }>("/ceo-tower/ai/status")).data,
   aiChat: async (message: string, conversationId?: string | null) => (await api.post<CeoAiTurn>("/ceo-tower/ai/chat", { message, ...(conversationId ? { conversationId } : {}) }, { timeout: 180_000 })).data,
   aiConversations: async () => (await api.get<{ id: string; title: string | null; updatedAt: string }[]>("/ceo-tower/ai/conversations")).data,
