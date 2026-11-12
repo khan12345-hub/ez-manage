@@ -7,6 +7,7 @@
  * composed from those same tasks and meetings, never invented.
  */
 
+import { useCeoAccess } from "@/services/ceo-tower.api";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +15,6 @@ import {
   ArrowRight,
   ArrowUp,
   BarChart3,
-  Hammer,
   LayoutGrid,
   ListChecks,
   Loader2,
@@ -395,7 +395,8 @@ export default function HomePage() {
   const { tasks, isLoading: tasksLoading } = useDashboardTasks();
   // Boards and Work have separate access: only show what this person can open
   const access = useProductAccess();
-  const productCount = (access.hasBoards ? 1 : 0) + (access.hasWork ? 1 : 0) + (isSuperAdmin ? 1 : 0);
+  const ceo = useCeoAccess();
+  const productCount = (access.hasBoards ? 1 : 0) + (access.hasWork ? 1 : 0) + (ceo.allowed ? 1 : 0);
   const { meetings } = useDashboardMeetings();
 
   const wsList = (workspaces as any[] | undefined) ?? [];
@@ -644,10 +645,11 @@ export default function HomePage() {
               </motion.div>
             )}
 
-            {isSuperAdmin && (
+            {ceo.allowed && (
               <motion.div variants={fadeUp} className="md:col-span-2 lg:col-span-1">
                 <ProductCard
                   tone="ceo"
+                  href="/ceo"
                   icon={BarChart3}
                   kicker="Executive"
                   title="CEO Tower"
@@ -659,10 +661,9 @@ export default function HomePage() {
                     { value: tasksLoading ? "–" : stats.overdue.length, label: "late tasks", alert: stats.overdue.length > 0 },
                   ]}
                   footer={
-                    // Disabled for now: not clickable until the CEO Tower rebuild ships.
-                    <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#b9c8be]">
-                      <Hammer className="h-3.5 w-3.5" aria-hidden />
-                      Coming soon
+                    <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#d9c7a0]">
+                      Open CEO Tower
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
                     </span>
                   }
                 />

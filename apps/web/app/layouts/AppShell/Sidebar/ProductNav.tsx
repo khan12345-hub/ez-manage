@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BarChart3, LayoutGrid, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProductAccess } from "@/hooks/useProductAccess";
+import { useCeoAccess } from "@/services/ceo-tower.api";
 
 /** Forest tile with a serif brass "EZ": the Ledger brand mark. */
 export function BrandMark({ size = 32 }: { size?: number }) {
@@ -28,7 +29,7 @@ const PRODUCT_META = {
 
 /**
  * Product switcher: compact tiles. Only products this person can open are shown
- * (Boards and Work have separate access); CEO Tower is a disabled "Soon" tile.
+ * (Boards and Work have separate access); CEO Tower shows for workspace owners.
  */
 export function ProductSwitcher({
   active,
@@ -44,11 +45,13 @@ export function ProductSwitcher({
   onNavigate?: () => void;
 }) {
   const access = useProductAccess();
+  const ceo = useCeoAccess();
+  void showCeo; // kept for callers; CEO Tower now follows ownership, not the platform role
   const items: { key: ProductKey; href?: string; soon?: boolean }[] = [];
   if (active === "boards" || access.hasBoards) items.push({ key: "boards", href: active === "boards" ? boardsHref : boardsHref ?? access.boardsHref });
   if (active === "work" || !access.loading) items.push({ key: "work", href: active === "work" ? workHref : workHref ?? access.workHref ?? "/work/create" });
-  if (showCeo) items.push({ key: "ceo", soon: true });
-  if (items.length < 2 && !showCeo) return null; // only one product: no switcher needed
+  if (ceo.allowed) items.push({ key: "ceo", href: "/ceo" });
+  if (items.length < 2) return null; // only one product: no switcher needed
 
   return (
     <nav aria-label="Products" className="px-4 pt-3">

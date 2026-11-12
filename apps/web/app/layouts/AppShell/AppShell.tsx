@@ -241,6 +241,8 @@ export function AppShell({ children }: AppShellProps) {
   // Work (ClickUp-style product) has its own sidebar: Spaces → Folders → Lists
   // NOTE: "/workspace/..." is Boards — match "/work" or "/work/..." only
   const isWorkPage = /^\/work(\/|$)/.test(pathname ?? "");
+  // CEO Tower is its own full-screen product with its own header
+  const isCeoPage = /^\/ceo(\/|$)/.test(pathname ?? "");
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground antialiased font-sans">
@@ -248,6 +250,10 @@ export function AppShell({ children }: AppShellProps) {
         <ChatProvider>
           <ImportJobProvider>
             <NotificationStreamProvider userId={user?.id}>
+              {isCeoPage ? (
+                <main className="flex-1 overflow-auto bg-background ez-page-surface">{children}</main>
+              ) : (
+              <>
               {!isWorkPage && <OnboardingTour />}
               {isMobileOpen && (
                 <div
@@ -287,6 +293,8 @@ export function AppShell({ children }: AppShellProps) {
               {isWorkPage ? <WorkCommandPalette /> : <CommandPalette />}
               {!isBoardPage && !isWorkPage && <TaskDetailsSheet />}
               {!isWorkPage && <AskAiWidget />}
+              </>
+              )}
               <CallToast />
               <CallDeclinedToast />
               <GlobalLiveKitPanel />

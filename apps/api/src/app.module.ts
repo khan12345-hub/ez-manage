@@ -39,6 +39,7 @@ import { WorkspaceDocsModule } from './workspace-docs/workspace-docs.module';
 import { WorkModule } from './work/work.module';
 import { PushModule } from './push/push.module';
 import { CeoAssistantModule } from './ceo-assistant/ceo-assistant.module';
+import { CeoTowerModule } from './ceo-tower/ceo-tower.module';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { CeoAssistantModule } from './ceo-assistant/ceo-assistant.module';
     WorkModule,
     PushModule,
     CeoAssistantModule,
+    CeoTowerModule,
     ],
   controllers: [AppController],
   providers: [
