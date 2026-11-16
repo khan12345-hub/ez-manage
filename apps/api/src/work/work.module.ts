@@ -1,5 +1,6 @@
 import { WorkModulesController } from './work-modules.controller';
 import { WorkTimesheetService } from './work-timesheet.service';
+import { WorkSprintsService } from './work-sprints.service';
 import { Module } from '@nestjs/common';
 import { WorkController } from './work.controller';
 import { WorkService } from './work.service';
@@ -27,6 +28,6 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
   controllers: [WorkController, WorkModulesController],
   // CEO Tower acts through Work's own services (as the CEO, with Work's permissions)
   exports: [WorkService, WorkChatService, WorkNotifyService],
-  providers: [WorkService, WorkAccessService, WorkDetailService, WorkFilesService, WorkPeopleService, WorkInboxService, WorkOverviewService, WorkFieldsService, WorkRemindersService, WorkExtrasService, WorkStatsService, WorkProfileService, WorkNotifyService, WorkAutomationsService, WorkChatService, WorkTimesheetService],
+  providers: [WorkService, WorkAccessService, WorkDetailService, WorkFilesService, WorkPeopleService, WorkInboxService, WorkOverviewService, WorkFieldsService, WorkRemindersService, WorkExtrasService, WorkStatsService, WorkProfileService, WorkNotifyService, WorkAutomationsService, WorkChatService, WorkTimesheetService, WorkSprintsService],
 })
 export class WorkModule {}
