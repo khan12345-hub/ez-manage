@@ -7,6 +7,8 @@ import { WorkFormsService } from './work-forms.service';
 import { WorkAiService } from './work-ai.service';
 import { WorkLinksService } from './work-links.service';
 import { WorkWhiteboardsService } from './work-whiteboards.service';
+import { WorkCallsService } from './work-calls.service';
+import { LivekitModule } from 'src/livekit/livekit.module';
 import { Module } from '@nestjs/common';
 import { WorkController } from './work.controller';
 import { WorkService } from './work.service';
@@ -30,10 +32,10 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
 
 /** Work — the ClickUp-style product (Space → Folder → List → Task). */
 @Module({
-  imports: [StorageModule, NotificationsModule, MailModule],
+  imports: [StorageModule, NotificationsModule, MailModule, LivekitModule],
   controllers: [WorkController, WorkModulesController],
   // CEO Tower acts through Work's own services (as the CEO, with Work's permissions)
   exports: [WorkService, WorkChatService, WorkNotifyService],
-  providers: [WorkService, WorkAccessService, WorkDetailService, WorkFilesService, WorkPeopleService, WorkInboxService, WorkOverviewService, WorkFieldsService, WorkRemindersService, WorkExtrasService, WorkStatsService, WorkProfileService, WorkNotifyService, WorkAutomationsService, WorkChatService, WorkTimesheetService, WorkSprintsService, WorkGoalsService, WorkDocsService, WorkFormsService, WorkAiService, WorkLinksService, WorkWhiteboardsService],
+  providers: [WorkService, WorkAccessService, WorkDetailService, WorkFilesService, WorkPeopleService, WorkInboxService, WorkOverviewService, WorkFieldsService, WorkRemindersService, WorkExtrasService, WorkStatsService, WorkProfileService, WorkNotifyService, WorkAutomationsService, WorkChatService, WorkTimesheetService, WorkSprintsService, WorkGoalsService, WorkDocsService, WorkFormsService, WorkAiService, WorkLinksService, WorkWhiteboardsService, WorkCallsService],
 })
 export class WorkModule {}

@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Archive, Bell, Bookmark, CalendarDays, Columns3, LayoutGrid, List, ListChecks, UsersRound, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
+import { CallButtons } from "./WorkCalls";
 import { ChannelEmail } from "../ShareAndEmail";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -155,6 +156,7 @@ export function ChannelView({ uid, embedded = false }: { uid: string; embedded?:
           </button>
         )}
         {isDm && others.length === 1 && <button type="button" onClick={() => openProfile(others[0]!.id)} className="rounded-md border border-border px-2.5 py-1 text-[12.5px] hover:bg-accent">Show profile</button>}
+        <CallButtons channelUid={uid} disabled={!ch.canPost} />
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild><button type="button" aria-label="Channel options" className="rounded p-1 text-muted-foreground hover:bg-accent"><MoreHorizontal className="h-4 w-4" /></button></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

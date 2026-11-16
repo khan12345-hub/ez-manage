@@ -10,6 +10,7 @@ import { WorkFormsService } from './work-forms.service';
 import { WorkAiService } from './work-ai.service';
 import { WorkLinksService } from './work-links.service';
 import { WorkWhiteboardsService } from './work-whiteboards.service';
+import { WorkCallsService } from './work-calls.service';
 import { Headers } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from 'src/auth/decorators/public.decorator';
@@ -27,6 +28,7 @@ export class WorkModulesController {
     private readonly ai: WorkAiService,
     private readonly links: WorkLinksService,
     private readonly boards: WorkWhiteboardsService,
+    private readonly calls: WorkCallsService,
   ) {}
 
   // ── timesheets ──
@@ -261,5 +263,26 @@ export class WorkModulesController {
   @Delete('whiteboards/:id')
   archiveBoard(@Param('id') id: string, @CurrentUser() u: SessionUser) {
     return this.boards.archive(id, u.id);
+  }
+
+  // ── chat calls (voice / video) ──
+  @Post('chat/channels/:uid/call')
+  startCall(@Param('uid') uid: string, @Body() b: { video?: boolean }, @CurrentUser() u: SessionUser) {
+    return this.calls.start(uid, u.id, !!b?.video);
+  }
+
+  @Post('chat/calls/join')
+  joinCall(@Body() b: { room?: string }, @CurrentUser() u: SessionUser) {
+    return this.calls.join(String(b?.room ?? ''), u.id);
+  }
+
+  @Post('chat/calls/decline')
+  declineCall(@Body() b: { room?: string }, @CurrentUser() u: SessionUser) {
+    return this.calls.decline(String(b?.room ?? ''), u.id);
+  }
+
+  @Post('chat/calls/leave')
+  leaveCall(@Body() b: { room?: string }, @CurrentUser() u: SessionUser) {
+    return this.calls.leave(String(b?.room ?? ''), u.id);
   }
 }

@@ -21,6 +21,7 @@ import { playRingtone } from "@/lib/sounds";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ProductGate } from "@/components/ProductGate";
+import { WorkCallLayer } from "@/app/(dashboard)/work/_components/chat/WorkCalls";
 import { WorkCommandPalette } from "@/components/WorkCommandPalette";
 import { TaskDetailsSheet } from "@/app/(dashboard)/workspace/[workspaceId]/board/Task/TaskDetailDrawer/Updates/TaskDetailsDrawer";
 
@@ -254,6 +255,7 @@ export function AppShell({ children }: AppShellProps) {
           <ImportJobProvider>
             <NotificationStreamProvider userId={user?.id}>
               <ProductGate />
+              <WorkCallLayer />
               {isCeoPage ? (
                 <main className="flex-1 overflow-auto bg-background ez-page-surface">{children}</main>
               ) : (

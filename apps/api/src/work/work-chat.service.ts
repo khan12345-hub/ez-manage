@@ -64,7 +64,7 @@ export class WorkChatService {
   }
 
   /** push a live event to everyone in the channel (or a given list) */
-  private push(userIds: number[], type: string, data: Record<string, unknown>) {
+  push(userIds: number[], type: string, data: Record<string, unknown>) {
     for (const u of new Set(userIds)) this.stream.emitRaw(u, 'work_chat', { type, ...data });
   }
   private async audience(ch: { id: number; kind: string; isPrivate: boolean; workspaceId: number }) {
@@ -1063,6 +1063,14 @@ export class WorkChatService {
         channelUid: ch.uid, channelName: ch.kind === 'channel' ? ch.name : null, title: f.title, content: f.content.slice(0, 4000), createdAt: f.createdAt,
       },
     });
+  }
+
+  /** calls: rewrite a call's message ("· 4 min", "Missed call") and send it out live */
+  async setCallMessage(messageId: number, content: string) {
+    const up = await this.prisma.workChatMessage.update({ where: { id: messageId }, data: { content }, select: MSG_SELECT });
+    const ch = await this.prisma.workChannel.findUnique({ where: { id: (up as any).channelId ?? undefined } as any });
+    if (!ch) return;
+    this.push(await this.audience(ch as any), 'message_updated', { channelUid: (ch as any).uid, message: this.shape(up, (up as any).userId) });
   }
 
   async edit(messageId: number, userId: number, dto: { content: string; title?: string }) {
