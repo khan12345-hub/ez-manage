@@ -19,6 +19,12 @@ type ToolDef = Anthropic.Beta.BetaTool;
 const DAY = 86_400_000;
 const MAX_STEPS = 10;
 const MODEL = () => process.env.CEO_AI_MODEL || 'claude-opus-5-5';
+/** free fallback when there is no Claude key: Groq (OpenAI-compatible API, free tier with daily limits) */
+const GROQ_MODEL = () => process.env.CEO_AI_GROQ_MODEL || 'openai/gpt-oss-120b';
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+type Provider = 'claude' | 'groq';
+/** one model step, in the stored (Claude) message shape whichever engine answered */
+type Step = { content: any[]; stop_reason: string | null };
 const EFFORT = () => (['low', 'medium', 'high', 'xhigh', 'max'].includes(process.env.CEO_AI_EFFORT ?? '') ? process.env.CEO_AI_EFFORT : 'medium') as 'low' | 'medium' | 'high';
 
 const SYSTEM = `You are the Executive AI inside EZ Manage's CEO Tower. You work for the CEO (the owner of the companies below) and answer questions about their companies, people and work.
@@ -105,15 +111,108 @@ export class CeoAiService {
     private readonly comms: CeoCommsService,
   ) {}
 
+  /** Claude when its key is set; otherwise the free Groq engine; otherwise none */
+  provider(): Provider | null {
+    if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) return 'claude';
+    if (process.env.GROQ_API_KEY) return 'groq';
+    return null;
+  }
   configured() {
-    return !!(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+    return this.provider() !== null;
   }
   status() {
-    return { configured: this.configured(), model: MODEL() };
+    const provider = this.provider();
+    return { configured: !!provider, provider, model: provider === 'groq' ? GROQ_MODEL() : MODEL() };
   }
-  private api() {
-    if (!this.configured()) throw new ServiceUnavailableException({ code: 'AI_NOT_CONFIGURED', message: 'Executive AI is not set up yet: add ANTHROPIC_API_KEY to the server settings.' });
-    return (this.client ??= new Anthropic());
+  private requireProvider(): Provider {
+    const p = this.provider();
+    if (!p) throw new ServiceUnavailableException({ code: 'AI_NOT_CONFIGURED', message: 'Executive AI is not set up yet: add ANTHROPIC_API_KEY (or GROQ_API_KEY for the free engine) to the server settings.' });
+    return p;
+  }
+
+  /** one step with Claude */
+  private async stepClaude(messages: Msg[]): Promise<Step> {
+    const client = (this.client ??= new Anthropic());
+    try {
+      const res = (await client.beta.messages.create({
+        model: MODEL(),
+        max_tokens: 16000,
+        output_config: { effort: EFFORT() },
+        cache_control: { type: 'ephemeral' },
+        system: SYSTEM,
+        tools: TOOLS,
+        messages,
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+      } as any)) as Anthropic.Beta.BetaMessage;
+      return { content: res.content as any[], stop_reason: res.stop_reason };
+    } catch (e) {
+      this.log.error(`Claude request failed: ${(e as Error).message}`);
+      if (e instanceof Anthropic.AuthenticationError) throw new ServiceUnavailableException({ code: 'AI_BAD_KEY', message: 'The Anthropic API key was rejected. Check ANTHROPIC_API_KEY on the server.' });
+      if (e instanceof Anthropic.RateLimitError) throw new ServiceUnavailableException({ code: 'AI_BUSY', message: 'Executive AI is busy right now. Try again in a minute.' });
+      throw new ServiceUnavailableException({ code: 'AI_ERROR', message: 'Executive AI could not answer right now. Try again.' });
+    }
+  }
+
+  /** one step with the free Groq engine: translate the stored conversation to its chat format and back */
+  private async stepGroq(messages: Msg[]): Promise<Step> {
+    const chat: any[] = [{ role: 'system', content: SYSTEM }];
+    for (const m of messages) {
+      const blocks: any[] = typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : (m.content as any[]);
+      if (m.role === 'user') {
+        for (const r of blocks.filter((b) => b.type === 'tool_result')) {
+          chat.push({ role: 'tool', tool_call_id: r.tool_use_id, content: typeof r.content === 'string' ? r.content : JSON.stringify(r.content) });
+        }
+        const text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+        if (text) chat.push({ role: 'user', content: text });
+      } else {
+        const text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+        const calls = blocks.filter((b) => b.type === 'tool_use').map((b) => ({ id: b.id, type: 'function', function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) } }));
+        chat.push({ role: 'assistant', content: text || (calls.length ? null : '…'), ...(calls.length ? { tool_calls: calls } : {}) });
+      }
+    }
+    const tools = TOOLS.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } }));
+    const body = JSON.stringify({ model: GROQ_MODEL(), messages: chat, tools, tool_choice: 'auto', max_tokens: 4000, temperature: 0.2 });
+    let res: Response | null = null;
+    // the free tier has a per-minute token limit: when Groq says "try again in a few seconds", wait and retry
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        res = await fetch(GROQ_URL, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+          body,
+          signal: AbortSignal.timeout(120_000),
+        });
+      } catch (e) {
+        this.log.error(`Groq request failed: ${(e as Error).message}`);
+        throw new ServiceUnavailableException({ code: 'AI_ERROR', message: 'Executive AI could not answer right now. Try again.' });
+      }
+      if (res.status !== 429) break;
+      const text = await res.clone().text().catch(() => '');
+      const secs = Number(res.headers.get('retry-after')) || Number(/try again in ([\d.]+)s/i.exec(text)?.[1]);
+      if (!secs || secs > 25) break; // a long wait means the daily limit: tell the CEO instead of hanging
+      await new Promise((r) => setTimeout(r, (secs + 0.5) * 1000));
+    }
+    if (!res!.ok) {
+      res = res!;
+      const body = await res.text().catch(() => '');
+      this.log.error(`Groq ${res.status}: ${body.slice(0, 300)}`);
+      if (res.status === 401) throw new ServiceUnavailableException({ code: 'AI_BAD_KEY', message: 'The Groq API key was rejected. Check GROQ_API_KEY on the server.' });
+      if (res.status === 429) throw new ServiceUnavailableException({ code: 'AI_BUSY', message: 'The free AI limit is used up for now. Try again in a little while.' });
+      throw new ServiceUnavailableException({ code: 'AI_ERROR', message: 'Executive AI could not answer right now. Try again.' });
+    }
+    const data: any = await res!.json();
+    const choice = data?.choices?.[0];
+    const msg = choice?.message ?? {};
+    const content: any[] = [];
+    if (msg.content) content.push({ type: 'text', text: String(msg.content) });
+    for (const c of msg.tool_calls ?? []) {
+      let input: Record<string, any> = {};
+      try { input = c.function?.arguments ? JSON.parse(c.function.arguments) : {}; } catch { input = {}; }
+      content.push({ type: 'tool_use', id: c.id, name: c.function?.name, input });
+    }
+    const stop = choice?.finish_reason === 'tool_calls' || (msg.tool_calls?.length ?? 0) > 0 ? 'tool_use' : choice?.finish_reason === 'length' ? 'max_tokens' : 'end_turn';
+    return { content: content.length ? content : [{ type: 'text', text: '' }], stop_reason: stop };
   }
 
   // ---------- conversation ----------
@@ -123,7 +222,7 @@ export class CeoAiService {
     const question = (text ?? '').trim();
     if (!question) throw new BadRequestException('Ask something.');
     if (question.length > 4000) throw new BadRequestException('Keep the question under 4,000 characters.');
-    const client = this.api();
+    const provider = this.requireProvider();
     const conv = conversationId
       ? await this.prisma.ceoAiConversation.findFirst({ where: { id: conversationId, userId } })
       : await this.prisma.ceoAiConversation.create({ data: { userId, title: question.slice(0, 80) } });
@@ -138,32 +237,14 @@ export class CeoAiService {
     let reply = '';
 
     for (let step = 0; step < MAX_STEPS; step++) {
-      let res: Anthropic.Beta.BetaMessage;
-      try {
-        res = await client.beta.messages.create({
-          model: MODEL(),
-          max_tokens: 16000,
-          output_config: { effort: EFFORT() },
-          cache_control: { type: 'ephemeral' },
-          system: SYSTEM,
-          tools: TOOLS,
-          messages: [...history, ...turn],
-          betas: ['server-side-fallback-2026-07-01'],
-          fallbacks: 'default',
-        } as any) as Anthropic.Beta.BetaMessage;
-      } catch (e) {
-        this.log.error(`Claude request failed: ${(e as Error).message}`);
-        if (e instanceof Anthropic.AuthenticationError) throw new ServiceUnavailableException({ code: 'AI_BAD_KEY', message: 'The Anthropic API key was rejected. Check ANTHROPIC_API_KEY on the server.' });
-        if (e instanceof Anthropic.RateLimitError) throw new ServiceUnavailableException({ code: 'AI_BUSY', message: 'Executive AI is busy right now. Try again in a minute.' });
-        throw new ServiceUnavailableException({ code: 'AI_ERROR', message: 'Executive AI could not answer right now. Try again.' });
-      }
+      const res = provider === 'claude' ? await this.stepClaude([...history, ...turn]) : await this.stepGroq([...history, ...turn]);
       turn.push({ role: 'assistant', content: res.content as any });
 
       if (res.stop_reason === 'refusal') { reply = 'I can’t help with that request.'; break; }
       if (res.stop_reason === 'pause_turn') continue;
-      const calls = res.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
+      const calls = res.content.filter((b: any): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
       if (res.stop_reason !== 'tool_use' || !calls.length) {
-        reply = res.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text').map((b) => b.text).join('\n').trim();
+        reply = res.content.filter((b: any): b is Anthropic.Beta.BetaTextBlock => b.type === 'text').map((b: any) => b.text).join('\n').trim();
         if (res.stop_reason === 'max_tokens') reply += '\n\n_(answer cut short)_';
         break;
       }
@@ -174,7 +255,8 @@ export class CeoAiService {
         try {
           const out = await this.runTool(userId, conv.id, call.name, (call.input ?? {}) as Record<string, any>);
           if (out && typeof out === 'object' && 'actionId' in out) proposed.push((out as any).actionId);
-          results.push({ type: 'tool_result', tool_use_id: call.id, content: JSON.stringify(out).slice(0, 60_000) });
+          // the free engine has a small per-minute budget: keep each lookup short there
+          results.push({ type: 'tool_result', tool_use_id: call.id, content: JSON.stringify(out).slice(0, provider === 'groq' ? 12_000 : 60_000) });
         } catch (e) {
           results.push({ type: 'tool_result', tool_use_id: call.id, is_error: true, content: (e as any)?.response?.message ?? (e as Error).message ?? 'Tool failed.' });
         }

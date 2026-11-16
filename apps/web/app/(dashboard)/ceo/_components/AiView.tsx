@@ -89,13 +89,13 @@ export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; on
       <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-card">
         <header className="flex items-center gap-3 border-b border-border px-5 py-3.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest text-brass-soft"><Sparkles className="h-4.5 w-4.5" /></span>
-          <span className="flex-1"><span className="block font-serif text-[20px] leading-tight">Executive AI</span><span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">Live data from all your companies{status?.model ? ` · ${status.model}` : ""}</span></span>
+          <span className="flex-1"><span className="block font-serif text-[20px] leading-tight">Executive AI</span><span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">Live data from all your companies{status?.provider === "groq" ? " · Free AI (Groq)" : status?.model ? ` · ${status.model}` : ""}</span></span>
           <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-primary ring-1 ring-primary/25"><ShieldCheck className="h-3.5 w-3.5" /> Acts only after you confirm</span>
         </header>
 
         {status && !status.configured && (
           <p role="alert" className="mx-5 mt-4 rounded-xl border border-[#b08d57]/40 bg-[#b08d57]/8 px-4 py-3 text-[13px]">
-            <strong>Executive AI isn&apos;t switched on yet.</strong> Add <code className="rounded bg-muted px-1 font-mono text-[12px]">ANTHROPIC_API_KEY</code> to the API server&apos;s settings (<code className="font-mono text-[12px]">apps/api/.env</code>) and restart it. Everything else in CEO Tower works without it.
+            <strong>Executive AI isn&apos;t switched on yet.</strong> Add <code className="rounded bg-muted px-1 font-mono text-[12px]">ANTHROPIC_API_KEY</code> (or <code className="rounded bg-muted px-1 font-mono text-[12px]">GROQ_API_KEY</code> for the free engine) to the API server&apos;s settings (<code className="font-mono text-[12px]">apps/api/.env</code>) and restart it. Everything else in CEO Tower works without it.
           </p>
         )}
 
