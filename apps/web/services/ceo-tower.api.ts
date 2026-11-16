@@ -45,6 +45,13 @@ export interface CeoCompanyPeople {
   members: { memberId: number; role: string; since: string; user: CeoPerson & { email: string } }[];
   invites: { id: number; email: string; role: string; createdAt: string }[];
 }
+export type CeoMgmtPerson = { user: CeoPerson & { email: string }; title: string | null; roles: { company: { key: string; name: string; source: "boards" | "work"; uid: string }; role: string }[]; stats: CeoStats; fromCeo: number };
+export interface CeoManagement {
+  managers: (CeoMgmtPerson & { reports: (CeoMgmtPerson & { company: { key: string; name: string; source: "boards" | "work"; uid: string } })[]; team: { open: number; overdue: number; inProgress: number; doneWeek: number } })[];
+  unmanaged: CeoMgmtPerson[];
+  work: { company: { key: string; name: string; source: "work"; uid: string }; canSet: boolean; members: { userId: number; managerId: number | null }[] }[];
+  counts: { managers: number; people: number; unmanaged: number };
+}
 export type CeoBrief = { generatedAt: string; by: "claude" | "groq" | "summary"; bullets: string[] };
 export interface CeoTasks { state: CeoTaskState; counts: Record<CeoTaskState, number>; total: number; truncated: boolean; tasks: CeoTask[] }
 
@@ -113,6 +120,7 @@ export const ceoApi = {
   task: async (source: "boards" | "work", id: number) => (await api.get<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}`)).data,
   taskComment: async (source: "boards" | "work", id: number, text: string, parentId?: number) => (await api.post<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}/comment`, { text, ...(parentId ? { parentId } : {}) })).data,
   taskStatus: async (source: "boards" | "work", id: number, statusId?: number) => (await api.post<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}/status`, statusId ? { statusId } : {})).data,
+  management: async (source: CeoSource, company?: string | null) => (await api.get<CeoManagement>(`/ceo-tower/management?${new URLSearchParams({ source, ...(company ? { company } : {}) })}`)).data,
   companyPeople: async (key: string) => (await api.get<CeoCompanyPeople>(`/ceo-tower/companies/${encodeURIComponent(key)}/people`)).data,
   brief: async (refresh = false) => (await api.get<CeoBrief>(`/ceo-tower/ai/brief${refresh ? "?refresh=1" : ""}`, { timeout: 120_000 })).data,
   tasks: async (o: { source: CeoSource; company?: string | null; person?: number | null; state: CeoTaskState; q?: string; place?: CeoPlace | null; mine?: boolean }) => {

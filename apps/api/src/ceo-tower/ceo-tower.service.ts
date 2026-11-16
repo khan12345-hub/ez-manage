@@ -226,6 +226,64 @@ export class CeoTowerService {
     return !f.done && !!f.due && f.due < ymd(new Date(), f._tz ?? 'UTC');
   }
 
+  // ---------- Management: every manager and the people under them ----------
+
+  /**
+   * Managers = owners / admins of the CEO's companies, plus anyone people report to (Work "reports to").
+   * Under each: their direct reports (Work), with workload. Everyone else is listed as not under a manager.
+   * The CEO is left out (they are the top).
+   */
+  async management(userId: number, source: Source = 'all', company?: string) {
+    const o = await this.overview(userId, source, company);
+    const own = await this.require(userId);
+    const boardsIds = o.companies.filter((c) => c.source === 'boards').map((c) => c.id);
+    const workIds = o.companies.filter((c) => c.source === 'work').map((c) => c.id);
+    const [bm, wm] = await Promise.all([
+      this.prisma.workspaceMember.findMany({ where: { workspaceId: { in: boardsIds }, deletedAt: null, user: { deletedAt: null } }, select: { workspaceId: true, userId: true, role: true } }),
+      this.prisma.workMember.findMany({ where: { workspaceId: { in: workIds }, user: { deletedAt: null } }, select: { workspaceId: true, userId: true, role: true, title: true, managerId: true } }),
+    ]);
+    const co = new Map(o.companies.map((c) => [c.key, { key: c.key, name: c.name, source: c.source, uid: c.uid }]));
+    const allIds = [...new Set([...bm.map((m) => m.userId), ...wm.map((m) => m.userId)])];
+    const users = allIds.length ? await this.prisma.user.findMany({ where: { id: { in: allIds } }, select: { ...USER_MINI, email: true } }) : [];
+    const userById = new Map(users.map((u) => [u.id, u]));
+    const statOf = new Map(o.people.map((p) => [p.user.id, { stats: p.stats, fromCeo: p.fromCeo }]));
+    const empty = { total: 0, open: 0, done: 0, inProgress: 0, overdue: 0, doneWeek: 0, progress: 0 };
+    const rolesOf = (id: number) => [
+      ...bm.filter((m) => m.userId === id).map((m) => ({ company: co.get(`boards:${m.workspaceId}`)!, role: m.role as string })),
+      ...wm.filter((m) => m.userId === id).map((m) => ({ company: co.get(`work:${m.workspaceId}`)!, role: m.role as string })),
+    ].filter((r) => r.company);
+    const titleOf = (id: number) => wm.find((m) => m.userId === id && m.title)?.title ?? null;
+    const person = (id: number) => ({ user: userById.get(id)!, title: titleOf(id), roles: rolesOf(id), stats: statOf.get(id)?.stats ?? empty, fromCeo: statOf.get(id)?.fromCeo ?? 0 });
+
+    const managerIds = new Set<number>([
+      ...bm.filter((m) => ['OWNER', 'ADMIN'].includes(m.role)).map((m) => m.userId),
+      ...wm.filter((m) => ['OWNER', 'ADMIN'].includes(m.role)).map((m) => m.userId),
+      ...wm.map((m) => m.managerId).filter((v): v is number => !!v),
+    ]);
+    managerIds.delete(userId);
+    const managers = [...managerIds].filter((id) => userById.has(id)).map((id) => {
+      const reports = wm.filter((m) => m.managerId === id).map((m) => ({ ...person(m.userId), company: co.get(`work:${m.workspaceId}`)! }));
+      const team = reports.reduce((s, r) => ({ open: s.open + r.stats.open, overdue: s.overdue + r.stats.overdue, inProgress: s.inProgress + r.stats.inProgress, doneWeek: s.doneWeek + r.stats.doneWeek }), { open: 0, overdue: 0, inProgress: 0, doneWeek: 0 });
+      return { ...person(id), reports, team };
+    }).sort((a, b) => b.reports.length - a.reports.length || b.stats.overdue - a.stats.overdue || a.user.firstName.localeCompare(b.user.firstName));
+    const managed = new Set(wm.filter((m) => m.managerId).map((m) => m.userId));
+    const unmanaged = allIds.filter((id) => id !== userId && !managerIds.has(id) && !managed.has(id) && userById.has(id)).map(person)
+      .sort((a, b) => b.stats.overdue - a.stats.overdue || a.user.firstName.localeCompare(b.user.firstName));
+    // for "Reports to": the Work companies where you can set it (owner / admin there)
+    void own;
+    const myWork = await this.prisma.workMember.findMany({ where: { userId, workspaceId: { in: workIds }, role: { in: ['OWNER', 'ADMIN'] } }, select: { workspaceId: true } });
+    return {
+      managers,
+      unmanaged,
+      // Work membership per person: which company their "reports to" lives in, and who can be their manager there
+      work: workIds.map((id) => ({
+        company: co.get(`work:${id}`)!, canSet: myWork.some((m) => m.workspaceId === id),
+        members: wm.filter((m) => m.workspaceId === id).map((m) => ({ userId: m.userId, managerId: m.managerId ?? null })),
+      })),
+      counts: { managers: managers.length, people: allIds.filter((i) => i !== userId).length, unmanaged: unmanaged.length },
+    };
+  }
+
   // ---------- managing a company's people (the changes go through Boards / Work themselves) ----------
 
   /**

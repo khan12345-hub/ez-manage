@@ -25,6 +25,7 @@ import { AssignTaskDialog } from "./_components/AssignTaskDialog";
 import { SourceBadge, fmtDate } from "./_components/bits";
 import { ShareAccessDialog } from "./_components/ShareAccessDialog";
 import { ManagePeopleDialog } from "./_components/ManagePeopleDialog";
+import { ManagementList } from "./_components/ManagementList";
 import { TaskPopup, useTaskPopup } from "./_components/TaskPopup";
 import { BriefCard } from "./_components/BriefCard";
 
@@ -224,42 +225,14 @@ export default function CeoTowerPage() {
             </Panel>
 
             {/* people */}
-            <Panel icon={Users} title="Management & Teams" kicker="Who carries the work" badge={<span className="flex items-center gap-1.5"><span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{data.kpis.people} people</span><button type="button" onClick={() => setManaging(true)} className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/25 hover:bg-primary/5">Manage</button></span>}
+            <Panel icon={Users} title="Management & Teams" kicker="Managers and their teams" badge={<span className="flex items-center gap-1.5"><span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{data.kpis.people} people</span><button type="button" onClick={() => setManaging(true)} className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/25 hover:bg-primary/5">Manage</button></span>}
               footer={<span className="flex flex-wrap items-center justify-between gap-2"><span>Your open tasks: <strong className="text-destructive">{data.ceoTasks?.open ?? 0}</strong>{data.ceoTasks?.overdue ? <span className="text-destructive"> · {data.ceoTasks.overdue} overdue</span> : null}</span><span className="flex gap-3"><button type="button" onClick={() => { setTasksMine(true); setView("tasks"); }} className="font-semibold text-primary hover:underline">View CEO tasks →</button><button type="button" onClick={() => { setTasksMine(false); setView("tasks"); }} className="font-semibold text-muted-foreground hover:text-foreground hover:underline">All tasks</button></span></span>}>
               <div className="mb-3 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-1.5 text-[11.5px] font-semibold">
                 <span className="flex items-center gap-1.5 text-destructive"><span className="h-2 w-2 rounded-full bg-destructive" />Overdue</span>
                 <span className="flex items-center gap-1.5 text-[#8a6a35] dark:text-[#d9bd8c]"><span className="h-2 w-2 rounded-full bg-[#b08d57]" />Working on</span>
                 <span className="flex items-center gap-1.5 text-primary"><span className="h-2 w-2 rounded-full bg-primary" />Done · 7d</span>
               </div>
-              <ul aria-label="People" className="space-y-2">
-                {data.people.map((p) => (
-                  <li key={p.user.id} className="rounded-xl border border-border p-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar user={p.user as any} size={34} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13.5px] font-semibold">{p.user.firstName} {p.user.lastName}</span>
-                        <span className="block truncate text-[11px] text-muted-foreground">{p.stats.open} open · {p.companies.length ? p.companies.map((c) => `${c.name} (${c.source})`).join(", ") : "no tasks assigned"}</span>
-                      </span>
-                      <span className="flex gap-1 font-mono text-[11.5px] font-semibold">
-                        <span title="Overdue" className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">{p.stats.overdue}</span>
-                        <span title="Working on" className="rounded-md bg-[#b08d57]/15 px-1.5 py-0.5 text-[#8a6a35] dark:text-[#d9bd8c]">{p.stats.inProgress}</span>
-                        <span title="Done in 7 days" className="rounded-md bg-primary/10 px-1.5 py-0.5 text-primary">{p.stats.doneWeek}</span>
-                      </span>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-2 text-[11.5px] text-muted-foreground">
-                      <span title="Open tasks you gave this person">From you: <strong className={cn("font-mono", p.fromCeo ? "text-[#8a6a35] dark:text-[#d9bd8c]" : "")}>{p.fromCeo ?? 0}</strong></span>
-                    </div>
-                    <span className="mt-2 flex items-center gap-2"><span className="flex-1"><Bar value={p.stats.progress} /></span><span className="font-mono text-[10.5px] text-muted-foreground">{p.stats.progress}%</span></span>
-                    {p.user.id !== user?.id && (
-                      <span className="mt-2 flex gap-1.5">
-                        <button type="button" onClick={() => setMessageTo(p.user)} aria-label={`Message ${p.user.firstName} ${p.user.lastName}`} className="rounded-md border border-border px-2 py-0.5 text-[11.5px] font-medium hover:bg-accent">Message</button>
-                        <button type="button" onClick={() => setAssignTo(p.user.id)} aria-label={`Assign a task to ${p.user.firstName} ${p.user.lastName}`} disabled={!companies.length} className="rounded-md border border-border px-2 py-0.5 text-[11.5px] font-medium hover:bg-accent disabled:opacity-50">Assign task</button>
-                      </span>
-                    )}
-                  </li>
-                ))}
-                {!data.people.length && <li className="py-6 text-center text-[12.5px] text-muted-foreground">No people yet.</li>}
-              </ul>
+              <ManagementList source={source} company={company?.key ?? null} meId={user?.id} onMessage={(p) => setMessageTo(p)} onAssign={(id) => setAssignTo(id)} />
             </Panel>
 
             {/* updates + AI */}

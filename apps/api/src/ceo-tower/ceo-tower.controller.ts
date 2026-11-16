@@ -179,6 +179,12 @@ export class CeoTowerController {
     return this.task.setStatus(u.id, source, id, b?.statusId ? Number(b.statusId) : undefined);
   }
 
+  /** Management: managers and the people under them */
+  @Get('management')
+  management(@Query() q: Record<string, string>, @CurrentUser() u: SessionUser) {
+    return this.tower.management(u.id, (['boards', 'work'].includes(q.source) ? q.source : 'all') as Source, /^(boards|work):\d+$/.test(q.company ?? '') ? q.company : undefined);
+  }
+
   /** a company's members (and boards / pending invites) for "Manage people" */
   @Get('companies/:key/people')
   companyPeople(@Param('key') key: string, @CurrentUser() u: SessionUser) {
