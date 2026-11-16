@@ -22,7 +22,7 @@ const SELECT = "mt-1 h-9 w-full rounded-lg border border-border bg-background px
  * product's own API (its permissions, notifications and automations apply as if made there):
  * Work → a task in a list; Boards → a task in a board group, with its Person / Date cells set.
  */
-export function AssignTaskDialog({ companies, defaultCompany, defaultAssignee, onClose }: { companies: CeoCompany[]; people: unknown[]; defaultCompany: string | null; defaultAssignee?: number; onClose: () => void }) {
+export function AssignTaskDialog({ companies, defaultCompany, defaultAssignee, defaultName = "", defaultDescription = "", onClose }: { companies: CeoCompany[]; people: unknown[]; defaultCompany: string | null; defaultAssignee?: number; defaultName?: string; defaultDescription?: string; onClose: () => void }) {
   const qc = useQueryClient();
   const [key, setKey] = useState(defaultCompany ?? companies[0]?.key ?? "");
   const co = companies.find((c) => c.key === key);
@@ -30,8 +30,8 @@ export function AssignTaskDialog({ companies, defaultCompany, defaultAssignee, o
   const [listId, setListId] = useState<number | null>(null);
   const [boardId, setBoardId] = useState<number | null>(null);
   const [groupId, setGroupId] = useState<number | null>(null);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(defaultName);
+  const [description, setDescription] = useState(defaultDescription);
   const [assignees, setAssignees] = useState<number[]>(defaultAssignee ? [defaultAssignee] : []);
   const [due, setDue] = useState("");
   const [priority, setPriority] = useState<WorkPriority | "">("HIGH");

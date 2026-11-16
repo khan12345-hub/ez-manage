@@ -11,5 +11,6 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
   imports: [StorageModule, NotificationsModule],
   controllers: [CellsController],
   providers: [CellsService, PrismaService, BoardAccessService, ActivityLogsService, AutomationEngineService],
+  exports: [CellsService],
 })
 export class CellsModule {}

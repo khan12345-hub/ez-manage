@@ -4,6 +4,7 @@ import type { SessionUser } from 'src/auth/types/session-user.type';
 import { CeoTowerService, type Source } from './ceo-tower.service';
 import { CeoAiService } from './ceo-ai.service';
 import { CeoCommsService } from './ceo-comms.service';
+import { CeoTaskService } from './ceo-task.service';
 
 /** CEO Tower: read-only, for workspace owners (checked in the service on every call) */
 @Controller('ceo-tower')
@@ -12,6 +13,7 @@ export class CeoTowerController {
     private readonly tower: CeoTowerService,
     private readonly ai: CeoAiService,
     private readonly comms: CeoCommsService,
+    private readonly task: CeoTaskService,
   ) {}
 
   // ---------- Meetings & Email ----------
@@ -52,6 +54,12 @@ export class CeoTowerController {
   }
 
   // ---------- Executive AI ----------
+
+  /** the CEO's brief: last 24 hours across all companies (AI-written when an engine is set up) */
+  @Get('ai/brief')
+  aiBrief(@CurrentUser() u: SessionUser, @Query('refresh') refresh?: string) {
+    return this.ai.brief(u.id, refresh === '1');
+  }
 
   @Get('ai/status')
   async aiStatus(@CurrentUser() u: SessionUser) {
@@ -151,6 +159,26 @@ export class CeoTowerController {
     return this.tower.markForYouRead(u.id, b.source === 'boards' ? 'boards' : 'work', String(b.id ?? '').slice(0, 64));
   }
 
+  /** one task (Boards or Work) with its thread — the CEO Tower task popup */
+  @Get('task/:source/:id')
+  taskDetail(@Param('source') source: string, @Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    if (source !== 'boards' && source !== 'work') throw new NotFoundException();
+    return this.task.get(u.id, source, id);
+  }
+
+  @Post('task/:source/:id/comment')
+  taskComment(@Param('source') source: string, @Param('id', ParseIntPipe) id: number, @Body() b: { text: string; parentId?: number }, @CurrentUser() u: SessionUser) {
+    if (source !== 'boards' && source !== 'work') throw new NotFoundException();
+    return this.task.comment(u.id, source, id, String(b?.text ?? ''), b?.parentId ? Number(b.parentId) : undefined);
+  }
+
+  /** change status; with no statusId: "Mark completed" (the task's done status) */
+  @Post('task/:source/:id/status')
+  taskStatus(@Param('source') source: string, @Param('id', ParseIntPipe) id: number, @Body() b: { statusId?: number }, @CurrentUser() u: SessionUser) {
+    if (source !== 'boards' && source !== 'work') throw new NotFoundException();
+    return this.task.setStatus(u.id, source, id, b?.statusId ? Number(b.statusId) : undefined);
+  }
+
   @Get('tasks')
   tasks(@Query() q: Record<string, string>, @CurrentUser() u: SessionUser) {
     return this.tower.tasks(u.id, {
@@ -161,6 +189,8 @@ export class CeoTowerController {
       q: (q.q ?? '').slice(0, 100),
       limit: /^\d+$/.test(q.limit ?? '') ? Number(q.limit) : undefined,
       place: ['space', 'folder', 'list', 'board'].includes(q.placeType) && /^\d+$/.test(q.placeId ?? '') ? { type: q.placeType, id: Number(q.placeId) } : undefined,
+      // "CEO tasks": only tasks this person created (gave out)
+      by: q.by === 'me' ? u.id : undefined,
     });
   }
 

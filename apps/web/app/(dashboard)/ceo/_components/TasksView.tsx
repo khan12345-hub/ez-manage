@@ -9,6 +9,7 @@ import { ceoApi, type CeoOverview, type CeoSource, type CeoTaskState } from "@/s
 import { Avatar } from "../../work/_components/primitives";
 import { AssignTaskDialog } from "./AssignTaskDialog";
 import { SourceBadge, fmtDate } from "./bits";
+import { useTaskPopup } from "./TaskPopup";
 
 const STATES: { id: CeoTaskState; label: string; tone?: "bad" | "good" | "warn" }[] = [
   { id: "open", label: "Open" },
@@ -22,16 +23,19 @@ const STATES: { id: CeoTaskState; label: string; tone?: "bad" | "good" | "warn" 
 const PRIORITY: Record<string, string> = { URGENT: "#c0392b", HIGH: "#b08d57", NORMAL: "#3b6fd8", LOW: "#8a8f98" };
 
 /** CEO Tower → Tasks: every task across your companies, filtered */
-export function TasksView({ source, company, overview }: { source: CeoSource; company: string | null; overview: CeoOverview | undefined }) {
+export function TasksView({ source, company, overview, initialMine = false }: { source: CeoSource; company: string | null; overview: CeoOverview | undefined; initialMine?: boolean }) {
   const [state, setState] = useState<CeoTaskState>("open");
+  // "CEO tasks": only what you gave out
+  const [mine, setMine] = useState(initialMine);
+  const showTask = useTaskPopup((s) => s.show);
   const [person, setPerson] = useState<number | null>(null);
   const [text, setText] = useState("");
   const [q, setQ] = useState("");
   const [assigning, setAssigning] = useState(false);
   useEffect(() => { const t = setTimeout(() => setQ(text.trim()), 300); return () => clearTimeout(t); }, [text]);
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["ceo-tower", "tasks", source, company, person, state, q],
-    queryFn: () => ceoApi.tasks({ source, company, person, state, q }),
+    queryKey: ["ceo-tower", "tasks", source, company, person, state, q, mine],
+    queryFn: () => ceoApi.tasks({ source, company, person, state, q, mine }),
     placeholderData: (prev) => prev,
     refetchInterval: 60_000,
   });
@@ -42,9 +46,10 @@ export function TasksView({ source, company, overview }: { source: CeoSource; co
     <section aria-label="Tasks" className="rounded-2xl border border-border bg-card">
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
         <span className="min-w-0 flex-1">
-          <span className="block font-serif text-[21px] leading-tight">Every task, every company</span>
+          <span className="block font-serif text-[21px] leading-tight">{mine ? "Tasks you gave out" : "Every task, every company"}</span>
           <span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">{data ? `${data.total} ${data.total === 1 ? "task" : "tasks"} in this view` : "Loading…"}</span>
         </span>
+        <button type="button" aria-pressed={mine} onClick={() => setMine((m) => !m)} className={cn("h-9 rounded-lg border px-3 text-[12.5px] font-semibold", mine ? "border-[#b08d57] bg-[#b08d57]/12 text-[#8a6a35] dark:text-[#d9bd8c]" : "border-border text-muted-foreground hover:text-foreground")}>Given by me</button>
         <select aria-label="Person" value={person ?? ""} onChange={(e) => setPerson(Number(e.target.value) || null)} className="h-9 rounded-lg border border-border bg-background px-2.5 text-[13px]">
           <option value="">Everyone</option>
           {people.map((p) => <option key={p.user.id} value={p.user.id}>{p.user.firstName} {p.user.lastName}</option>)}
@@ -82,7 +87,7 @@ export function TasksView({ source, company, overview }: { source: CeoSource; co
                   <td className="max-w-[420px] px-5 py-2.5">
                     <span className="flex items-center gap-2">
                       {t.priority && t.priority !== "NONE" && <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: PRIORITY[t.priority] ?? "#8a8f98" }} title={`${t.priority.toLowerCase()} priority`} />}
-                      <span className={cn("truncate font-medium", t.done && "text-muted-foreground line-through")}>{t.name}</span>
+                      <button type="button" onClick={() => showTask(t.source, t.id)} className={cn("truncate text-left font-medium hover:text-primary hover:underline", t.done && "text-muted-foreground line-through")}>{t.name}</button>
                     </span>
                     <span className="block truncate text-[11.5px] text-muted-foreground">{t.where}</span>
                   </td>

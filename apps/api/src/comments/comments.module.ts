@@ -10,5 +10,6 @@ import { BoardAccessService } from 'src/boards/board-access.service';
   imports: [StorageModule, NotificationsModule],
   controllers: [CommentsController],
   providers: [CommentsService, ActivityLogsService, BoardAccessService],
+  exports: [CommentsService],
 })
 export class CommentsModule {}

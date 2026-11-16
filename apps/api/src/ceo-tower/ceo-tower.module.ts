@@ -8,12 +8,16 @@ import { CeoAssistantModule } from 'src/ceo-assistant/ceo-assistant.module';
 import { CeoCommsService } from './ceo-comms.service';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { ChatModule } from 'src/chat/chat.module';
+import { CommentsModule } from 'src/comments/comments.module';
+import { CellsModule } from 'src/cells/cells.module';
+import { BoardAccessService } from 'src/boards/board-access.service';
+import { CeoTaskService } from './ceo-task.service';
 
 /** CEO Tower — a read-only view across the Boards and Work companies a person owns. */
 @Module({
-  imports: [WorkModule, MailModule, CeoAssistantModule, NotificationsModule, ChatModule],
+  imports: [WorkModule, MailModule, CeoAssistantModule, NotificationsModule, ChatModule, CommentsModule, CellsModule],
   controllers: [CeoTowerController],
-  providers: [CeoTowerService, CeoAiService, CeoCommsService],
+  providers: [CeoTowerService, CeoAiService, CeoCommsService, CeoTaskService, BoardAccessService],
   exports: [CeoTowerService],
 })
 export class CeoTowerModule {}

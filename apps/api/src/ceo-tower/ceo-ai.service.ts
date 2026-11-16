@@ -23,6 +23,7 @@ const MODEL = () => process.env.CEO_AI_MODEL || 'claude-opus-5-5';
 const GROQ_MODEL = () => process.env.CEO_AI_GROQ_MODEL || 'openai/gpt-oss-120b';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 type Provider = 'claude' | 'groq';
+export type CeoBrief = { generatedAt: string; by: 'claude' | 'groq' | 'summary'; bullets: string[] };
 /** one model step, in the stored (Claude) message shape whichever engine answered */
 type Step = { content: any[]; stop_reason: string | null };
 const EFFORT = () => (['low', 'medium', 'high', 'xhigh', 'max'].includes(process.env.CEO_AI_EFFORT ?? '') ? process.env.CEO_AI_EFFORT : 'medium') as 'low' | 'medium' | 'high';
@@ -154,27 +155,10 @@ export class CeoAiService {
     }
   }
 
-  /** one step with the free Groq engine: translate the stored conversation to its chat format and back */
-  private async stepGroq(messages: Msg[]): Promise<Step> {
-    const chat: any[] = [{ role: 'system', content: SYSTEM }];
-    for (const m of messages) {
-      const blocks: any[] = typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : (m.content as any[]);
-      if (m.role === 'user') {
-        for (const r of blocks.filter((b) => b.type === 'tool_result')) {
-          chat.push({ role: 'tool', tool_call_id: r.tool_use_id, content: typeof r.content === 'string' ? r.content : JSON.stringify(r.content) });
-        }
-        const text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
-        if (text) chat.push({ role: 'user', content: text });
-      } else {
-        const text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
-        const calls = blocks.filter((b) => b.type === 'tool_use').map((b) => ({ id: b.id, type: 'function', function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) } }));
-        chat.push({ role: 'assistant', content: text || (calls.length ? null : '…'), ...(calls.length ? { tool_calls: calls } : {}) });
-      }
-    }
-    const tools = TOOLS.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } }));
-    const body = JSON.stringify({ model: GROQ_MODEL(), messages: chat, tools, tool_choice: 'auto', max_tokens: 4000, temperature: 0.2 });
+  /** POST to Groq; the free tier has a per-minute token limit, so short "try again in Ns" waits are retried */
+  private async groqPost(payload: Record<string, unknown>): Promise<Response> {
+    const body = JSON.stringify(payload);
     let res: Response | null = null;
-    // the free tier has a per-minute token limit: when Groq says "try again in a few seconds", wait and retry
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
         res = await fetch(GROQ_URL, {
@@ -193,15 +177,114 @@ export class CeoAiService {
       if (!secs || secs > 25) break; // a long wait means the daily limit: tell the CEO instead of hanging
       await new Promise((r) => setTimeout(r, (secs + 0.5) * 1000));
     }
-    if (!res!.ok) {
-      res = res!;
+    return res!;
+  }
+
+  /** a single plain answer (no tools) from whichever engine is set up */
+  private async complete(system: string, user: string): Promise<string> {
+    const provider = this.requireProvider();
+    if (provider === 'claude') {
+      const client = (this.client ??= new Anthropic());
+      const res = await client.messages.create({ model: MODEL(), max_tokens: 1500, system, messages: [{ role: 'user', content: user }] });
+      return res.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n');
+    }
+    const res = await this.groqPost({ model: GROQ_MODEL(), messages: [{ role: 'system', content: system }, { role: 'user', content: user }], max_tokens: 1500, temperature: 0.3 });
+    if (!res.ok) throw new Error(`Groq ${res.status}`);
+    const data: any = await res.json();
+    return String(data?.choices?.[0]?.message?.content ?? '');
+  }
+
+  // ---------- the CEO's daily brief ----------
+
+  private readonly briefs = new Map<number, { at: number; data: CeoBrief }>();
+
+  /**
+   * "What happened in the last 24 hours" across the CEO's companies, written by the AI from facts only
+   * (finished work, what slipped, who is behind). Without an AI engine — or if it fails — a plain summary
+   * of the same facts is returned, so the panel always works. Cached 20 minutes per person.
+   */
+  async brief(userId: number, refresh = false): Promise<CeoBrief> {
+    const access = await this.tower.access(userId);
+    if (!access.allowed) throw new ForbiddenException('CEO Tower is for company owners and the people they share it with.');
+    const hit = this.briefs.get(userId);
+    if (!refresh && hit && Date.now() - hit.at < 20 * 60_000) return hit.data;
+
+    const o = await this.tower.overview(userId, 'all');
+    const dayAgo = Date.now() - DAY;
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - DAY).toISOString().slice(0, 10);
+    const facts = {
+      today,
+      finished_last_24h: o.updates.filter((u) => u.at && +new Date(u.at) >= dayAgo).map((u) => ({ task: u.task.name, by: u.people.filter((x): x is string => !!x), company: u.company, where: u.where })),
+      finished_last_7_days: o.updates.length,
+      open_tasks: o.kpis.open,
+      in_progress: o.kpis.inProgress,
+      overdue_total: o.kpis.overdue,
+      slipped_since_yesterday: o.attention.overdue.filter((t) => t.due && t.due >= yesterday).map((t) => ({ task: t.task.name, people: t.people, company: t.company })),
+      most_overdue: o.attention.overdue.slice(0, 6).map((t) => ({ task: t.task.name, due: t.due, people: t.people, company: t.company })),
+      people_behind: o.people.filter((p) => p.stats.overdue > 0).slice(0, 6).map((p) => ({ name: `${p.user.firstName} ${p.user.lastName}`.trim(), overdue: p.stats.overdue, open: p.stats.open, in_progress: p.stats.inProgress })),
+      companies_needing_attention: o.attention.companies.map((c) => ({ name: c.name, product: c.source, overdue: c.overdue })),
+      unassigned_open: o.kpis.unassigned,
+    };
+
+    let bullets = this.plainBrief(facts);
+    let by: CeoBrief['by'] = 'summary';
+    if (this.provider()) {
+      try {
+        const text = await this.complete(
+          'You write a CEO\'s morning brief from JSON facts about their companies. Write 4 to 6 bullets, one line each, most important first: what got finished in the last 24 hours (who, which company), what slipped, who is falling behind, and what needs a decision. Use names and exact numbers from the facts. Never invent anything that is not in the facts. Plain English. Each bullet starts with "- ". No heading, intro or closing line.',
+          JSON.stringify(facts),
+        );
+        const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => /^[-*•]\s+/.test(l)).map((l) => l.replace(/^[-*•]\s+/, '').replace(/\*\*/g, ''));
+        if (lines.length) { bullets = lines.slice(0, 7); by = this.provider()!; }
+      } catch (e) {
+        this.log.warn(`brief: AI unavailable, using the plain summary (${(e as Error).message})`);
+      }
+    }
+    const data: CeoBrief = { generatedAt: new Date().toISOString(), by, bullets };
+    this.briefs.set(userId, { at: Date.now(), data });
+    return data;
+  }
+
+  /** the same facts as plain sentences (no AI) */
+  private plainBrief(f: { finished_last_24h: { task: string; by: string[] }[]; overdue_total: number; slipped_since_yesterday: unknown[]; people_behind: { name: string; overdue: number }[]; companies_needing_attention: { name: string; overdue: number }[]; unassigned_open: number; in_progress: number }) {
+    const out: string[] = [];
+    out.push(f.finished_last_24h.length ? `${f.finished_last_24h.length} task${f.finished_last_24h.length === 1 ? '' : 's'} finished in the last 24 hours: ${f.finished_last_24h.slice(0, 3).map((t) => `${t.task}${t.by.length ? ` (${t.by.join(', ')})` : ''}`).join('; ')}.` : 'Nothing was finished in the last 24 hours.');
+    if (f.slipped_since_yesterday.length) out.push(`${f.slipped_since_yesterday.length} task${f.slipped_since_yesterday.length === 1 ? '' : 's'} went overdue since yesterday.`);
+    out.push(`${f.overdue_total} task${f.overdue_total === 1 ? ' is' : 's are'} overdue in total; ${f.in_progress} in progress.`);
+    if (f.people_behind.length) out.push(`Most behind: ${f.people_behind.slice(0, 3).map((p) => `${p.name} (${p.overdue} overdue)`).join(', ')}.`);
+    if (f.companies_needing_attention.length) out.push(`Needs attention: ${f.companies_needing_attention.map((c) => `${c.name} (${c.overdue} overdue)`).join(', ')}.`);
+    if (f.unassigned_open) out.push(`${f.unassigned_open} open task${f.unassigned_open === 1 ? ' has' : 's have'} nobody on ${f.unassigned_open === 1 ? 'it' : 'them'}.`);
+    return out;
+  }
+
+  /** one step with the free Groq engine: translate the stored conversation to its chat format and back */
+  private async stepGroq(messages: Msg[]): Promise<Step> {
+    const chat: any[] = [{ role: 'system', content: SYSTEM }];
+    for (const m of messages) {
+      const blocks: any[] = typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : (m.content as any[]);
+      if (m.role === 'user') {
+        for (const r of blocks.filter((b) => b.type === 'tool_result')) {
+          chat.push({ role: 'tool', tool_call_id: r.tool_use_id, content: typeof r.content === 'string' ? r.content : JSON.stringify(r.content) });
+        }
+        const text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+        if (text) chat.push({ role: 'user', content: text });
+      } else {
+        const text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+        const calls = blocks.filter((b) => b.type === 'tool_use').map((b) => ({ id: b.id, type: 'function', function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) } }));
+        chat.push({ role: 'assistant', content: text || (calls.length ? null : '…'), ...(calls.length ? { tool_calls: calls } : {}) });
+      }
+    }
+    const tools = TOOLS.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } }));
+    const res = await this.groqPost({ model: GROQ_MODEL(), messages: chat, tools, tool_choice: 'auto', max_tokens: 4000, temperature: 0.2 });
+    if (!res.ok) {
       const body = await res.text().catch(() => '');
       this.log.error(`Groq ${res.status}: ${body.slice(0, 300)}`);
       if (res.status === 401) throw new ServiceUnavailableException({ code: 'AI_BAD_KEY', message: 'The Groq API key was rejected. Check GROQ_API_KEY on the server.' });
       if (res.status === 429) throw new ServiceUnavailableException({ code: 'AI_BUSY', message: 'The free AI limit is used up for now. Try again in a little while.' });
       throw new ServiceUnavailableException({ code: 'AI_ERROR', message: 'Executive AI could not answer right now. Try again.' });
     }
-    const data: any = await res!.json();
+    const data: any = await res.json();
     const choice = data?.choices?.[0];
     const msg = choice?.message ?? {};
     const content: any[] = [];

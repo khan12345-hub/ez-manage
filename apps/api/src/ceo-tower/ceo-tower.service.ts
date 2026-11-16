@@ -29,6 +29,8 @@ type TaskFact = {
   href: string;
   /** the list (Work) or board (Boards) the task lives in */
   place: { type: 'list' | 'board'; id: number };
+  /** who created (gave out) the task */
+  createdById: number;
 };
 
 const USER_MINI = { id: true, firstName: true, lastName: true, avatarUrl: true } as const;
@@ -171,7 +173,7 @@ export class CeoTowerService {
     const boardOf = new Map(boards.map((b) => [b.id, b]));
     const tasks = await this.prisma.task.findMany({
       where: { parentId: null, group: { isArchived: false, boardId: { in: boards.map((b) => b.id) } } },
-      select: { id: true, name: true, updatedAt: true, group: { select: { boardId: true } }, cells: { where: { columnId: { in: useCols.map((c) => c.id) } }, select: { columnId: true, value: true } } },
+      select: { id: true, name: true, updatedAt: true, createdById: true, group: { select: { boardId: true } }, cells: { where: { columnId: { in: useCols.map((c) => c.id) } }, select: { columnId: true, value: true } } },
       take: 20000,
     });
     const colById = new Map(useCols.map((c) => [c.id, c]));
@@ -195,7 +197,7 @@ export class CeoTowerService {
       return {
         source: 'boards' as const, companyKey: `boards:${b.workspaceId}`, id: t.id, uid: String(t.id), name: t.name, where: b.name,
         due, done, active: !done && cat === 'ACTIVE', doneAt: done ? t.updatedAt : null, assignees: people, _tz: tz.get(b.workspaceId),
-        status, href: `/workspace/${wsUid.get(b.workspaceId)}/board/${b.uid}?taskId=${t.id}`, place: { type: 'board' as const, id: b.id },
+        status, href: `/workspace/${wsUid.get(b.workspaceId)}/board/${b.uid}?taskId=${t.id}`, place: { type: 'board' as const, id: b.id }, createdById: t.createdById,
       };
     });
   }
@@ -205,7 +207,7 @@ export class CeoTowerService {
     if (!ws.length) return [];
     const tasks = await this.prisma.workTask.findMany({
       where: { parentId: null, archivedAt: null, list: { archivedAt: null, space: { workspaceId: { in: ws.map((w) => w.id) }, archivedAt: null } } },
-      select: { id: true, uid: true, name: true, dueDate: true, completedAt: true, priority: true, status: { select: { category: true, name: true, color: true } }, list: { select: { id: true, uid: true, name: true, space: { select: { workspaceId: true } } } }, assignees: { select: { userId: true } } },
+      select: { id: true, uid: true, name: true, dueDate: true, completedAt: true, priority: true, createdById: true, status: { select: { category: true, name: true, color: true } }, list: { select: { id: true, uid: true, name: true, space: { select: { workspaceId: true } } } }, assignees: { select: { userId: true } } },
       take: 20000,
     });
     const wsUid = new Map(ws.map((w) => [w.id, w.uid]));
@@ -216,6 +218,7 @@ export class CeoTowerService {
       status: t.status ? { label: t.status.name, color: t.status.color } : null, priority: t.priority,
       href: `/work/${wsUid.get(t.list.space.workspaceId)}/list/${t.list.uid}?task=${t.uid}`,
       place: { type: 'list' as const, id: t.list.id },
+      createdById: t.createdById,
     }));
   }
 
@@ -276,7 +279,7 @@ export class CeoTowerService {
       this.prisma.workNotification.findMany({
         where: { recipientId: userId, isRead: false, clearedAt: null, createdAt: { gte: since }, type: { in: ['TASK_ASSIGNED', 'COMMENT_MENTION', 'COMMENT_REPLY', 'COMMENT_CREATED', 'CHAT'] } },
         orderBy: { createdAt: 'desc' }, take: 80,
-        select: { id: true, type: true, title: true, message: true, metadata: true, createdAt: true },
+        select: { id: true, type: true, title: true, message: true, metadata: true, createdAt: true, taskId: true },
       }),
       this.prisma.notification.findMany({
         where: { recipientId: userId, product: 'boards', isRead: false, clearedAt: null, createdAt: { gte: since }, type: { in: ['TASK_ASSIGNED', 'COMMENT_MENTION', 'COMMENT_REPLY', 'COMMENT_CREATED', 'FILE_COMMENT'] } },
@@ -296,11 +299,17 @@ export class CeoTowerService {
     const boardIds = [...new Set(boards.map((n) => Number((n.metadata as any)?.boardId ?? (n.entityType === 'BOARD' ? n.entityId : NaN))).filter(Number.isInteger))];
     const boardRows = boardIds.length ? await this.prisma.board.findMany({ where: { id: { in: boardIds } }, select: { id: true, uid: true, workspace: { select: { uid: true } } } }) : [];
     const boardById = new Map(boardRows.map((b) => [b.id, b]));
+    // Boards comment notices point at the comment: find its task so the CEO can answer in the task popup
+    const commentIds = boards.filter((n) => n.entityType === 'COMMENT' && n.entityId).map((n) => n.entityId!);
+    const commentTask = new Map((commentIds.length ? await this.prisma.taskComment.findMany({ where: { id: { in: commentIds } }, select: { id: true, taskId: true } }) : []).map((c) => [c.id, c.taskId]));
+    const num = (v: unknown) => (Number.isInteger(Number(v)) && Number(v) > 0 ? Number(v) : null);
     const items = [
       ...work.map((n) => {
         const m = (n.metadata ?? {}) as Record<string, any>;
         const kind = kindOf(n.type, m.event);
-        return kind && { source: 'work' as const, id: n.id, kind, title: n.title, message: n.message, at: n.createdAt, href: typeof m.url === 'string' && m.url.startsWith('/work/') ? m.url : null, actor: m.actorName ?? null };
+        return kind && { source: 'work' as const, id: n.id, kind, title: n.title, message: n.message, at: n.createdAt, href: typeof m.url === 'string' && m.url.startsWith('/work/') ? m.url : null, actor: m.actorName ?? null,
+          // answer in place: the task's thread, or a direct message back to the sender
+          task: n.taskId ? { source: 'work' as const, id: n.taskId } : null, actorId: num(m.actorId ?? m.senderId) };
       }),
       ...boards.map((n) => {
         const m = (n.metadata ?? {}) as Record<string, any>;
@@ -308,9 +317,11 @@ export class CeoTowerService {
         const b = boardById.get(Number(m.boardId ?? (n.entityType === 'BOARD' ? n.entityId : NaN)));
         const taskId = Number(m.taskId ?? (n.entityType === 'TASK' ? n.entityId : NaN));
         const href = b ? `/workspace/${b.workspace.uid}/board/${b.uid}${Number.isInteger(taskId) ? `?taskId=${taskId}` : ''}` : null;
-        return kind && { source: 'boards' as const, id: n.id, kind, title: n.title, message: n.message, at: n.createdAt, href, actor: m.actorName ?? m.senderName ?? null };
+        const tid = Number.isInteger(taskId) ? taskId : n.entityType === 'COMMENT' && n.entityId ? commentTask.get(n.entityId) ?? null : null;
+        return kind && { source: 'boards' as const, id: n.id, kind, title: n.title, message: n.message, at: n.createdAt, href, actor: m.actorName ?? m.senderName ?? null,
+          task: tid ? { source: 'boards' as const, id: tid } : null, actorId: num(m.actorId ?? m.senderId ?? m.userId) };
       }),
-    ].filter(Boolean).sort((a, b) => +b!.at - +a!.at).slice(0, 60) as { source: 'work' | 'boards'; id: string; kind: string; title: string; message: string; at: Date; href: string | null; actor: string | null }[];
+    ].filter(Boolean).sort((a, b) => +b!.at - +a!.at).slice(0, 60) as { source: 'work' | 'boards'; id: string; kind: string; title: string; message: string; at: Date; href: string | null; actor: string | null; task: { source: 'work' | 'boards'; id: number } | null; actorId: number | null }[];
     return { count: items.length, items };
   }
 
@@ -373,10 +384,10 @@ export class CeoTowerService {
     };
   }
 
-  async tasks(userId: number, o: { source?: Source; company?: string; person?: number; state?: string; q?: string; limit?: number; place?: { type: string; id: number } }) {
+  async tasks(userId: number, o: { source?: Source; company?: string; person?: number; state?: string; q?: string; limit?: number; place?: { type: string; id: number }; by?: number }) {
     const { own, facts: allFacts } = await this.scoped(userId, o.source ?? 'all', o.company);
     const inPlace = o.place ? await this.placeFilter(own, o.place) : null;
-    const facts = inPlace ? allFacts.filter(inPlace) : allFacts;
+    const facts = allFacts.filter((f) => (!inPlace || inPlace(f)) && (!o.by || f.createdById === o.by));
     const today = (f: TaskFact & { _tz?: string }) => ymd(new Date(), f._tz ?? 'UTC');
     const weekAgo = Date.now() - 7 * DAY;
     const inWeek = (f: TaskFact & { _tz?: string }) => !!f.due && f.due >= today(f) && f.due <= ymd(new Date(Date.now() + 7 * DAY), f._tz ?? 'UTC');
@@ -593,10 +604,13 @@ export class CeoTowerService {
     const byUser = new Map<number, typeof facts>();
     for (const f of facts) for (const u of f.assignees) byUser.set(u, [...(byUser.get(u) ?? []), f]);
     const companyName = new Map(companies.map((c) => [c.key, c.name]));
+    const nameOf = new Map(users.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]));
     const companyRef = new Map(companies.map((c) => [c.key, { key: c.key, name: c.name, source: c.source }]));
     const people = users.map((u: Person) => {
       const list = byUser.get(u.id) ?? [];
-      return { user: u, stats: stats(list), companies: [...new Set(list.map((f) => f.companyKey))].map((k) => companyRef.get(k)!).filter(Boolean), memberOf: companies.filter((c) => (members.get(c.key) ?? []).some((m) => m.userId === u.id)).length };
+      // tasks the CEO gave this person that are still open
+      const fromCeo = list.filter((f) => !f.done && f.createdById === userId && u.id !== userId).length;
+      return { user: u, stats: stats(list), fromCeo, companies: [...new Set(list.map((f) => f.companyKey))].map((k) => companyRef.get(k)!).filter(Boolean), memberOf: companies.filter((c) => (members.get(c.key) ?? []).some((m) => m.userId === u.id)).length };
     }).sort((a, b) => b.stats.overdue - a.stats.overdue || b.stats.open - a.stats.open);
 
     // updates: recently finished work and what just slipped
@@ -614,7 +628,10 @@ export class CeoTowerService {
       company: company ?? null,
       owned: { boards: o.boards.length, work: o.work.length },
       kpis: { companies: companies.length, people: users.length, ...all, unassigned: facts.filter((f) => !f.done && !f.assignees.length).length },
-      companies,
+      // everything the CEO gave out, across companies
+      ceoTasks: stats(facts.filter((f) => f.createdById === userId)),
+      // "Lead": the company's owners / admins other than the CEO
+      companies: companies.map((c) => ({ ...c, leads: c.admins.filter((id) => id !== userId).map((id) => nameOf.get(id)).filter((n): n is string => !!n).slice(0, 3) })),
       people: people.slice(0, 40),
       updates,
       attention: { companies: companies.filter((c) => c.health !== 'healthy').map((c) => ({ key: c.key, name: c.name, source: c.source, overdue: c.stats.overdue })), overdue: overdueList },

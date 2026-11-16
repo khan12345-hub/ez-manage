@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bot, Check, CheckCircle2, Loader2, MessageSquarePlus, Plus, SendHorizontal, ShieldCheck, Sparkles, X, XCircle } from "lucide-react";
+import { Bot, Check, CheckCircle2, ListPlus, Loader2, MessageSquarePlus, Plus, SendHorizontal, ShieldCheck, Sparkles, X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ceoApi, type CeoAiAction } from "@/services/ceo-tower.api";
 import { RichText } from "../../work/_components/chat/ChatMessages";
+import { AssignTaskDialog } from "./AssignTaskDialog";
 
 export const AI_PROMPTS = ["Khan kia kar raha hai?", "Kaun se tasks in progress hain?", "Kis ki team peeche hai?", "Kya overdue hai 48 ghante se zyada?", "Management ko kal 11 baje review meeting ka invite bhej do", "Sab managers ko weekly update ka email bhej do"];
 const CONV_KEY = "ez:ceo:ai:conversation";
@@ -15,6 +16,9 @@ type Line = { role: "user" | "assistant"; text: string; used?: string[] };
 
 /** CEO Tower → Executive AI: ask anything; actions the AI prepares wait for your Confirm */
 export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; onAsked?: () => void }) {
+  // "Turn this into a CEO task": the question becomes the task, the answer its description
+  const [toTask, setToTask] = useState<{ name: string; description: string } | null>(null);
+  const { data: overview } = useQuery({ queryKey: ["ceo-tower", "overview", "all", null], queryFn: () => ceoApi.overview("all") });
   const qc = useQueryClient();
   const { data: status } = useQuery({ queryKey: ["ceo-tower", "ai", "status"], queryFn: ceoApi.aiStatus });
   const { data: convs = [] } = useQuery({ queryKey: ["ceo-tower", "ai", "conversations"], queryFn: ceoApi.aiConversations });
@@ -112,12 +116,17 @@ export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; on
               <div className={cn("max-w-[78%] rounded-2xl px-4 py-2.5 text-[13.5px] leading-relaxed", l.role === "user" ? "bg-forest text-forest-foreground dark:bg-primary dark:text-primary-foreground" : "border border-border bg-background")}>
                 {l.role === "assistant" ? <RichText text={l.text} /> : l.text}
                 {l.used?.length ? <p className="mt-1.5 font-mono text-[10px] text-muted-foreground">Looked at: {l.used.map((u) => u.replace(/_/g, " ")).join(" · ")}</p> : null}
+                {l.role === "assistant" && l.text.length > 20 && (
+                  <button type="button" onClick={() => { const q = [...lines.slice(0, i)].reverse().find((x) => x.role === "user")?.text ?? ""; setToTask({ name: (q || l.text.split("\n")[0] || "").replace(/[*#_`]/g, "").slice(0, 120), description: l.text.replace(/\*\*/g, "").slice(0, 4000) }); }}
+                    className="mt-2 flex items-center gap-1 text-[12px] font-semibold text-[#8a6a35] hover:underline dark:text-[#d9bd8c]"><ListPlus className="h-3.5 w-3.5" /> Turn this into a CEO task →</button>
+                )}
               </div>
             </div>
           ))}
           {actions.map((a) => <ActionCard key={a.id} a={a} busy={decide.isPending} onDecide={(confirm) => decide.mutate({ id: a.id, confirm })} />)}
           {ask.isPending && <p className="flex items-center gap-2 text-[12.5px] text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Looking through your companies…</p>}
           <div ref={bottom} />
+          {toTask && overview && <AssignTaskDialog companies={overview.companies} people={[]} defaultCompany={null} defaultName={toTask.name} defaultDescription={toTask.description} onClose={() => setToTask(null)} />}
         </div>
 
         <div className="border-t border-border px-5 py-3">

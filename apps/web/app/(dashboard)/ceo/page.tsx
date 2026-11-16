@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { BrandMark } from "@/app/layouts/AppShell/Sidebar/ProductNav";
-import { ceoApi, useCeoAccess, type CeoCompany, type CeoForYouItem, type CeoForYouKind, type CeoHealth, type CeoOverview, type CeoSource } from "@/services/ceo-tower.api";
+import { ceoApi, useCeoAccess, type CeoPerson, type CeoCompany, type CeoForYouItem, type CeoForYouKind, type CeoHealth, type CeoOverview, type CeoSource } from "@/services/ceo-tower.api";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "../work/_components/primitives";
@@ -23,6 +23,8 @@ import { MessageDialog } from "./_components/MessageDialog";
 import { AssignTaskDialog } from "./_components/AssignTaskDialog";
 import { SourceBadge, fmtDate } from "./_components/bits";
 import { ShareAccessDialog } from "./_components/ShareAccessDialog";
+import { TaskPopup, useTaskPopup } from "./_components/TaskPopup";
+import { BriefCard } from "./_components/BriefCard";
 
 type View = "portfolio" | "tasks" | "team" | "boards" | "work" | "meetings" | "email" | "ai";
 const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean }[] = [
@@ -69,6 +71,8 @@ export default function CeoTowerPage() {
   const [q, setQ] = useState("");
   const [attention, setAttention] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [tasksMine, setTasksMine] = useState(false);
+  const showTask = useTaskPopup((s) => s.show);
   const [aiAsk, setAiAsk] = useState<string | null>(null);
   const [aiText, setAiText] = useState("");
   const askAi = (q: string) => { if (!q.trim()) return; setAiAsk(q.trim()); setAiText(""); setView("ai"); };
@@ -149,6 +153,7 @@ export default function CeoTowerPage() {
         </p>
       )}
       {sharing && <ShareAccessDialog onClose={() => setSharing(false)} />}
+      <TaskPopup />
 
       {isError ? <p className="p-10 text-center text-[13px] text-muted-foreground">Couldn&apos;t load CEO Tower.</p> : !data || isLoading ? (
         <div className="grid gap-4 p-5 lg:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="h-[520px] animate-pulse rounded-2xl bg-muted" />)}</div>
@@ -179,7 +184,7 @@ export default function CeoTowerPage() {
             : view === "email" ? <EmailView />
             : view === "team" ? <TeamView source={source} company={company?.key ?? null} companies={companies} />
             : view === "boards" || view === "work" ? <ProductView product={view} company={company?.source === view ? company.key : null} companies={companies} />
-            : view === "tasks" ? <TasksView source={source} company={company?.key ?? null} overview={data} /> : (
+            : view === "tasks" ? <TasksView key={tasksMine ? "mine" : "all"} source={source} company={company?.key ?? null} overview={data} initialMine={tasksMine} /> : (
           <div className="grid gap-4 lg:grid-cols-3">
             {/* companies */}
             <Panel icon={Building2} title="Companies & Portfolio" kicker={access.canShare ? "Every company you own" : "Every company shared with you"} badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{companies.length} active</span>}
@@ -195,6 +200,7 @@ export default function CeoTowerPage() {
                       <div className={cn("rounded-xl border p-3.5 transition-colors", on ? "border-primary/50 bg-primary/5" : c.health === "critical" ? "border-destructive/30 bg-destructive/[0.03]" : "border-border hover:border-primary/30")}>
                         <button type="button" onClick={() => setCompany(on ? null : c)} aria-pressed={on} className="block w-full text-left">
                           <span className="flex items-center gap-2"><span className={cn("h-2 w-2 shrink-0 rounded-full", h.dot)} /><span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{c.name}</span><SourceBadge source={c.source} /><span className={cn("rounded-full px-2 py-0.5 text-[10.5px] font-semibold ring-1", h.cls)}>{h.label}</span></span>
+                          <span className="mt-0.5 block truncate pl-4 text-[11.5px] text-muted-foreground">Lead: <span className="font-medium text-foreground/80">{c.leads?.length ? c.leads.join(" / ") : "you"}</span></span>
                         </button>
                         <span className="mt-2 grid grid-cols-4 gap-1 text-[11.5px]">
                           {([["Open", c.stats.open, { tab: "tasks", state: "open" }, ""], ["Overdue", c.stats.overdue, { tab: "tasks", state: "overdue" }, c.stats.overdue ? "text-destructive" : ""], ["Working", c.stats.inProgress, { tab: "tasks", state: "in_progress" }, ""], ["People", c.people, { tab: "people" }, ""]] as const).map(([label, n, start, cls]) => (
@@ -215,7 +221,7 @@ export default function CeoTowerPage() {
 
             {/* people */}
             <Panel icon={Users} title="Management & Teams" kicker="Who carries the work" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{data.kpis.people} people</span>}
-              footer={<span className="flex items-center justify-between"><span>Total open: <strong className="text-destructive">{data.kpis.open} tasks</strong></span><button type="button" onClick={() => setView("tasks")} className="font-semibold text-primary hover:underline">View all tasks →</button></span>}>
+              footer={<span className="flex flex-wrap items-center justify-between gap-2"><span>Your open tasks: <strong className="text-destructive">{data.ceoTasks?.open ?? 0}</strong>{data.ceoTasks?.overdue ? <span className="text-destructive"> · {data.ceoTasks.overdue} overdue</span> : null}</span><span className="flex gap-3"><button type="button" onClick={() => { setTasksMine(true); setView("tasks"); }} className="font-semibold text-primary hover:underline">View CEO tasks →</button><button type="button" onClick={() => { setTasksMine(false); setView("tasks"); }} className="font-semibold text-muted-foreground hover:text-foreground hover:underline">All tasks</button></span></span>}>
               <div className="mb-3 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-1.5 text-[11.5px] font-semibold">
                 <span className="flex items-center gap-1.5 text-destructive"><span className="h-2 w-2 rounded-full bg-destructive" />Overdue</span>
                 <span className="flex items-center gap-1.5 text-[#8a6a35] dark:text-[#d9bd8c]"><span className="h-2 w-2 rounded-full bg-[#b08d57]" />Working on</span>
@@ -236,6 +242,9 @@ export default function CeoTowerPage() {
                         <span title="Done in 7 days" className="rounded-md bg-primary/10 px-1.5 py-0.5 text-primary">{p.stats.doneWeek}</span>
                       </span>
                     </div>
+                    <div className="mt-1.5 flex items-center gap-2 text-[11.5px] text-muted-foreground">
+                      <span title="Open tasks you gave this person">From you: <strong className={cn("font-mono", p.fromCeo ? "text-[#8a6a35] dark:text-[#d9bd8c]" : "")}>{p.fromCeo ?? 0}</strong></span>
+                    </div>
                     <span className="mt-2 flex items-center gap-2"><span className="flex-1"><Bar value={p.stats.progress} /></span><span className="font-mono text-[10.5px] text-muted-foreground">{p.stats.progress}%</span></span>
                     {p.user.id !== user?.id && (
                       <span className="mt-2 flex gap-1.5">
@@ -252,17 +261,18 @@ export default function CeoTowerPage() {
             {/* updates + AI */}
             <div className="flex flex-col gap-4">
               <Panel icon={BarChart3} title="Master Updates" kicker="What moved this week" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] text-primary ring-1 ring-primary/25">Live</span>}>
-                <h3 className="mb-1.5 text-[12px] font-semibold text-muted-foreground">Finished · last 7 days</h3>
+                <BriefCard />
+                <h3 className="mb-1.5 mt-4 text-[12px] font-semibold text-muted-foreground">Finished · last 7 days</h3>
                 <ul aria-label="Recent updates" className="space-y-1.5">
                   {data.updates.slice(0, 6).map((u) => (
-                    <li key={`${u.source}-${u.task.id}`} className="flex items-start gap-2 text-[12.5px]"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /><span className="min-w-0 flex-1"><strong className="font-semibold">{u.people.join(", ") || "Someone"}</strong> finished <span className="font-medium">{u.task.name}</span> <span className="text-muted-foreground">· {u.company} / {u.where}</span></span><span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">{ago(u.at)}</span></li>
+                    <li key={`${u.source}-${u.task.id}`} className="flex items-start gap-2 text-[12.5px]"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /><span className="min-w-0 flex-1"><strong className="font-semibold">{u.people.join(", ") || "Someone"}</strong> finished <button type="button" onClick={() => showTask(u.source, u.task.id)} className="text-left font-medium hover:text-primary hover:underline">{u.task.name}</button> <span className="text-muted-foreground">· {u.company} / {u.where}</span></span><span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">{ago(u.at)}</span></li>
                   ))}
                   {!data.updates.length && <li className="text-[12.5px] text-muted-foreground">Nothing finished in the last 7 days.</li>}
                 </ul>
                 <h3 className="mb-1.5 mt-4 text-[12px] font-semibold text-muted-foreground">Most overdue</h3>
                 <ul aria-label="Most overdue" className="space-y-1.5">
                   {data.attention.overdue.slice(0, 5).map((o) => (
-                    <li key={`${o.source}-${o.task.id}`} className="flex items-start gap-2 text-[12.5px]"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" /><span className="min-w-0 flex-1"><span className="font-medium">{o.task.name}</span> <span className="text-muted-foreground">· {o.people.join(", ") || "unassigned"} · {o.company}</span></span><span className="shrink-0 font-mono text-[10.5px] font-semibold text-destructive">{fmtDate(o.due)}</span></li>
+                    <li key={`${o.source}-${o.task.id}`} className="flex items-start gap-2 text-[12.5px]"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" /><span className="min-w-0 flex-1"><button type="button" onClick={() => showTask(o.source, o.task.id)} className="text-left font-medium hover:text-primary hover:underline">{o.task.name}</button> <span className="text-muted-foreground">· {o.people.join(", ") || "unassigned"} · {o.company}</span></span><span className="shrink-0 font-mono text-[10.5px] font-semibold text-destructive">{fmtDate(o.due)}</span></li>
                   ))}
                   {!data.attention.overdue.length && <li className="text-[12.5px] text-muted-foreground">Nothing overdue. 👏</li>}
                 </ul>
@@ -299,6 +309,9 @@ const KIND: Record<CeoForYouKind, { label: string; icon: typeof Inbox }> = {
 };
 
 function AttentionDialog({ data, forYou, onClose, onPick }: { data: CeoOverview; forYou: CeoForYouItem[]; onClose: () => void; onPick: (key: string) => void }) {
+  const showTask = useTaskPopup((s) => s.show);
+  const [replyTo, setReplyTo] = useState<CeoPerson | null>(null);
+  const { user } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"foryou" | "companies" | "overdue">(forYou.length ? "foryou" : data.attention.companies.length ? "companies" : "overdue");
@@ -317,8 +330,8 @@ function AttentionDialog({ data, forYou, onClose, onPick }: { data: CeoOverview;
           {tab === "foryou" ? forYou.map((i) => {
             const K = KIND[i.kind] ?? KIND.comment;
             return (
-              <li key={`${i.source}-${i.id}`}>
-                <button type="button" onClick={() => open(i)} className="flex w-full items-start gap-3 rounded-lg border border-border px-3 py-2 text-left text-[13px] hover:bg-accent/50">
+              <li key={`${i.source}-${i.id}`} className="rounded-lg border border-border">
+                <button type="button" onClick={() => open(i)} className="flex w-full items-start gap-3 rounded-t-lg px-3 py-2 text-left text-[13px] hover:bg-accent/50">
                   <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><K.icon className="h-3.5 w-3.5" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2"><span className="truncate font-semibold">{i.title}</span><SourceBadge source={i.source} /></span>
@@ -327,16 +340,23 @@ function AttentionDialog({ data, forYou, onClose, onPick }: { data: CeoOverview;
                   </span>
                   {i.href && <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                 </button>
+                {(i.task || (i.actorId && i.actorId !== user?.id)) && (
+                  <span className="flex gap-1.5 border-t border-border/70 px-3 py-1.5 pl-[52px]">
+                    {i.task && <button type="button" onClick={() => { read.mutate(i); showTask(i.task!.source, i.task!.id); }} className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11.5px] font-semibold hover:bg-accent"><MessageSquareReply className="h-3 w-3" /> Open & reply</button>}
+                    {i.actorId && i.actorId !== user?.id && <button type="button" onClick={() => { read.mutate(i); const [f, ...l] = (i.actor ?? "them").split(" "); setReplyTo({ id: i.actorId!, firstName: f ?? "them", lastName: l.join(" "), avatarUrl: null }); }} className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11.5px] font-medium hover:bg-accent"><MessageSquare className="h-3 w-3" /> Message {i.actor?.split(" ")[0] ?? "back"}</button>}
+                  </span>
+                )}
               </li>
             );
           }) : tab === "companies" ? data.attention.companies.map((c) => (
             <li key={c.key}><button type="button" onClick={() => onPick(c.key)} className="flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-left text-[13px] hover:bg-accent/50"><span className="flex-1 font-medium">{c.name}</span><SourceBadge source={c.source} /><span className="font-mono text-[12px] text-destructive">{c.overdue} overdue</span><ArrowRight className="h-3.5 w-3.5 text-muted-foreground" /></button></li>
           )) : overdue.map((o) => (
-            <li key={`${o.source}-${o.task.id}`} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-[13px]"><span className="min-w-0 flex-1"><span className="block truncate font-medium">{o.task.name}</span><span className="block truncate text-[11.5px] text-muted-foreground">{o.company} / {o.where} · {o.people.join(", ") || "unassigned"}</span></span><SourceBadge source={o.source} /><span className="font-mono text-[12px] font-semibold text-destructive">{fmtDate(o.due)}</span></li>
+            <li key={`${o.source}-${o.task.id}`} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-[13px]"><span className="min-w-0 flex-1"><button type="button" onClick={() => showTask(o.source, o.task.id)} className="block max-w-full truncate text-left font-medium hover:text-primary hover:underline">{o.task.name}</button><span className="block truncate text-[11.5px] text-muted-foreground">{o.company} / {o.where} · {o.people.join(", ") || "unassigned"}</span></span><SourceBadge source={o.source} /><span className="font-mono text-[12px] font-semibold text-destructive">{fmtDate(o.due)}</span></li>
           ))}
           {tab === "companies" && !data.attention.companies.length && <li className="py-6 text-center text-[12.5px] text-muted-foreground">Every company is healthy.</li>}
           {tab === "foryou" && !forYou.length && <li className="py-6 text-center text-[12.5px] text-muted-foreground">Nothing waiting for you. Assignments, mentions, replies and messages for you show up here.</li>}
         </ul>
+      {replyTo && <MessageDialog person={replyTo} onClose={() => setReplyTo(null)} />}
       </DialogContent>
     </Dialog>
   );

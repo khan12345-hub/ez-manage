@@ -6,14 +6,16 @@ export type CeoSource = "all" | "boards" | "work";
 export type CeoPerson = { id: number; firstName: string; lastName: string; avatarUrl: string | null };
 export type CeoStats = { total: number; open: number; done: number; inProgress: number; overdue: number; doneWeek: number; progress: number };
 export type CeoHealth = "healthy" | "attention" | "critical";
-export interface CeoCompany { source: "boards" | "work"; key: string; id: number; uid: string; name: string; stats: CeoStats; health: CeoHealth; people: number; admins: number[] }
+export interface CeoCompany { source: "boards" | "work"; key: string; id: number; uid: string; name: string; stats: CeoStats; health: CeoHealth; people: number; admins: number[]; leads?: string[] }
 export interface CeoOverview {
   source: CeoSource;
   company: string | null;
   owned: { boards: number; work: number };
   kpis: CeoStats & { companies: number; people: number; unassigned: number };
+  /** everything the CEO gave out */
+  ceoTasks: CeoStats;
   companies: CeoCompany[];
-  people: { user: CeoPerson; stats: CeoStats; companies: { key: string; name: string; source: "boards" | "work" }[]; memberOf: number }[];
+  people: { user: CeoPerson; stats: CeoStats; fromCeo: number; companies: { key: string; name: string; source: "boards" | "work" }[]; memberOf: number }[];
   updates: { kind: "done"; source: "boards" | "work"; task: { id: number; uid: string; name: string }; where: string; company?: string; at: string; people: string[] }[];
   attention: {
     companies: { key: string; name: string; source: "boards" | "work"; overdue: number }[];
@@ -28,10 +30,22 @@ export interface CeoTask {
   due: string | null; done: boolean; active: boolean; overdue: boolean; doneAt: string | null;
   status: { label: string; color: string } | null; priority: string | null; href: string; assignees: CeoPerson[];
 }
+export interface CeoTaskDetail {
+  source: "boards" | "work"; id: number; uid: string; name: string; description: string | null;
+  company: { key: string; name: string }; where: string; href: string;
+  status: { id: number | null; label: string; color: string; category: string | null } | null;
+  statuses: { id: number; label: string; color: string; category: string }[];
+  priority: string | null; due: string | null; done: boolean; createdAt: string;
+  createdBy: CeoPerson | null; assignees: CeoPerson[];
+  comments: { id: number; parentId: number | null; user: CeoPerson | null; text: string; createdAt: string }[];
+}
+export type CeoBrief = { generatedAt: string; by: "claude" | "groq" | "summary"; bullets: string[] };
 export interface CeoTasks { state: CeoTaskState; counts: Record<CeoTaskState, number>; total: number; truncated: boolean; tasks: CeoTask[] }
 
 export type CeoForYouKind = "assigned" | "mention" | "reply" | "comment" | "message";
-export interface CeoForYouItem { source: "boards" | "work"; id: string; kind: CeoForYouKind; title: string; message: string; at: string; href: string | null; actor: string | null }
+export interface CeoForYouItem { source: "boards" | "work"; id: string; kind: CeoForYouKind; title: string; message: string; at: string; href: string | null; actor: string | null;
+  /** answer in place: the task's thread, or a message back to the sender */
+  task: { source: "boards" | "work"; id: number } | null; actorId: number | null }
 
 export interface CeoPersonDetail {
   user: CeoPerson & { email: string }; title: string | null; isMe: boolean;
@@ -90,9 +104,14 @@ export const ceoApi = {
     (await api.post<{ product: "work" | "boards"; via: string; href: string }>("/ceo-tower/message", { personId, text, ...(via ? { via } : {}) })).data,
   forYou: async () => (await api.get<{ count: number; items: CeoForYouItem[] }>("/ceo-tower/for-you")).data,
   markForYouRead: async (source: "boards" | "work", id: string) => (await api.post("/ceo-tower/for-you/read", { source, id })).data,
-  tasks: async (o: { source: CeoSource; company?: string | null; person?: number | null; state: CeoTaskState; q?: string; place?: CeoPlace | null }) => {
+  task: async (source: "boards" | "work", id: number) => (await api.get<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}`)).data,
+  taskComment: async (source: "boards" | "work", id: number, text: string, parentId?: number) => (await api.post<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}/comment`, { text, ...(parentId ? { parentId } : {}) })).data,
+  taskStatus: async (source: "boards" | "work", id: number, statusId?: number) => (await api.post<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}/status`, statusId ? { statusId } : {})).data,
+  brief: async (refresh = false) => (await api.get<CeoBrief>(`/ceo-tower/ai/brief${refresh ? "?refresh=1" : ""}`, { timeout: 120_000 })).data,
+  tasks: async (o: { source: CeoSource; company?: string | null; person?: number | null; state: CeoTaskState; q?: string; place?: CeoPlace | null; mine?: boolean }) => {
     const { place, ...rest } = o;
-    const params = { ...rest, company: o.company ?? "", person: o.person ? String(o.person) : "", placeType: place?.type ?? "", placeId: place ? String(place.id) : "" };
+    const { mine, ...restNoMine } = rest;
+    const params = { ...restNoMine, company: o.company ?? "", person: o.person ? String(o.person) : "", placeType: place?.type ?? "", placeId: place ? String(place.id) : "", by: mine ? "me" : "" };
     return (await api.get<CeoTasks>(`/ceo-tower/tasks?${new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "" && v != null) as [string, string][])}`)).data;
   },
   team: async (source: CeoSource, company?: string | null) => (await api.get<CeoTeamRow[]>(`/ceo-tower/team?${new URLSearchParams({ source, ...(company ? { company } : {}) })}`)).data,
