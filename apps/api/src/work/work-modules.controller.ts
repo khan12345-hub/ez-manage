@@ -5,6 +5,7 @@ import { WorkService } from './work.service';
 import { WorkTimesheetService } from './work-timesheet.service';
 import { WorkSprintsService } from './work-sprints.service';
 import { WorkGoalsService } from './work-goals.service';
+import { WorkDocsService } from './work-docs.service';
 
 /** Work modules: Timesheets, Sprints, Goals, Docs, Forms, Whiteboards (session auth is global). */
 @Controller('work')
@@ -14,6 +15,7 @@ export class WorkModulesController {
     private readonly timesheets: WorkTimesheetService,
     private readonly sprints: WorkSprintsService,
     private readonly goals: WorkGoalsService,
+    private readonly docs: WorkDocsService,
   ) {}
 
   // ── timesheets ──
@@ -97,5 +99,31 @@ export class WorkModulesController {
   @Delete('goal-targets/:id')
   deleteGoalTarget(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
     return this.goals.removeTarget(id, u.id);
+  }
+
+  // ── docs ──
+  @Get('workspaces/:workspaceId/docs')
+  async listDocs(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.docs.list(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Post('workspaces/:workspaceId/docs')
+  async createDoc(@Param('workspaceId') ws: string, @Body() b: { title?: string; spaceId?: number | null; parentId?: number | null; content?: string }, @CurrentUser() u: SessionUser) {
+    return this.docs.create(await this.work.resolveWorkspaceId(ws), u.id, b ?? {});
+  }
+
+  @Get('docs/:id')
+  doc(@Param('id') id: string, @CurrentUser() u: SessionUser) {
+    return this.docs.get(id, u.id);
+  }
+
+  @Patch('docs/:id')
+  updateDoc(@Param('id') id: string, @Body() b: { title?: string; content?: string }, @CurrentUser() u: SessionUser) {
+    return this.docs.update(id, u.id, b ?? {});
+  }
+
+  @Delete('docs/:id')
+  archiveDoc(@Param('id') id: string, @CurrentUser() u: SessionUser) {
+    return this.docs.archive(id, u.id);
   }
 }
