@@ -6,7 +6,7 @@ export const api = axios.create({
 })
 
 // Pages a logged-out visitor must be able to open (a 401 there is expected, not a reason to leave)
-const PUBLIC_PATHS = ["/login", "/auth/", "/setup-account", "/form/", "/guest/"];
+const PUBLIC_PATHS = ["/login", "/auth/", "/setup-account", "/form/", "/guest/", "/wf/"];
 
 api.interceptors.response.use(
   (response) => response,

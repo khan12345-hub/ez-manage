@@ -6,6 +6,9 @@ import { WorkTimesheetService } from './work-timesheet.service';
 import { WorkSprintsService } from './work-sprints.service';
 import { WorkGoalsService } from './work-goals.service';
 import { WorkDocsService } from './work-docs.service';
+import { WorkFormsService } from './work-forms.service';
+import { Throttle } from '@nestjs/throttler';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 /** Work modules: Timesheets, Sprints, Goals, Docs, Forms, Whiteboards (session auth is global). */
 @Controller('work')
@@ -16,6 +19,7 @@ export class WorkModulesController {
     private readonly sprints: WorkSprintsService,
     private readonly goals: WorkGoalsService,
     private readonly docs: WorkDocsService,
+    private readonly forms: WorkFormsService,
   ) {}
 
   // ── timesheets ──
@@ -125,5 +129,40 @@ export class WorkModulesController {
   @Delete('docs/:id')
   archiveDoc(@Param('id') id: string, @CurrentUser() u: SessionUser) {
     return this.docs.archive(id, u.id);
+  }
+
+  // ── forms ──
+  @Get('workspaces/:workspaceId/forms')
+  async listForms(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.forms.list(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Post('workspaces/:workspaceId/forms')
+  async createForm(@Param('workspaceId') ws: string, @Body() b: { name?: string; description?: string; listId?: number; fields?: unknown }, @CurrentUser() u: SessionUser) {
+    return this.forms.create(await this.work.resolveWorkspaceId(ws), u.id, b ?? {});
+  }
+
+  @Patch('forms/:id')
+  updateForm(@Param('id', ParseIntPipe) id: number, @Body() b: { name?: string; description?: string | null; listId?: number; fields?: unknown; active?: boolean }, @CurrentUser() u: SessionUser) {
+    return this.forms.update(id, u.id, b ?? {});
+  }
+
+  @Delete('forms/:id')
+  deleteForm(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.forms.remove(id, u.id);
+  }
+
+  /** public: anyone with the link can open and submit (each answer becomes a task) */
+  @Public()
+  @Get('public/forms/:uid')
+  publicForm(@Param('uid') uid: string) {
+    return this.forms.publicForm(uid);
+  }
+
+  @Public()
+  @Throttle({ auth: { ttl: 60_000, limit: 10 } })
+  @Post('public/forms/:uid')
+  submitForm(@Param('uid') uid: string, @Body() b: { answers?: Record<string, unknown> }) {
+    return this.forms.submit(uid, b?.answers ?? {});
   }
 }

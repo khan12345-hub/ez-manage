@@ -39,6 +39,7 @@ import {
   Timer,
   Zap,
   Goal,
+  ClipboardList,
   PenTool,
   Search,
   SquareCheckBig,
@@ -113,6 +114,7 @@ const MORE_PAGES = [
   { id: "sprints", label: "Sprints", path: "sprints", icon: Zap },
   { id: "goals", label: "Goals", path: "goals", icon: Goal },
   { id: "docs", label: "Docs", path: "docs", icon: FileText },
+  { id: "forms", label: "Forms", path: "forms", icon: ClipboardList },
 ];
 
 const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13.5px] transition-colors";
