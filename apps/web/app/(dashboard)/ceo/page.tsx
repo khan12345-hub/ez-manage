@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { AlertTriangle, ArrowRight, AtSign, CalendarClock, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, Inbox, KeyRound, LayoutGrid, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -319,6 +320,12 @@ function AttentionDialog({ data, forYou, onClose, onPick }: { data: CeoOverview;
   const qc = useQueryClient();
   const [tab, setTab] = useState<"foryou" | "companies" | "overdue">(forYou.length ? "foryou" : data.attention.companies.length ? "companies" : "overdue");
   const read = useMutation({ mutationFn: (i: CeoForYouItem) => ceoApi.markForYouRead(i.source, i.id), onSettled: () => qc.invalidateQueries({ queryKey: ["ceo-tower", "for-you"] }) });
+  // One-click approve: "Approved" in the task's thread as you (the asker is notified), and the item is done
+  const approve = useMutation({
+    mutationFn: async (i: CeoForYouItem) => { await ceoApi.taskComment(i.task!.source, i.task!.id, "✅ Approved."); await ceoApi.markForYouRead(i.source, i.id); },
+    onSuccess: () => { toast.success("Approved — they've been told in the task"); qc.invalidateQueries({ queryKey: ["ceo-tower", "for-you"] }); },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't approve."),
+  });
   const open = (i: CeoForYouItem) => { read.mutate(i); if (i.href) router.push(i.href); else onClose(); };
   const overdue = useMemo(() => data.attention.overdue, [data]);
   return (
@@ -346,6 +353,7 @@ function AttentionDialog({ data, forYou, onClose, onPick }: { data: CeoOverview;
                 {(i.task || (i.actorId && i.actorId !== user?.id)) && (
                   <span className="flex gap-1.5 border-t border-border/70 px-3 py-1.5 pl-[52px]">
                     {i.task && <button type="button" onClick={() => { read.mutate(i); showTask(i.task!.source, i.task!.id); }} className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11.5px] font-semibold hover:bg-accent"><MessageSquareReply className="h-3 w-3" /> Open & reply</button>}
+                    {i.task && <button type="button" disabled={approve.isPending} onClick={() => approve.mutate(i)} className="flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2 py-0.5 text-[11.5px] font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"><CheckCircle2 className="h-3 w-3" /> Approve</button>}
                     {i.actorId && i.actorId !== user?.id && <button type="button" onClick={() => { read.mutate(i); const [f, ...l] = (i.actor ?? "them").split(" "); setReplyTo({ id: i.actorId!, firstName: f ?? "them", lastName: l.join(" "), avatarUrl: null }); }} className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11.5px] font-medium hover:bg-accent"><MessageSquare className="h-3 w-3" /> Message {i.actor?.split(" ")[0] ?? "back"}</button>}
                   </span>
                 )}
