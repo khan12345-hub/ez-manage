@@ -5,11 +5,36 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Bot, Check, CheckCircle2, ListPlus, Loader2, MessageSquarePlus, Plus, SendHorizontal, ShieldCheck, Sparkles, X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ceoApi, type CeoAiAction } from "@/services/ceo-tower.api";
+import { ceoApi, type CeoAiAction, type CeoOverview } from "@/services/ceo-tower.api";
+import { useAuth } from "@/providers/AuthProvider";
 import { RichText } from "../../work/_components/chat/ChatMessages";
 import { AssignTaskDialog } from "./AssignTaskDialog";
 
-export const AI_PROMPTS = ["Khan kia kar raha hai?", "Kaun se tasks in progress hain?", "Kis ki team peeche hai?", "Kya overdue hai 48 ghante se zyada?", "Management ko kal 11 baje review meeting ka invite bhej do", "Sab managers ko weekly update ka email bhej do"];
+/**
+ * Suggested questions, built from the live overview: who is most behind, which company slipped,
+ * unassigned work, the CEO's own tasks. `withActions` adds two "do something" examples (they only
+ * prepare a card — nothing is sent until Confirm).
+ */
+export function aiPrompts(o: CeoOverview | undefined, meId: number | undefined, withActions = false): string[] {
+  const out: string[] = [];
+  const behind = (o?.people ?? []).filter((p) => p.user.id !== meId && p.stats.overdue > 0).sort((a, b) => b.stats.overdue - a.stats.overdue)[0];
+  const busy = (o?.people ?? []).filter((p) => p.user.id !== meId && p.stats.open > 0).sort((a, b) => b.stats.open - a.stats.open)[0];
+  const who = behind ?? busy;
+  const company = (o?.companies ?? []).filter((c) => c.stats.overdue > 0).sort((a, b) => b.stats.overdue - a.stats.overdue)[0];
+  if (who) out.push(`What is ${who.user.firstName} working on, and what is late?`);
+  if (company) out.push(`Why is ${company.name} behind?`);
+  if (o?.kpis.overdue) out.push("Which tasks are more than 48 hours overdue?");
+  if (o?.kpis.inProgress) out.push("What is in progress right now?");
+  if (o?.ceoTasks?.open) out.push("How are the tasks I gave out going?");
+  if (o?.kpis.unassigned) out.push(`Who should take the ${o.kpis.unassigned} unassigned ${o.kpis.unassigned === 1 ? "task" : "tasks"}?`);
+  out.push("What got done this week?");
+  if (out.length < 4) out.push("Which team is falling behind?");
+  if (withActions) {
+    if (who) out.push(`Message ${who.user.firstName} to send me an update by end of day`);
+    out.push("Invite management to a review meeting tomorrow at 11 am");
+  }
+  return out;
+}
 const CONV_KEY = "ez:ceo:ai:conversation";
 
 type Line = { role: "user" | "assistant"; text: string; used?: string[] };
@@ -18,6 +43,7 @@ type Line = { role: "user" | "assistant"; text: string; used?: string[] };
 export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; onAsked?: () => void }) {
   // "Turn this into a CEO task": the question becomes the task, the answer its description
   const [toTask, setToTask] = useState<{ name: string; description: string } | null>(null);
+  const { user } = useAuth();
   const { data: overview } = useQuery({ queryKey: ["ceo-tower", "overview", "all", null], queryFn: () => ceoApi.overview("all") });
   const qc = useQueryClient();
   const { data: status } = useQuery({ queryKey: ["ceo-tower", "ai", "status"], queryFn: ceoApi.aiStatus });
@@ -131,7 +157,7 @@ export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; on
 
         <div className="border-t border-border px-5 py-3">
           <div className="mb-2 flex flex-wrap gap-1.5">
-            {AI_PROMPTS.map((p) => <button key={p} type="button" disabled={!status?.configured || ask.isPending} onClick={() => ask.mutate(p)} className="rounded-lg border border-border px-2.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50">{p}</button>)}
+            {aiPrompts(overview, user?.id, true).slice(0, 7).map((p) => <button key={p} type="button" disabled={!status?.configured || ask.isPending} onClick={() => ask.mutate(p)} className="rounded-lg border border-border px-2.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50">{p}</button>)}
           </div>
           <div className="flex items-end gap-2">
             <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} rows={2} maxLength={4000} disabled={!status?.configured}

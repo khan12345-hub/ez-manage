@@ -18,7 +18,7 @@ import { TeamView } from "./_components/TeamView";
 import { MeetingsView } from "./_components/MeetingsView";
 import { EmailView } from "./_components/EmailView";
 import { ProductView } from "./_components/ProductView";
-import { AI_PROMPTS, AiView } from "./_components/AiView";
+import { aiPrompts, AiView } from "./_components/AiView";
 import { CompanyPanel, type PanelTab } from "./_components/CompanyPanel";
 import { MessageDialog } from "./_components/MessageDialog";
 import { AssignTaskDialog } from "./_components/AssignTaskDialog";
@@ -283,7 +283,7 @@ export default function CeoTowerPage() {
               </Panel>
               <Panel icon={Bot} title="Ask Executive AI" kicker="Live data · acts only after you confirm" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] text-primary ring-1 ring-primary/25">Ready</span>}>
                 <div className="flex flex-wrap gap-1.5">
-                  {AI_PROMPTS.slice(0, 4).map((c) => <button key={c} type="button" onClick={() => askAi(c)} className="rounded-lg border border-border px-2.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground">{c}</button>)}
+                  {aiPrompts(data, user?.id).slice(0, 4).map((c) => <button key={c} type="button" onClick={() => askAi(c)} className="rounded-lg border border-border px-2.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground">{c}</button>)}
                 </div>
                 <div className="mt-3 flex gap-2">
                   <input value={aiText} onChange={(e) => setAiText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && askAi(aiText)} placeholder="Ask AI: e.g. Who is falling behind today?" aria-label="Ask AI" className="h-10 flex-1 rounded-xl border border-border bg-background px-3 text-[13px] outline-none focus:border-primary/50" />
