@@ -7,10 +7,11 @@ import { MailModule } from 'src/mail/mail.module';
 import { CeoAssistantModule } from 'src/ceo-assistant/ceo-assistant.module';
 import { CeoCommsService } from './ceo-comms.service';
 import { NotificationsModule } from 'src/notifications/notifications.module';
+import { ChatModule } from 'src/chat/chat.module';
 
 /** CEO Tower — a read-only view across the Boards and Work companies a person owns. */
 @Module({
-  imports: [WorkModule, MailModule, CeoAssistantModule, NotificationsModule],
+  imports: [WorkModule, MailModule, CeoAssistantModule, NotificationsModule, ChatModule],
   controllers: [CeoTowerController],
   providers: [CeoTowerService, CeoAiService, CeoCommsService],
   exports: [CeoTowerService],

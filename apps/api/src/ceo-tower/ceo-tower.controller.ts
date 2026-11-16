@@ -94,6 +94,12 @@ export class CeoTowerController {
     return { conversationId: conv, result: await this.ai.runTool(u.id, conv, String(b.name ?? ''), b.input ?? {}) };
   }
 
+  /** message one person as the CEO — Work chat, or Boards chat for people only in Boards */
+  @Post('message')
+  message(@CurrentUser() u: SessionUser, @Body() b: { personId: number; text: string; via?: string }) {
+    return this.comms.message(u.id, Number(b?.personId), String(b?.text ?? ''), b?.via ? String(b.via) : undefined);
+  }
+
   @Get('access')
   access(@CurrentUser() u: SessionUser) {
     return this.tower.access(u.id);

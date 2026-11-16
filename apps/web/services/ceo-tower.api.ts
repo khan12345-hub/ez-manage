@@ -37,6 +37,8 @@ export interface CeoPersonDetail {
   user: CeoPerson & { email: string }; title: string | null; isMe: boolean;
   memberships: { key: string; source: "boards" | "work"; name: string; uid: string; role: string }[];
   reach: { key: string; uid: string; name: string }[];
+  /** Boards companies where a Boards chat DM reaches them (people only in Boards) */
+  boardsReach: { key: string; id: number; uid: string; name: string }[];
 }
 
 export interface CeoAiAction {
@@ -84,6 +86,8 @@ export const ceoApi = {
   aiConversation: async (id: string) => (await api.get<CeoAiConversation>(`/ceo-tower/ai/conversations/${id}`)).data,
   aiDecide: async (id: string, confirm: boolean) => (await api.post<CeoAiAction>(`/ceo-tower/ai/actions/${id}/${confirm ? "confirm" : "cancel"}`)).data,
   person: async (id: number) => (await api.get<CeoPersonDetail>(`/ceo-tower/people/${id}`)).data,
+  message: async (personId: number, text: string, via?: string) =>
+    (await api.post<{ product: "work" | "boards"; via: string; href: string }>("/ceo-tower/message", { personId, text, ...(via ? { via } : {}) })).data,
   forYou: async () => (await api.get<{ count: number; items: CeoForYouItem[] }>("/ceo-tower/for-you")).data,
   markForYouRead: async (source: "boards" | "work", id: string) => (await api.post("/ceo-tower/for-you/read", { source, id })).data,
   tasks: async (o: { source: CeoSource; company?: string | null; person?: number | null; state: CeoTaskState; q?: string; place?: CeoPlace | null }) => {

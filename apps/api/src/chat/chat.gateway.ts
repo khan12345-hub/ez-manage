@@ -209,27 +209,34 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       return { error: e?.message ?? 'Could not send' };
     }
 
+    await this.deliverNew(message, userId);
+    return message;
+  }
+
+  /** A saved message goes out live to its channel, and unread / push notices to members not looking at it. */
+  async deliverNew(message: any, senderId: number) {
+    const channelId: number = message.channelId;
     // Broadcast to everyone in channel room (including sender)
-    this.server.to(`channel:${data.channelId}`).emit('message:new', message);
+    this.server.to(`channel:${channelId}`).emit('message:new', message);
 
     // If this is a reply, also emit reply:new so open thread panels update
-    if (data.parentId) {
-      this.server.to(`channel:${data.channelId}`).emit('reply:new', message);
+    if (message.parentId) {
+      this.server.to(`channel:${channelId}`).emit('reply:new', message);
     }
 
     // Notify channel members who are NOT currently viewing this channel via bell icon
     try {
-      const members = await this.chatService.getChannelMembers(data.channelId);
-      const plainText = data.content.replace(/<[^>]*>/g, '').trim();
+      const members = await this.chatService.getChannelMembers(channelId);
+      const plainText = String(message.content ?? '').replace(/<[^>]*>/g, '').trim();
       const senderName = `${message.user.firstName} ${message.user.lastName}`;
       for (const m of members) {
-        if (m.userId === userId) continue; // don't notify self
-        if (this.activeChannel.get(m.userId) === data.channelId) continue; // already watching
+        if (m.userId === senderId) continue; // don't notify self
+        if (this.activeChannel.get(m.userId) === channelId) continue; // already watching
         if (m.notifPref === 'MUTED') continue;
         if (m.notifPref === 'MENTIONS' && !plainText.includes(`@${senderName}`) &&
             !plainText.match(/@\w/)) continue; // rough mention check
         this.notificationStream.emitRaw(m.userId, 'chat_unread', {
-          channelId: data.channelId,
+          channelId,
           senderName,
           preview: plainText.substring(0, 80),
         });
@@ -237,15 +244,13 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
           title: senderName,
           body: plainText.substring(0, 100) || '📎 Attachment',
           icon: '/icon-192.png',
-          tag: `chat-${data.channelId}`,
-          url: `/workspace/${message.channel?.workspaceId}/chat?channel=${data.channelId}`,
+          tag: `chat-${channelId}`,
+          url: `/workspace/${message.channel?.workspaceId}/chat?channel=${channelId}`,
         }).catch(() => {});
       }
     } catch {
       // Non-critical: don't crash message delivery if notification fails
     }
-
-    return message;
   }
 
   @SubscribeMessage('typing:start')

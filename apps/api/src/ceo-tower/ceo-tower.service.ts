@@ -240,6 +240,13 @@ export class CeoTowerService {
     if (!user || (!boards.length && !work.length)) throw new NotFoundException('This person is not in your companies.');
     const bName = new Map(own.boards.map((w) => [w.id, w]));
     const wName = new Map(own.work.map((w) => [w.id, w]));
+    // a DM needs a company both of you are in (someone shared into CEO Tower may not be in every company)
+    const [myWork, myBoards] = await Promise.all([
+      this.prisma.workMember.findMany({ where: { userId, workspaceId: { in: work.map((m) => m.workspaceId) } }, select: { workspaceId: true } }),
+      this.prisma.workspaceMember.findMany({ where: { userId, deletedAt: null, workspaceId: { in: boards.map((m) => m.workspaceId) } }, select: { workspaceId: true } }),
+    ]);
+    const inWork = new Set(myWork.map((m) => m.workspaceId));
+    const inBoards = new Set(myBoards.map((m) => m.workspaceId));
     return {
       user,
       title: work.find((m) => m.title)?.title ?? null,
@@ -248,7 +255,9 @@ export class CeoTowerService {
         ...work.map((m) => ({ key: `work:${m.workspaceId}`, source: 'work' as const, name: wName.get(m.workspaceId)!.name, uid: wName.get(m.workspaceId)!.uid, role: m.role })),
       ],
       // Work companies where a DM / assignment can reach them
-      reach: work.map((m) => ({ key: `work:${m.workspaceId}`, uid: wName.get(m.workspaceId)!.uid, name: wName.get(m.workspaceId)!.name })),
+      reach: work.filter((m) => inWork.has(m.workspaceId)).map((m) => ({ key: `work:${m.workspaceId}`, uid: wName.get(m.workspaceId)!.uid, name: wName.get(m.workspaceId)!.name })),
+      // Boards companies where a Boards chat DM can reach them (people who are only in Boards)
+      boardsReach: boards.filter((m) => inBoards.has(m.workspaceId)).map((m) => ({ key: `boards:${m.workspaceId}`, id: m.workspaceId, uid: bName.get(m.workspaceId)!.uid, name: bName.get(m.workspaceId)!.name })),
       isMe: personId === userId,
     };
   }

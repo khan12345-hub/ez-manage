@@ -5,48 +5,47 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { SendHorizontal } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { workApi } from "@/services/work.api";
 import { ceoApi, type CeoPerson } from "@/services/ceo-tower.api";
 import { Avatar } from "../../work/_components/primitives";
 
 /**
- * Message a person from CEO Tower: a Work chat DM sent as the CEO, through Work's own chat
- * (same notifications, same conversation they already have with you). Also used to share a task.
+ * Message a person from CEO Tower, sent as the CEO through the product's own chat:
+ * Work chat when you share a Work company, otherwise their Boards chat (people only in Boards).
+ * Same notifications, same conversation they already have with you. Also used to share a task.
  */
 export function MessageDialog({ person, defaultText = "", heading, onClose }: { person: CeoPerson; defaultText?: string; heading?: string; onClose: () => void }) {
   const { data: detail, isLoading } = useQuery({ queryKey: ["ceo-tower", "person", person.id], queryFn: () => ceoApi.person(person.id) });
   const [ws, setWs] = useState<string>("");
   const [text, setText] = useState(defaultText);
-  useEffect(() => { if (detail?.reach[0] && !ws) setWs(detail.reach[0].uid); }, [detail, ws]);
+  const places = [
+    ...(detail?.reach ?? []).map((r) => ({ key: r.key, label: `${r.name} · Work chat` })),
+    ...(detail?.boardsReach ?? []).map((r) => ({ key: r.key, label: `${r.name} · Boards chat` })),
+  ];
+  useEffect(() => { if (places[0] && !ws) setWs(places[0].key); }, [places, ws]);
   const name = `${person.firstName} ${person.lastName}`.trim();
   const send = useMutation({
-    mutationFn: async () => {
-      const dm = await workApi.openDm(ws, [person.id]);
-      await workApi.sendChat(dm.uid, { content: text.trim() });
-      return dm.uid;
-    },
-    onSuccess: (uid) => {
-      toast.success(`Message sent to ${name}`, { action: { label: "Open chat", onClick: () => window.location.assign(`/work/${ws}/chat/${uid}`) } });
+    mutationFn: () => ceoApi.message(person.id, text.trim(), ws),
+    onSuccess: (r) => {
+      toast.success(`Message sent to ${name} in ${r.product === "work" ? "Work" : "Boards"} chat`, { action: { label: "Open chat", onClick: () => window.location.assign(r.href) } });
       onClose();
     },
     onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't send the message."),
   });
-  const reach = detail?.reach ?? [];
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogTitle className="flex items-center gap-2.5 font-serif text-[21px] font-normal"><Avatar user={person as any} size={30} /> {heading ?? `Message ${name}`}</DialogTitle>
-        <DialogDescription>Sent as you in Work chat — it lands in your direct conversation with {person.firstName}.</DialogDescription>
+        <DialogDescription>Sent as you — it lands in your direct conversation with {person.firstName}{places[0] ? ` in ${places.find((p) => p.key === ws)?.label.split(" · ")[1] ?? "chat"}` : ""}.</DialogDescription>
         {isLoading ? <div className="h-24 animate-pulse rounded-lg bg-muted" /> : detail?.isMe ? (
           <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-[13px] text-muted-foreground">That&apos;s you.</p>
-        ) : !reach.length ? (
-          <p role="alert" className="rounded-lg border border-dashed border-border px-3 py-4 text-[13px] text-muted-foreground">{person.firstName} isn&apos;t in any of your Work companies, so a message can&apos;t reach them from here. Invite them to Work, or message them in Boards chat.</p>
+        ) : !places.length ? (
+          <p role="alert" className="rounded-lg border border-dashed border-border px-3 py-4 text-[13px] text-muted-foreground">{person.firstName} isn&apos;t in a company you are both in, so a message can&apos;t reach them from here.</p>
         ) : (
           <>
-            {reach.length > 1 && (
+            {places.length > 1 && (
               <label className="text-[12px] font-medium text-muted-foreground">Send through
                 <select aria-label="Send through" value={ws} onChange={(e) => setWs(e.target.value)} className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground">
-                  {reach.map((r) => <option key={r.uid} value={r.uid}>{r.name}</option>)}
+                  {places.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
                 </select>
               </label>
             )}

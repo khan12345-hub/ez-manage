@@ -432,7 +432,7 @@ export class CeoAiService {
         for (const id of ids) {
           const p = await this.tower.person(userId, id).catch(() => null);
           if (!p) throw new BadRequestException(`Person ${id} is not in your companies.`);
-          people.push({ id, name: name2(p.user), reachable: p.reach.length > 0 });
+          people.push({ id, name: name2(p.user), reachable: p.reach.length + p.boardsReach.length > 0 });
         }
         const a = await this.prisma.ceoAiAction.create({ data: { conversationId, userId, kind: 'message', payload: { people, text } } });
         return { actionId: a.id, status: 'proposed — waiting for the CEO to confirm', recipients: people.map((p) => p.name), not_reachable: people.filter((p) => !p.reachable).map((p) => p.name) };
@@ -522,11 +522,8 @@ export class CeoAiService {
         const sent: string[] = [], failed: { name: string; reason: string }[] = [];
         for (const person of p.people as { id: number; name: string }[]) {
           try {
-            const info = await this.tower.person(userId, person.id);
-            if (!info.reach.length) throw new Error('not in any of your Work companies');
-            const ws = await this.prisma.workWorkspace.findUniqueOrThrow({ where: { uid: info.reach[0].uid }, select: { id: true } });
-            const dm = await this.chat.dm(ws.id, userId, [person.id]);
-            await this.chat.send(dm.uid, userId, { content: p.text });
+            // Work chat when you share a Work company, otherwise their Boards chat
+            await this.comms.message(userId, person.id, p.text);
             sent.push(person.name);
           } catch (e) {
             failed.push({ name: person.name, reason: (e as any)?.response?.message ?? (e as Error).message });

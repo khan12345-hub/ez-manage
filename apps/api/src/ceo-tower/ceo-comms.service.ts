@@ -3,6 +3,11 @@ import { PrismaService } from 'prisma/prisma.service';
 import { MailService } from 'src/mail/mail.service';
 import { CeoMeetingService } from 'src/ceo-assistant/services/ceo-meeting.service';
 import { CeoTowerService } from './ceo-tower.service';
+import { WorkChatService } from 'src/work/work-chat.service';
+import { ChatService } from 'src/chat/chat.service';
+import { ChatGateway } from 'src/chat/chat.gateway';
+
+const escapeHtml = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
@@ -19,6 +24,9 @@ export class CeoCommsService {
     private readonly tower: CeoTowerService,
     private readonly meetings: CeoMeetingService,
     private readonly mail: MailService,
+    private readonly workChat: WorkChatService,
+    private readonly boardsChat: ChatService,
+    private readonly boardsGateway: ChatGateway,
   ) {}
 
   /** every person in the CEO's companies */
@@ -154,5 +162,38 @@ export class CeoCommsService {
     if (!m) throw new NotFoundException('Meeting not found');
     if (m.cancelledAt) throw new BadRequestException('This meeting is already cancelled.');
     return this.meetings.cancelMeeting(userId, id);
+  }
+
+  // ---------- direct message, through whichever product reaches the person ----------
+
+  /**
+   * Message one person as the CEO: Work chat when you share a Work company, otherwise their
+   * Boards chat DM (for people who are only in Boards). `via` picks a company: "work:<id>" / "boards:<id>".
+   */
+  async message(userId: number, personId: number, text: string, via?: string) {
+    const body = (text ?? '').trim();
+    if (!body) throw new BadRequestException('Write a message.');
+    if (body.length > 20000) throw new BadRequestException('Keep the message under 20,000 characters.');
+    if (personId === userId) throw new BadRequestException('That is you.');
+    const info = await this.tower.person(userId, personId);
+    const work = via?.startsWith('work:') ? info.reach.find((r) => r.key === via) : !via ? info.reach[0] : undefined;
+    const boards = via?.startsWith('boards:') ? info.boardsReach.find((r) => r.key === via) : !via && !work ? info.boardsReach[0] : undefined;
+    if (work) {
+      const ws = await this.prisma.workWorkspace.findUniqueOrThrow({ where: { uid: work.uid }, select: { id: true } });
+      const dm = await this.workChat.dm(ws.id, userId, [personId]);
+      await this.workChat.send(dm.uid, userId, { content: body });
+      return { product: 'work' as const, via: work.name, href: `/work/${work.uid}/chat/${dm.uid}` };
+    }
+    if (boards) {
+      const dm = await this.boardsChat.getOrCreateDM(userId, personId, boards.id);
+      this.boardsGateway.addSocketToChannel(userId, dm.id);
+      this.boardsGateway.addSocketToChannel(personId, dm.id);
+      this.boardsGateway.notifyNewDM(personId, dm);
+      const html = `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>`;
+      const msg = await this.boardsChat.saveMessage(dm.id, userId, html);
+      await this.boardsGateway.deliverNew(msg, userId);
+      return { product: 'boards' as const, via: boards.name, href: `/workspace/${boards.uid}/chat` };
+    }
+    throw new BadRequestException(`${info.user.firstName} isn't in a company you are both in, so a message can't reach them.`);
   }
 }
