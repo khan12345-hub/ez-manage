@@ -9,6 +9,7 @@ import { WorkDocsService } from './work-docs.service';
 import { WorkFormsService } from './work-forms.service';
 import { WorkAiService } from './work-ai.service';
 import { WorkLinksService } from './work-links.service';
+import { WorkWhiteboardsService } from './work-whiteboards.service';
 import { Headers } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from 'src/auth/decorators/public.decorator';
@@ -25,6 +26,7 @@ export class WorkModulesController {
     private readonly forms: WorkFormsService,
     private readonly ai: WorkAiService,
     private readonly links: WorkLinksService,
+    private readonly boards: WorkWhiteboardsService,
   ) {}
 
   // ── timesheets ──
@@ -233,5 +235,31 @@ export class WorkModulesController {
   @Post('public/inbound-email')
   inboundEmail(@Query('key') key: string, @Headers('x-inbound-secret') header: string, @Body() b: Record<string, any>) {
     return this.links.inbound(header || key, b ?? {});
+  }
+
+  // ── whiteboards ──
+  @Get('workspaces/:workspaceId/whiteboards')
+  async listBoards(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.boards.list(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Post('workspaces/:workspaceId/whiteboards')
+  async createBoard(@Param('workspaceId') ws: string, @Body() b: { title?: string }, @CurrentUser() u: SessionUser) {
+    return this.boards.create(await this.work.resolveWorkspaceId(ws), u.id, b?.title);
+  }
+
+  @Get('whiteboards/:id')
+  whiteboard(@Param('id') id: string, @CurrentUser() u: SessionUser) {
+    return this.boards.get(id, u.id);
+  }
+
+  @Patch('whiteboards/:id')
+  updateBoard(@Param('id') id: string, @Body() b: { title?: string; data?: unknown }, @CurrentUser() u: SessionUser) {
+    return this.boards.update(id, u.id, b ?? {});
+  }
+
+  @Delete('whiteboards/:id')
+  archiveBoard(@Param('id') id: string, @CurrentUser() u: SessionUser) {
+    return this.boards.archive(id, u.id);
   }
 }
