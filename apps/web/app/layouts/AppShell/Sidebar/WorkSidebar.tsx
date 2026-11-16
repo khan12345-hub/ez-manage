@@ -36,6 +36,7 @@ import {
   MessageSquare,
   Orbit,
   UsersRound,
+  Timer,
   PenTool,
   Search,
   SquareCheckBig,
@@ -106,6 +107,7 @@ const MORE_PAGES = [
   { id: "spaces", label: "All Spaces", path: "spaces", icon: Orbit },
   { id: "all-tasks", label: "All Tasks", path: "all-tasks", icon: ListChecks },
   { id: "teams", label: "Teams", path: "teams", icon: UsersRound },
+  { id: "timesheets", label: "Timesheets", path: "timesheets", icon: Timer },
 ];
 
 const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13.5px] transition-colors";
