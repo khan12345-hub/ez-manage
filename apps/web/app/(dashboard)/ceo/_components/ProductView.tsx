@@ -14,7 +14,7 @@ function Stats({ s, people }: { s: CeoStats; people?: number }) {
       <span title="Open">{s.open} open</span>
       <span title="Overdue" className={cn(s.overdue ? "font-semibold text-destructive" : "text-muted-foreground")}>{s.overdue} overdue</span>
       <span title="Working on" className="hidden text-muted-foreground sm:inline">{s.inProgress} working</span>
-      {people !== undefined && <span className="hidden text-muted-foreground md:inline">{people} people</span>}
+      {people !== undefined && <span className="hidden text-muted-foreground md:inline">{people} {people === 1 ? "person" : "people"}</span>}
       <span className="flex w-28 items-center gap-1.5"><span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: `${s.progress}%` }} /></span><span className="w-8 text-right text-muted-foreground">{s.progress}%</span></span>
     </span>
   );
@@ -50,7 +50,7 @@ export function ProductView({ product, company, companies }: { product: "boards"
         <section key={c.key} aria-label={c.name} className="rounded-2xl border border-border bg-card">
           <header className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest text-brass-soft">{product === "work" ? <ListChecks className="h-4.5 w-4.5" /> : <LayoutGrid className="h-4.5 w-4.5" />}</span>
-            <span className="min-w-0 flex-1"><span className="block truncate font-serif text-[20px] leading-tight">{c.name}</span><span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">{product === "work" ? `${c.spaces.length} spaces` : `${c.boards.length} boards`}</span></span>
+            <span className="min-w-0 flex-1"><span className="block truncate font-serif text-[20px] leading-tight">{c.name}</span><span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">{product === "work" ? `${c.spaces.length} ${c.spaces.length === 1 ? "space" : "spaces"}` : `${c.boards.length} ${c.boards.length === 1 ? "board" : "boards"}`}</span></span>
             <Stats s={c.stats} />
             <Link href={product === "work" ? `/work/${c.uid}` : `/workspace/${c.uid}`} className="flex items-center gap-1 text-[12.5px] font-semibold text-primary hover:underline">Open <ArrowUpRight className="h-3.5 w-3.5" /></Link>
           </header>

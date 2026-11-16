@@ -302,7 +302,8 @@ export function AppShell({ children }: AppShellProps) {
               <CallToast />
               <CallDeclinedToast />
               <GlobalLiveKitPanel />
-              <PushPermissionBanner top={isWorkPage} corner={isCeoPage} />
+              {/* CEO Tower is a full-screen dashboard: the prompt covered its inputs — alerts are switched on from Home / Boards / Work */}
+              {!isCeoPage && <PushPermissionBanner top={isWorkPage} />}
             </NotificationStreamProvider>
           </ImportJobProvider>
         </ChatProvider>

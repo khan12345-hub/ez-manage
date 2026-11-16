@@ -131,7 +131,7 @@ export default function CeoTowerPage() {
               <KeyRound className="h-3.5 w-3.5 text-[#b08d57]" /> Access
             </button>
           )}
-          <span className="flex items-center gap-2 border-l border-border pl-3">
+          <span className="flex items-center gap-2 sm:border-l sm:border-border sm:pl-3">
             {user && <Avatar user={{ id: user.id, firstName: user.firstName, lastName: user.lastName, avatarUrl: (user as any).avatarUrl ?? null, email: user.email } as any} size={30} />}
             <span className="hidden 2xl:block"><span className="block text-[13px] font-semibold leading-tight">{user?.firstName} {user?.lastName}</span><span className="block text-[11px] text-muted-foreground">{access.canShare ? "Owner" : access.sharedBy.length ? `Shared by ${access.sharedBy.map((o) => o.name).join(", ")}` : "Shared"} · {data ? `${data.owned.boards + data.owned.work} companies` : "…"}</span></span>
           </span>
