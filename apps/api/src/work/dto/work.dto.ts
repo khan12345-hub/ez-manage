@@ -111,6 +111,12 @@ export class UpdateTaskDto {
   /** replaces the task's tags; tags must belong to the task's space */
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsInt({ each: true }) tagIds?: number[];
   @IsOptional() @IsNumber() order?: number;
+  /** repeat when completed: { freq: DAILY|WEEKLY|MONTHLY|YEARLY, interval: 1-365, until?: YYYY-MM-DD } — null stops it */
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsObject() recurrence?: { freq: string; interval?: number; until?: string | null } | null;
+  /** sprint the task is planned in (same workspace), or null */
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() sprintId?: number | null;
+  /** story points */
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(0) @Max(1000) points?: number | null;
 }
 
 export class CreateCommentDto {

@@ -22,6 +22,7 @@ import {
   PanelRight,
   Paperclip,
   Plus,
+  Repeat,
   SquareStack,
   Tag as TagIcon,
   Timer,
@@ -43,6 +44,7 @@ import { ThreadView } from "./ThreadView";
 import { TaskMenu } from "./TaskMenu";
 import { TaskListsControl, type PickMode } from "./TaskLists";
 import { mineKey } from "./CommentActions";
+import { RepeatField } from "./RepeatField";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
 
@@ -382,6 +384,9 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                         <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent">{task.dueDate ? <DueLabel task={task} /> : <span className="text-muted-foreground">Due</span>}</button>
                       </DatePicker>
                     </span>
+                  </Prop>
+                  <Prop icon={Repeat} label="Repeat">
+                    <RepeatField value={task.recurrence ?? null} disabled={!canEdit} hasDue={!!task.dueDate} onChange={(r) => update({ recurrence: r })} />
                   </Prop>
                   <Prop icon={Flag} label="Priority">
                     <PriorityPicker value={task.priority} disabled={!canEdit} onChange={(p) => update({ priority: p })}>

@@ -86,7 +86,14 @@ export interface WorkTask {
   tags: WorkTag[];
   subtaskCount: number;
   commentCount: number;
+  /** repeat when completed */
+  recurrence?: WorkRecurrence | null;
+  recurredFromId?: number | null;
+  sprintId?: number | null;
+  points?: number | null;
 }
+
+export type WorkRecurrence = { freq: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"; interval: number; until?: string | null };
 
 export interface WorkTag {
   id: number;
@@ -252,6 +259,9 @@ export interface TaskInput {
   order?: number;
   timeEstimate?: number | null;
   tagIds?: number[];
+  recurrence?: WorkRecurrence | null;
+  sprintId?: number | null;
+  points?: number | null;
 }
 
 /* ─── calls ────────────────────────────────────────────────────────────── */

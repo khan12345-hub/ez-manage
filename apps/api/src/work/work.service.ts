@@ -4,7 +4,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { WorkAccessService } from './work-access.service';
 import { WorkDetailService } from './work-detail.service';
 import { ATTACHMENT_SELECT, WorkFilesService } from './work-files.service';
-import { NotificationType } from 'generated/prisma/client';
+import { NotificationType, Prisma } from 'generated/prisma/client';
 import {
   CreateCommentDto,
   CreateFolderDto,
@@ -54,6 +54,10 @@ const TASK_SELECT = {
   createdAt: true,
   updatedAt: true,
   createdById: true,
+  recurrence: true,
+  recurredFromId: true,
+  sprintId: true,
+  points: true,
   assignees: { select: { user: { select: USER_MINI } } },
   tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
   _count: { select: { subtasks: { where: { archivedAt: null } }, comments: { where: { deletedAt: null } } } },
@@ -600,12 +604,17 @@ export class WorkService {
     }
 
     await this.assertAssignable(access.workspaceId, dto.assigneeIds);
+    const recurrence = dto.recurrence === undefined ? undefined : this.cleanRecurrence(dto.recurrence);
+    if (dto.sprintId) {
+      const sp = await this.prisma.workSprint.findFirst({ where: { id: dto.sprintId, workspaceId: access.workspaceId }, select: { id: true } });
+      if (!sp) throw new BadRequestException('That sprint is not in this workspace.');
+    }
 
     // snapshot for the activity history
     const before = await this.prisma.workTask.findUnique({
       where: { id: taskId },
       select: {
-        name: true, priority: true, startDate: true, dueDate: true, timeEstimate: true, statusId: true, listId: true,
+        name: true, priority: true, startDate: true, dueDate: true, timeEstimate: true, statusId: true, listId: true, completedAt: true,
         status: { select: { name: true } },
         list: { select: { name: true, spaceId: true } },
         assignees: { select: { userId: true } },
@@ -650,6 +659,9 @@ export class WorkService {
           ...(dto.dueDate !== undefined && { dueDate: toDate(dto.dueDate) }),
           ...(dto.order !== undefined && { order: dto.order }),
           ...(dto.timeEstimate !== undefined && { timeEstimate: dto.timeEstimate }),
+          ...(recurrence !== undefined && { recurrence: recurrence === null ? Prisma.DbNull : recurrence }),
+          ...(dto.sprintId !== undefined && { sprintId: dto.sprintId }),
+          ...(dto.points !== undefined && { points: dto.points }),
           ...(listId !== task.listId && { listId, parentId: null }),
           ...(statusId !== undefined && { statusId }),
           // completedAt only changes when the status group actually changes
@@ -675,6 +687,8 @@ export class WorkService {
         event: 'status', from: from?.name ?? null, fromColor: from?.color ?? null, to: to?.name ?? null, toColor: to?.color ?? null,
       });
       await this.emit({ type: 'status_changed', taskId, actorId: userId, from: from?.name ?? null, to: to?.name ?? null }, opts);
+      // a repeating task that was just completed: the next one is created
+      if (!before.completedAt && updated.completedAt) await this.repeatTask(taskId, userId).catch(() => null);
     }
     if (before && !opts?.fromAutomation) {
       if (dto.assigneeIds) {
@@ -687,6 +701,75 @@ export class WorkService {
       if (listId !== task.listId) await this.emit({ type: 'task_moved', taskId, actorId: userId }, opts);
     }
     return shapeTask(updated);
+  }
+
+  // ---------- recurring tasks ----------
+
+  private cleanRecurrence(r: UpdateTaskDto['recurrence']) {
+    if (r === null) return null;
+    const freq = String(r?.freq ?? '').toUpperCase();
+    if (!['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].includes(freq)) throw new BadRequestException('Repeat must be daily, weekly, monthly or yearly.');
+    const interval = Number(r?.interval ?? 1);
+    if (!Number.isInteger(interval) || interval < 1 || interval > 365) throw new BadRequestException('Repeat every 1 to 365.');
+    const until = r?.until ? String(r.until) : null;
+    if (until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) throw new BadRequestException('End date must look like 2026-12-31.');
+    return { freq, interval, ...(until ? { until } : {}) };
+  }
+
+  private nextDate(d: Date, r: { freq: string; interval: number }) {
+    const x = new Date(d);
+    if (r.freq === 'DAILY') x.setUTCDate(x.getUTCDate() + r.interval);
+    else if (r.freq === 'WEEKLY') x.setUTCDate(x.getUTCDate() + 7 * r.interval);
+    else if (r.freq === 'MONTHLY') x.setUTCMonth(x.getUTCMonth() + r.interval);
+    else x.setUTCFullYear(x.getUTCFullYear() + r.interval);
+    return x;
+  }
+
+  /**
+   * ClickUp-style repeat: when a repeating task is completed, a fresh copy is created with its dates
+   * moved on, the same people, priority, tags, estimate and points, in the list's first "to do" status.
+   * The repeat moves to the copy, so reopening and re-completing the old one can't make a duplicate.
+   */
+  async repeatTask(taskId: number, userId: number) {
+    const t = await this.prisma.workTask.findUnique({
+      where: { id: taskId },
+      select: {
+        name: true, description: true, priority: true, listId: true, parentId: true, startDate: true, dueDate: true, timeEstimate: true,
+        recurrence: true, createdById: true, points: true,
+        list: { select: { id: true, folderId: true, spaceId: true } },
+        assignees: { select: { userId: true } }, tags: { select: { tagId: true } },
+      },
+    });
+    const r = t?.recurrence as { freq: string; interval: number; until?: string } | null;
+    if (!t || !r?.freq) return null;
+    const base = t.dueDate ?? new Date();
+    const due = this.nextDate(base, r);
+    if (r.until && +due > +new Date(`${r.until}T23:59:59Z`)) {
+      await this.prisma.workTask.update({ where: { id: taskId }, data: { recurrence: Prisma.DbNull } });
+      return null;
+    }
+    const start = t.startDate ? new Date(+t.startDate + (+due - +base)) : null;
+    const statuses = await this.effectiveStatuses(t.list);
+    const first = statuses.find((s: any) => s.category === 'NOT_STARTED') ?? statuses[0];
+    const last = await this.prisma.workTask.findFirst({ where: { listId: t.listId, parentId: t.parentId }, orderBy: { order: 'desc' }, select: { order: true } });
+    const copy = await this.prisma.$transaction(async (tx) => {
+      await tx.workTask.update({ where: { id: taskId }, data: { recurrence: Prisma.DbNull } });
+      return tx.workTask.create({
+        data: {
+          uid: uid(), listId: t.listId, parentId: t.parentId, name: t.name, description: t.description, priority: t.priority,
+          startDate: start, dueDate: due, timeEstimate: t.timeEstimate, points: t.points, statusId: first?.id ?? null,
+          createdById: t.createdById, recurrence: r, recurredFromId: taskId, order: (last?.order ?? 0) + 1000,
+          assignees: { create: t.assignees.map((a) => ({ userId: a.userId })) },
+          tags: { create: t.tags.map((x) => ({ tagId: x.tagId })) },
+        },
+        select: TASK_SELECT,
+      });
+    });
+    await this.detail.log(copy.id, userId, 'created');
+    if (t.assignees.length) {
+      await this.files.notify(copy.id, userId, t.assignees.map((a) => a.userId), NotificationType.TASK_ASSIGNED, 'Repeating task', `"${copy.name}" is due again on ${due.toISOString().slice(0, 10)}.`, { event: 'assigned' });
+    }
+    return shapeTask(copy);
   }
 
   /** Write one history row per changed field. */

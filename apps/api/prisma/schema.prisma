@@ -1587,22 +1587,29 @@ model WorkTask {
   dependsOn   WorkTaskLink[]  @relation("WorkLinkFrom")
   dependedBy  WorkTaskLink[]  @relation("WorkLinkTo")
 
-  list         WorkList              @relation(fields: [listId], references: [id], onDelete: Cascade)
-  status       WorkStatus?           @relation(fields: [statusId], references: [id], onDelete: SetNull)
-  parent       WorkTask?             @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks     WorkTask[]            @relation("WorkSubtasks")
-  createdBy    User                  @relation("WorkTaskCreator", fields: [createdById], references: [id])
-  assignees    WorkTaskAssignee[]
-  comments     WorkComment[]
-  attachments  WorkAttachment[]
-  webLinks     WorkWebLink[]
-  fieldValues  WorkFieldValue[]
-  reminders    WorkReminder[]
-  watches      WorkTaskWatch[]
-  priorities   WorkProfilePriority[]
-  favorites    WorkFavorite[]
-  extraLists   WorkTaskList[]
-  chatMessages WorkChatMessage[]     @relation("WorkChatTask")
+  list           WorkList              @relation(fields: [listId], references: [id], onDelete: Cascade)
+  status         WorkStatus?           @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  parent         WorkTask?             @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks       WorkTask[]            @relation("WorkSubtasks")
+  createdBy      User                  @relation("WorkTaskCreator", fields: [createdById], references: [id])
+  assignees      WorkTaskAssignee[]
+  comments       WorkComment[]
+  attachments    WorkAttachment[]
+  webLinks       WorkWebLink[]
+  fieldValues    WorkFieldValue[]
+  reminders      WorkReminder[]
+  watches        WorkTaskWatch[]
+  priorities     WorkProfilePriority[]
+  favorites      WorkFavorite[]
+  extraLists     WorkTaskList[]
+  chatMessages   WorkChatMessage[]     @relation("WorkChatTask")
+  /// repeat when completed: { freq: DAILY|WEEKLY|MONTHLY|YEARLY, interval, until? } — the next copy takes it over
+  recurrence     Json?
+  /// the task this one was repeated from
+  recurredFromId Int?
+  /// sprint this task is planned in, and its story points
+  sprintId       Int?
+  points         Int?
 
   @@index([listId, order])
   @@index([statusId])
@@ -2486,4 +2493,113 @@ model CeoReportLine {
   @@id([workspaceId, userId])
   @@index([managerId])
   @@map("ceo_report_lines")
+}
+
+/// Work sprints: a time box of tasks in a workspace (optionally one space).
+model WorkSprint {
+  id          Int       @id @default(autoincrement())
+  workspaceId Int
+  spaceId     Int?
+  name        String
+  goal        String?
+  startDate   DateTime
+  endDate     DateTime
+  /// PLANNED | ACTIVE | DONE
+  status      String    @default("PLANNED")
+  completedAt DateTime?
+  createdById Int
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId, status])
+  @@map("work_sprints")
+}
+
+/// Work goals with measurable targets.
+model WorkGoal {
+  id          Int       @id @default(autoincrement())
+  workspaceId Int
+  name        String
+  description String?
+  color       String    @default("#047857")
+  ownerId     Int
+  dueDate     DateTime?
+  createdById Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
+  @@map("work_goals")
+}
+
+/// A goal target: NUMBER / CURRENCY / TRUE_FALSE (manual) or TASKS (share of a list done).
+model WorkGoalTarget {
+  id        Int      @id @default(autoincrement())
+  goalId    Int
+  name      String
+  kind      String
+  startVal  Float    @default(0)
+  targetVal Float    @default(1)
+  current   Float    @default(0)
+  unit      String?
+  listId    Int?
+  createdAt DateTime @default(now())
+
+  @@index([goalId])
+  @@map("work_goal_targets")
+}
+
+/// Work docs: rich text pages in a workspace (optionally a space), nested.
+model WorkDoc {
+  id          Int       @id @default(autoincrement())
+  uid         String    @unique
+  workspaceId Int
+  spaceId     Int?
+  parentId    Int?
+  title       String
+  content     String    @default("") @db.Text
+  createdById Int
+  updatedById Int
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId, spaceId])
+  @@map("work_docs")
+}
+
+/// Work forms: a public / internal form whose answers become tasks in a list.
+model WorkForm {
+  id          Int      @id @default(autoincrement())
+  uid         String   @unique
+  workspaceId Int
+  listId      Int
+  name        String
+  description String?
+  /// [{ id, label, type: text|textarea|email|number|date|select, required, options? , maps?: name|description|dueDate|priority }]
+  fields      Json
+  active      Boolean  @default(true)
+  createdById Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  submissions Int      @default(0)
+
+  @@index([workspaceId])
+  @@map("work_forms")
+}
+
+/// Work whiteboards: shapes, notes and arrows on a canvas (stored as JSON).
+model WorkWhiteboard {
+  id          Int       @id @default(autoincrement())
+  uid         String    @unique
+  workspaceId Int
+  title       String
+  data        Json
+  createdById Int
+  updatedById Int
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
+  @@map("work_whiteboards")
 }
