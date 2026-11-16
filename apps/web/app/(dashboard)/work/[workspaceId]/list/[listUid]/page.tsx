@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BarChart3, CalendarDays, Columns3, LayoutGrid, List as ListIcon, Plus, Table2, X } from "lucide-react";
+import { BarChart3, CalendarDays, Columns3, LayoutGrid, List as ListIcon, Plus, Table2, X, GanttChartSquare, CalendarRange, Gauge } from "lucide-react";
 import { LocationDashboard } from "../../../_components/Dashboard";
 import { trackPlace } from "../../../_components/recent";
 import { AutomateButton } from "../../../_components/Automations";
@@ -16,6 +16,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { ListView } from "../../../_components/ListView";
 import { BoardView } from "../../../_components/BoardView";
 import { CalendarView } from "../../../_components/CalendarView";
+import { GanttView, WorkloadView } from "../../../_components/GanttView";
 import { TaskDrawer } from "../../../_components/TaskDrawer";
 import { useListTasks, useWorkList } from "../../../_components/hooks";
 import { ListToolbar } from "../../../_components/ListToolbar";
@@ -30,6 +31,9 @@ const VIEW_META: Record<View, { label: string; icon: typeof ListIcon }> = {
   table: { label: "Table", icon: Table2 },
   gallery: { label: "Gallery", icon: LayoutGrid },
   dashboard: { label: "Dashboard", icon: BarChart3 },
+  gantt: { label: "Gantt", icon: GanttChartSquare },
+  timeline: { label: "Timeline", icon: CalendarRange },
+  workload: { label: "Workload", icon: Gauge },
 };
 const BASE_VIEWS: View[] = ["list", "board", "calendar"];
 const viewsKey = (uid: string) => `ez:work:views:${uid}`;
@@ -241,6 +245,10 @@ function ListPageInner() {
           <CalendarView list={list} tasks={shown} onOpenTask={openTask} />
         ) : view === "dashboard" ? (
           <LocationDashboard kind="list" uid={listUid} onOpenTask={openTask} />
+        ) : view === "gantt" || view === "timeline" ? (
+          <GanttView list={list} tasks={shown} onOpenTask={openTask} groupByPerson={view === "timeline"} />
+        ) : view === "workload" ? (
+          <WorkloadView list={list} tasks={shown} onOpenTask={openTask} />
         ) : view === "gallery" ? (
           <GalleryView list={list} tasks={shown} onOpenTask={openTask} />
         ) : view === "table" ? (

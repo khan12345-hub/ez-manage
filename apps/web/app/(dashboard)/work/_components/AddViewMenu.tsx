@@ -28,12 +28,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-export type WorkView = "list" | "board" | "calendar" | "table" | "gallery" | "dashboard";
+export type WorkView = "list" | "board" | "calendar" | "table" | "gallery" | "dashboard" | "gantt" | "timeline" | "workload";
 
 type Item = { id: string; label: string; hint: string; icon: typeof ListIcon; color: string; ready?: WorkView };
 const POPULAR: Item[] = [
   { id: "list", label: "List", hint: "Track tasks, bugs, people & more", icon: ListIcon, color: "#475569", ready: "list" },
-  { id: "gantt", label: "Gantt", hint: "Plan dependencies & time", icon: GanttChart, color: "#DC2626" },
+  { id: "gantt", label: "Gantt", hint: "Plan dependencies & time", icon: GanttChart, color: "#DC2626", ready: "gantt" },
   { id: "calendar", label: "Calendar", hint: "Plan, schedule & delegate", icon: CalendarDays, color: "#EA580C", ready: "calendar" },
   { id: "doc", label: "Doc", hint: "Collaborate & document anything", icon: FileText, color: "#2563EB" },
   { id: "board", label: "Board – Kanban", hint: "Move tasks between columns", icon: Columns3, color: "#2563EB", ready: "board" },
@@ -44,9 +44,9 @@ const POPULAR: Item[] = [
 const MORE: Item[] = [
   { id: "table", label: "Table", hint: "Structured table format", icon: Table2, color: "#16A34A", ready: "table" },
   { id: "whiteboard", label: "Whiteboard", hint: "Visualize & brainstorm ideas", icon: PenTool, color: "#CA8A04" },
-  { id: "timeline", label: "Timeline", hint: "See tasks by start & due date", icon: CalendarRange, color: "#EA580C" },
+  { id: "timeline", label: "Timeline", hint: "See tasks by start & due date", icon: CalendarRange, color: "#EA580C", ready: "timeline" },
   { id: "activity", label: "Activity", hint: "Real-time activity feed", icon: Activity, color: "#0284C7" },
-  { id: "workload", label: "Workload", hint: "Visualize team capacity", icon: BarChart3, color: "#0D9488" },
+  { id: "workload", label: "Workload", hint: "Visualize team capacity", icon: BarChart3, color: "#0D9488", ready: "workload" },
   { id: "mindmap", label: "Mind Map", hint: "Visual brainstorming of ideas", icon: GitFork, color: "#DB2777" },
   { id: "team", label: "Team", hint: "Monitor work being done", icon: Users, color: "#9333EA" },
   { id: "map", label: "Map", hint: "Tasks visualized by address", icon: Map, color: "#EA580C" },
