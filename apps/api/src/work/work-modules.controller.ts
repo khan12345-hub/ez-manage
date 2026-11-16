@@ -7,6 +7,7 @@ import { WorkSprintsService } from './work-sprints.service';
 import { WorkGoalsService } from './work-goals.service';
 import { WorkDocsService } from './work-docs.service';
 import { WorkFormsService } from './work-forms.service';
+import { WorkAiService } from './work-ai.service';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from 'src/auth/decorators/public.decorator';
 
@@ -20,6 +21,7 @@ export class WorkModulesController {
     private readonly goals: WorkGoalsService,
     private readonly docs: WorkDocsService,
     private readonly forms: WorkFormsService,
+    private readonly ai: WorkAiService,
   ) {}
 
   // ── timesheets ──
@@ -164,5 +166,23 @@ export class WorkModulesController {
   @Post('public/forms/:uid')
   submitForm(@Param('uid') uid: string, @Body() b: { answers?: Record<string, unknown> }) {
     return this.forms.submit(uid, b?.answers ?? {});
+  }
+
+  // ── Work AI ──
+  @Get('ai/status')
+  aiStatus() {
+    return this.ai.status();
+  }
+
+  @Post('tasks/:id/ai')
+  @Throttle({ auth: { ttl: 60_000, limit: 20 } })
+  taskAi(@Param('id', ParseIntPipe) id: number, @Body() b: { action?: string }, @CurrentUser() u: SessionUser) {
+    return this.ai.forTask(id, u.id, String(b?.action ?? ''));
+  }
+
+  @Post('workspaces/:workspaceId/ai/ask')
+  @Throttle({ auth: { ttl: 60_000, limit: 20 } })
+  async askAi(@Param('workspaceId') ws: string, @Body() b: { question?: string }, @CurrentUser() u: SessionUser) {
+    return this.ai.ask(await this.work.resolveWorkspaceId(ws), u.id, String(b?.question ?? ''));
   }
 }

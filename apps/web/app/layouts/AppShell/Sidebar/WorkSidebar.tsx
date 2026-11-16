@@ -40,6 +40,7 @@ import {
   Zap,
   Goal,
   ClipboardList,
+  Sparkles,
   PenTool,
   Search,
   SquareCheckBig,
@@ -115,6 +116,7 @@ const MORE_PAGES = [
   { id: "goals", label: "Goals", path: "goals", icon: Goal },
   { id: "docs", label: "Docs", path: "docs", icon: FileText },
   { id: "forms", label: "Forms", path: "forms", icon: ClipboardList },
+  { id: "ai", label: "Ask AI", path: "ai", icon: Sparkles },
 ];
 
 const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13.5px] transition-colors";

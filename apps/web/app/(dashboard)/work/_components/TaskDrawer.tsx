@@ -45,6 +45,7 @@ import { TaskMenu } from "./TaskMenu";
 import { TaskListsControl, type PickMode } from "./TaskLists";
 import { mineKey } from "./CommentActions";
 import { RepeatField } from "./RepeatField";
+import { TaskAi } from "./TaskAi";
 
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
 
@@ -405,6 +406,7 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                 </dl>
 
                 <DescriptionSection task={task} onSave={(d) => update({ description: d })} />
+                <TaskAi task={task} canEdit={canEdit} onDescription={(d) => update({ description: d })} />
                 <div id="task-custom-fields" />
                 <CustomFieldsSection taskId={task.id} listId={task.listId} spaceId={task.list.spaceId} members={members} canEdit={canEdit} canManage={task.access.canManage} />
 
