@@ -12,12 +12,13 @@ import { CommentsModule } from 'src/comments/comments.module';
 import { CellsModule } from 'src/cells/cells.module';
 import { BoardAccessService } from 'src/boards/board-access.service';
 import { CeoTaskService } from './ceo-task.service';
+import { CeoDigestService } from './ceo-digest.service';
 
 /** CEO Tower — a read-only view across the Boards and Work companies a person owns. */
 @Module({
   imports: [WorkModule, MailModule, CeoAssistantModule, NotificationsModule, ChatModule, CommentsModule, CellsModule],
   controllers: [CeoTowerController],
-  providers: [CeoTowerService, CeoAiService, CeoCommsService, CeoTaskService, BoardAccessService],
+  providers: [CeoTowerService, CeoAiService, CeoCommsService, CeoTaskService, CeoDigestService, BoardAccessService],
   exports: [CeoTowerService],
 })
 export class CeoTowerModule {}

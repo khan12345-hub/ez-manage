@@ -24,7 +24,11 @@ const dateOf = (v: any): string | null => {
 
 export type Source = 'boards' | 'work';
 type Person = { id: number; firstName: string; lastName: string; avatarUrl: string | null };
-export type CeoTaskComment = { id: number; parentId: number | null; user: Person | null; text: string; createdAt: Date };
+export type CeoTaskFile = { name: string; mime: string; url: string };
+export type CeoTaskComment = { id: number; parentId: number | null; user: Person | null; text: string; createdAt: Date; files: CeoTaskFile[] };
+const FILE = { select: { fileName: true, mimeType: true, url: true } } as const;
+/** files CEO Tower accepts on an instruction: images, PDF, Office, text, audio (voice notes) */
+export const CEO_FILE_TYPES = /^(image\/(png|jpe?g|gif|webp)|application\/pdf|text\/(plain|csv)|audio\/(webm|ogg|mpeg|mp4|wav|x-m4a)|video\/webm|application\/(msword|vnd\.openxmlformats-officedocument\.[\w.]+|vnd\.ms-excel|vnd\.ms-powerpoint))(;.*)?$/;
 export type CeoTaskDetail = {
   source: Source; id: number; uid: string; name: string; description: string | null;
   company: { key: string; name: string }; where: string; href: string;
@@ -80,7 +84,7 @@ export class CeoTaskService {
     if (!t) throw new NotFoundException('That task is not in your companies.');
     const [statuses, comments] = await Promise.all([
       this.work.effectiveStatuses({ id: t.list.id, folderId: t.list.folderId, spaceId: t.list.spaceId }),
-      this.prisma.workComment.findMany({ where: { taskId: t.id, deletedAt: null }, orderBy: { createdAt: 'asc' }, take: 300, select: { id: true, parentId: true, content: true, createdAt: true, user: { select: USER_MINI } } }),
+      this.prisma.workComment.findMany({ where: { taskId: t.id, deletedAt: null }, orderBy: { createdAt: 'asc' }, take: 300, select: { id: true, parentId: true, content: true, createdAt: true, user: { select: USER_MINI }, attachments: { select: { file: FILE } } } }),
     ]);
     const ws = own.work.find((w) => w.id === t.list.space.workspaceId)!;
     const members = await this.prisma.workMember.findMany({ where: { workspaceId: ws.id, user: { deletedAt: null } }, orderBy: { createdAt: 'asc' }, select: { user: { select: USER_MINI } } });
@@ -94,7 +98,7 @@ export class CeoTaskService {
       statuses: (statuses as any[]).map((s) => ({ id: s.id, label: s.name, color: s.color, category: s.category })),
       priority: t.priority ?? null, due: t.dueDate ? t.dueDate.toISOString().slice(0, 10) : null, done: !!t.completedAt,
       createdAt: t.createdAt, createdBy: t.createdBy, assignees: t.assignees.map((a) => a.user),
-      comments: comments.map((c) => ({ id: c.id, parentId: c.parentId, user: c.user, text: c.content, createdAt: c.createdAt })),
+      comments: comments.map((c) => ({ id: c.id, parentId: c.parentId, user: c.user, text: c.content, createdAt: c.createdAt, files: c.attachments.map((a) => ({ name: a.file.fileName, mime: a.file.mimeType, url: a.file.url })) })),
     };
   }
 
@@ -131,7 +135,7 @@ export class CeoTaskService {
     const personIds = ((cell(cols.person?.id)?.users ?? []) as any[]).map((u) => Number(u?.id)).filter(Number.isInteger);
     const [people, comments] = await Promise.all([
       personIds.length ? this.prisma.user.findMany({ where: { id: { in: personIds } }, select: USER_MINI }) : [],
-      this.prisma.taskComment.findMany({ where: { taskId: t.id }, orderBy: { createdAt: 'asc' }, take: 300, select: { id: true, parentId: true, content: true, createdAt: true, user: { select: USER_MINI } } }),
+      this.prisma.taskComment.findMany({ where: { taskId: t.id }, orderBy: { createdAt: 'asc' }, take: 300, select: { id: true, parentId: true, content: true, createdAt: true, user: { select: USER_MINI }, files: { select: { file: FILE } } } }),
     ]);
     const ws = own.boards.find((w) => w.id === board.workspaceId)!;
     const boardPeople = await this.prisma.boardMember.findMany({ where: { boardId: board.id, user: { deletedAt: null } }, select: { user: { select: USER_MINI } } });
@@ -145,27 +149,33 @@ export class CeoTaskService {
       statuses: (cols.status?.statusOptions ?? []).map((o) => ({ id: o.id, label: o.label, color: o.color, category: o.category })),
       priority: null, due: dateOf(cell(cols.date?.id)), done: cat === 'DONE',
       createdAt: t.createdAt, createdBy: t.createdBy, assignees: people,
-      comments: comments.map((c) => ({ id: c.id, parentId: c.parentId, user: c.user, text: htmlToText(c.content), createdAt: c.createdAt })),
+      comments: comments.map((c) => ({ id: c.id, parentId: c.parentId, user: c.user, text: htmlToText(c.content), createdAt: c.createdAt, files: c.files.map((f) => ({ name: f.file.fileName, mime: f.file.mimeType, url: f.file.url })) })),
     };
   }
 
   /** "Send instruction": a comment on the task as the CEO (assignees and creator are notified by the product) */
-  async comment(userId: number, source: Source, id: number, text: string, parentId?: number) {
-    const body = (text ?? '').trim();
+  async comment(userId: number, source: Source, id: number, text: string, parentId?: number, extra: { attachmentIds?: number[]; files?: Express.Multer.File[] } = {}) {
+    const files = extra.files ?? [];
+    const hasFiles = files.length > 0 || (extra.attachmentIds?.length ?? 0) > 0;
+    const body = (text ?? '').trim() || (hasFiles ? (files.some((f) => f.mimetype.startsWith('audio/')) ? '🎙️ Voice note' : '📎 Attachment') : '');
     if (!body) throw new BadRequestException('Write something.');
+    for (const f of files) {
+      if (!CEO_FILE_TYPES.test(f.mimetype)) throw new BadRequestException(`"${f.originalname}" can't be attached here. Use images, PDF, Office, text or audio files.`);
+      if (f.size > 25 * 1024 * 1024) throw new BadRequestException(`"${f.originalname}" is over 25 MB.`);
+    }
     if (body.length > 10000) throw new BadRequestException('Keep it under 10,000 characters.');
     await this.get(userId, source, id); // must be in the CEO's companies
     if (source === 'work') {
-      await this.work.createComment(id, userId, { content: body, ...(parentId ? { parentId } : {}) } as any);
+      await this.work.createComment(id, userId, { content: body, ...(parentId ? { parentId } : {}), ...(extra.attachmentIds?.length ? { attachmentIds: extra.attachmentIds } : {}) } as any);
     } else {
       await this.boardAccess.requireTaskPermission(id, userId, BoardPermission.EDIT);
       const html = `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>`;
       if (parentId) {
         const parent = await this.prisma.taskComment.findFirst({ where: { id: parentId, taskId: id }, select: { id: true, parentId: true } });
         if (!parent) throw new BadRequestException('That comment is not on this task.');
-        await this.comments.createReply(id, parent.parentId ?? parent.id, userId, { content: html } as any);
+        await this.comments.createReply(id, parent.parentId ?? parent.id, userId, { content: html } as any, files);
       } else {
-        await this.comments.create(id, userId, { content: html } as any);
+        await this.comments.create(id, userId, { content: html } as any, files);
       }
     }
     return this.get(userId, source, id);

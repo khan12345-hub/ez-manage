@@ -38,7 +38,7 @@ export interface CeoTaskDetail {
   priority: string | null; due: string | null; done: boolean; createdAt: string;
   createdBy: CeoPerson | null; assignees: CeoPerson[];
   people: CeoPerson[]; editable: { due: boolean; people: boolean; priority: boolean };
-  comments: { id: number; parentId: number | null; user: CeoPerson | null; text: string; createdAt: string }[];
+  comments: { id: number; parentId: number | null; user: CeoPerson | null; text: string; createdAt: string; files: { name: string; mime: string; url: string }[] }[];
 }
 export interface CeoCompanyPeople {
   source: "boards" | "work"; key: string; id: number; uid: string; name: string; canManage: boolean; roles: string[];
@@ -50,14 +50,17 @@ export type CeoMgmtPerson = { user: CeoPerson & { email: string }; title: string
 export interface CeoManagement {
   managers: (CeoMgmtPerson & { reports: (CeoMgmtPerson & { company: { key: string; name: string; source: "boards" | "work"; uid: string } })[]; team: { open: number; overdue: number; inProgress: number; doneWeek: number } })[];
   unmanaged: CeoMgmtPerson[];
-  work: { company: { key: string; name: string; source: "work"; uid: string }; canSet: boolean; members: { userId: number; managerId: number | null }[] }[];
+  /** per company (Work and Boards): who is in it, who they report to, and whether you can change it */
+  work: { company: { key: string; name: string; source: "boards" | "work"; uid: string }; canSet: boolean; members: { userId: number; managerId: number | null }[] }[];
   counts: { managers: number; people: number; unmanaged: number };
 }
+export type CeoTrends = { weeks: { start: string; created: number; completed: number }[]; days: { day: string; open: number; overdue: number; done: number }[] };
+export type CeoSettings = { briefOn: boolean; briefEmail: boolean; briefHour: number; timezone: string; alertsOn: boolean; lastBriefOn: string | null };
 export type CeoBrief = { generatedAt: string; by: "claude" | "groq" | "summary"; bullets: string[] };
 export interface CeoTasks { state: CeoTaskState; counts: Record<CeoTaskState, number>; total: number; truncated: boolean; tasks: CeoTask[] }
 
 export type CeoForYouKind = "assigned" | "mention" | "reply" | "comment" | "message";
-export interface CeoForYouItem { source: "boards" | "work"; id: string; kind: CeoForYouKind; title: string; message: string; at: string; href: string | null; actor: string | null;
+export interface CeoForYouItem { source: "boards" | "work"; id: string; kind: CeoForYouKind; title: string; message: string; at: string; href: string | null; actor: string | null; approval?: boolean;
   /** answer in place: the task's thread, or a message back to the sender */
   task: { source: "boards" | "work"; id: number } | null; actorId: number | null }
 
@@ -116,14 +119,32 @@ export const ceoApi = {
   person: async (id: number) => (await api.get<CeoPersonDetail>(`/ceo-tower/people/${id}`)).data,
   message: async (personId: number, text: string, via?: string) =>
     (await api.post<{ product: "work" | "boards"; via: string; href: string }>("/ceo-tower/message", { personId, text, ...(via ? { via } : {}) })).data,
-  forYou: async () => (await api.get<{ count: number; items: CeoForYouItem[] }>("/ceo-tower/for-you")).data,
+  forYou: async () => (await api.get<{ count: number; approvals?: number; items: CeoForYouItem[] }>("/ceo-tower/for-you")).data,
   markForYouRead: async (source: "boards" | "work", id: string) => (await api.post("/ceo-tower/for-you/read", { source, id })).data,
   task: async (source: "boards" | "work", id: number) => (await api.get<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}`)).data,
-  taskComment: async (source: "boards" | "work", id: number, text: string, parentId?: number) => (await api.post<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}/comment`, { text, ...(parentId ? { parentId } : {}) })).data,
+  /** an instruction, optionally with files (a voice note is just an audio file). Work: upload to the task first, then link; Boards: one multipart call. */
+  taskComment: async (source: "boards" | "work", id: number, text: string, parentId?: number, files: File[] = []) => {
+    if (files.length && source === "boards") {
+      const fd = new FormData();
+      fd.append("text", text); if (parentId) fd.append("parentId", String(parentId));
+      files.forEach((f) => fd.append("files", f));
+      return (await api.post<CeoTaskDetail>(`/ceo-tower/task/boards/${id}/comment-files`, fd, { timeout: 120_000 })).data;
+    }
+    let attachmentIds: number[] = [];
+    if (files.length) {
+      const fd = new FormData(); files.forEach((f) => fd.append("files", f));
+      attachmentIds = (await api.post<{ id: number }[]>(`/work/tasks/${id}/attachments?source=comment`, fd, { timeout: 120_000 })).data.map((a) => a.id);
+    }
+    return (await api.post<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}/comment`, { text, ...(parentId ? { parentId } : {}), ...(attachmentIds.length ? { attachmentIds } : {}) })).data;
+  },
   taskUpdate: async (source: "boards" | "work", id: number, dto: { due?: string | null; assigneeIds?: number[]; priority?: string | null }) => (await api.patch<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}`, dto)).data,
   taskStatus: async (source: "boards" | "work", id: number, statusId?: number) => (await api.post<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}/status`, statusId ? { statusId } : {})).data,
   management: async (source: CeoSource, company?: string | null) => (await api.get<CeoManagement>(`/ceo-tower/management?${new URLSearchParams({ source, ...(company ? { company } : {}) })}`)).data,
   companyPeople: async (key: string) => (await api.get<CeoCompanyPeople>(`/ceo-tower/companies/${encodeURIComponent(key)}/people`)).data,
+  trends: async (source: CeoSource, company?: string | null) => (await api.get<CeoTrends>(`/ceo-tower/trends?${new URLSearchParams({ source, ...(company ? { company } : {}) })}`)).data,
+  settings: async () => (await api.get<CeoSettings>("/ceo-tower/settings")).data,
+  saveSettings: async (dto: Partial<CeoSettings>) => (await api.put<CeoSettings>("/ceo-tower/settings", dto)).data,
+  sendBriefNow: async () => (await api.post<{ sent: boolean; day: string; bullets: string[]; emailed: string }>("/ceo-tower/brief/send", {}, { timeout: 180_000 })).data,
   brief: async (refresh = false) => (await api.get<CeoBrief>(`/ceo-tower/ai/brief${refresh ? "?refresh=1" : ""}`, { timeout: 120_000 })).data,
   tasks: async (o: { source: CeoSource; company?: string | null; person?: number | null; state: CeoTaskState; q?: string; place?: CeoPlace | null; mine?: boolean }) => {
     const { place, ...rest } = o;

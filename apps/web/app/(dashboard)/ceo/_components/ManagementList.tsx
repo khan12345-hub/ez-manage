@@ -36,7 +36,10 @@ export function ManagementList({ source, company, meId, onMessage, onAssign }: {
   const [showOthers, setShowOthers] = useState(false);
 
   const setManager = useMutation({
-    mutationFn: ({ uid, userId, managerId }: { uid: string; userId: number; managerId: number | null }) => api.patch(`/work/workspaces/${uid}/profiles/${userId}`, { managerId }),
+    // Work keeps "reports to" itself; for Boards, CEO Tower keeps it
+    mutationFn: ({ company, userId, managerId }: { company: { key: string; uid: string; source: "boards" | "work" }; userId: number; managerId: number | null }) => company.source === "work"
+      ? api.patch(`/work/workspaces/${company.uid}/profiles/${userId}`, { managerId })
+      : api.put(`/ceo-tower/report-lines/boards/${company.key.split(":")[1]}/${userId}`, { managerId }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["ceo-tower", "management"] }); toast.success("Reporting line updated"); },
     onError: (e) => toast.error(errMsg(e, "Couldn't change who they report to.")),
   });
@@ -57,9 +60,9 @@ export function ManagementList({ source, company, meId, onMessage, onAssign }: {
     return (
       <span className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-muted-foreground">
         {rows.map(({ w, current, options }) => (
-          <label key={w.company.key} className="flex items-center gap-1">Reports to{rows.length > 1 ? ` (${w.company.name})` : ""}:
-            <select aria-label={`${p.user.firstName} ${p.user.lastName} reports to`} value={current ?? ""} disabled={setManager.isPending}
-              onChange={(e) => setManager.mutate({ uid: w.company.uid, userId: p.user.id, managerId: e.target.value ? Number(e.target.value) : null })}
+          <label key={w.company.key} className="flex items-center gap-1">Reports to{rows.length > 1 ? ` (${w.company.name} · ${w.company.source === "work" ? "Work" : "Boards"})` : ""}:
+            <select aria-label={`${p.user.firstName} ${p.user.lastName} reports to${rows.length > 1 ? ` in ${w.company.source === "work" ? "Work" : "Boards"}` : ""}`} value={current ?? ""} disabled={setManager.isPending}
+              onChange={(e) => setManager.mutate({ company: w.company, userId: p.user.id, managerId: e.target.value ? Number(e.target.value) : null })}
               className="h-6 max-w-[150px] rounded border border-border bg-background px-1 text-[11.5px] text-foreground">
               <option value="">Nobody</option>
               {meId && w.members.some((x) => x.userId === meId) && <option value={meId}>You</option>}

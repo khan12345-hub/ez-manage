@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowRight, AtSign, CalendarClock, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, Inbox, KeyRound, LayoutGrid, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, AtSign, CalendarClock, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, FileDown, Inbox, KeyRound, LayoutGrid, Settings2, ThumbsDown, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -26,6 +26,8 @@ import { SourceBadge, fmtDate } from "./_components/bits";
 import { ShareAccessDialog } from "./_components/ShareAccessDialog";
 import { ManagePeopleDialog } from "./_components/ManagePeopleDialog";
 import { ManagementList } from "./_components/ManagementList";
+import { TrendsCard } from "./_components/TrendsCard";
+import { SettingsDialog } from "./_components/SettingsDialog";
 import { TaskPopup, useTaskPopup } from "./_components/TaskPopup";
 import { BriefCard } from "./_components/BriefCard";
 
@@ -76,6 +78,7 @@ export default function CeoTowerPage() {
   const [sharing, setSharing] = useState(false);
   const [tasksMine, setTasksMine] = useState(false);
   const [managing, setManaging] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const showTask = useTaskPopup((s) => s.show);
   const [aiAsk, setAiAsk] = useState<string | null>(null);
   const [aiText, setAiText] = useState("");
@@ -132,8 +135,10 @@ export default function CeoTowerPage() {
             ))}
           </div>
           <button type="button" onClick={() => setAttention(true)} disabled={!attentionCount} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold ring-1", attentionCount ? "bg-destructive/8 text-destructive ring-destructive/25 hover:bg-destructive/12" : "text-muted-foreground ring-border")}>
-            <span className={cn("h-2 w-2 rounded-full", attentionCount ? "bg-destructive" : "bg-primary")} /> Attention needed ({attentionCount}){forYouCount > 0 && <span className="ml-0.5 rounded-full bg-destructive px-1.5 font-mono text-[10.5px] text-white">{forYouCount} for you</span>}
+            <span className={cn("h-2 w-2 rounded-full", attentionCount ? "bg-destructive" : "bg-primary")} /> Attention needed ({attentionCount}){forYouCount > 0 && <span className="ml-0.5 rounded-full bg-destructive px-1.5 font-mono text-[10.5px] text-white">{forYouCount} for you</span>}{(forYou?.approvals ?? 0) > 0 && <span className="ml-0.5 rounded-full bg-[#b08d57] px-1.5 font-mono text-[10.5px] text-white">{forYou!.approvals} to approve</span>}
           </button>
+          <Link href="/ceo/report" title="Executive report (PDF)" className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12.5px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"><FileDown className="h-3.5 w-3.5 text-[#b08d57]" /> Report</Link>
+          <button type="button" onClick={() => setSettingsOpen(true)} title="Morning brief and alerts" aria-label="Settings" className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12.5px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"><Settings2 className="h-3.5 w-3.5 text-[#b08d57]" /> Settings</button>
           {access.canShare && (
             <button type="button" onClick={() => setSharing(true)} title="Share CEO Tower" className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12.5px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground">
               <KeyRound className="h-3.5 w-3.5 text-[#b08d57]" /> Access
@@ -158,6 +163,7 @@ export default function CeoTowerPage() {
       )}
       {sharing && <ShareAccessDialog onClose={() => setSharing(false)} />}
       <TaskPopup />
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {managing && <ManagePeopleDialog companies={companies} defaultKey={company?.key ?? null} onClose={() => setManaging(false)} />}
 
       {isError ? <p className="p-10 text-center text-[13px] text-muted-foreground">Couldn&apos;t load CEO Tower.</p> : !data || isLoading ? (
@@ -190,6 +196,7 @@ export default function CeoTowerPage() {
             : view === "team" ? <TeamView source={source} company={company?.key ?? null} companies={companies} />
             : view === "boards" || view === "work" ? <ProductView product={view} company={company?.source === view ? company.key : null} companies={companies} />
             : view === "tasks" ? <TasksView key={tasksMine ? "mine" : "all"} source={source} company={company?.key ?? null} overview={data} initialMine={tasksMine} /> : (
+          <>
           <div className="grid gap-4 lg:grid-cols-3">
             {/* companies */}
             <Panel icon={Building2} title="Companies & Portfolio" kicker={access.canShare ? "Every company you own" : "Every company shared with you"} badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{companies.length} active</span>}
@@ -265,6 +272,8 @@ export default function CeoTowerPage() {
               </Panel>
             </div>
           </div>
+          <div className="mt-4"><TrendsCard source={source} company={company?.key ?? null} /></div>
+          </>
           )}
         </div>
       )}
@@ -291,9 +300,17 @@ function AttentionDialog({ data, forYou, onClose, onPick }: { data: CeoOverview;
   const { user } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"foryou" | "companies" | "overdue">(forYou.length ? "foryou" : data.attention.companies.length ? "companies" : "overdue");
+  const approvals = forYou.filter((i) => i.approval && i.task);
+  const [tab, setTab] = useState<"approvals" | "foryou" | "companies" | "overdue">(approvals.length ? "approvals" : forYou.length ? "foryou" : data.attention.companies.length ? "companies" : "overdue");
+  const [declining, setDeclining] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
   const read = useMutation({ mutationFn: (i: CeoForYouItem) => ceoApi.markForYouRead(i.source, i.id), onSettled: () => qc.invalidateQueries({ queryKey: ["ceo-tower", "for-you"] }) });
   // One-click approve: "Approved" in the task's thread as you (the asker is notified), and the item is done
+  const decline = useMutation({
+    mutationFn: async ({ i, why }: { i: CeoForYouItem; why: string }) => { await ceoApi.taskComment(i.task!.source, i.task!.id, `❌ Not approved.${why.trim() ? ` ${why.trim()}` : ""}`); await ceoApi.markForYouRead(i.source, i.id); },
+    onSuccess: () => { toast.success("Declined — they've been told why in the task"); setDeclining(null); setReason(""); qc.invalidateQueries({ queryKey: ["ceo-tower", "for-you"] }); },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't decline."),
+  });
   const approve = useMutation({
     mutationFn: async (i: CeoForYouItem) => { await ceoApi.taskComment(i.task!.source, i.task!.id, "✅ Approved."); await ceoApi.markForYouRead(i.source, i.id); },
     onSuccess: () => { toast.success("Approved — they've been told in the task"); qc.invalidateQueries({ queryKey: ["ceo-tower", "for-you"] }); },
@@ -307,9 +324,30 @@ function AttentionDialog({ data, forYou, onClose, onPick }: { data: CeoOverview;
         <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-destructive" /> Attention needed</DialogTitle>
         <DialogDescription>What people need from you, companies at risk, and tasks that slipped past their due date.</DialogDescription>
         <div role="tablist" aria-label="Attention" className="flex gap-1">
-          {([["foryou", `For you (${forYou.length})`], ["companies", `Companies (${data.attention.companies.length})`], ["overdue", `Overdue tasks (${overdue.length})`]] as const).map(([id, l]) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("rounded-md px-2.5 py-1 text-[12.5px] font-medium", tab === id ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>{l}</button>)}
+          {([["approvals", `Approvals (${approvals.length})`], ["foryou", `For you (${forYou.length})`], ["companies", `Companies (${data.attention.companies.length})`], ["overdue", `Overdue tasks (${overdue.length})`]] as const).map(([id, l]) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("rounded-md px-2.5 py-1 text-[12.5px] font-medium", tab === id ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>{l}</button>)}
         </div>
         <ul className="max-h-[52vh] space-y-1.5 overflow-y-auto">
+          {tab === "approvals" && approvals.map((i) => (
+            <li key={`a-${i.source}-${i.id}`} className="rounded-lg border border-[#b08d57]/40 bg-[#b08d57]/[0.05] p-3">
+              <p className="flex items-center gap-2 text-[13px]"><strong className="truncate">{i.actor ?? "Someone"}</strong><SourceBadge source={i.source} /><span className="ml-auto font-mono text-[10.5px] text-muted-foreground">{new Date(i.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span></p>
+              <p className="mt-1 text-[13px]">{i.message}</p>
+              <p className="text-[11.5px] text-muted-foreground">{i.title}</p>
+              {declining === i.id ? (
+                <span className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why not? (they'll see this)" aria-label="Reason" className="h-8 min-w-[220px] flex-1 rounded-md border border-border bg-background px-2 text-[12.5px] outline-none focus:border-primary/50" />
+                  <button type="button" disabled={decline.isPending} onClick={() => decline.mutate({ i, why: reason })} className="h-8 rounded-md bg-destructive px-3 text-[12px] font-semibold text-white disabled:opacity-50">Decline</button>
+                  <button type="button" onClick={() => { setDeclining(null); setReason(""); }} className="h-8 rounded-md px-2 text-[12px] text-muted-foreground hover:text-foreground">Cancel</button>
+                </span>
+              ) : (
+                <span className="mt-2 flex flex-wrap gap-1.5">
+                  <button type="button" disabled={approve.isPending} onClick={() => approve.mutate(i)} className="flex items-center gap-1 rounded-md bg-forest px-2.5 py-1 text-[12px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground"><CheckCircle2 className="h-3.5 w-3.5" /> Approve</button>
+                  <button type="button" onClick={() => setDeclining(i.id)} className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold hover:bg-accent"><ThumbsDown className="h-3.5 w-3.5" /> Decline</button>
+                  <button type="button" onClick={() => { read.mutate(i); showTask(i.task!.source, i.task!.id); }} className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[12px] font-medium hover:bg-accent"><MessageSquareReply className="h-3.5 w-3.5" /> Open task</button>
+                </span>
+              )}
+            </li>
+          ))}
+          {tab === "approvals" && !approvals.length && <li className="py-6 text-center text-[12.5px] text-muted-foreground">No approval requests. When someone mentions you asking to approve or sign off on something in a task, it shows up here.</li>}
           {tab === "foryou" ? forYou.map((i) => {
             const K = KIND[i.kind] ?? KIND.comment;
             return (
@@ -334,9 +372,9 @@ function AttentionDialog({ data, forYou, onClose, onPick }: { data: CeoOverview;
             );
           }) : tab === "companies" ? data.attention.companies.map((c) => (
             <li key={c.key}><button type="button" onClick={() => onPick(c.key)} className="flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-left text-[13px] hover:bg-accent/50"><span className="flex-1 font-medium">{c.name}</span><SourceBadge source={c.source} /><span className="font-mono text-[12px] text-destructive">{c.overdue} overdue</span><ArrowRight className="h-3.5 w-3.5 text-muted-foreground" /></button></li>
-          )) : overdue.map((o) => (
+          )) : tab === "overdue" ? overdue.map((o) => (
             <li key={`${o.source}-${o.task.id}`} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-[13px]"><span className="min-w-0 flex-1"><button type="button" onClick={() => showTask(o.source, o.task.id)} className="block max-w-full truncate text-left font-medium hover:text-primary hover:underline">{o.task.name}</button><span className="block truncate text-[11.5px] text-muted-foreground">{o.company} / {o.where} · {o.people.join(", ") || "unassigned"}</span></span><SourceBadge source={o.source} /><span className="font-mono text-[12px] font-semibold text-destructive">{fmtDate(o.due)}</span></li>
-          ))}
+          )) : null}
           {tab === "companies" && !data.attention.companies.length && <li className="py-6 text-center text-[12.5px] text-muted-foreground">Every company is healthy.</li>}
           {tab === "foryou" && !forYou.length && <li className="py-6 text-center text-[12.5px] text-muted-foreground">Nothing waiting for you. Assignments, mentions, replies and messages for you show up here.</li>}
         </ul>

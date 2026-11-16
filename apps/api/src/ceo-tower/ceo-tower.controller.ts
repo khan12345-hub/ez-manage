@@ -1,10 +1,13 @@
-import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, ParseIntPipe, Patch, Post, Put, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { CeoTowerService, type Source } from './ceo-tower.service';
 import { CeoAiService } from './ceo-ai.service';
 import { CeoCommsService } from './ceo-comms.service';
 import { CeoTaskService } from './ceo-task.service';
+import { CeoDigestService } from './ceo-digest.service';
 
 /** CEO Tower: read-only, for workspace owners (checked in the service on every call) */
 @Controller('ceo-tower')
@@ -14,6 +17,7 @@ export class CeoTowerController {
     private readonly ai: CeoAiService,
     private readonly comms: CeoCommsService,
     private readonly task: CeoTaskService,
+    private readonly digest: CeoDigestService,
   ) {}
 
   // ---------- Meetings & Email ----------
@@ -108,6 +112,23 @@ export class CeoTowerController {
     return this.comms.message(u.id, Number(b?.personId), String(b?.text ?? ''), b?.via ? String(b.via) : undefined);
   }
 
+  /** morning brief + red-company alert settings */
+  @Get('settings')
+  settings(@CurrentUser() u: SessionUser) {
+    return this.digest.settings(u.id);
+  }
+
+  @Put('settings')
+  saveSettings(@CurrentUser() u: SessionUser, @Body() b: { briefOn?: boolean; briefEmail?: boolean; briefHour?: number; timezone?: string; alertsOn?: boolean }) {
+    return this.digest.saveSettings(u.id, b ?? {});
+  }
+
+  /** send the morning brief now (to try it) */
+  @Post('brief/send')
+  briefNow(@CurrentUser() u: SessionUser) {
+    return this.digest.briefNow(u.id);
+  }
+
   @Get('access')
   access(@CurrentUser() u: SessionUser) {
     return this.tower.access(u.id);
@@ -167,9 +188,17 @@ export class CeoTowerController {
   }
 
   @Post('task/:source/:id/comment')
-  taskComment(@Param('source') source: string, @Param('id', ParseIntPipe) id: number, @Body() b: { text: string; parentId?: number }, @CurrentUser() u: SessionUser) {
+  taskComment(@Param('source') source: string, @Param('id', ParseIntPipe) id: number, @Body() b: { text: string; parentId?: number; attachmentIds?: number[] }, @CurrentUser() u: SessionUser) {
     if (source !== 'boards' && source !== 'work') throw new NotFoundException();
-    return this.task.comment(u.id, source, id, String(b?.text ?? ''), b?.parentId ? Number(b.parentId) : undefined);
+    const attachmentIds = Array.isArray(b?.attachmentIds) ? b.attachmentIds.map(Number).filter(Number.isInteger).slice(0, 10) : undefined;
+    return this.task.comment(u.id, source, id, String(b?.text ?? ''), b?.parentId ? Number(b.parentId) : undefined, { attachmentIds });
+  }
+
+  /** Boards: an instruction with files / a voice note (Work uploads through its own attachments route first) */
+  @Post('task/boards/:id/comment-files')
+  @UseInterceptors(FilesInterceptor('files', 5, { storage: memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } }))
+  taskCommentFiles(@Param('id', ParseIntPipe) id: number, @UploadedFiles() files: Express.Multer.File[], @Body() b: { text?: string; parentId?: string }, @CurrentUser() u: SessionUser) {
+    return this.task.comment(u.id, 'boards', id, String(b?.text ?? ''), b?.parentId ? Number(b.parentId) : undefined, { files: files ?? [] });
   }
 
   /** due date / people / priority */
@@ -188,6 +217,18 @@ export class CeoTowerController {
   taskStatus(@Param('source') source: string, @Param('id', ParseIntPipe) id: number, @Body() b: { statusId?: number }, @CurrentUser() u: SessionUser) {
     if (source !== 'boards' && source !== 'work') throw new NotFoundException();
     return this.task.setStatus(u.id, source, id, b?.statusId ? Number(b.statusId) : undefined);
+  }
+
+  /** "Reports to" for Boards people (kept by CEO Tower) */
+  @Put('report-lines/boards/:workspaceId/:userId')
+  setReportLine(@Param('workspaceId', ParseIntPipe) ws: number, @Param('userId', ParseIntPipe) person: number, @Body() b: { managerId: number | null }, @CurrentUser() u: SessionUser) {
+    return this.tower.setBoardsReportLine(u.id, ws, person, b?.managerId == null ? null : Number(b.managerId));
+  }
+
+  /** weekly created vs completed, daily open / overdue */
+  @Get('trends')
+  trends(@Query() q: Record<string, string>, @CurrentUser() u: SessionUser) {
+    return this.tower.trends(u.id, (['boards', 'work'].includes(q.source) ? q.source : 'all') as Source, /^(boards|work):\d+$/.test(q.company ?? '') ? q.company : undefined);
   }
 
   /** Management: managers and the people under them */

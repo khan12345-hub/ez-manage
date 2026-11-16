@@ -2436,3 +2436,54 @@ model CeoAccessGrant {
   @@index([userId])
   @@map("ceo_access_grants")
 }
+
+/// CEO Tower personal settings: morning brief and "company turned red" alerts.
+model CeoSetting {
+  userId      Int      @id
+  /// morning brief in the inbox (Boards + Work)
+  briefOn     Boolean  @default(true)
+  /// also email it
+  briefEmail  Boolean  @default(false)
+  /// local hour (0-23) the brief goes out
+  briefHour   Int      @default(8)
+  timezone    String   @default("Asia/Karachi")
+  /// local date (YYYY-MM-DD) the last brief went out
+  lastBriefOn String?
+  /// alert when a company turns red (critical)
+  alertsOn    Boolean  @default(true)
+  /// last seen health per company key, to alert only on change
+  health      Json?
+  updatedAt   DateTime @updatedAt
+
+  @@map("ceo_tower_settings")
+}
+
+/// CEO Tower trend data: one row per company per day (open / overdue / done counts).
+model CeoSnapshot {
+  id         Int      @id @default(autoincrement())
+  /// "boards:<id>" or "work:<id>"
+  companyKey String
+  /// local date YYYY-MM-DD
+  day        String
+  total      Int
+  open       Int
+  overdue    Int
+  done       Int
+  createdAt  DateTime @default(now())
+
+  @@unique([companyKey, day])
+  @@map("ceo_snapshots")
+}
+
+/// "Reports to" for Boards people (Boards itself has no reporting line; kept apart so Boards is untouched).
+model CeoReportLine {
+  workspaceId Int
+  userId      Int
+  managerId   Int
+  setById     Int
+  updatedAt   DateTime @updatedAt
+
+  @@id([workspaceId, userId])
+  @@index([managerId])
+  @@map("ceo_report_lines")
+}
