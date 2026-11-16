@@ -4,6 +4,7 @@ import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
 import { WorkTimesheetService } from './work-timesheet.service';
 import { WorkSprintsService } from './work-sprints.service';
+import { WorkGoalsService } from './work-goals.service';
 
 /** Work modules: Timesheets, Sprints, Goals, Docs, Forms, Whiteboards (session auth is global). */
 @Controller('work')
@@ -12,6 +13,7 @@ export class WorkModulesController {
     private readonly work: WorkService,
     private readonly timesheets: WorkTimesheetService,
     private readonly sprints: WorkSprintsService,
+    private readonly goals: WorkGoalsService,
   ) {}
 
   // ── timesheets ──
@@ -59,5 +61,41 @@ export class WorkModulesController {
   @Delete('sprints/:id')
   deleteSprint(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
     return this.sprints.remove(id, u.id);
+  }
+
+  // ── goals ──
+  @Get('workspaces/:workspaceId/goals')
+  async listGoals(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.goals.list(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Post('workspaces/:workspaceId/goals')
+  async createGoal(@Param('workspaceId') ws: string, @Body() b: { name?: string; description?: string; dueDate?: string | null; ownerId?: number; color?: string }, @CurrentUser() u: SessionUser) {
+    return this.goals.create(await this.work.resolveWorkspaceId(ws), u.id, b ?? {});
+  }
+
+  @Patch('goals/:id')
+  updateGoal(@Param('id', ParseIntPipe) id: number, @Body() b: { name?: string; description?: string | null; dueDate?: string | null; ownerId?: number; color?: string }, @CurrentUser() u: SessionUser) {
+    return this.goals.update(id, u.id, b ?? {});
+  }
+
+  @Delete('goals/:id')
+  deleteGoal(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.goals.remove(id, u.id);
+  }
+
+  @Post('goals/:id/targets')
+  addGoalTarget(@Param('id', ParseIntPipe) id: number, @Body() b: { name?: string; kind?: string; startVal?: number; targetVal?: number; unit?: string; listId?: number }, @CurrentUser() u: SessionUser) {
+    return this.goals.addTarget(id, u.id, b ?? {});
+  }
+
+  @Patch('goal-targets/:id')
+  updateGoalTarget(@Param('id', ParseIntPipe) id: number, @Body() b: { current?: number; name?: string; targetVal?: number; startVal?: number }, @CurrentUser() u: SessionUser) {
+    return this.goals.updateTarget(id, u.id, b ?? {});
+  }
+
+  @Delete('goal-targets/:id')
+  deleteGoalTarget(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.goals.removeTarget(id, u.id);
   }
 }
