@@ -23,6 +23,7 @@ import { MessageDialog } from "./_components/MessageDialog";
 import { AssignTaskDialog } from "./_components/AssignTaskDialog";
 import { SourceBadge, fmtDate } from "./_components/bits";
 import { ShareAccessDialog } from "./_components/ShareAccessDialog";
+import { ManagePeopleDialog } from "./_components/ManagePeopleDialog";
 import { TaskPopup, useTaskPopup } from "./_components/TaskPopup";
 import { BriefCard } from "./_components/BriefCard";
 
@@ -72,6 +73,7 @@ export default function CeoTowerPage() {
   const [attention, setAttention] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [tasksMine, setTasksMine] = useState(false);
+  const [managing, setManaging] = useState(false);
   const showTask = useTaskPopup((s) => s.show);
   const [aiAsk, setAiAsk] = useState<string | null>(null);
   const [aiText, setAiText] = useState("");
@@ -154,6 +156,7 @@ export default function CeoTowerPage() {
       )}
       {sharing && <ShareAccessDialog onClose={() => setSharing(false)} />}
       <TaskPopup />
+      {managing && <ManagePeopleDialog companies={companies} defaultKey={company?.key ?? null} onClose={() => setManaging(false)} />}
 
       {isError ? <p className="p-10 text-center text-[13px] text-muted-foreground">Couldn&apos;t load CEO Tower.</p> : !data || isLoading ? (
         <div className="grid gap-4 p-5 lg:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="h-[520px] animate-pulse rounded-2xl bg-muted" />)}</div>
@@ -220,7 +223,7 @@ export default function CeoTowerPage() {
             </Panel>
 
             {/* people */}
-            <Panel icon={Users} title="Management & Teams" kicker="Who carries the work" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{data.kpis.people} people</span>}
+            <Panel icon={Users} title="Management & Teams" kicker="Who carries the work" badge={<span className="flex items-center gap-1.5"><span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{data.kpis.people} people</span><button type="button" onClick={() => setManaging(true)} className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/25 hover:bg-primary/5">Manage</button></span>}
               footer={<span className="flex flex-wrap items-center justify-between gap-2"><span>Your open tasks: <strong className="text-destructive">{data.ceoTasks?.open ?? 0}</strong>{data.ceoTasks?.overdue ? <span className="text-destructive"> · {data.ceoTasks.overdue} overdue</span> : null}</span><span className="flex gap-3"><button type="button" onClick={() => { setTasksMine(true); setView("tasks"); }} className="font-semibold text-primary hover:underline">View CEO tasks →</button><button type="button" onClick={() => { setTasksMine(false); setView("tasks"); }} className="font-semibold text-muted-foreground hover:text-foreground hover:underline">All tasks</button></span></span>}>
               <div className="mb-3 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-1.5 text-[11.5px] font-semibold">
                 <span className="flex items-center gap-1.5 text-destructive"><span className="h-2 w-2 rounded-full bg-destructive" />Overdue</span>

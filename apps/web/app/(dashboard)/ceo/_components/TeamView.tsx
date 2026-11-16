@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, MessageSquare, Plus, Search, Users } from "lucide-react";
+import { ArrowUpRight, MessageSquare, Plus, Search, UserCog, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { ceoApi, type CeoCompany, type CeoPerson, type CeoSource, type CeoTask } from "@/services/ceo-tower.api";
 import { Avatar } from "../../work/_components/primitives";
 import { AssignTaskDialog } from "./AssignTaskDialog";
 import { MessageDialog } from "./MessageDialog";
+import { ManagePeopleDialog } from "./ManagePeopleDialog";
 import { SourceBadge, fmtDate } from "./bits";
 
 type Sort = "attention" | "open" | "progress" | "name" | "active";
@@ -18,6 +19,7 @@ const fullName = (p: CeoPerson) => `${p.firstName} ${p.lastName}`.trim();
 
 /** CEO Tower → Team: everyone across your companies, their load and progress */
 export function TeamView({ source, company, companies }: { source: CeoSource; company: string | null; companies: CeoCompany[] }) {
+  const [managing, setManaging] = useState(false);
   const { data = [], isLoading } = useQuery({ queryKey: ["ceo-tower", "team", source, company], queryFn: () => ceoApi.team(source, company), refetchInterval: 60_000 });
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>("attention");
@@ -45,6 +47,7 @@ export function TeamView({ source, company, companies }: { source: CeoSource; co
           <span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">{data.length} people · {behind} with overdue work</span>
         </span>
         <label className="flex h-9 w-60 items-center gap-2 rounded-lg border border-border bg-background px-2.5"><Search className="h-3.5 w-3.5 text-muted-foreground" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a person, title or company" aria-label="Find a person" className="w-full bg-transparent text-[13px] outline-none" /></label>
+        <button type="button" onClick={() => setManaging(true)} disabled={!companies.length} className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-50"><UserCog className="h-4 w-4 text-[#b08d57]" /> Manage people</button>
         <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="h-9 rounded-lg border border-border bg-background px-2.5 text-[13px]">
           <option value="attention">Needs attention first</option><option value="open">Most open work</option><option value="progress">Best progress</option><option value="active">Recently active</option><option value="name">Name</option>
         </select>
@@ -81,6 +84,7 @@ export function TeamView({ source, company, companies }: { source: CeoSource; co
         </div>
       )}
       {open && <PersonPanel person={open} companies={companies} onClose={() => setOpen(null)} />}
+    {managing && <ManagePeopleDialog companies={companies} defaultKey={company} onClose={() => setManaging(false)} />}
     </section>
   );
 }

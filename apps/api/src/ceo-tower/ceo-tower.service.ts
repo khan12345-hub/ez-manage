@@ -226,6 +226,48 @@ export class CeoTowerService {
     return !f.done && !!f.due && f.due < ymd(new Date(), f._tz ?? 'UTC');
   }
 
+  // ---------- managing a company's people (the changes go through Boards / Work themselves) ----------
+
+  /**
+   * One company's members, for the "Manage people" screen: Boards workspace members (with the
+   * membership id Boards' own role / remove routes use) and boards to invite into, or Work members
+   * and pending invites. canManage: you are its owner / admin (the product checks again on every change).
+   */
+  async companyPeople(userId: number, key: string) {
+    const own = await this.require(userId);
+    const m = /^(boards|work):(\d+)$/.exec(key);
+    if (!m) throw new NotFoundException('Unknown company.');
+    const id = Number(m[2]);
+    if (m[1] === 'boards') {
+      const ws = own.boards.find((w) => w.id === id);
+      if (!ws) throw new ForbiddenException('That company is not one of yours.');
+      const [members, boards] = await Promise.all([
+        this.prisma.workspaceMember.findMany({ where: { workspaceId: id, deletedAt: null, user: { deletedAt: null } }, orderBy: { createdAt: 'asc' }, select: { id: true, role: true, createdAt: true, user: { select: { ...USER_MINI, email: true } } } }),
+        this.prisma.board.findMany({ where: { workspaceId: id }, orderBy: { id: 'asc' }, select: { id: true, name: true } }),
+      ]);
+      const me = members.find((x) => x.user.id === userId);
+      return {
+        source: 'boards' as const, key, id, uid: ws.uid, name: ws.name, canManage: !!me && ['OWNER', 'ADMIN'].includes(me.role),
+        roles: ['ADMIN', 'MEMBER', 'VIEWER', 'GUEST'], boards,
+        members: members.map((x) => ({ memberId: x.id, role: x.role, since: x.createdAt, user: x.user })),
+        invites: [] as { id: number; email: string; role: string; createdAt: Date }[],
+      };
+    }
+    const ws = own.work.find((w) => w.id === id);
+    if (!ws) throw new ForbiddenException('That company is not one of yours.');
+    const [members, invites] = await Promise.all([
+      this.prisma.workMember.findMany({ where: { workspaceId: id, user: { deletedAt: null } }, orderBy: { createdAt: 'asc' }, select: { role: true, createdAt: true, user: { select: { ...USER_MINI, email: true } } } }),
+      this.prisma.workInvitation.findMany({ where: { workspaceId: id, status: 'PENDING', expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, role: true, createdAt: true } }),
+    ]);
+    const me = members.find((x) => x.user.id === userId);
+    return {
+      source: 'work' as const, key, id, uid: ws.uid, name: ws.name, canManage: !!me && ['OWNER', 'ADMIN'].includes(me.role),
+      roles: ['ADMIN', 'MEMBER', 'LIMITED_MEMBER', 'GUEST'], boards: [] as { id: number; name: string }[],
+      members: members.map((x) => ({ memberId: x.user.id, role: x.role, since: x.createdAt, user: x.user })),
+      invites: invites.map((i) => ({ id: i.id, email: i.email, role: String(i.role), createdAt: i.createdAt })),
+    };
+  }
+
   // ---------- a person, as the CEO sees them ----------
 
   /**
