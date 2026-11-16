@@ -21,6 +21,7 @@ import {
   Loader2,
   LogOut,
   Sparkles,
+  KeyRound,
 } from "lucide-react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 
@@ -181,7 +182,7 @@ function CeoGraphic() {
 
 /* ─── product card ──────────────────────────────────────────────────────── */
 
-type Tone = "boards" | "work" | "ceo";
+type Tone = "boards" | "work" | "ceo" | "vault";
 
 function ProductCard({
   tone,
@@ -251,6 +252,7 @@ function ProductCard({
             tone === "boards" && "bg-product-boards/12 text-product-boards ring-1 ring-product-boards/25 dark:bg-product-boards/20 dark:text-[#a5b4fc]",
             tone === "work" && "bg-primary/12 text-primary ring-1 ring-primary/25",
             tone === "ceo" && "bg-white/5 text-brass-soft ring-1 ring-brass/50",
+            tone === "vault" && "bg-product-vault/12 text-product-vault ring-1 ring-product-vault/25",
           )}
         >
           <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
@@ -261,6 +263,7 @@ function ProductCard({
             tone === "boards" && "text-product-boards dark:text-[#a5b4fc]",
             tone === "work" && "text-primary",
             tone === "ceo" && "text-brass-soft",
+            tone === "vault" && "text-product-vault",
           )}
         >
           {kicker}
@@ -586,7 +589,7 @@ export default function HomePage() {
           <motion.div
             className={cn(
               "mt-9 grid grid-cols-1 gap-5",
-              productCount >= 3 ? "md:grid-cols-2 lg:grid-cols-3" : productCount === 2 ? "md:grid-cols-2" : "md:grid-cols-1",
+              productCount + 1 >= 3 ? "md:grid-cols-2 lg:grid-cols-3" : "md:grid-cols-2",
             )}
             variants={stagger}
             initial={reduced ? false : "hidden"}
@@ -647,7 +650,7 @@ export default function HomePage() {
             {!access.loading && productCount === 0 && (
               <motion.div variants={fadeUp} className="rounded-2xl border border-border bg-card/80 p-8 text-center">
                 <p className="font-serif text-[22px]">No products yet</p>
-                <p className="mt-1 text-[13.5px] text-muted-foreground">Ask an admin to invite you to Boards or Work.</p>
+                <p className="mt-1 text-[13.5px] text-muted-foreground">Ask an admin to invite you to Boards or Work. EZ Vault is ready for you below.</p>
               </motion.div>
             )}
 
@@ -675,6 +678,23 @@ export default function HomePage() {
                 />
               </motion.div>
             )}
+            <motion.div variants={fadeUp}>
+              <ProductCard
+                tone="vault"
+                href="/vault"
+                icon={KeyRound}
+                kicker="Security"
+                title="EZ Vault"
+                blurb="Every password in one locked place, filled in for you by the browser extension."
+                graphic={<KeyRound className="h-16 w-16 text-product-vault/25" strokeWidth={1.2} aria-hidden />}
+                footer={
+                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-product-vault">
+                    Open EZ Vault
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  </span>
+                }
+              />
+            </motion.div>
           </motion.div>
 
           {/* ── Attention + brief ─────────────────────────────────────── */}

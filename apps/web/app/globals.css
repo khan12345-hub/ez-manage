@@ -119,6 +119,7 @@ body {
   --color-product-boards:  var(--product-boards);
   --color-product-work:    var(--product-work);
   --color-product-ceo:     var(--product-ceo);
+  --color-product-vault:   var(--product-vault);
 
   /* Core palette — maps CSS vars to Tailwind utility classes */
   --color-background:         var(--background);
@@ -246,6 +247,7 @@ body {
   --product-boards:    #4f46e5;
   --product-work:      #047857;
   --product-ceo:       #b45309;
+  --product-vault:     #0f766e;
 
   /* ── Named z-index scale ─────────────────────────────────────────────
    * Reference in components via: style={{ zIndex: 'var(--z-dialog)' }}
@@ -321,6 +323,7 @@ body {
   --product-boards:    #a5b4fc;
   --product-work:      #34d399;
   --product-ceo:       #fbbf24;
+  --product-vault:     #2dd4bf;
 }
 
 /* ── Base layer ──────────────────────────────────────────────────────── */

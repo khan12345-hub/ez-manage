@@ -2667,3 +2667,113 @@ model WorkDescriptionVersion {
   @@index([taskId, createdAt])
   @@map("work_description_versions")
 }
+
+// ───────────────────────── EZ Vault (password manager, zero-knowledge) ─────────────────────────
+// The server only ever stores ciphertext: items are AES-GCM encrypted in the browser with a vault key;
+// vault keys are wrapped (RSA-OAEP) with each member's public key; each private key is encrypted with a
+// key derived from that person's master password (PBKDF2). The master password never leaves the browser.
+
+/// a person's vault keys (set up once with their master password)
+model VaultUser {
+  userId        Int      @id
+  /// PBKDF2 salt (base64) and iterations for the master password
+  salt          String
+  iterations    Int
+  /// RSA-OAEP public key (spki, base64)
+  publicKey     String   @db.Text
+  /// private key (pkcs8) encrypted with the master key: base64 iv + ciphertext
+  encPrivateKey String   @db.Text
+  /// a known value encrypted with the master key, to tell a wrong master password
+  verifier      String   @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("vault_users")
+}
+
+model Vault {
+  id          Int       @id @default(autoincrement())
+  uid         String    @unique
+  /// personal | shared
+  kind        String
+  /// encrypted name (vault key), so even names are private
+  encName     String    @db.Text
+  keyVersion  Int       @default(1)
+  createdById Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  members VaultMember[]
+  items   VaultItem[]
+
+  @@index([createdById])
+  @@map("vaults")
+}
+
+model VaultMember {
+  vaultId     Int
+  userId      Int
+  /// owner | editor | viewer
+  role        String
+  /// the vault key wrapped with this member's public key (base64)
+  encVaultKey String   @db.Text
+  keyVersion  Int      @default(1)
+  addedById   Int
+  createdAt   DateTime @default(now())
+
+  vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@id([vaultId, userId])
+  @@index([userId])
+  @@map("vault_members")
+}
+
+model VaultItem {
+  id          Int       @id @default(autoincrement())
+  uid         String    @unique
+  vaultId     Int
+  /// encrypted JSON (type, title, url, username, password, notes, …)
+  data        String    @db.Text
+  keyVersion  Int       @default(1)
+  createdById Int
+  updatedById Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@index([vaultId])
+  @@map("vault_items")
+}
+
+/// who did what (never any secret): created, updated, deleted, viewed, copied, filled, shared…
+model VaultEvent {
+  id        Int      @id @default(autoincrement())
+  vaultId   Int?
+  itemId    Int?
+  userId    Int
+  action    String
+  /// e.g. { via: "extension", member: 12 }
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([vaultId, createdAt])
+  @@index([userId, createdAt])
+  @@map("vault_events")
+}
+
+/// browser extension sign-in tokens (only the SHA-256 is stored)
+model VaultToken {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  tokenHash  String    @unique
+  name       String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([userId])
+  @@map("vault_tokens")
+}

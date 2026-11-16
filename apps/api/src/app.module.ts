@@ -41,6 +41,7 @@ import { PushModule } from './push/push.module';
 import { CeoAssistantModule } from './ceo-assistant/ceo-assistant.module';
 import { CeoTowerModule } from './ceo-tower/ceo-tower.module';
 
+import { VaultModule } from './vault/vault.module';
 @Module({
   imports: [
     ThrottlerModule.forRoot({
@@ -91,6 +92,7 @@ import { CeoTowerModule } from './ceo-tower/ceo-tower.module';
     PushModule,
     CeoAssistantModule,
     CeoTowerModule,
+    VaultModule,
     ],
   controllers: [AppController],
   providers: [

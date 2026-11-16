@@ -68,22 +68,17 @@ async function bootstrap() {
   // ── CORS ───────────────────────────────────────────────────────────────────
   const allowedOrigins = originsAllowed();
 
-  app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        // Allow server-to-server requests (webhooks, health checks, etc.)
-        return callback(null, true);
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error(`CORS blocked for origin: ${origin}`), false);
-    },
-    credentials: true,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  const methods = ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'];
+  const allowedHeaders = ['Content-Type', 'Authorization', 'X-Requested-With'];
+  app.enableCors((req: any, callback: (err: Error | null, options?: any) => void) => {
+    const origin = req.header('Origin');
+    // Allow server-to-server requests (webhooks, health checks, etc.) and our web app (with cookies)
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, { origin: true, credentials: true, methods, allowedHeaders });
+    // the EZ Vault browser extension: only the /api/vault routes, token auth, never cookies
+    if (/^chrome-extension:\/\/[a-p]{32}$/.test(origin) && String(req.originalUrl ?? req.url ?? '').startsWith('/api/vault/')) {
+      return callback(null, { origin: true, credentials: false, methods, allowedHeaders });
+    }
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
   });
 
   // Global validation

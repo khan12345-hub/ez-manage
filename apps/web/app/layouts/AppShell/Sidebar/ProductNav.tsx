@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, LayoutGrid, ListChecks } from "lucide-react";
+import { BarChart3, KeyRound, LayoutGrid, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProductAccess } from "@/hooks/useProductAccess";
 import { useCeoAccess } from "@/services/ceo-tower.api";
@@ -19,12 +19,13 @@ export function BrandMark({ size = 32 }: { size?: number }) {
   );
 }
 
-export type ProductKey = "boards" | "work" | "ceo";
+export type ProductKey = "boards" | "work" | "ceo" | "vault";
 
 const PRODUCT_META = {
   boards: { label: "Boards", icon: LayoutGrid, tint: "bg-product-boards", text: "text-product-boards dark:text-[#a5b4fc]", ring: "ring-product-boards/40" },
   work: { label: "Work", icon: ListChecks, tint: "bg-product-work", text: "text-product-work dark:text-[#6ee7b7]", ring: "ring-product-work/40" },
   ceo: { label: "CEO", icon: BarChart3, tint: "bg-product-ceo", text: "text-product-ceo", ring: "ring-product-ceo/40" },
+  vault: { label: "Vault", icon: KeyRound, tint: "bg-product-vault", text: "text-product-vault", ring: "ring-product-vault/40" },
 } as const;
 
 /**
@@ -51,11 +52,13 @@ export function ProductSwitcher({
   if (active === "boards" || access.hasBoards) items.push({ key: "boards", href: active === "boards" ? boardsHref : boardsHref ?? access.boardsHref });
   if (active === "work" || access.hasWork) items.push({ key: "work", href: active === "work" ? workHref : workHref ?? access.workHref });
   if (ceo.allowed) items.push({ key: "ceo", href: "/ceo" });
+  // EZ Vault (password manager) is for everyone
+  items.push({ key: "vault", href: "/vault" });
   if (items.length < 2) return null; // only one product: no switcher needed
 
   return (
     <nav aria-label="Products" className="px-4 pt-3">
-      <div className={cn("grid gap-1.5 rounded-xl bg-muted/50 p-1 ring-1 ring-border/60", items.length === 3 ? "grid-cols-3" : "grid-cols-2")}>
+      <div className={cn("grid gap-1.5 rounded-xl bg-muted/50 p-1 ring-1 ring-border/60", items.length === 4 ? "grid-cols-4" : items.length === 3 ? "grid-cols-3" : "grid-cols-2")}>
         {items.map((item) => {
           const m = PRODUCT_META[item.key];
           const isActive = item.key === active;
