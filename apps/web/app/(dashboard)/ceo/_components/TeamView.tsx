@@ -42,7 +42,7 @@ export function TeamView({ source, company, companies }: { source: CeoSource; co
     <section aria-label="Team" className="rounded-2xl border border-border bg-card">
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest text-brass-soft"><Users className="h-4.5 w-4.5" /></span>
-        <span className="min-w-0 flex-1">
+        <span className="min-w-[220px] flex-1">
           <span className="block font-serif text-[21px] leading-tight">Team</span>
           <span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">{data.length} people · {behind} with overdue work</span>
         </span>

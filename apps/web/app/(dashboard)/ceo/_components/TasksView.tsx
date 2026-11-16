@@ -45,7 +45,7 @@ export function TasksView({ source, company, overview, initialMine = false }: { 
   return (
     <section aria-label="Tasks" className="rounded-2xl border border-border bg-card">
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
-        <span className="min-w-0 flex-1">
+        <span className="min-w-[220px] flex-1">
           <span className="block font-serif text-[21px] leading-tight">{mine ? "Tasks you gave out" : "Every task, every company"}</span>
           <span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">{data ? `${data.total} ${data.total === 1 ? "task" : "tasks"} in this view` : "Loading…"}</span>
         </span>

@@ -25,7 +25,7 @@ export function EmailView() {
     <section aria-label="Email" className="rounded-2xl border border-border bg-card">
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest text-brass-soft"><Mail className="h-4.5 w-4.5" /></span>
-        <span className="min-w-0 flex-1"><span className="block font-serif text-[21px] leading-tight">Email</span><span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">To management, a team, a company or one person</span></span>
+        <span className="min-w-[220px] flex-1"><span className="block font-serif text-[21px] leading-tight">Email</span><span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">To management, a team, a company or one person</span></span>
         <button type="button" onClick={() => setComposing(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-forest px-3.5 text-[13px] font-semibold text-forest-foreground hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground"><MailPlus className="h-4 w-4" /> Write email</button>
       </header>
       {isLoading ? <div className="h-32 animate-pulse rounded-b-2xl bg-muted" /> : !data.length ? (

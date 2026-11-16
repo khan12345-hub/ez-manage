@@ -25,7 +25,7 @@ export function MeetingsView() {
     <section aria-label="Meetings" className="rounded-2xl border border-border bg-card">
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest text-brass-soft"><CalendarClock className="h-4.5 w-4.5" /></span>
-        <span className="min-w-0 flex-1"><span className="block font-serif text-[21px] leading-tight">Meetings</span><span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">Invites go out at once · reminders 24 h, 1 h and 15 min before</span></span>
+        <span className="min-w-[220px] flex-1"><span className="block font-serif text-[21px] leading-tight">Meetings</span><span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">Invites go out at once · reminders 24 h, 1 h and 15 min before</span></span>
         <div role="tablist" aria-label="Which meetings" className="flex rounded-lg border border-border p-0.5">
           {(["upcoming", "past"] as const).map((t) => <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cn("rounded-md px-2.5 py-1 text-[12.5px] font-medium capitalize", tab === t ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>{t === "past" ? "Past & cancelled" : "Upcoming"}</button>)}
         </div>

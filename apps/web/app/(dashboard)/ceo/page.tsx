@@ -111,7 +111,7 @@ export default function CeoTowerPage() {
   return (
     <div className="min-h-full bg-[#f6f8f6] dark:bg-background">
       {/* header */}
-      <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">
+      <header className="z-20 border-b sm:sticky sm:top-0 border-border bg-card/95 backdrop-blur">
         <div className="flex flex-wrap items-center gap-3 px-5 py-3">
           <Link href="/home" className="flex items-center gap-2.5" aria-label="EZ Manage home">
             <BrandMark size={34} />

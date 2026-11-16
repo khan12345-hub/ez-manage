@@ -161,7 +161,7 @@ export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; on
           </div>
           <div className="flex items-end gap-2">
             <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} rows={2} maxLength={4000} disabled={!status?.configured}
-              placeholder={status?.configured ? "Ask anything… e.g. Khan ki team ka progress kya hai?" : "Executive AI is not switched on yet"} aria-label="Ask Executive AI"
+              placeholder={status?.configured ? "Ask anything… e.g. How is Khan's team doing this week?" : "Executive AI is not switched on yet"} aria-label="Ask Executive AI"
               className="min-h-[44px] flex-1 resize-none rounded-xl border border-border bg-background px-3.5 py-2.5 text-[13.5px] outline-none focus:border-primary/50 disabled:opacity-60" />
             <button type="button" aria-label="Ask" disabled={!text.trim() || ask.isPending || !status?.configured} onClick={send} className="flex h-11 w-11 items-center justify-center rounded-xl bg-forest text-forest-foreground disabled:opacity-40 dark:bg-primary dark:text-primary-foreground"><SendHorizontal className="h-4 w-4" /></button>
           </div>
