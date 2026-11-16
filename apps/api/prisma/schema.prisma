@@ -2603,3 +2603,20 @@ model WorkWhiteboard {
   @@index([workspaceId])
   @@map("work_whiteboards")
 }
+
+/// Secret Work links: a public read-only list link (LIST_SHARE) or a channel's email address (CHANNEL_EMAIL).
+model WorkLink {
+  id          Int       @id @default(autoincrement())
+  token       String    @unique
+  /// LIST_SHARE | CHANNEL_EMAIL
+  kind        String
+  workspaceId Int
+  /// the list id or channel id
+  targetId    Int
+  createdById Int
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  @@index([kind, targetId])
+  @@map("work_links")
+}

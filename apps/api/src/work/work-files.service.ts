@@ -34,7 +34,7 @@ export const ALLOWED_MIME_TYPES = new Set([
   'text/plain', 'text/csv',
   'application/zip', 'application/x-zip-compressed',
   'video/mp4', 'video/webm', 'video/quicktime',
-  'audio/mpeg', 'audio/wav', 'audio/webm',
+  'audio/mpeg', 'audio/wav', 'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/x-m4a',
 ]);
 
 export type AttachmentSource = 'task' | 'comment' | 'description';

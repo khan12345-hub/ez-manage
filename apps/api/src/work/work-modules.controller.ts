@@ -8,6 +8,8 @@ import { WorkGoalsService } from './work-goals.service';
 import { WorkDocsService } from './work-docs.service';
 import { WorkFormsService } from './work-forms.service';
 import { WorkAiService } from './work-ai.service';
+import { WorkLinksService } from './work-links.service';
+import { Headers } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from 'src/auth/decorators/public.decorator';
 
@@ -22,6 +24,7 @@ export class WorkModulesController {
     private readonly docs: WorkDocsService,
     private readonly forms: WorkFormsService,
     private readonly ai: WorkAiService,
+    private readonly links: WorkLinksService,
   ) {}
 
   // ── timesheets ──
@@ -184,5 +187,51 @@ export class WorkModulesController {
   @Throttle({ auth: { ttl: 60_000, limit: 20 } })
   async askAi(@Param('workspaceId') ws: string, @Body() b: { question?: string }, @CurrentUser() u: SessionUser) {
     return this.ai.ask(await this.work.resolveWorkspaceId(ws), u.id, String(b?.question ?? ''));
+  }
+
+  // ── Share this List ──
+  @Get('lists/:id/share')
+  listShare(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.links.listShare(id, u.id);
+  }
+
+  @Post('lists/:id/share')
+  createListShare(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.links.createListShare(id, u.id);
+  }
+
+  @Delete('lists/:id/share')
+  revokeListShare(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.links.revokeListShare(id, u.id);
+  }
+
+  @Public()
+  @Throttle({ auth: { ttl: 60_000, limit: 60 } })
+  @Get('public/lists/:token')
+  publicList(@Param('token') token: string) {
+    return this.links.publicList(token);
+  }
+
+  // ── Email to channel ──
+  @Get('chat/channels/:uid/email')
+  channelEmail(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.links.channelEmail(uid, u.id, false);
+  }
+
+  @Post('chat/channels/:uid/email')
+  createChannelEmail(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.links.channelEmail(uid, u.id, true);
+  }
+
+  @Delete('chat/channels/:uid/email')
+  revokeChannelEmail(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.links.revokeChannelEmail(uid, u.id);
+  }
+
+  /** inbound email service webhook (Mailgun / SendGrid / Postmark) — secret in ?key= or x-inbound-secret */
+  @Public()
+  @Post('public/inbound-email')
+  inboundEmail(@Query('key') key: string, @Headers('x-inbound-secret') header: string, @Body() b: Record<string, any>) {
+    return this.links.inbound(header || key, b ?? {});
   }
 }

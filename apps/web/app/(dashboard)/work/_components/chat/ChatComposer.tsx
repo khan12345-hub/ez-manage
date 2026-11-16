@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AtSign, Bold, Code, Italic, Link2, List, ListOrdered, Loader2, Paperclip, SendHorizontal, Smile, SquareCode, Strikethrough, TextQuote, Type, X } from "lucide-react";
+import { AtSign, Bold, Code, Italic, Link2, List, ListOrdered, Loader2, Mic, Paperclip, SendHorizontal, Smile, SquareCode, Square, Strikethrough, TextQuote, Type, X } from "lucide-react";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { userName, workApi, type ChatFile, type ChatMessage, type WorkUser } from "@/services/work.api";
@@ -58,6 +58,35 @@ export function ChatComposer({
     onSuccess: (added) => setFiles((f) => [...f, ...added]),
     onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't upload."),
   });
+
+  // voice clip: record with the microphone, upload it like any file, then send
+  const [rec, setRec] = useState<{ mr: MediaRecorder; started: number } | null>(null);
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    if (!rec) return;
+    const t = setInterval(() => setSecs(Math.round((Date.now() - rec.started) / 1000)), 500);
+    return () => clearInterval(t);
+  }, [rec]);
+  const startClip = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      mr.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach((tr) => tr.stop());
+        const type = (mr.mimeType || "audio/webm").split(";")[0]!;
+        const blob = new Blob(chunks, { type });
+        if (blob.size) upload.mutate([new File([blob], `Voice clip ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.${type.includes("ogg") ? "ogg" : type.includes("mp4") ? "m4a" : "webm"}`, { type })]);
+      };
+      mr.start();
+      setSecs(0);
+      setRec({ mr, started: Date.now() });
+    } catch {
+      toast.error("Couldn't use the microphone. Allow it in the browser and try again.");
+    }
+  };
+  const stopClip = () => { rec?.mr.stop(); setRec(null); };
   const send = useMutation({
     mutationFn: () =>
       workApi.sendChat(channelUid, {
@@ -244,6 +273,11 @@ export function ChatComposer({
           <input ref={fileInput} type="file" multiple hidden aria-label="Attach files" onChange={(e) => { if (e.target.files?.length) upload.mutate(Array.from(e.target.files)); e.target.value = ""; }} />
           <button type="button" aria-label="Formatting" aria-pressed={fmt} title="Formatting" onClick={() => setFmt(!fmt)} className={cn(tool, fmt && "bg-accent text-foreground")}><Type className="h-4 w-4" /></button>
           <button type="button" aria-label="Attach files" title="Attach" onClick={() => fileInput.current?.click()} className={tool}>{upload.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}</button>
+          {rec ? (
+            <button type="button" aria-label="Stop recording" onClick={stopClip} className="flex h-7 items-center gap-1 rounded-md bg-destructive/10 px-2 text-[12px] font-semibold text-destructive"><Square className="h-3 w-3 fill-current" /> {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}</button>
+          ) : (
+            <button type="button" aria-label="Record a voice clip" title="Voice clip" onClick={startClip} className={tool}><Mic className="h-4 w-4" /></button>
+          )}
           <button type="button" aria-label="Mention someone" title="Mention" onClick={() => { insert("@"); setMq(""); setMOpen(true); }} className={tool}><AtSign className="h-4 w-4" /></button>
           <Popover>
             <PopoverTrigger asChild><button type="button" aria-label="Emoji" title="Emoji" className={tool}><Smile className="h-4 w-4" /></button></PopoverTrigger>

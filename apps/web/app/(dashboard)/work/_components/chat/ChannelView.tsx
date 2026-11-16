@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Archive, Bell, Bookmark, CalendarDays, Columns3, LayoutGrid, List, ListChecks, UsersRound, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
+import { ChannelEmail } from "../ShareAndEmail";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -342,6 +343,7 @@ function SidePanel({ panel, ch, uid, members, onOpenThread, onClose }: { panel: 
             <label className="block"><span className="text-[12px] text-muted-foreground">Topic</span><input value={topic} onChange={(e) => setTopic(e.target.value)} disabled={!ch.canManage} aria-label="Channel topic" placeholder="What is this channel about?" className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2.5 outline-none disabled:opacity-60" /></label>
             <label className="block"><span className="text-[12px] text-muted-foreground">Description</span><textarea value={desc} onChange={(e) => setDesc(e.target.value)} disabled={!ch.canManage} aria-label="Channel description" rows={3} className="mt-1 w-full rounded-md border border-border bg-background px-2.5 py-2 outline-none disabled:opacity-60" /></label>
             {ch.canManage && <button type="button" onClick={() => save.mutate()} className="h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground">Save</button>}
+            <ChannelEmail uid={uid} />
             {ch.canManage && (
               <button type="button" onClick={() => window.confirm(`Archive #${ch.name}? Nobody can post in it any more.`) && archive.mutate()} className="flex items-center gap-1.5 pt-3 text-[12.5px] text-destructive hover:underline"><Archive className="h-3.5 w-3.5" /> Archive channel</button>
             )}

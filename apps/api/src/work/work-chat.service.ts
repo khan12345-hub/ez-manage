@@ -47,7 +47,7 @@ export class WorkChatService {
 
   /* ── access ── */
 
-  private async channel(channelUid: string, userId: number, level: 'view' | 'post' | 'pin' | 'manage' = 'view') {
+  async channel(channelUid: string, userId: number, level: 'view' | 'post' | 'pin' | 'manage' = 'view') {
     const ch = await this.prisma.workChannel.findFirst({ where: { uid: channelUid, archivedAt: null }, include: { members: { select: { userId: true, role: true, lastReadAt: true, muted: true, starred: true, permission: true, notify: true, hiddenAt: true } } } });
     if (!ch) throw new NotFoundException('Channel not found.');
     const ws = await this.access.forWorkspace(ch.workspaceId, userId);
