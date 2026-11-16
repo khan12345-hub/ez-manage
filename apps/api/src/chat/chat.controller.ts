@@ -11,6 +11,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -345,10 +346,10 @@ export class ChatController {
     return this.chatService.getLinkPreview(url);
   }
 
-  // Returns ALL system users for DM picker
+  // People for the DM picker: members of this workspace (the guard has checked you are one)
   @Get('users')
-  getAllUsers() {
-    return this.chatService.getAllUsers();
+  getAllUsers(@Req() req: any) {
+    return this.chatService.getAllUsers(req.chatWorkspaceId);
   }
 
   @Post('ensure-general')

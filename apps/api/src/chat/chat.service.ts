@@ -514,8 +514,10 @@ export class ChatService {
   }
 
   // Returns ALL users in the system for DM picker (ClickUp-style: DM anyone in org)
-  async getAllUsers() {
+  /** people you can DM here: active members of this workspace only (not every account in the system) */
+  async getAllUsers(workspaceId: number) {
     const users = await this.prisma.user.findMany({
+      where: { deletedAt: null, workspaceMemberships: { some: { workspaceId, deletedAt: null } } },
       select: {
         id: true, firstName: true, lastName: true, avatarUrl: true,
         email: true, phone: true,
