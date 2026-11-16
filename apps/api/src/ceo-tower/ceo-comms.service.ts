@@ -32,7 +32,7 @@ export class CeoCommsService {
   /** every person in the CEO's companies */
   private async reachable(userId: number) {
     const own = await this.tower.owned(userId);
-    if (!own.boards.length && !own.work.length) throw new BadRequestException('CEO Tower is for workspace owners.');
+    if (!own.boards.length && !own.work.length) throw new BadRequestException('CEO Tower is only for Administrators.');
     const [b, w] = await Promise.all([
       this.prisma.workspaceMember.findMany({ where: { workspaceId: { in: own.boards.map((x) => x.id) }, deletedAt: null }, select: { userId: true, role: true, workspaceId: true } }),
       this.prisma.workMember.findMany({ where: { workspaceId: { in: own.work.map((x) => x.id) } }, select: { userId: true, role: true, workspaceId: true, managerId: true } }),

@@ -73,6 +73,7 @@ export function ShareAccessDialog({ onClose }: { onClose: () => void }) {
 
         <div className="grid gap-2">
           <PeoplePicker value={pick} onChange={setPick} label="Add people" />
+          <p className="text-[11.5px] text-muted-foreground">Only Administrators can open CEO Tower, so you can share it only with Administrators.</p>
           <div className="flex justify-end">
             <button type="button" disabled={!pick.length || share.isPending} onClick={() => share.mutate()}
               className="h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">

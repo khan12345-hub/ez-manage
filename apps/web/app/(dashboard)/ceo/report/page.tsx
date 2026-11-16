@@ -25,7 +25,7 @@ export default function CeoReportPage() {
   const { data: mine } = useQuery({ queryKey: ["ceo-tower", "tasks", "report-mine"], queryFn: () => ceoApi.tasks({ source: "all", state: "open", mine: true }), enabled: on });
   const ready = o && m && tr && mine;
 
-  if (!access.loading && !on) return <p className="p-10 text-center text-[13px] text-muted-foreground">CEO Tower is for company owners and the people they share it with.</p>;
+  if (!access.loading && !on) return <p className="p-10 text-center text-[13px] text-muted-foreground">CEO Tower is only for Administrators.</p>;
   return (
     <div className="min-h-full bg-[#f6f8f6] py-6 print:bg-white print:py-0 dark:bg-background">
       <div className="mx-auto max-w-[900px] px-4 print:max-w-none print:px-0">

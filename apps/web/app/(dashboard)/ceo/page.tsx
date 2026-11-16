@@ -103,7 +103,7 @@ export default function CeoTowerPage() {
       <div className="flex h-full flex-col items-center justify-center p-10 text-center">
         <Crown className="h-8 w-8 text-[#b08d57]" />
         <h1 className="mt-3 font-serif text-[26px]">CEO Tower</h1>
-        <p className="mt-1 max-w-[420px] text-[13.5px] text-muted-foreground">CEO Tower is for company owners and the people they share it with. Ask an owner to share it with you.</p>
+        <p className="mt-1 max-w-[420px] text-[13.5px] text-muted-foreground">CEO Tower is only for Administrators. Ask an Administrator if you need it.</p>
         <Link href="/home" className="mt-4 text-[13px] font-semibold text-primary hover:underline">Back to home</Link>
       </div>
     );

@@ -59,6 +59,7 @@ export class CeoTowerService {
    * owned by anyone who shared CEO Tower with them.
    */
   async owned(userId: number) {
+    if (!(await this.isAdmin(userId))) return { boards: [], work: [] };
     const own = await this.ownOnly(userId);
     const grants = await this.prisma.ceoAccessGrant.findMany({ where: { userId }, select: { ownerId: true } });
     if (!grants.length) return own;
@@ -69,11 +70,18 @@ export class CeoTowerService {
 
   /** only the companies this person really owns (decides who may share access) */
   async ownOnly(userId: number) {
+    if (!(await this.isAdmin(userId))) return { boards: [] as { id: number; uid: string; name: string; timezone: string }[], work: [] as { id: number; uid: string; name: string }[] };
     const [boards, work] = await Promise.all([
       this.prisma.workspaceMember.findMany({ where: { userId, role: 'OWNER', deletedAt: null }, select: { workspace: { select: { id: true, uid: true, name: true, timezone: true } } } }),
       this.prisma.workMember.findMany({ where: { userId, role: 'OWNER', workspace: { deletedAt: null } }, select: { workspace: { select: { id: true, uid: true, name: true } } } }),
     ]);
     return { boards: boards.map((b) => b.workspace), work: work.map((w) => w.workspace) };
+  }
+
+  /** CEO Tower is only for Administrators (system role SUPER_ADMIN) */
+  async isAdmin(userId: number) {
+    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { systemRole: true } });
+    return u?.systemRole === 'SUPER_ADMIN';
   }
 
   async access(userId: number) {
@@ -99,7 +107,7 @@ export class CeoTowerService {
 
   private async requireOwner(ownerId: number) {
     const mine = await this.ownOnly(ownerId);
-    if (!mine.boards.length && !mine.work.length) throw new ForbiddenException('Only company owners can share CEO Tower.');
+    if (!mine.boards.length && !mine.work.length) throw new ForbiddenException('Only Administrators who own a company can share CEO Tower.');
     return mine;
   }
 
@@ -117,6 +125,7 @@ export class CeoTowerService {
     const mine = await this.requireOwner(ownerId);
     if (!Number.isInteger(userId) || userId <= 0) throw new BadRequestException('Pick a person.');
     if (userId === ownerId) throw new BadRequestException('You already have CEO Tower.');
+    if (!(await this.isAdmin(userId))) throw new BadRequestException('CEO Tower is only for Administrators. Make this person an Administrator first.');
     const [b, w] = await Promise.all([
       this.prisma.workspaceMember.findFirst({ where: { userId, deletedAt: null, workspaceId: { in: mine.boards.map((x) => x.id) } }, select: { id: true } }),
       this.prisma.workMember.findFirst({ where: { userId, workspaceId: { in: mine.work.map((x) => x.id) } }, select: { userId: true } }),
@@ -145,7 +154,7 @@ export class CeoTowerService {
 
   private async require(userId: number) {
     const o = await this.owned(userId);
-    if (!o.boards.length && !o.work.length) throw new ForbiddenException('CEO Tower is for workspace owners.');
+    if (!o.boards.length && !o.work.length) throw new ForbiddenException('CEO Tower is only for Administrators.');
     return o;
   }
 

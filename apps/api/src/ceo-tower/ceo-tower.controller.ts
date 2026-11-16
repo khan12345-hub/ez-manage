@@ -9,7 +9,7 @@ import { CeoCommsService } from './ceo-comms.service';
 import { CeoTaskService } from './ceo-task.service';
 import { CeoDigestService } from './ceo-digest.service';
 
-/** CEO Tower: read-only, for workspace owners (checked in the service on every call) */
+/** CEO Tower: read-only, for Administrators who own a company (checked in the service on every call) */
 @Controller('ceo-tower')
 export class CeoTowerController {
   constructor(
@@ -67,7 +67,7 @@ export class CeoTowerController {
 
   @Get('ai/status')
   async aiStatus(@CurrentUser() u: SessionUser) {
-    if (!(await this.tower.access(u.id)).allowed) throw new ForbiddenException('CEO Tower is for workspace owners.');
+    if (!(await this.tower.access(u.id)).allowed) throw new ForbiddenException('CEO Tower is only for Administrators.');
     return this.ai.status();
   }
 
@@ -78,7 +78,7 @@ export class CeoTowerController {
 
   @Get('ai/conversations')
   async aiConversations(@CurrentUser() u: SessionUser) {
-    if (!(await this.tower.access(u.id)).allowed) throw new ForbiddenException('CEO Tower is for workspace owners.');
+    if (!(await this.tower.access(u.id)).allowed) throw new ForbiddenException('CEO Tower is only for Administrators.');
     return this.ai.conversations(u.id);
   }
 
@@ -101,7 +101,7 @@ export class CeoTowerController {
   @Post('ai/dev/tool')
   async aiDevTool(@Body() b: { name?: string; input?: Record<string, any>; conversationId?: string }, @CurrentUser() u: SessionUser) {
     if (process.env.CEO_AI_DEV_TOOLS !== '1' || process.env.NODE_ENV === 'production') throw new NotFoundException();
-    if (!(await this.tower.access(u.id)).allowed) throw new ForbiddenException('CEO Tower is for workspace owners.');
+    if (!(await this.tower.access(u.id)).allowed) throw new ForbiddenException('CEO Tower is only for Administrators.');
     const conv = await this.ai.ensureConversation(u.id, b.conversationId ? String(b.conversationId) : undefined);
     return { conversationId: conv, result: await this.ai.runTool(u.id, conv, String(b.name ?? ''), b.input ?? {}) };
   }

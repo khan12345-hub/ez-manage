@@ -301,7 +301,7 @@ export class CeoAiService {
   // ---------- conversation ----------
 
   async chatTurn(userId: number, text: string, conversationId?: string) {
-    await this.tower.access(userId).then((a) => { if (!a.allowed) throw new ForbiddenException('CEO Tower is for workspace owners.'); });
+    await this.tower.access(userId).then((a) => { if (!a.allowed) throw new ForbiddenException('CEO Tower is only for Administrators.'); });
     const question = (text ?? '').trim();
     if (!question) throw new BadRequestException('Ask something.');
     if (question.length > 4000) throw new BadRequestException('Keep the question under 4,000 characters.');
@@ -394,7 +394,7 @@ export class CeoAiService {
   /** exposed for tests (and only reachable from the API when CEO_AI_DEV_TOOLS=1) */
   async runTool(userId: number, conversationId: string, name: string, input: Record<string, any>): Promise<unknown> {
     const own = await this.tower.owned(userId);
-    if (!own.boards.length && !own.work.length) throw new ForbiddenException('CEO Tower is for workspace owners.');
+    if (!own.boards.length && !own.work.length) throw new ForbiddenException('CEO Tower is only for Administrators.');
     const workIds = own.work.map((w) => w.id);
     const int = (v: unknown) => (Number.isInteger(Number(v)) ? Number(v) : undefined);
     const days = Math.min(Math.max(int(input.days) ?? 7, 1), 90);
