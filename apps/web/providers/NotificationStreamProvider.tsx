@@ -146,7 +146,8 @@ export function NotificationStreamProvider({
       (data) => {
         // Work chat: screens listen for this; the sidebar refreshes unread counts
         window.dispatchEvent(new CustomEvent(WORK_CHAT_EVENT, { detail: data }));
-        if (data.type !== "typing") queryClient.invalidateQueries({ queryKey: ["work", "chat-sidebar"] });
+        // typing and live doc / whiteboard edits don't change the chat sidebar
+        if (data.type !== "typing" && (data.type as string) !== "collab") queryClient.invalidateQueries({ queryKey: ["work", "chat-sidebar"] });
       },
     );
 

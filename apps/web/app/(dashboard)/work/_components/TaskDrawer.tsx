@@ -42,6 +42,7 @@ import { Composer } from "./Composer";
 import { CustomFieldsSection } from "./CustomFields";
 import { ThreadView } from "./ThreadView";
 import { TaskMenu } from "./TaskMenu";
+import { TASK_TYPES } from "./TaskMenuDialogs";
 import { TaskListsControl, type PickMode } from "./TaskLists";
 import { mineKey } from "./CommentActions";
 import { RepeatField } from "./RepeatField";
@@ -335,6 +336,10 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
               </DropdownMenu>
               <SheetTitle className="sr-only">{task.name}</SheetTitle>
               <SheetDescription className="sr-only">Task details</SheetDescription>
+              {task.taskType && task.taskType !== "task" && (() => {
+                const t = TASK_TYPES.find((x) => x.id === task.taskType);
+                return t ? <span className="mb-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: `${t.color}1a`, color: t.color }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: t.color }} />{t.label}</span> : null;
+              })()}
               <textarea
                 value={name}
                 readOnly={!canEdit}

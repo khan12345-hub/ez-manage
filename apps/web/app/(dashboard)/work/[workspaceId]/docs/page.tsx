@@ -11,6 +11,11 @@ import { TaskItem } from "@tiptap/extension-task-item";
 import { TaskList } from "@tiptap/extension-task-list";
 import { Highlight } from "@tiptap/extension-highlight";
 import { TableKit } from "@tiptap/extension-table";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCaret from "@tiptap/extension-collaboration-caret";
+import { ySyncPluginKey } from "@tiptap/y-tiptap";
+import { useAuth } from "@/providers/AuthProvider";
+import { LiveRoom, PeersBar, colorFor, usePeers, type CollabUser } from "../../_components/collab";
 import { Archive, Bold, ChevronRight, Code, FilePlus2, FileText, Heading1, Heading2, Highlighter, Italic, Link2, List, ListChecks, ListOrdered, Quote, Strikethrough, Table as TableIcon } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -71,52 +76,106 @@ export default function DocsPage() {
 
 function DocEditor({ uid, ws, onSubPage, onOpen, onArchived }: { uid: string; ws: string; onSubPage: (parentId: number) => void; onOpen: (uid: string) => void; onArchived: () => void }) {
   const qc = useQueryClient();
-  const { data: doc, isError } = useQuery({ queryKey: ["work", "doc", uid], queryFn: async () => (await api.get<Doc>(`/work/docs/${uid}`)).data, refetchOnWindowFocus: false });
+  const { user } = useAuth();
+  const { data: doc, isError, refetch } = useQuery({ queryKey: ["work", "doc", uid], queryFn: async () => (await api.get<Doc>(`/work/docs/${uid}`)).data, refetchOnWindowFocus: false });
   const [title, setTitle] = useState("");
   const [state, setState] = useState<"saved" | "saving" | "unsaved">("saved");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pending = useRef<{ title?: string; content?: string }>({});
+  const pending = useRef<{ title?: string; content?: string; live?: boolean }>({});
   const save = useMutation({
-    mutationFn: async (dto: { title?: string; content?: string }) => (await api.patch(`/work/docs/${uid}`, dto)).data,
+    mutationFn: async (dto: { title?: string; content?: string; live?: boolean }) => (await api.patch(`/work/docs/${uid}`, dto)).data,
     onMutate: () => setState("saving"),
     onSuccess: () => { setState("saved"); qc.invalidateQueries({ queryKey: ["work", "docs", ws] }); },
     onError: (e) => { setState("unsaved"); toast.error(errMsg(e, "Couldn't save.")); },
   });
-  const queue = (dto: { title?: string; content?: string }) => {
+  const queue = (dto: { title?: string; content?: string; live?: boolean }) => {
     pending.current = { ...pending.current, ...dto };
     setState("unsaved");
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => { const d = pending.current; pending.current = {}; save.mutate(d); }, 800);
   };
   useEffect(() => () => { if (timer.current) { clearTimeout(timer.current); const d = pending.current; if (d.title !== undefined || d.content !== undefined) void api.patch(`/work/docs/${uid}`, d); } }, [uid]);
+
+  // live co-editing: join the page, then the editor works on the shared copy
+  const me = useMemo<CollabUser | null>(() => (user?.id ? { id: user.id, name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Someone", color: colorFor(user.id), avatarUrl: user.avatarUrl ?? null } : null), [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [gen, setGen] = useState(0);
+  const [live, setLive] = useState<{ room: LiveRoom; seed: boolean } | null | "static">(null);
+  useEffect(() => {
+    if (!doc?.id || !me) return;
+    const room = new LiveRoom("docs", uid, me);
+    let off = false;
+    room.onReset = () => { void refetch().then(() => setGen((g) => g + 1)); };
+    room.start().then((r) => { if (!off) setLive(r.live ? { room, seed: r.seed } : "static"); }).catch(() => { if (!off) setLive("static"); });
+    return () => { off = true; setLive(null); void room.destroy(); };
+  }, [doc?.id, me, uid, gen]); // eslint-disable-line react-hooks/exhaustive-deps
+  const room = live && live !== "static" ? live.room : null;
+  const peers = usePeers(room);
+  // the live copy is shown in the editor a moment after it's created; fill / seed only after that
+  const [rendered, setRendered] = useState<LiveRoom | null>(null);
+
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [StarterKit.configure({ link: { openOnClick: true, autolink: true } }), Placeholder.configure({ placeholder: "Write something… (use the toolbar for headings, lists, checklists and tables)" }), TaskList, TaskItem.configure({ nested: true }), Highlight, TableKit.configure({ table: { resizable: false } })],
+    extensions: [
+      StarterKit.configure({ link: { openOnClick: true, autolink: true }, ...(room ? { undoRedo: false } : {}) }),
+      Placeholder.configure({ placeholder: "Write something… (use the toolbar for headings, lists, checklists and tables)" }),
+      TaskList, TaskItem.configure({ nested: true }), Highlight, TableKit.configure({ table: { resizable: false } }),
+      ...(room && me ? [
+        Collaboration.configure({ document: room.ydoc, onFirstRender: () => setRendered(room) }),
+        CollaborationCaret.configure({
+          provider: room, user: me,
+          render: (u: Record<string, any>) => {
+            const caret = document.createElement("span");
+            caret.className = "collab-caret";
+            caret.setAttribute("style", `position:relative;margin-left:-1px;margin-right:-1px;border-left:2px solid ${u.color};word-break:normal;pointer-events:none`);
+            const label = document.createElement("span");
+            label.setAttribute("style", `position:absolute;top:-1.35em;left:-2px;font-size:11px;font-weight:600;line-height:1;white-space:nowrap;color:#fff;background:${u.color};padding:2px 4px;border-radius:4px 4px 4px 0;user-select:none`);
+            label.textContent = u.name;
+            caret.appendChild(label);
+            return caret;
+          },
+        }),
+      ] : []),
+    ],
     content: "",
     editable: false,
-    onUpdate: ({ editor }) => queue({ content: editor.getHTML() }),
-  });
+    // other people's changes arrive through the live copy; only this person's typing saves the HTML copy
+    onUpdate: ({ editor, transaction }) => { if ((transaction.getMeta(ySyncPluginKey) as any)?.isChangeOrigin) return; queue({ content: editor.getHTML(), ...(room ? { live: true } : {}) }); },
+  }, [room]);
   useEffect(() => {
-    if (!doc || !editor) return;
-    setTitle(doc.title);
-    editor.commands.setContent(doc.content || "", { emitUpdate: false });
+    if (!doc || !editor || live === null) return;
+    if (live !== "static" && rendered !== live.room) return;
+    setTitle((live !== "static" && live.room.ydoc.getMap<string>("meta").get("title")) || doc.title);
+    if (live === "static") editor.commands.setContent(doc.content || "", { emitUpdate: false });
+    else if (live.seed) { if (!live.room.ydoc.getMap<string>("meta").get("title")) live.room.ydoc.getMap<string>("meta").set("title", doc.title); editor.commands.setContent(doc.content || "", { emitUpdate: false }); void live.room.seedDone().catch(() => toast.error("Couldn't start live editing.")); }
     editor.setEditable(doc.canEdit);
-  }, [doc?.id, editor]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [doc?.id, editor, live, rendered]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the title is shared live too
+  useEffect(() => {
+    if (!room) return;
+    const meta = room.ydoc.getMap<string>("meta");
+    const t = meta.get("title");
+    if (typeof t === "string") setTitle(t);
+    const on = (e: { transaction: { local: boolean } }) => { const v = meta.get("title"); if (!e.transaction.local && typeof v === "string") setTitle(v); };
+    meta.observe(on);
+    return () => meta.unobserve(on);
+  }, [room]);
+  const onTitle = (v: string) => { setTitle(v); queue({ title: v }); room?.ydoc.getMap<string>("meta").set("title", v); };
   const archive = useMutation({ mutationFn: () => api.delete(`/work/docs/${uid}`), onSuccess: () => { toast.success("Page archived"); onArchived(); } });
 
   if (isError) return <p className="py-24 text-center text-muted-foreground">This page isn&apos;t available.</p>;
-  if (!doc) return <div className="m-8 h-64 animate-pulse rounded-xl bg-muted" />;
+  if (!doc || live === null) return <div className="m-8 h-64 animate-pulse rounded-xl bg-muted" />;
   return (
     <article className="mx-auto max-w-[860px] px-8 py-6">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
         {doc.parent && <><button type="button" onClick={() => onOpen(doc.parent!.uid)} className="hover:underline">{doc.parent.title}</button><ChevronRight className="h-3 w-3" /></>}
+        <PeersBar peers={peers} meId={me?.id} />
         <span className="flex-1">{state === "saving" ? "Saving…" : state === "unsaved" ? "Unsaved changes" : `Saved · ${doc.updatedBy ? `${doc.updatedBy.firstName} ` : ""}${ago(doc.updatedAt)}`}</span>
         {doc.canEdit && <>
           <button type="button" onClick={() => onSubPage(doc.id)} className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent"><FilePlus2 className="h-3.5 w-3.5" /> Sub-page</button>
           <button type="button" onClick={() => window.confirm(`Archive "${doc.title}"${doc.children.length ? " and its sub-pages" : ""}?`) && archive.mutate()} className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent hover:text-destructive"><Archive className="h-3.5 w-3.5" /> Archive</button>
         </>}
       </div>
-      <input aria-label="Page title" value={title} readOnly={!doc.canEdit} onChange={(e) => { setTitle(e.target.value); queue({ title: e.target.value }); }} placeholder="Untitled"
+      <input aria-label="Page title" value={title} readOnly={!doc.canEdit} onChange={(e) => onTitle(e.target.value)} placeholder="Untitled"
         className="mb-3 w-full bg-transparent text-[32px] font-bold leading-tight outline-none placeholder:text-muted-foreground/50" />
       {doc.canEdit && editor && <Toolbar editor={editor} />}
       <EditorContent editor={editor} aria-label="Page content"

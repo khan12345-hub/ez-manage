@@ -2,14 +2,17 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BarChart3, CalendarDays, Columns3, LayoutGrid, List as ListIcon, Plus, Table2, X, GanttChartSquare, CalendarRange, Gauge } from "lucide-react";
+import { BarChart3, CalendarDays, Columns3, LayoutGrid, List as ListIcon, Plus, Table2, X, GanttChartSquare, CalendarRange, Gauge, Activity, GitFork, Users, Map as MapIcon, FolderOpen, Globe } from "lucide-react";
+import { ActivityView, CollectionView, EmbedFrame, MapView, MindMapView, type EmbedView } from "../../../_components/MoreViews";
+import { LocationTeam } from "../../../_components/chat/LocationChannel";
+import { api } from "@/lib/api";
 import { LocationDashboard } from "../../../_components/Dashboard";
 import { trackPlace } from "../../../_components/recent";
 import { AutomateButton } from "../../../_components/Automations";
 import { LocationChannelButton } from "../../../_components/chat/LocationChannel";
 import { ShareListButton } from "../../../_components/ShareAndEmail";
 import { GalleryView } from "../../../_components/GalleryView";
-import { AddViewMenu, type WorkView } from "../../../_components/AddViewMenu";
+import { AddViewMenu, type WorkModule, type WorkView } from "../../../_components/AddViewMenu";
 import { pushRecentList, useWorkCreate } from "@/store/work-create";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -35,9 +38,15 @@ const VIEW_META: Record<View, { label: string; icon: typeof ListIcon }> = {
   gantt: { label: "Gantt", icon: GanttChartSquare },
   timeline: { label: "Timeline", icon: CalendarRange },
   workload: { label: "Workload", icon: Gauge },
+  activity: { label: "Activity", icon: Activity },
+  mindmap: { label: "Mind Map", icon: GitFork },
+  team: { label: "Team", icon: Users },
+  map: { label: "Map", icon: MapIcon },
+  collection: { label: "Files", icon: FolderOpen },
 };
 const BASE_VIEWS: View[] = ["list", "board", "calendar"];
 const viewsKey = (uid: string) => `ez:work:views:${uid}`;
+const embedsKey = (uid: string) => `ez:work:embeds:${uid}`;
 
 function ListPageInner() {
   const { listUid, workspaceId } = useParams<{ workspaceId: string; listUid: string }>();
@@ -57,6 +66,17 @@ function ListPageInner() {
       setExtraViews([]);
     }
   }, [listUid]);
+  // embedded views (any website, YouTube, Figma, Google Docs / Sheets / Calendar), remembered per list
+  const [embeds, setEmbeds] = useState<EmbedView[]>([]);
+  useEffect(() => {
+    try { const v = JSON.parse(localStorage.getItem(embedsKey(listUid)) ?? "[]"); setEmbeds(Array.isArray(v) ? v.filter((x) => x?.id && typeof x.url === "string" && /^https:\/\//.test(x.url)) : []); } catch { setEmbeds([]); }
+  }, [listUid]);
+  const saveEmbeds = (v: EmbedView[]) => {
+    setEmbeds(v);
+    try { localStorage.setItem(embedsKey(listUid), JSON.stringify(v)); } catch {}
+  };
+  const embedId = sp.get("view") === "embed" ? sp.get("embed") : null;
+  const activeEmbed = embeds.find((e) => e.id === embedId) ?? null;
   const saveExtra = (v: View[]) => {
     setExtraViews(v);
     try { localStorage.setItem(viewsKey(listUid), JSON.stringify(v)); } catch {}
@@ -94,6 +114,21 @@ function ListPageInner() {
     router.replace(`${pathname}${next.toString() ? `?${next}` : ""}`, { scroll: false });
   };
   const openTask = (uid: string) => setParam("task", uid);
+  const goView = (v: string | null, embed?: string) => {
+    const next = new URLSearchParams(sp.toString());
+    v === null ? next.delete("view") : next.set("view", v);
+    embed ? next.set("embed", embed) : next.delete("embed");
+    router.replace(`${pathname}${next.toString() ? `?${next}` : ""}`, { scroll: false });
+  };
+  /** "+ View" → Doc / Form / Whiteboard: made for this list's space and opened */
+  const openModule = async (m: WorkModule) => {
+    if (!list) return;
+    try {
+      if (m === "form") router.push(`/work/${workspaceId}/forms?new=1&list=${list.id}`);
+      else if (m === "doc") router.push(`/work/${workspaceId}/docs?doc=${(await api.post<{ uid: string }>(`/work/workspaces/${workspaceId}/docs`, { title: `${list.name} doc`, spaceId: list.spaceId })).data.uid}`);
+      else router.push(`/work/${workspaceId}/whiteboards?board=${(await api.post<{ uid: string }>(`/work/workspaces/${workspaceId}/whiteboards`, { title: `${list.name} whiteboard` })).data.uid}`);
+    } catch (e: any) { toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't create it."); }
+  };
 
   // Search + "Me mode" (only my tasks). Keep a subtask's parent visible when the subtask matches.
   const shown = useMemo(() => {
@@ -170,12 +205,12 @@ function ListPageInner() {
                 <div key={id} className="group/tab relative flex">
                   <button
                     role="tab"
-                    aria-selected={view === id}
+                    aria-selected={view === id && !activeEmbed}
                     type="button"
-                    onClick={() => setParam("view", id === "list" ? null : id)}
+                    onClick={() => goView(id === "list" ? null : id)}
                     className={cn(
                       "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
-                      view === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+                      view === id && !activeEmbed ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
                       removable && "pr-6",
                     )}
                   >
@@ -189,7 +224,7 @@ function ListPageInner() {
                       title="Remove view"
                       onClick={() => {
                         saveExtra(extraViews.filter((x) => x !== id));
-                        if (view === id) setParam("view", null);
+                        if (view === id) goView(null);
                       }}
                       className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground group-hover/tab:block"
                     >
@@ -199,19 +234,36 @@ function ListPageInner() {
                 </div>
               );
             })}
+            {embeds.map((e) => (
+              <div key={e.id} className="group/tab relative flex">
+                <button role="tab" aria-selected={activeEmbed?.id === e.id} type="button" onClick={() => goView("embed", e.id)} className={cn("flex items-center gap-1.5 border-b-2 px-3 py-2.5 pr-6 text-sm font-medium transition-colors", activeEmbed?.id === e.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+                  <Globe className="h-4 w-4" />
+                  <span className="max-w-[140px] truncate">{e.name}</span>
+                </button>
+                <button type="button" aria-label={`Remove ${e.name} view`} title="Remove view" onClick={() => { saveEmbeds(embeds.filter((x) => x.id !== e.id)); if (activeEmbed?.id === e.id) goView(null); }} className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground group-hover/tab:block">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
           </div>
           <span aria-hidden className="mx-1 h-4 w-px bg-border" />
           <AddViewMenu
             onAdd={(v) => {
               if (!BASE_VIEWS.includes(v) && !extraViews.includes(v)) saveExtra([...extraViews, v]);
-              setParam("view", v === "list" ? null : v);
+              goView(v === "list" ? null : v);
+            }}
+            onModule={list?.access.canEdit ? (m) => void openModule(m) : undefined}
+            onEmbed={(e) => {
+              const id = Math.random().toString(36).slice(2, 10);
+              saveEmbeds([...embeds, { id, ...e }]);
+              goView("embed", id);
             }}
           />
         </div>
       </div>
 
       {/* toolbar */}
-      {list && view !== "dashboard" && (
+      {list && !activeEmbed && !["dashboard", "activity", "collection", "team"].includes(view) && (
         <div className="px-4 pt-4 sm:px-6">
           <ListToolbar
             list={list}
@@ -241,6 +293,18 @@ function ListPageInner() {
           <div className="space-y-4">
             {[0, 1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-xl border border-border bg-card" />)}
           </div>
+        ) : activeEmbed ? (
+          <EmbedFrame view={activeEmbed} />
+        ) : view === "activity" ? (
+          <ActivityView listUid={list.uid} members={list.members} onOpenTask={openTask} />
+        ) : view === "mindmap" ? (
+          <MindMapView list={list} tasks={shown} canEdit={list.access.canEdit} onOpenTask={openTask} />
+        ) : view === "team" ? (
+          <div className="-mx-4 -my-4"><LocationTeam src={{ type: "list", uid: list.uid }} /></div>
+        ) : view === "map" ? (
+          <MapView list={list} tasks={shown} fields={fields} fieldValues={fieldValues} canEdit={list.access.canEdit} onFieldChange={onFieldChange} onOpenTask={openTask} />
+        ) : view === "collection" ? (
+          <CollectionView listUid={list.uid} onOpenTask={openTask} />
         ) : view === "board" ? (
           <BoardView list={list} tasks={shown} onOpenTask={openTask} />
         ) : view === "calendar" ? (

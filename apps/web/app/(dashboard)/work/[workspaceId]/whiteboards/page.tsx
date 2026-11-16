@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -8,8 +8,10 @@ import { ArrowLeft, ArrowUpRight, Circle, Hand, MousePointer2, PenTool, Plus, Sq
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { WorkUser } from "@/services/work.api";
+import { useAuth } from "@/providers/AuthProvider";
+import { LiveRoom, PeersBar, colorFor, usePeers, type CollabUser } from "../../_components/collab";
 
-type Shape = { id: string; type: "note" | "rect" | "ellipse" | "text" | "arrow" | "pen"; x: number; y: number; w: number; h: number; color: string; text?: string; points?: [number, number][] };
+type Shape = { id: string; type: "note" | "rect" | "ellipse" | "text" | "arrow" | "pen"; x: number; y: number; w: number; h: number; color: string; text?: string; points?: [number, number][]; z?: number };
 type Row = { id: number; uid: string; title: string; updatedAt: string; items: number; updatedBy: WorkUser | null };
 type Board = { id: number; uid: string; title: string; data: { shapes: Shape[] }; canEdit: boolean };
 type Tool = "select" | "pan" | Shape["type"];
@@ -55,7 +57,7 @@ export default function WhiteboardsPage() {
 }
 
 function Canvas({ uid, onBack }: { uid: string; onBack: () => void }) {
-  const { data: board } = useQuery({ queryKey: ["work", "whiteboard", uid], queryFn: async () => (await api.get<Board>(`/work/whiteboards/${uid}`)).data, refetchOnWindowFocus: false });
+  const { data: board, refetch } = useQuery({ queryKey: ["work", "whiteboard", uid], queryFn: async () => (await api.get<Board>(`/work/whiteboards/${uid}`)).data, refetchOnWindowFocus: false });
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [title, setTitle] = useState("");
   const [tool, setTool] = useState<Tool>("select");
@@ -69,8 +71,71 @@ function Canvas({ uid, onBack }: { uid: string; onBack: () => void }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loaded = useRef(false);
   const canEdit = !!board?.canEdit;
+  const { user } = useAuth();
+  const me = useMemo<CollabUser | null>(() => (user?.id ? { id: user.id, name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Someone", color: colorFor(user.id), avatarUrl: user.avatarUrl ?? null } : null), [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { if (board && !loaded.current) { loaded.current = true; setShapes(board.data?.shapes ?? []); setTitle(board.title); } }, [board]);
+  // live co-editing: shapes live in a shared map (one entry per shape), so two people drawing at once both keep their work
+  const [room, setRoom] = useState<LiveRoom | null>(null);
+  const [gen, setGen] = useState(0);
+  const roomRef = useRef<LiveRoom | null>(null);
+  const derive = (r: LiveRoom) => [...r.ydoc.getMap<Shape>("shapes").values()].sort((a, b) => (a.z ?? 0) - (b.z ?? 0) || a.id.localeCompare(b.id));
+  useEffect(() => {
+    if (!board?.id || !me) return;
+    const r = new LiveRoom("whiteboards", uid, me);
+    let off = false;
+    r.onReset = () => { loaded.current = false; void refetch().then(() => setGen((g) => g + 1)); };
+    r.start().then((j) => {
+      if (off) return;
+      if (!j.live) return;
+      roomRef.current = r; setRoom(r);
+      loaded.current = true;
+      setShapes(derive(r));
+      const t = r.ydoc.getMap<string>("meta").get("title");
+      if (typeof t === "string") setTitle(t);
+    }).catch(() => null);
+    const shapesMap = r.ydoc.getMap<Shape>("shapes");
+    const onShapes = (e: { transaction: { local: boolean } }) => {
+      if (e.transaction.local || roomRef.current !== r) return;
+      const live = derive(r);
+      setShapes((cur) => {
+        // keep what this person is dragging / drawing right now
+        const d = drag.current;
+        const mine = d?.id ? cur.find((x) => x.id === d.id) : undefined;
+        return mine ? [...live.filter((x) => x.id !== mine.id), mine] : live;
+      });
+    };
+    const meta = r.ydoc.getMap<string>("meta");
+    const onMeta = (e: { transaction: { local: boolean } }) => { const v = meta.get("title"); if (!e.transaction.local && typeof v === "string") setTitle(v); };
+    shapesMap.observe(onShapes); meta.observe(onMeta);
+    return () => { off = true; shapesMap.unobserve(onShapes); meta.unobserve(onMeta); if (roomRef.current === r) roomRef.current = null; setRoom(null); void r.destroy(); };
+  }, [board?.id, me, uid, gen]); // eslint-disable-line react-hooks/exhaustive-deps
+  const peers = usePeers(room);
+  /** write the local picture into the shared map: only the shapes that changed */
+  const syncY = (next: Shape[]) => {
+    const r = roomRef.current; if (!r || !canEdit) return;
+    const m = r.ydoc.getMap<Shape>("shapes");
+    r.ydoc.transact(() => {
+      let top = Math.max(0, ...[...m.values()].map((x) => x.z ?? 0));
+      const keep = new Set<string>();
+      for (const sh of next) {
+        keep.add(sh.id);
+        const old = m.get(sh.id);
+        const want = { ...sh, z: old?.z ?? sh.z ?? ++top };
+        if (!old || JSON.stringify(old) !== JSON.stringify(want)) m.set(sh.id, want);
+      }
+      for (const k of [...m.keys()]) if (!keep.has(k)) m.delete(k);
+    });
+  };
+  const lastPointer = useRef(0);
+  const sharePointer = (e: React.PointerEvent) => {
+    const r = roomRef.current; if (!r || !svg.current) return;
+    const now = Date.now(); if (now - lastPointer.current < 80) return;
+    lastPointer.current = now;
+    const p = pt(e);
+    r.awareness.setLocalStateField("pointer", { x: Math.round(p.x), y: Math.round(p.y) });
+  };
+
+  useEffect(() => { if (board && !loaded.current && !roomRef.current) { loaded.current = true; setShapes(board.data?.shapes ?? []); setTitle(board.title); } }, [board]);
   // changes wait 0.7 s and are sent together (a title edit and a drawing in the same moment both save)
   const pending = useRef<{ shapes?: Shape[]; title?: string }>({});
   const save = (next: { shapes?: Shape[]; title?: string }) => {
@@ -81,11 +146,11 @@ function Canvas({ uid, onBack }: { uid: string; onBack: () => void }) {
     timer.current = setTimeout(async () => {
       const p = pending.current; pending.current = {};
       setState("saving");
-      try { await api.patch(`/work/whiteboards/${uid}`, { ...(p.shapes ? { data: { shapes: p.shapes } } : {}), ...(p.title !== undefined ? { title: p.title } : {}) }); setState("saved"); }
+      try { await api.patch(`/work/whiteboards/${uid}`, { ...(p.shapes ? { data: { shapes: p.shapes } } : {}), ...(p.title !== undefined ? { title: p.title } : {}), ...(roomRef.current ? { live: true } : {}) }); setState("saved"); }
       catch { pending.current = { ...p, ...pending.current }; setState("unsaved"); toast.error("Couldn't save the whiteboard."); }
     }, 700);
   };
-  const commit = (next: Shape[]) => { setShapes(next); save({ shapes: next }); };
+  const commit = (next: Shape[]) => { setShapes(next); syncY(next); save({ shapes: next }); };
   const pt = (e: React.PointerEvent | PointerEvent) => { const r = svg.current!.getBoundingClientRect(); return { x: (e.clientX - r.left - view.x) / view.z, y: (e.clientY - r.top - view.y) / view.z }; };
 
   const onDown = (e: React.PointerEvent, shape?: Shape, handle?: boolean) => {
@@ -127,6 +192,7 @@ function Canvas({ uid, onBack }: { uid: string; onBack: () => void }) {
     if (!d || d.kind === "pan") return;
     setShapes((all) => {
       const next = all.filter((s) => !(s.id === d.id && d.kind === "draw" && (s.type === "rect" || s.type === "ellipse") && s.w < 4 && s.h < 4));
+      syncY(next);
       save({ shapes: next });
       return next;
     });
@@ -148,7 +214,8 @@ function Canvas({ uid, onBack }: { uid: string; onBack: () => void }) {
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <button type="button" onClick={onBack} aria-label="All whiteboards" className="rounded-md p-1.5 hover:bg-accent"><ArrowLeft className="h-4 w-4" /></button>
-        <input aria-label="Whiteboard title" value={title} readOnly={!canEdit} onChange={(e) => { setTitle(e.target.value); save({ title: e.target.value }); }} className="min-w-[200px] flex-1 bg-transparent text-[16px] font-semibold outline-none" />
+        <input aria-label="Whiteboard title" value={title} readOnly={!canEdit} onChange={(e) => { setTitle(e.target.value); save({ title: e.target.value }); roomRef.current?.ydoc.getMap<string>("meta").set("title", e.target.value); }} className="min-w-[200px] flex-1 bg-transparent text-[16px] font-semibold outline-none" />
+        <PeersBar peers={peers} meId={me?.id} />
         <span className="text-[11.5px] text-muted-foreground">{state === "saving" ? "Saving…" : state === "unsaved" ? "Unsaved" : "Saved"}</span>
       </header>
       <div className="relative min-h-0 flex-1 overflow-hidden bg-[radial-gradient(circle,_rgba(148,163,184,.35)_1px,_transparent_1px)]" style={{ backgroundSize: `${16 * view.z}px ${16 * view.z}px`, backgroundPosition: `${view.x}px ${view.y}px` }}>
@@ -174,7 +241,7 @@ function Canvas({ uid, onBack }: { uid: string; onBack: () => void }) {
           <button type="button" aria-label="Zoom in" onClick={() => zoom(1.25)} className="rounded-md p-1.5 hover:bg-accent"><ZoomIn className="h-4 w-4" /></button>
         </div>
         <svg ref={svg} role="application" aria-label="Whiteboard canvas" className={cn("h-full w-full touch-none", tool === "pan" ? "cursor-grab" : tool === "select" ? "cursor-default" : "cursor-crosshair")}
-          onPointerDown={(e) => onDown(e)} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
+          onPointerDown={(e) => onDown(e)} onPointerMove={(e) => { sharePointer(e); onMove(e); }} onPointerUp={onUp} onPointerLeave={onUp}
           onWheel={(e) => { if (e.ctrlKey || e.metaKey) zoom(e.deltaY < 0 ? 1.1 : 0.9); else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY })); }}>
           <defs><marker id="wb-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke" /></marker></defs>
           <g transform={`translate(${view.x},${view.y}) scale(${view.z})`}>
@@ -203,6 +270,13 @@ function Canvas({ uid, onBack }: { uid: string; onBack: () => void }) {
                 </g>
               );
             })}
+            {peers.filter((p) => p.pointer && p.id !== me?.id).map((p) => (
+              <g key={`ptr-${p.id}`} transform={`translate(${p.pointer!.x},${p.pointer!.y}) scale(${1 / view.z})`} pointerEvents="none" aria-hidden>
+                <path d="M0,0 L0,16 L4.5,12 L8,19 L10.5,18 L7,11 L13,11 z" fill={p.color} stroke="#fff" strokeWidth={1.2} />
+                <rect x={12} y={16} rx={4} width={p.name.length * 6.6 + 10} height={18} fill={p.color} />
+                <text x={17} y={29} fontSize={11} fontWeight={600} fill="#fff">{p.name}</text>
+              </g>
+            ))}
           </g>
         </svg>
         {!shapes.length && <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] text-muted-foreground">{canEdit ? "Pick a tool on the left — a sticky note is a good start. Double-click a note to type." : "This whiteboard is empty."}</p>}

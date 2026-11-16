@@ -9,7 +9,9 @@ import { CreateSpaceDialog } from "@/app/(dashboard)/work/_components/CreateSpac
 import { SpaceIcon } from "@/app/(dashboard)/work/_components/SpaceIcon";
 import { ProfilePanel } from "@/app/(dashboard)/work/_components/ProfilePanel";
 import { AutomationsPanel } from "@/app/(dashboard)/work/_components/Automations";
-import { ChatSidebarSections } from "@/app/(dashboard)/work/_components/chat/ChatSidebar";
+import { ChatSidebarSections, CreateChannelDialog, NewMessageDialog } from "@/app/(dashboard)/work/_components/chat/ChatSidebar";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -93,14 +95,15 @@ type DialogState =
   | { kind: "rename-folder"; folder: WorkFolderNode }
   | { kind: "rename-list"; list: WorkListNode };
 
-const SOON_CREATE = [
-  { label: "Message", icon: MessageSquare, color: "#6366F1" },
-  { label: "Channel", icon: Hash, color: "#475569" },
-  { label: "Doc", icon: FileText, color: "#2563EB" },
-  { label: "Form", icon: SquareCheckBig, color: "#7C3AED" },
-  { label: "Dashboard", icon: LayoutDashboard, color: "#9333EA" },
-  { label: "Whiteboard", icon: PenTool, color: "#D97706" },
-  { label: "Clip", icon: Video, color: "#DB2777" },
+type CreateKind = "message" | "channel" | "doc" | "form" | "dashboard" | "whiteboard" | "clip";
+const MORE_CREATE: { id: CreateKind; label: string; icon: typeof MessageSquare; color: string }[] = [
+  { id: "message", label: "Message", icon: MessageSquare, color: "#6366F1" },
+  { id: "channel", label: "Channel", icon: Hash, color: "#475569" },
+  { id: "doc", label: "Doc", icon: FileText, color: "#2563EB" },
+  { id: "form", label: "Form", icon: SquareCheckBig, color: "#7C3AED" },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, color: "#9333EA" },
+  { id: "whiteboard", label: "Whiteboard", icon: PenTool, color: "#D97706" },
+  { id: "clip", label: "Clip", icon: Video, color: "#DB2777" },
 ];
 
 const MORE_SOON: { label: string; icon: typeof AtSign }[] = [];
@@ -118,6 +121,7 @@ const MORE_PAGES = [
   { id: "forms", label: "Forms", path: "forms", icon: ClipboardList },
   { id: "ai", label: "Ask AI", path: "ai", icon: Sparkles },
   { id: "whiteboards", label: "Whiteboards", path: "whiteboards", icon: PenTool },
+  { id: "clips", label: "Clips", path: "clips", icon: Video },
 ];
 
 const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13.5px] transition-colors";
@@ -202,6 +206,27 @@ export function WorkSidebar({
   const go = (href: string) => {
     onMobileClose?.();
     router.push(href);
+  };
+  const [chatDialog, setChatDialog] = useState<null | "message" | "channel">(null);
+  /** "+ Create" → Message, Channel, Doc, Form, Dashboard, Whiteboard, Clip */
+  const createMore = async (k: CreateKind) => {
+    if (!wsParam) return;
+    const base = `/work/${wsParam}`;
+    try {
+      if (k === "message" || k === "channel") setChatDialog(k);
+      else if (k === "doc") go(`${base}/docs?doc=${(await api.post<{ uid: string }>(`/work/workspaces/${wsParam}/docs`, { title: "Untitled" })).data.uid}`);
+      else if (k === "whiteboard") go(`${base}/whiteboards?board=${(await api.post<{ uid: string }>(`/work/workspaces/${wsParam}/whiteboards`, { title: "Untitled whiteboard" })).data.uid}`);
+      else if (k === "form") go(`${base}/forms?new=1`);
+      else if (k === "clip") go(`${base}/clips?record=1`);
+      else if (k === "dashboard") {
+        const sp0 = tree?.spaces[0];
+        if (activeListUid) go(`${base}/list/${activeListUid}?view=dashboard`);
+        else if (sp0) go(`${base}/space/${sp0.uid}?tab=dashboard`);
+        else toast.error("Create a space first.");
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't create it.");
+    }
   };
 
   const onDialogSubmit = async (r: NameDialogResult) => {
@@ -354,10 +379,9 @@ export function WorkSidebar({
                 <DropdownMenuItem onClick={() => setDialog({ kind: "space" })}><Orbit className="mr-2 h-4 w-4 text-muted-foreground" /><span><span className="block">Space</span><span className="block text-[11px] text-muted-foreground">Organize work by team or department</span></span></DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              {SOON_CREATE.map((x) => (
-                <DropdownMenuItem key={x.label} disabled>
+              {MORE_CREATE.filter((x) => canEdit || x.id === "message" || x.id === "clip").map((x) => (
+                <DropdownMenuItem key={x.id} onClick={() => void createMore(x.id)}>
                   <x.icon className="mr-2 h-4 w-4" style={{ color: x.color }} />{x.label}
-                  <span className="ml-auto rounded bg-muted px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Soon</span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -640,6 +664,8 @@ export function WorkSidebar({
       {wsParam && <CreatePanel ws={wsParam} />}
       {wsParam && <ProfilePanel />}
       {wsParam && <AutomationsPanel />}
+      {wsParam && chatDialog === "channel" && <CreateChannelDialog onClose={() => setChatDialog(null)} />}
+      {wsParam && chatDialog === "message" && <NewMessageDialog onClose={() => setChatDialog(null)} />}
       <CreateSpaceDialog
         open={dialog?.kind === "space"}
         onOpenChange={(o) => !o && setDialog(null)}

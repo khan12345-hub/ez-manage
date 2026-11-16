@@ -11,6 +11,10 @@ import { WorkAiService } from './work-ai.service';
 import { WorkLinksService } from './work-links.service';
 import { WorkWhiteboardsService } from './work-whiteboards.service';
 import { WorkCallsService } from './work-calls.service';
+import { WorkMoreService } from './work-more.service';
+import { UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { Headers } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from 'src/auth/decorators/public.decorator';
@@ -29,6 +33,7 @@ export class WorkModulesController {
     private readonly links: WorkLinksService,
     private readonly boards: WorkWhiteboardsService,
     private readonly calls: WorkCallsService,
+    private readonly more: WorkMoreService,
   ) {}
 
   // ── timesheets ──
@@ -284,5 +289,112 @@ export class WorkModulesController {
   @Post('chat/calls/leave')
   leaveCall(@Body() b: { room?: string }, @CurrentUser() u: SessionUser) {
     return this.calls.leave(String(b?.room ?? ''), u.id);
+  }
+
+  // ── list views: Activity, Collection (files) ──
+  @Get('lists/:listUid/activity')
+  listActivity(@Param('listUid') listUid: string, @Query('before') before: string, @CurrentUser() u: SessionUser) {
+    return this.more.listActivity(listUid, u.id, before);
+  }
+
+  @Get('lists/:listUid/files')
+  listFiles(@Param('listUid') listUid: string, @CurrentUser() u: SessionUser) {
+    return this.more.listFiles(listUid, u.id);
+  }
+
+  // ── make owner ──
+  @Post('workspaces/:workspaceId/transfer-owner')
+  async transferOwner(@Param('workspaceId') ws: string, @Body() b: { userId?: number }, @CurrentUser() u: SessionUser) {
+    return this.more.transferOwner(await this.work.resolveWorkspaceId(ws), u.id, Number(b?.userId));
+  }
+
+  // ── task: merge, convert, description history, templates, email ──
+  @Post('tasks/:taskUid/merge')
+  mergeTasks(@Param('taskUid') taskUid: string, @Body() b: { sourceUids?: string[] }, @CurrentUser() u: SessionUser) {
+    return this.more.merge(taskUid, Array.isArray(b?.sourceUids) ? b.sourceUids : [], u.id);
+  }
+
+  @Post('tasks/:taskUid/convert')
+  convertTask(@Param('taskUid') taskUid: string, @Body() b: { to?: string; parentUid?: string }, @CurrentUser() u: SessionUser) {
+    return this.more.convert(taskUid, u.id, b ?? {});
+  }
+
+  @Get('tasks/:taskUid/description-history')
+  descriptionHistory(@Param('taskUid') taskUid: string, @CurrentUser() u: SessionUser) {
+    return this.more.descriptionHistory(taskUid, u.id);
+  }
+
+  @Post('description-versions/:id/restore')
+  restoreDescription(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.more.restoreDescription(id, u.id);
+  }
+
+  @Get('workspaces/:workspaceId/task-templates')
+  async taskTemplates(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.more.templates(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Post('tasks/:taskUid/save-template')
+  saveTemplate(@Param('taskUid') taskUid: string, @Body() b: { name?: string }, @CurrentUser() u: SessionUser) {
+    return this.more.saveTemplate(taskUid, u.id, b?.name);
+  }
+
+  @Post('task-templates/:id/apply')
+  applyTemplate(@Param('id', ParseIntPipe) id: number, @Body() b: { listUid?: string; name?: string }, @CurrentUser() u: SessionUser) {
+    return this.more.applyTemplate(id, u.id, String(b?.listUid ?? ''), b?.name);
+  }
+
+  @Delete('task-templates/:id')
+  deleteTemplate(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.more.deleteTemplate(id, u.id);
+  }
+
+  @Get('tasks/:taskUid/email')
+  taskEmail(@Param('taskUid') taskUid: string, @CurrentUser() u: SessionUser) {
+    return this.more.taskEmail(taskUid, u.id, false);
+  }
+
+  @Post('tasks/:taskUid/email')
+  createTaskEmail(@Param('taskUid') taskUid: string, @CurrentUser() u: SessionUser) {
+    return this.more.taskEmail(taskUid, u.id, true);
+  }
+
+  @Delete('tasks/:taskUid/email')
+  revokeTaskEmail(@Param('taskUid') taskUid: string, @CurrentUser() u: SessionUser) {
+    return this.more.revokeTaskEmail(taskUid, u.id);
+  }
+
+  // ── clips (screen recordings) ──
+  @Get('workspaces/:workspaceId/clips')
+  async clips(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.more.clips(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
+  @Post('workspaces/:workspaceId/clips')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 300 * 1024 * 1024 } }))
+  async createClip(@Param('workspaceId') ws: string, @UploadedFile() file: Express.Multer.File, @Body() b: { title?: string; durationSec?: string }, @CurrentUser() u: SessionUser) {
+    return this.more.createClip(await this.work.resolveWorkspaceId(ws), u.id, file, b ?? {});
+  }
+
+  @Get('clips/:clipUid')
+  clip(@Param('clipUid') clipUid: string, @CurrentUser() u: SessionUser) {
+    return this.more.clip(clipUid, u.id);
+  }
+
+  @Patch('clips/:clipUid')
+  renameClip(@Param('clipUid') clipUid: string, @Body() b: { title?: string }, @CurrentUser() u: SessionUser) {
+    return this.more.renameClip(clipUid, u.id, String(b?.title ?? ''));
+  }
+
+  @Delete('clips/:clipUid')
+  deleteClip(@Param('clipUid') clipUid: string, @CurrentUser() u: SessionUser) {
+    return this.more.deleteClip(clipUid, u.id);
+  }
+
+  // ── address search for the Map view ──
+  @Get('geocode')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  geocode(@Query('q') q: string) {
+    return this.more.geocode(q);
   }
 }

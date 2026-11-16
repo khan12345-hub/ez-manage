@@ -13,6 +13,9 @@ const num = (v: unknown, d = 0) => (Number.isFinite(Number(v)) ? Math.round(Numb
 export class WorkWhiteboardsService {
   constructor(private readonly prisma: PrismaService, private readonly access: WorkAccessService) {}
 
+  /** set by the live editor service: a shapes save that didn't come from the live editor */
+  onExternalEdit: ((boardId: number) => void) | null = null;
+
   /** keep only known shape fields (no HTML, bounded sizes) */
   private clean(data: unknown) {
     const shapes = Array.isArray((data as any)?.shapes) ? (data as any).shapes : [];
@@ -52,15 +55,25 @@ export class WorkWhiteboardsService {
     const b = await this.boardOf(idOrUid, userId, 'view');
     let canEdit = true;
     try { await this.access.requireWorkspace(b.workspaceId, userId, 'edit'); } catch { canEdit = false; }
-    return { ...b, canEdit };
+    const { yState, ...rest } = b;
+    return { ...rest, canEdit, live: !!yState?.length };
   }
 
-  async update(idOrUid: string, userId: number, dto: { title?: string; data?: unknown }) {
+  /** the row with its live-editing state (for the live editor service only) */
+  async forCollab(idOrUid: string, userId: number) {
+    const b = await this.get(idOrUid, userId);
+    const row = await this.prisma.workWhiteboard.findUnique({ where: { id: b.id }, select: { yState: true } });
+    return { ...b, yState: row?.yState ?? null };
+  }
+
+  /** live: the shapes copy saved by the live editor (the live state is already up to date) */
+  async update(idOrUid: string, userId: number, dto: { title?: string; data?: unknown; live?: boolean }) {
     const b = await this.boardOf(idOrUid, userId, 'edit');
     const data: Record<string, unknown> = { updatedById: userId };
     if (dto.title !== undefined) data.title = dto.title.trim().slice(0, 200) || 'Untitled whiteboard';
     if (dto.data !== undefined) data.data = this.clean(dto.data);
     const u = await this.prisma.workWhiteboard.update({ where: { id: b.id }, data, select: { id: true, uid: true, title: true, updatedAt: true } });
+    if (dto.data !== undefined && !dto.live && b.yState) this.onExternalEdit?.(b.id);
     return u;
   }
 

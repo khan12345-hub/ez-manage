@@ -5,7 +5,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { WorkAccessService } from './work-access.service';
 import { WorkDetailService } from './work-detail.service';
 
-export const FIELD_TYPES = ['text', 'textarea', 'number', 'money', 'date', 'dropdown', 'labels', 'checkbox', 'email', 'phone', 'url', 'rating', 'progress', 'people'] as const;
+export const FIELD_TYPES = ['text', 'textarea', 'number', 'money', 'date', 'dropdown', 'labels', 'checkbox', 'email', 'phone', 'url', 'rating', 'progress', 'people', 'location'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 type Option = { id: string; name: string; color: string };
 
@@ -121,6 +121,13 @@ export class WorkFieldsService {
       case 'textarea':
         if (typeof v !== 'string') bad('Text expected.');
         return (v as string).slice(0, f.type === 'text' ? 500 : 10000);
+      case 'location': {
+        // { address, lat, lng } — picked from the address search (Map view)
+        const o = v as any;
+        const lat = Number(o?.lat), lng = Number(o?.lng);
+        if (typeof o !== 'object' || typeof o.address !== 'string' || !o.address.trim() || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) bad('Pick an address from the search.');
+        return { address: String(o.address).trim().slice(0, 300), lat, lng };
+      }
       case 'email':
         if (typeof v !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) bad('Not a valid email.');
         return (v as string).trim();

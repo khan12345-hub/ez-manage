@@ -6,6 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, Bookmark as BookmarkIcon, CalendarDays, Columns3, Hash, UsersRound, ExternalLink, FileText, Folder, FolderPlus, LayoutGrid, List as ListIcon, ListPlus, Lock, Paperclip, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 import { userName, workApi, workKeys, type WorkOverviewList } from "@/services/work.api";
 import { NameDialog } from "./NameDialog";
 import { Donut, colorAt } from "./Charts";
@@ -201,13 +203,7 @@ function OverviewCards({
         )}
       </Panel>
 
-      <Panel title="Docs" span={2}>
-        <div className="flex flex-col items-center py-4 text-center">
-          <FileText className="h-8 w-8 text-muted-foreground/60" />
-          <p className="mt-2 text-[12.5px] text-muted-foreground">There are no Docs in this location yet.</p>
-          <span className="mt-2 rounded-md bg-muted px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Docs · Soon</span>
-        </div>
-      </Panel>
+      <SpaceDocs workspaceId={workspaceId} spaceId={data.space.id} canEdit={!!data.access.canEdit} />
 
       <Panel
         title="Bookmarks"
@@ -337,5 +333,43 @@ function ListsTable({ lists, fallbackColor, onOpen }: { lists: WorkOverviewList[
         ))}
       </tbody>
     </table>
+  );
+}
+
+/** Docs in this space (Work → Docs pages filed under the space) */
+function SpaceDocs({ workspaceId, spaceId, canEdit }: { workspaceId: string; spaceId: number; canEdit: boolean }) {
+  const router = useRouter();
+  const { data: docs } = useQuery({
+    queryKey: ["work", "docs", workspaceId],
+    queryFn: async () => (await api.get<{ uid: string; title: string; spaceId: number | null; parentId: number | null; updatedAt: string }[]>(`/work/workspaces/${workspaceId}/docs`)).data,
+  });
+  const here = (docs ?? []).filter((d) => d.spaceId === spaceId && !d.parentId).slice(0, 8);
+  const create = async () => {
+    try {
+      const d = (await api.post<{ uid: string }>(`/work/workspaces/${workspaceId}/docs`, { title: "Untitled", spaceId })).data;
+      router.push(`/work/${workspaceId}/docs?doc=${d.uid}`);
+    } catch (e: any) { toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't create the doc."); }
+  };
+  const add = canEdit && <button type="button" aria-label="New doc" title="New doc" onClick={create} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button>;
+  return (
+    <Panel title="Docs" span={2} action={add}>
+      {here.length ? (
+        <ul className="space-y-0.5">
+          {here.map((d) => (
+            <li key={d.uid}>
+              <Link href={`/work/${workspaceId}/docs?doc=${d.uid}`} className="flex items-center gap-2 rounded-md px-1.5 py-1 text-[13px] hover:bg-accent">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" /><span className="truncate">{d.title}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="flex flex-col items-center py-4 text-center">
+          <FileText className="h-8 w-8 text-muted-foreground/60" />
+          <p className="mt-2 text-[12.5px] text-muted-foreground">There are no Docs in this location yet.</p>
+          {canEdit && <button type="button" onClick={create} className="mt-2 rounded-md border border-border px-2.5 py-1 text-[12px] font-medium hover:bg-accent">New doc</button>}
+        </div>
+      )}
+    </Panel>
   );
 }

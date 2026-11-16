@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, ClipboardList, Copy, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
@@ -25,6 +25,16 @@ export default function FormsPage() {
   const key = ["work", "forms", ws];
   const { data: forms = [], isLoading } = useQuery({ queryKey: key, queryFn: async () => (await api.get<FormRow[]>(`/work/workspaces/${ws}/forms`)).data });
   const [editing, setEditing] = useState<FormRow | "new" | null>(null);
+  // "+ Create → Form" and the list "+ View → Form" open a new form (?new=1&list=<id>)
+  const sp = useSearchParams();
+  const router = useRouter();
+  const [startList, setStartList] = useState("");
+  useEffect(() => {
+    if (sp.get("new") !== "1") return;
+    setStartList(sp.get("list") ?? "");
+    setEditing("new");
+    router.replace(`/work/${ws}/forms`);
+  }, [sp, router, ws]);
   const toggle = useMutation({ mutationFn: (f: FormRow) => api.patch(`/work/forms/${f.id}`, { active: !f.active }), onSuccess: () => qc.invalidateQueries({ queryKey: key }) });
   const del = useMutation({ mutationFn: (f: FormRow) => api.delete(`/work/forms/${f.id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: key }); toast.success("Form deleted"); } });
 
@@ -54,15 +64,15 @@ export default function FormsPage() {
           ))}
         </ul>
       )}
-      {editing && <FormEditor ws={ws} form={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={() => qc.invalidateQueries({ queryKey: key })} />}
+      {editing && <FormEditor ws={ws} form={editing === "new" ? null : editing} startList={startList} onClose={() => setEditing(null)} onSaved={() => qc.invalidateQueries({ queryKey: key })} />}
     </div>
   );
 }
 
-function FormEditor({ ws, form, onClose, onSaved }: { ws: string; form: FormRow | null; onClose: () => void; onSaved: () => void }) {
+function FormEditor({ ws, form, startList = "", onClose, onSaved }: { ws: string; form: FormRow | null; startList?: string; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(form?.name ?? "Request form");
   const [description, setDescription] = useState(form?.description ?? "");
-  const [listId, setListId] = useState(form ? String(form.listId) : "");
+  const [listId, setListId] = useState(form ? String(form.listId) : startList);
   const [fields, setFields] = useState<Field[]>(form?.fields ?? [
     { id: "q1", label: "Title", type: "text", required: true, maps: "name" },
     { id: "q2", label: "Details", type: "textarea", required: false, maps: "description" },

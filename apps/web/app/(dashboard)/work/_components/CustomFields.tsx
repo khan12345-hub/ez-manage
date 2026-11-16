@@ -25,7 +25,10 @@ import {
   Users,
   AlignLeft,
   Gauge,
+  MapPin,
+  Search,
 } from "lucide-react";
+import { api } from "@/lib/api";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -48,6 +51,7 @@ export const FIELD_META: Record<FieldType, { label: string; icon: typeof Type; c
   progress: { label: "Progress", icon: Gauge, color: "#2563EB" },
   rating: { label: "Rating", icon: Star, color: "#CA8A04" },
   url: { label: "Website", icon: Globe, color: "#475569" },
+  location: { label: "Location", icon: MapPin, color: "#EA580C" },
 };
 const TYPES = Object.keys(FIELD_META) as FieldType[];
 const errMsg = (e: any) => e?.response?.data?.message?.toString?.() ?? "Something went wrong.";
@@ -135,6 +139,8 @@ export function FieldDisplay({ field, value, members = [] }: { field: WorkField;
       );
     case "people":
       return <AvatarStack users={members.filter((m) => (value as number[]).includes(m.id))} size={22} />;
+    case "location":
+      return <span className="flex min-w-0 items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0 text-[#EA580C]" /><span className="truncate">{String((value as any)?.address ?? "")}</span></span>;
     case "url":
       return <a href={String(value)} target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()} className="flex min-w-0 items-center gap-1 truncate text-primary hover:underline"><Link2 className="h-3 w-3 shrink-0" /><span className="truncate">{String(value).replace(/^https?:\/\//, "")}</span></a>;
     default:
@@ -182,6 +188,17 @@ export function FieldEditor({ field, value, members = [], disabled, onChange, co
     onChange(v);
     setOpen(false);
   };
+  if (field.type === "location") {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>{trigger}</PopoverTrigger>
+        <PopoverContent align="start" className="w-80 p-2" onClick={(e) => e.stopPropagation()}>
+          <p className="px-1 pb-1.5 text-[11.5px] font-medium text-muted-foreground">{field.name}</p>
+          <AddressSearch initial={String((value as any)?.address ?? "")} onPick={commit} onClear={() => commit(null)} />
+        </PopoverContent>
+      </Popover>
+    );
+  }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>{trigger}</PopoverTrigger>
@@ -405,3 +422,35 @@ export function CustomFieldsSection({ taskId, listId, spaceId, members, canEdit,
 
 export { userName };
 export type { FieldOption };
+
+export type GeoPlace = { address: string; lat: number; lng: number };
+/** search an address (OpenStreetMap) and pick one */
+export function AddressSearch({ initial = "", onPick, onClear }: { initial?: string; onPick: (p: GeoPlace) => void; onClear?: () => void }) {
+  const [q, setQ] = useState(initial);
+  const [rows, setRows] = useState<GeoPlace[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const search = async () => {
+    if (q.trim().length < 3) return;
+    setBusy(true);
+    try { setRows((await api.get<GeoPlace[]>("/work/geocode", { params: { q: q.trim() } })).data); } catch { setRows([]); } finally { setBusy(false); }
+  };
+  return (
+    <div className="space-y-2">
+      <form onSubmit={(e) => { e.preventDefault(); void search(); }} className="flex gap-1.5">
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search an address or place" aria-label="Address" className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-[13px] outline-none focus:border-primary/50" />
+        <button type="submit" aria-label="Search address" disabled={busy} className="flex h-8 w-8 items-center justify-center rounded-md border border-border hover:bg-accent disabled:opacity-50"><Search className="h-3.5 w-3.5" /></button>
+      </form>
+      {busy && <p className="px-1 text-[12px] text-muted-foreground">Searching…</p>}
+      {rows && !busy && (rows.length ? (
+        <ul className="max-h-56 overflow-y-auto">
+          {rows.map((r) => (
+            <li key={`${r.lat},${r.lng}`}>
+              <button type="button" onClick={() => onPick(r)} className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] hover:bg-accent"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#EA580C]" /><span className="line-clamp-2">{r.address}</span></button>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="px-1 text-[12px] text-muted-foreground">No places found.</p>)}
+      {onClear && <button type="button" onClick={onClear} className="px-1 text-[12px] text-muted-foreground hover:text-foreground">Clear</button>}
+    </div>
+  );
+}

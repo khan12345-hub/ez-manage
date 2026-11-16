@@ -1576,6 +1576,8 @@ model WorkTask {
   archivedAt   DateTime?
   /// time estimate in minutes
   timeEstimate Int?
+  /// task | milestone | bug | request (ClickUp task types)
+  taskType     String?
   createdById  Int
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -2557,6 +2559,8 @@ model WorkDoc {
   parentId    Int?
   title       String
   content     String    @default("") @db.Text
+  /// live co-editing state (Yjs update), null until someone opens it in the live editor
+  yState      Bytes?
   createdById Int
   updatedById Int
   archivedAt  DateTime?
@@ -2594,6 +2598,8 @@ model WorkWhiteboard {
   workspaceId Int
   title       String
   data        Json
+  /// live co-editing state (Yjs update)
+  yState      Bytes?
   createdById Int
   updatedById Int
   archivedAt  DateTime?
@@ -2619,4 +2625,45 @@ model WorkLink {
 
   @@index([kind, targetId])
   @@map("work_links")
+}
+
+/// Screen recordings (ClickUp Clips): a video file with a share link.
+model WorkClip {
+  id          Int       @id @default(autoincrement())
+  uid         String    @unique
+  workspaceId Int
+  fileId      Int
+  title       String
+  durationSec Int       @default(0)
+  createdById Int
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  @@index([workspaceId, createdAt])
+  @@map("work_clips")
+}
+
+/// Saved task templates (name, description, priority, checklists, subtasks, tags) for a workspace.
+model WorkTaskTemplate {
+  id          Int      @id @default(autoincrement())
+  workspaceId Int
+  name        String
+  data        Json
+  createdById Int
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId])
+  @@map("work_task_templates")
+}
+
+/// Earlier versions of a task description (description history).
+model WorkDescriptionVersion {
+  id          Int      @id @default(autoincrement())
+  taskId      Int
+  description String   @db.Text
+  userId      Int
+  createdAt   DateTime @default(now())
+
+  @@index([taskId, createdAt])
+  @@map("work_description_versions")
 }

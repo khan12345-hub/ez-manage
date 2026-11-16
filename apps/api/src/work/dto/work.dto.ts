@@ -117,6 +117,8 @@ export class UpdateTaskDto {
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() sprintId?: number | null;
   /** story points */
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(0) @Max(1000) points?: number | null;
+  /** task | milestone | bug | request */
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsIn(['task', 'milestone', 'bug', 'request']) taskType?: string | null;
 }
 
 export class CreateCommentDto {
@@ -298,7 +300,7 @@ export class UpdateReminderDto {
 }
 export class CreateFieldDto {
   @IsString() @IsNotEmpty() @MaxLength(80) name!: string;
-  @IsIn(['text', 'textarea', 'number', 'money', 'date', 'dropdown', 'labels', 'checkbox', 'email', 'phone', 'url', 'rating', 'progress', 'people']) type!: string;
+  @IsIn(['text', 'textarea', 'number', 'money', 'date', 'dropdown', 'labels', 'checkbox', 'email', 'phone', 'url', 'rating', 'progress', 'people', 'location']) type!: string;
   @IsOptional() @IsObject() config?: Record<string, unknown>;
 }
 export class UpdateFieldDto {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -39,6 +40,7 @@ import { workApi, workKeys, type WorkTaskDetail, type WorkTaskMine } from "@/ser
 import { mineKey } from "./CommentActions";
 import { remindersKey } from "./Reminders";
 import type { PickMode } from "./TaskLists";
+import { TASK_TYPES, TaskMenuDialogs, type TaskDialog } from "./TaskMenuDialogs";
 
 function presets() {
   const now = new Date();
@@ -99,14 +101,18 @@ export function TaskMenu({
     },
     onError: () => toast.error("Couldn't duplicate the task."),
   });
-  const soon = (label: string, Icon: typeof Star) => (
-    <DropdownMenuItem disabled>
-      <Icon className="mr-2 h-4 w-4" /> {label}
-      <span className="ml-auto font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted-foreground">Soon</span>
-    </DropdownMenuItem>
-  );
+  const [dlg, setDlg] = useState<TaskDialog | null>(null);
+  const openDlg = (d: TaskDialog) => setTimeout(() => setDlg(d), 0);
+  const setType = useMutation({
+    mutationFn: (taskType: string) => workApi.updateTask(task.id, { taskType }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: workKeys.task(task.uid) }); qc.invalidateQueries({ queryKey: workKeys.tasks(task.listId) }); },
+    onError: () => toast.error("Couldn't change the task type."),
+  });
+  const curType = task.taskType ?? "task";
 
   return (
+    <>
+    <TaskMenuDialogs task={task} open={dlg} onClose={() => setDlg(null)} onOpenTask={onOpenTask} />
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button type="button" aria-label="Task actions" title="More" className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
@@ -142,18 +148,30 @@ export function TaskMenu({
         <DropdownMenuSeparator />
         {canEdit && <DropdownMenuItem onClick={() => setTimeout(() => onPickList("move"), 0)}><ArrowRightLeft className="mr-2 h-4 w-4" /> Move to</DropdownMenuItem>}
         {canEdit && !task.parentId && <DropdownMenuItem onClick={() => setTimeout(() => onPickList("add"), 0)}><ListPlus className="mr-2 h-4 w-4" /> Add to another List</DropdownMenuItem>}
-        {soon("Merge", GitMerge)}
+        {canEdit && <DropdownMenuItem onClick={() => openDlg("merge")}><GitMerge className="mr-2 h-4 w-4" /> Merge</DropdownMenuItem>}
         {canEdit && <DropdownMenuItem onClick={() => dup.mutate()}><CopyPlus className="mr-2 h-4 w-4" /> Duplicate</DropdownMenuItem>}
-        {soon("Convert to", Repeat)}
+        {canEdit && <DropdownMenuItem onClick={() => openDlg("convert")}><Repeat className="mr-2 h-4 w-4" /> Convert to</DropdownMenuItem>}
         <DropdownMenuItem onClick={() => document.getElementById("task-custom-fields")?.scrollIntoView({ behavior: "smooth", block: "center" })}><SlidersHorizontal className="mr-2 h-4 w-4" /> Custom Fields</DropdownMenuItem>
-        {soon("Templates", LayoutTemplate)}
+        <DropdownMenuItem onClick={() => openDlg("templates")}><LayoutTemplate className="mr-2 h-4 w-4" /> Templates</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onOpenRelated}><Workflow className="mr-2 h-4 w-4" /> Relationships</DropdownMenuItem>
-        {soon("Description history", FileClock)}
-        {soon("Task type", Shapes)}
+        <DropdownMenuItem onClick={() => openDlg("history")}><FileClock className="mr-2 h-4 w-4" /> Description history</DropdownMenuItem>
+        {canEdit && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger><Shapes className="mr-2 h-4 w-4" /> Task type</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-44">
+              {TASK_TYPES.map((t) => (
+                <DropdownMenuItem key={t.id} onClick={() => setType.mutate(t.id)}>
+                  <span className="mr-2 h-2.5 w-2.5 rounded-full" style={{ background: t.color }} /> {t.label}
+                  {curType === t.id && <span className="ml-auto text-[11px] text-primary">✓</span>}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => setTimeout(() => window.print(), 50)}><Printer className="mr-2 h-4 w-4" /> Print</DropdownMenuItem>
-        {soon("Send email to task", Mail)}
+        <DropdownMenuItem onClick={() => openDlg("email")}><Mail className="mr-2 h-4 w-4" /> Send email to task</DropdownMenuItem>
         {canEdit && (
           <>
             <DropdownMenuSeparator />
@@ -167,5 +185,6 @@ export function TaskMenu({
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   );
 }

@@ -3,6 +3,7 @@ import { randomBytes, timingSafeEqual } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 import { WorkAccessService } from './work-access.service';
 import { WorkChatService } from './work-chat.service';
+import { WorkService } from './work.service';
 
 const token = () => randomBytes(18).toString('base64url');
 
@@ -12,7 +13,7 @@ const token = () => randomBytes(18).toString('base64url');
  */
 @Injectable()
 export class WorkLinksService {
-  constructor(private readonly prisma: PrismaService, private readonly access: WorkAccessService, private readonly chat: WorkChatService) {}
+  constructor(private readonly prisma: PrismaService, private readonly access: WorkAccessService, private readonly chat: WorkChatService, private readonly work: WorkService) {}
 
   // ---------- Share this List ----------
 
@@ -97,15 +98,23 @@ export class WorkLinksService {
     const a = Buffer.from(String(secret ?? '')), b = Buffer.from(want);
     if (a.length !== b.length || !timingSafeEqual(a, b)) throw new UnauthorizedException();
     const to = String(body.recipient ?? body.To ?? body.to ?? '').toLowerCase();
-    const m = /ch-([a-z0-9]{8,40})@/.exec(to);
-    if (!m) throw new BadRequestException('No channel address in "to".');
-    const link = await this.prisma.workLink.findUnique({ where: { token: m[1] } });
-    if (!link || link.kind !== 'CHANNEL_EMAIL' || link.revokedAt) throw new NotFoundException('Unknown address.');
-    const ch = await this.prisma.workChannel.findUnique({ where: { id: link.targetId }, select: { uid: true } });
-    if (!ch) throw new NotFoundException('Unknown address.');
+    const m = /\b(ch|tk)-([a-z0-9]{8,40})@/.exec(to);
+    if (!m) throw new BadRequestException('No channel or task address in "to".');
+    const link = await this.prisma.workLink.findUnique({ where: { token: m[2] } });
+    const kind = m[1] === 'tk' ? 'TASK_EMAIL' : 'CHANNEL_EMAIL';
+    if (!link || link.kind !== kind || link.revokedAt) throw new NotFoundException('Unknown address.');
     const from = String(body.sender ?? body.From ?? body.from ?? 'someone').slice(0, 200);
     const subject = String(body.subject ?? body.Subject ?? '(no subject)').slice(0, 300);
     const text = String(body['stripped-text'] ?? body['body-plain'] ?? body.TextBody ?? body.text ?? '').trim().slice(0, 8000);
+    if (kind === 'TASK_EMAIL') {
+      // email to task: posted as a comment by the person who made the address
+      const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const html = `<p>📧 <strong>Email from ${esc(from)}</strong> — ${esc(subject)}</p>${(text || '(empty message)').split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('')}`;
+      await this.work.createComment(link.targetId, link.createdById, { content: html } as any);
+      return { ok: true };
+    }
+    const ch = await this.prisma.workChannel.findUnique({ where: { id: link.targetId }, select: { uid: true } });
+    if (!ch) throw new NotFoundException('Unknown address.');
     const content = `📧 **Email from ${from}** — ${subject}\n\n${text || '(empty message)'}`;
     await this.chat.send(ch.uid, link.createdById, { content } as any);
     return { ok: true };

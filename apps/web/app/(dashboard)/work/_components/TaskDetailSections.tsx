@@ -497,6 +497,8 @@ const ACTION_TEXT: Record<string, string> = {
   link_added: "added the link",
   link_removed: "removed the link",
   field: "updated",
+  merged: "merged into this task:",
+  converted: "converted it",
 };
 
 function fmtValue(action: string, v: unknown, members: WorkUser[] = []) {
@@ -740,8 +742,8 @@ function renderMentions(text: string, members: WorkUser[]) {
 
 export function ActivityRow({ a, members }: { a: WorkActivity; members: WorkUser[] }) {
   const text = ACTION_TEXT[a.action] ?? a.action;
-  if (["attachment_added", "attachment_removed", "link_added", "link_removed", "field", "automation"].includes(a.action)) {
-    const v = a.action.endsWith("added") ? a.toValue : a.fromValue;
+  if (["attachment_added", "attachment_removed", "link_added", "link_removed", "field", "automation", "merged"].includes(a.action)) {
+    const v = a.action.endsWith("added") || a.action === "merged" ? a.toValue : a.fromValue;
     return (
       <li className="flex items-start gap-2.5 pl-1.5 text-[12.5px] text-muted-foreground">
         <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" />

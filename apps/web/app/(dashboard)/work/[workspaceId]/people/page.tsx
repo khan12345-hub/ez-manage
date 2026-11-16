@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, ChevronDown, Mail, Search, Trash2, UserPlus, X } from "lucide-react";
+import { Check, ChevronDown, Crown, Mail, Search, Trash2, UserPlus, X } from "lucide-react";
+import { api } from "@/lib/api";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { userName, WORK_ROLE_META, workApi, type WorkRole } from "@/services/work.api";
@@ -29,6 +30,11 @@ export default function WorkPeoplePage() {
   const remove = useMutation({
     mutationFn: (userId: number) => workApi.removePerson(workspaceId, userId),
     onSuccess: () => { refresh(); toast.success("Removed from Work"); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const makeOwner = useMutation({
+    mutationFn: async (userId: number) => (await api.post(`/work/workspaces/${workspaceId}/transfer-owner`, { userId })).data,
+    onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: ["work"] }); toast.success("Ownership transferred. You are now an Admin."); },
     onError: (e) => toast.error(errMsg(e)),
   });
   const revoke = useMutation({
@@ -81,7 +87,11 @@ export default function WorkPeoplePage() {
               </span>
               <span className="truncate text-[13px] text-muted-foreground">{m.user.email}</span>
               {editable ? (
-                <RolePicker value={m.role} onChange={(role) => change.mutate({ userId: m.user.id, role })} />
+                <RolePicker
+                  value={m.role}
+                  onChange={(role) => change.mutate({ userId: m.user.id, role })}
+                  onMakeOwner={data?.me.role === "OWNER" && m.role !== "GUEST" ? () => window.confirm(`Make ${userName(m.user)} the owner of this Work workspace? You will become an Admin, and only the new owner can give it back.`) && makeOwner.mutate(m.user.id) : undefined}
+                />
               ) : (
                 <span className="flex items-center gap-1.5 text-[13px]"><Icon className="h-3.5 w-3.5 text-muted-foreground" /> {WORK_ROLE_META[m.role].label}</span>
               )}
@@ -117,7 +127,7 @@ export default function WorkPeoplePage() {
   );
 }
 
-function RolePicker({ value, onChange }: { value: WorkRole; onChange: (r: Exclude<WorkRole, "OWNER">) => void }) {
+function RolePicker({ value, onChange, onMakeOwner }: { value: WorkRole; onChange: (r: Exclude<WorkRole, "OWNER">) => void; onMakeOwner?: () => void }) {
   const [open, setOpen] = useState(false);
   const Icon = ROLE_ICON[value];
   return (
@@ -141,6 +151,18 @@ function RolePicker({ value, onChange }: { value: WorkRole; onChange: (r: Exclud
             </button>
           );
         })}
+        {onMakeOwner && (
+          <>
+            <div className="my-1 h-px bg-border" />
+            <button type="button" onClick={() => { setOpen(false); onMakeOwner(); }} className="flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left hover:bg-accent">
+              <Crown className="mt-0.5 h-4 w-4 shrink-0 text-[#b45309]" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-medium">Make owner</span>
+                <span className="block text-[11.5px] text-muted-foreground">Hand over the workspace. You become an Admin.</span>
+              </span>
+            </button>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );

@@ -25,6 +25,9 @@ export function cleanDocHtml(html: string) {
 export class WorkDocsService {
   constructor(private readonly prisma: PrismaService, private readonly access: WorkAccessService) {}
 
+  /** set by the live editor service: a content save that didn't come from the live editor */
+  onExternalEdit: ((docId: number) => void) | null = null;
+
   private async docOf(idOrUid: string, userId: number, level: 'view' | 'edit') {
     const d = await this.prisma.workDoc.findFirst({ where: /^\d+$/.test(idOrUid) ? { id: Number(idOrUid) } : { uid: idOrUid } });
     if (!d || d.archivedAt) throw new NotFoundException('Doc not found.');
@@ -61,7 +64,15 @@ export class WorkDocsService {
     let canEdit = true;
     try { await this.access.requireWorkspace(d.workspaceId, userId, 'edit'); if (d.spaceId) await this.access.requireSpace(d.spaceId, userId, 'edit'); } catch { canEdit = false; }
     const parent = d.parentId ? await this.prisma.workDoc.findUnique({ where: { id: d.parentId }, select: { uid: true, title: true } }) : null;
-    return { ...d, updatedBy: by, children, parent, canEdit };
+    const { yState, ...rest } = d;
+    return { ...rest, updatedBy: by, children, parent, canEdit, live: !!yState?.length };
+  }
+
+  /** the row with its live-editing state (for the live editor service only) */
+  async forCollab(idOrUid: string, userId: number) {
+    const d = await this.get(idOrUid, userId);
+    const row = await this.prisma.workDoc.findUnique({ where: { id: d.id }, select: { yState: true } });
+    return { ...d, yState: row?.yState ?? null };
   }
 
   async create(workspaceId: number, userId: number, dto: { title?: string; spaceId?: number | null; parentId?: number | null; content?: string }) {
@@ -82,12 +93,14 @@ export class WorkDocsService {
     });
   }
 
-  async update(idOrUid: string, userId: number, dto: { title?: string; content?: string }) {
+  /** live: the HTML copy saved by the live editor (the live state is already up to date) */
+  async update(idOrUid: string, userId: number, dto: { title?: string; content?: string; live?: boolean }) {
     const d = await this.docOf(idOrUid, userId, 'edit');
     const data: Record<string, unknown> = { updatedById: userId };
     if (dto.title !== undefined) data.title = dto.title.trim().slice(0, 300) || 'Untitled';
     if (dto.content !== undefined) data.content = cleanDocHtml(dto.content);
     const u = await this.prisma.workDoc.update({ where: { id: d.id }, data, select: { id: true, uid: true, title: true, updatedAt: true } });
+    if (dto.content !== undefined && !dto.live && d.yState) this.onExternalEdit?.(d.id);
     return u;
   }
 

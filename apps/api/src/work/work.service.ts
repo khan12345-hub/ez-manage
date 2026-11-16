@@ -58,6 +58,7 @@ const TASK_SELECT = {
   recurredFromId: true,
   sprintId: true,
   points: true,
+  taskType: true,
   assignees: { select: { user: { select: USER_MINI } } },
   tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
   _count: { select: { subtasks: { where: { archivedAt: null } }, comments: { where: { deletedAt: null } } } },
@@ -614,7 +615,7 @@ export class WorkService {
     const before = await this.prisma.workTask.findUnique({
       where: { id: taskId },
       select: {
-        name: true, priority: true, startDate: true, dueDate: true, timeEstimate: true, statusId: true, listId: true, completedAt: true,
+        name: true, priority: true, startDate: true, dueDate: true, timeEstimate: true, statusId: true, listId: true, completedAt: true, description: true,
         status: { select: { name: true } },
         list: { select: { name: true, spaceId: true } },
         assignees: { select: { userId: true } },
@@ -630,6 +631,14 @@ export class WorkService {
       const ids = [...new Set(dto.tagIds)];
       const n = await this.prisma.workTag.count({ where: { id: { in: ids }, spaceId: targetSpaceId } });
       if (n !== ids.length) throw new BadRequestException('Tags must belong to this space.');
+    }
+
+    // description history: keep the earlier text (one version per person per 2 minutes while typing)
+    if (dto.description !== undefined && (before?.description ?? '') !== (dto.description ?? '') && (before?.description ?? '').trim()) {
+      const last = await this.prisma.workDescriptionVersion.findFirst({ where: { taskId }, orderBy: { createdAt: 'desc' }, select: { userId: true, createdAt: true } });
+      if (!last || last.userId !== userId || Date.now() - last.createdAt.getTime() > 120_000) {
+        await this.prisma.workDescriptionVersion.create({ data: { taskId, userId, description: before!.description! } });
+      }
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -662,6 +671,7 @@ export class WorkService {
           ...(recurrence !== undefined && { recurrence: recurrence === null ? Prisma.DbNull : recurrence }),
           ...(dto.sprintId !== undefined && { sprintId: dto.sprintId }),
           ...(dto.points !== undefined && { points: dto.points }),
+          ...(dto.taskType !== undefined && { taskType: dto.taskType }),
           ...(listId !== task.listId && { listId, parentId: null }),
           ...(statusId !== undefined && { statusId }),
           // completedAt only changes when the status group actually changes

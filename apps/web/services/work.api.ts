@@ -91,6 +91,8 @@ export interface WorkTask {
   recurredFromId?: number | null;
   sprintId?: number | null;
   points?: number | null;
+  /** task | milestone | bug | request */
+  taskType?: string | null;
 }
 
 export type WorkRecurrence = { freq: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"; interval: number; until?: string | null };
@@ -262,6 +264,7 @@ export interface TaskInput {
   recurrence?: WorkRecurrence | null;
   sprintId?: number | null;
   points?: number | null;
+  taskType?: string | null;
 }
 
 /* ─── calls ────────────────────────────────────────────────────────────── */
@@ -297,7 +300,7 @@ export interface WorkOverview {
   access: WorkAccessFlags;
 }
 
-export type FieldType = "text" | "textarea" | "number" | "money" | "date" | "dropdown" | "labels" | "checkbox" | "email" | "phone" | "url" | "rating" | "progress" | "people";
+export type FieldType = "text" | "textarea" | "number" | "money" | "date" | "dropdown" | "labels" | "checkbox" | "email" | "phone" | "url" | "rating" | "progress" | "people" | "location";
 export interface FieldOption { id: string; name: string; color: string }
 export interface WorkField { id: number; spaceId: number; name: string; type: FieldType; config: { options?: FieldOption[]; currency?: string; decimals?: number } | null; order: number }
 export type FieldValues = Record<number, Record<number, unknown>>;

@@ -18,6 +18,19 @@ export const DASH_TEMPLATES: Template[] = [
   { id: "time", name: "Time Tracking", hint: "View and report on time tracking metrics", icon: Timer, color: "#0D9488", cards: ["time", "counts", "dueWeek"] },
   { id: "project", name: "Project Management", hint: "Analyze project progress and metrics", icon: Briefcase, color: "#7C3AED", cards: ["counts", "statusPie", "workload", "dueWeek", "completedWeek", "activity"] },
 ];
+const CARD_LABELS: Record<Card, string> = {
+  counts: "Task counts", workload: "Workload by Status", statusPie: "Tasks by Status", totalByAssignee: "Total Tasks by Assignee",
+  openByAssignee: "Open Tasks by Assignee", completedWeek: "Completed This Week", dueWeek: "Due This Week or Overdue", activity: "Latest Activity", time: "Time Tracked by Person",
+};
+const ALL_CARDS = Object.keys(CARD_LABELS) as Card[];
+/** a scratch dashboard is saved as "custom:card,card" */
+function templateOf(tpl: string | null): Template | undefined {
+  if (tpl?.startsWith("custom:")) {
+    const cards = tpl.slice(7).split(",").filter((c): c is Card => (ALL_CARDS as string[]).includes(c));
+    return cards.length ? { id: tpl, name: "My Dashboard", hint: "", icon: LayoutDashboard, color: "#475569", cards } : undefined;
+  }
+  return DASH_TEMPLATES.find((t) => t.id === tpl);
+}
 const dashKey = (kind: StatsKind, uid: string) => `ez:work:dash:${kind}:${uid}`;
 
 function ago(ms: number) {
@@ -44,7 +57,8 @@ export function LocationDashboard({ kind, uid, onOpenTask }: { kind: StatsKind; 
     setTpl(id);
     try { id ? localStorage.setItem(dashKey(kind, uid), id) : localStorage.removeItem(dashKey(kind, uid)); } catch {}
   };
-  const template = DASH_TEMPLATES.find((t) => t.id === tpl);
+  const template = templateOf(tpl);
+  const [picking, setPicking] = useState<Card[] | null>(null);
   const { data, dataUpdatedAt, refetch, isFetching } = useQuery({
     queryKey: ["work", "stats", kind, uid],
     queryFn: () => workApi.stats(kind, uid),
@@ -53,6 +67,29 @@ export function LocationDashboard({ kind, uid, onOpenTask }: { kind: StatsKind; 
   });
 
   if (!ready) return null;
+  if (picking) {
+    const toggle = (c: Card) => setPicking((p) => (p!.includes(c) ? p!.filter((x) => x !== c) : [...p!, c]));
+    return (
+      <section aria-label="Build your dashboard" className="mx-auto max-w-xl py-10">
+        <h2 className="text-[20px] font-semibold">Build your dashboard</h2>
+        <p className="mt-1 text-[14px] text-muted-foreground">Pick the cards you want to see. They show live numbers for this {kind}.</p>
+        <ul className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {ALL_CARDS.map((c) => (
+            <li key={c}>
+              <label className={cn("flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[13.5px]", picking.includes(c) ? "border-primary/50 bg-primary/5" : "border-border bg-card")}>
+                <input type="checkbox" checked={picking.includes(c)} onChange={() => toggle(c)} className="accent-[var(--primary)]" />
+                {CARD_LABELS[c]}
+              </label>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={() => setPicking(null)} className="h-9 rounded-lg px-3 text-[13px] text-muted-foreground hover:bg-accent">Cancel</button>
+          <button type="button" disabled={!picking.length} onClick={() => { choose(`custom:${ALL_CARDS.filter((c) => picking.includes(c)).join(",")}`); setPicking(null); }} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">Create dashboard</button>
+        </div>
+      </section>
+    );
+  }
   if (!template) {
     return (
       <section aria-label="Choose a Dashboard template" className="mx-auto max-w-3xl py-12 text-center">
@@ -66,10 +103,10 @@ export function LocationDashboard({ kind, uid, onOpenTask }: { kind: StatsKind; 
               <span className="mt-0.5 block text-[12.5px] text-muted-foreground">{t.hint}</span>
             </button>
           ))}
-          <button type="button" disabled className="rounded-xl border border-dashed border-border bg-card p-4 opacity-60">
+          <button type="button" onClick={() => setPicking(["counts"])} className="group rounded-xl border border-dashed border-border bg-card p-4 hover:border-primary/50">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-muted"><Plus className="h-4 w-4" /></span>
-            <span className="mt-3 block text-[14.5px] font-semibold">Start from scratch</span>
-            <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Soon</span>
+            <span className="mt-3 block text-[14.5px] font-semibold group-hover:text-primary">Start from scratch</span>
+            <span className="mt-0.5 block text-[12.5px] text-muted-foreground">Choose your own cards</span>
           </button>
         </div>
       </section>
@@ -87,6 +124,7 @@ export function LocationDashboard({ kind, uid, onOpenTask }: { kind: StatsKind; 
         <button type="button" aria-pressed={auto} onClick={() => setAuto(!auto)} className={cn("flex h-7 items-center gap-1.5 rounded-md border px-2", auto ? "border-primary/40 text-foreground" : "border-border text-muted-foreground")}>
           <Clock3 className="h-3.5 w-3.5" /> Auto refresh: {auto ? "On" : "Off"}
         </button>
+        <button type="button" onClick={() => setPicking(template.cards)} className="h-7 rounded-md px-2 text-muted-foreground hover:bg-accent hover:text-foreground">Edit cards</button>
         <button type="button" onClick={() => choose(null)} className="h-7 rounded-md px-2 text-muted-foreground hover:bg-accent hover:text-foreground">Change template</button>
       </div>
       {!data ? (
