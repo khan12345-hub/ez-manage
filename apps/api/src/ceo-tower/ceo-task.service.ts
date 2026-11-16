@@ -32,7 +32,12 @@ export type CeoTaskDetail = {
   statuses: { id: number; label: string; color: string; category: string }[];
   priority: string | null; due: string | null; done: boolean; createdAt: Date;
   createdBy: Person | null; assignees: Person[]; comments: CeoTaskComment[];
+  /** who can be put on this task (Work: workspace members; Boards: board members) */
+  people: Person[];
+  /** what can be edited here: Boards has no priority, and a board may lack a date / person column */
+  editable: { due: boolean; people: boolean; priority: boolean };
 };
+const PRIORITIES = ['URGENT', 'HIGH', 'NORMAL', 'LOW'];
 
 /**
  * CEO Tower → one task, from either product: read inside the CEO's companies; comment and
@@ -78,7 +83,9 @@ export class CeoTaskService {
       this.prisma.workComment.findMany({ where: { taskId: t.id, deletedAt: null }, orderBy: { createdAt: 'asc' }, take: 300, select: { id: true, parentId: true, content: true, createdAt: true, user: { select: USER_MINI } } }),
     ]);
     const ws = own.work.find((w) => w.id === t.list.space.workspaceId)!;
+    const members = await this.prisma.workMember.findMany({ where: { workspaceId: ws.id, user: { deletedAt: null } }, orderBy: { createdAt: 'asc' }, select: { user: { select: USER_MINI } } });
     return {
+      people: members.map((m) => m.user), editable: { due: true, people: true, priority: true },
       source: 'work', id: t.id, uid: t.uid, name: t.name, description: t.description ? htmlToText(t.description) : null,
       company: { key: `work:${ws.id}`, name: ws.name },
       where: [t.list.space.name, t.list.folder?.name, t.list.name].filter(Boolean).join(' / '),
@@ -127,7 +134,9 @@ export class CeoTaskService {
       this.prisma.taskComment.findMany({ where: { taskId: t.id }, orderBy: { createdAt: 'asc' }, take: 300, select: { id: true, parentId: true, content: true, createdAt: true, user: { select: USER_MINI } } }),
     ]);
     const ws = own.boards.find((w) => w.id === board.workspaceId)!;
+    const boardPeople = await this.prisma.boardMember.findMany({ where: { boardId: board.id, user: { deletedAt: null } }, select: { user: { select: USER_MINI } } });
     return {
+      people: boardPeople.map((m) => m.user), editable: { due: !!cols.date, people: !!cols.person, priority: false },
       source: 'boards', id: t.id, uid: String(t.id), name: t.name, description: null,
       company: { key: `boards:${ws.id}`, name: ws.name },
       where: `${board.name} / ${t.group.name}`,
@@ -158,6 +167,46 @@ export class CeoTaskService {
       } else {
         await this.comments.create(id, userId, { content: html } as any);
       }
+    }
+    return this.get(userId, source, id);
+  }
+
+  /** due date / people / priority, through the product as the CEO (its checks and notifications) */
+  async update(userId: number, source: Source, id: number, dto: { due?: string | null; assigneeIds?: number[]; priority?: string | null }) {
+    const task = await this.get(userId, source, id);
+    if (dto.due !== undefined && dto.due !== null && !/^\d{4}-\d{2}-\d{2}$/.test(dto.due)) throw new BadRequestException('Use a date like 2026-11-20.');
+    if (dto.assigneeIds) {
+      const ok = new Set(task.people.map((p) => p.id));
+      const ids = [...new Set(dto.assigneeIds.map(Number))];
+      if (ids.some((i) => !ok.has(i))) throw new BadRequestException(source === 'boards' ? 'Pick people who are on this board.' : 'Pick people in this company.');
+      dto.assigneeIds = ids;
+    }
+    if (source === 'work') {
+      if (dto.priority !== undefined && dto.priority !== null && !PRIORITIES.includes(dto.priority)) throw new BadRequestException('Unknown priority.');
+      await this.work.updateTask(id, userId, {
+        ...(dto.due !== undefined ? { dueDate: dto.due ? new Date(`${dto.due}T17:00:00Z`).toISOString() : null } : {}),
+        ...(dto.assigneeIds ? { assigneeIds: dto.assigneeIds } : {}),
+        ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
+      } as any);
+      return this.get(userId, source, id);
+    }
+    if (dto.priority !== undefined) throw new BadRequestException('Boards tasks have no priority.');
+    const { boardId } = (await this.boardAccess.requireTaskPermission(id, userId, BoardPermission.EDIT)) as any;
+    const cols = await this.boardColumns(boardId);
+    const cellFor = async (columnId: number) => {
+      const c = await this.prisma.taskCell.findUnique({ where: { taskId_columnId: { taskId: id, columnId } }, select: { id: true } });
+      return c ?? ((await this.cells.create({ taskId: id, columnId } as any, boardId, userId)) as any as { id: number });
+    };
+    if (dto.due !== undefined) {
+      if (!cols.date) throw new BadRequestException('This board has no date column.');
+      const cell = await cellFor(cols.date.id);
+      await this.cells.updateCell(cell.id, { value: dto.due ? { date: dto.due } : null } as any, userId, boardId);
+    }
+    if (dto.assigneeIds) {
+      if (!cols.person) throw new BadRequestException('This board has no person column.');
+      const users = task.people.filter((p) => dto.assigneeIds!.includes(p.id)).map((p) => ({ id: p.id, firstName: p.firstName, lastName: p.lastName }));
+      const cell = await cellFor(cols.person.id);
+      await this.cells.updateCell(cell.id, { value: { users } } as any, userId, boardId);
     }
     return this.get(userId, source, id);
   }

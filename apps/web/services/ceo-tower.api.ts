@@ -37,6 +37,7 @@ export interface CeoTaskDetail {
   statuses: { id: number; label: string; color: string; category: string }[];
   priority: string | null; due: string | null; done: boolean; createdAt: string;
   createdBy: CeoPerson | null; assignees: CeoPerson[];
+  people: CeoPerson[]; editable: { due: boolean; people: boolean; priority: boolean };
   comments: { id: number; parentId: number | null; user: CeoPerson | null; text: string; createdAt: string }[];
 }
 export interface CeoCompanyPeople {
@@ -119,6 +120,7 @@ export const ceoApi = {
   markForYouRead: async (source: "boards" | "work", id: string) => (await api.post("/ceo-tower/for-you/read", { source, id })).data,
   task: async (source: "boards" | "work", id: number) => (await api.get<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}`)).data,
   taskComment: async (source: "boards" | "work", id: number, text: string, parentId?: number) => (await api.post<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}/comment`, { text, ...(parentId ? { parentId } : {}) })).data,
+  taskUpdate: async (source: "boards" | "work", id: number, dto: { due?: string | null; assigneeIds?: number[]; priority?: string | null }) => (await api.patch<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}`, dto)).data,
   taskStatus: async (source: "boards" | "work", id: number, statusId?: number) => (await api.post<CeoTaskDetail>(`/ceo-tower/task/${source}/${id}/status`, statusId ? { statusId } : {})).data,
   management: async (source: CeoSource, company?: string | null) => (await api.get<CeoManagement>(`/ceo-tower/management?${new URLSearchParams({ source, ...(company ? { company } : {}) })}`)).data,
   companyPeople: async (key: string) => (await api.get<CeoCompanyPeople>(`/ceo-tower/companies/${encodeURIComponent(key)}/people`)).data,

@@ -48,6 +48,12 @@ function TaskPopupBody({ source, id, onClose }: { source: "boards" | "work"; id:
     onSuccess: (d) => { apply(d); setText(""); setReplyTo(null); toast.success("Instruction sent"); },
     onError: (e) => toast.error(errMsg(e, "Couldn't send.")),
   });
+  const update = useMutation({
+    mutationFn: (dto: { due?: string | null; assigneeIds?: number[]; priority?: string | null }) => ceoApi.taskUpdate(source, id, dto),
+    onSuccess: (d) => { apply(d); toast.success("Task updated"); },
+    onError: (e) => toast.error(errMsg(e, "Couldn't update the task.")),
+  });
+  const [picking, setPicking] = useState(false);
   const status = useMutation({
     mutationFn: (statusId?: number) => ceoApi.taskStatus(source, id, statusId),
     onSuccess: (d) => { apply(d); toast.success(d.done ? "Marked completed" : `Status: ${d.status?.label ?? "updated"}`); },
@@ -73,7 +79,7 @@ function TaskPopupBody({ source, id, onClose }: { source: "boards" | "work"; id:
               <DialogDescription className="sr-only">Task details, thread and actions</DialogDescription>
             </div>
 
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 rounded-xl border border-border p-3.5 text-[12.5px] sm:grid-cols-4">
+            <dl className={cn("grid grid-cols-2 gap-x-4 gap-y-2.5 rounded-xl border border-border p-3.5 text-[12.5px]", t.editable.priority ? "sm:grid-cols-5" : "sm:grid-cols-4")}>
               <div><dt className="text-[11px] text-muted-foreground">Status</dt><dd className="mt-0.5">
                 {t.statuses.length ? (
                   <select aria-label="Status" value={t.status?.id ?? ""} disabled={status.isPending} onChange={(e) => e.target.value && status.mutate(Number(e.target.value))}
@@ -83,9 +89,36 @@ function TaskPopupBody({ source, id, onClose }: { source: "boards" | "work"; id:
                   </select>
                 ) : <span className="text-muted-foreground">{t.status?.label ?? "—"}</span>}
               </dd></div>
-              <div><dt className="text-[11px] text-muted-foreground">Due</dt><dd className="mt-1 flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{t.due ? fmtDate(t.due) : "—"}</dd></div>
+              <div><dt className="text-[11px] text-muted-foreground">Due</dt><dd className="mt-0.5">
+                {t.editable.due ? (
+                  <input type="date" aria-label="Due date" value={t.due ?? ""} disabled={update.isPending} onChange={(e) => update.mutate({ due: e.target.value || null })}
+                    className="h-7 w-full rounded-md border border-border bg-background px-1.5 text-[12.5px]" />
+                ) : <span className="mt-0.5 flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{t.due ? fmtDate(t.due) : "—"}</span>}
+              </dd></div>
               <div><dt className="text-[11px] text-muted-foreground">Assigned by</dt><dd className="mt-1 flex items-center gap-1"><UserRound className="h-3.5 w-3.5 text-muted-foreground" />{name(t.createdBy)}</dd></div>
-              <div><dt className="text-[11px] text-muted-foreground">People</dt><dd className="mt-1">{t.assignees.length ? <span className="flex -space-x-1.5" title={t.assignees.map(name).join(", ")}>{t.assignees.slice(0, 5).map((a) => <Avatar key={a.id} user={a as any} size={22} />)}</span> : <span className="font-medium text-[#8a6a35] dark:text-[#d9bd8c]">Nobody</span>}</dd></div>
+              <div className="relative"><dt className="text-[11px] text-muted-foreground">People</dt><dd className="mt-1">
+                <button type="button" onClick={() => t.editable.people && setPicking((v) => !v)} aria-label="Change people" aria-expanded={picking} className={cn("flex items-center gap-1 rounded-md", t.editable.people && "hover:bg-accent")}>
+                  {t.assignees.length ? <span className="flex -space-x-1.5" title={t.assignees.map(name).join(", ")}>{t.assignees.slice(0, 5).map((a) => <Avatar key={a.id} user={a as any} size={22} />)}</span> : <span className="font-medium text-[#8a6a35] dark:text-[#d9bd8c]">Nobody</span>}
+                  {t.editable.people && <span className="text-[11px] font-semibold text-primary">Change</span>}
+                </button>
+                {picking && (
+                  <ul aria-label="Pick people" className="absolute right-0 z-10 mt-1 max-h-56 w-56 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-xl">
+                    {t.people.map((p) => { const on = t.assignees.some((a) => a.id === p.id); return (
+                      <li key={p.id}><button type="button" role="checkbox" aria-checked={on} disabled={update.isPending}
+                        onClick={() => update.mutate({ assigneeIds: on ? t.assignees.filter((a) => a.id !== p.id).map((a) => a.id) : [...t.assignees.map((a) => a.id), p.id] })}
+                        className={cn("flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[12.5px] hover:bg-accent", on && "font-semibold")}><Avatar user={p as any} size={18} /><span className="flex-1 truncate">{name(p)}</span>{on && <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}</button></li>
+                    ); })}
+                    {!t.people.length && <li className="px-2 py-1.5 text-[12px] text-muted-foreground">Nobody can be added here.</li>}
+                  </ul>
+                )}
+              </dd></div>
+              {t.editable.priority && (
+                <div><dt className="text-[11px] text-muted-foreground">Priority</dt><dd className="mt-0.5">
+                  <select aria-label="Priority" value={t.priority ?? ""} disabled={update.isPending} onChange={(e) => update.mutate({ priority: e.target.value || null })} className="h-7 w-full rounded-md border border-border bg-background px-1.5 text-[12.5px]">
+                    <option value="">None</option><option value="URGENT">Urgent</option><option value="HIGH">High</option><option value="NORMAL">Normal</option><option value="LOW">Low</option>
+                  </select>
+                </dd></div>
+              )}
             </dl>
             {t.assignees.length > 0 && <p className="-mt-1 text-[12px] text-muted-foreground">{t.assignees.map(name).join(", ")}</p>}
 

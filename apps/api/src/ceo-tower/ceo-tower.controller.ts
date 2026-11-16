@@ -172,6 +172,17 @@ export class CeoTowerController {
     return this.task.comment(u.id, source, id, String(b?.text ?? ''), b?.parentId ? Number(b.parentId) : undefined);
   }
 
+  /** due date / people / priority */
+  @Patch('task/:source/:id')
+  taskUpdate(@Param('source') source: string, @Param('id', ParseIntPipe) id: number, @Body() b: { due?: string | null; assigneeIds?: number[]; priority?: string | null }, @CurrentUser() u: SessionUser) {
+    if (source !== 'boards' && source !== 'work') throw new NotFoundException();
+    return this.task.update(u.id, source, id, {
+      ...(b && 'due' in b ? { due: b.due ?? null } : {}),
+      ...(Array.isArray(b?.assigneeIds) ? { assigneeIds: b.assigneeIds } : {}),
+      ...(b && 'priority' in b ? { priority: b.priority ?? null } : {}),
+    });
+  }
+
   /** change status; with no statusId: "Mark completed" (the task's done status) */
   @Post('task/:source/:id/status')
   taskStatus(@Param('source') source: string, @Param('id', ParseIntPipe) id: number, @Body() b: { statusId?: number }, @CurrentUser() u: SessionUser) {
