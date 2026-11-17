@@ -407,13 +407,13 @@ export function WorkSidebar({
           {!term && (
             <>
               <p className={cn(SECTION, "pt-1")}>Menu</p>
-              <Link href={wsParam ? `/work/${wsParam}` : "#"} onClick={onMobileClose} className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}` && !myView ? ACTIVE : IDLE)}>
+              <Link href={wsParam ? `/work/${wsParam}` : "#"} onClick={onMobileClose} className={cn(ROW, "py-[7px] md:hidden", pathname === `/work/${wsParam}` && !myView ? ACTIVE : IDLE)}>
                 <LayoutDashboard className="h-4 w-4 shrink-0" /> <span className="flex-1">Home</span>
               </Link>
               <Link
                 href={wsParam ? `/work/${wsParam}/inbox` : "#"}
                 onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", INBOX_PATHS.some((x) => pathname === `/work/${wsParam}/${x}`) ? ACTIVE : IDLE)}
+                className={cn(ROW, "py-[7px] md:hidden", INBOX_PATHS.some((x) => pathname === `/work/${wsParam}/${x}`) ? ACTIVE : IDLE)}
               >
                 <Inbox className="h-4 w-4 shrink-0" /> <span className="flex-1">Inbox</span>
                 {inbox.primaryUnread > 0 && <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{inbox.primaryUnread}</span>}

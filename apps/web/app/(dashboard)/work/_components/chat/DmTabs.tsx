@@ -6,6 +6,8 @@ import { ChevronLeft, ChevronRight, CircleCheck, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { userName, workApi, type DmTask, type WorkUser } from "@/services/work.api";
 import { Avatar } from "../primitives";
+import { CalendarGrid, monthWindow } from "../CalendarGrid";
+import { TaskTable } from "../TaskTable";
 import { TaskDrawer } from "../TaskDrawer";
 
 type Who = "all" | "them" | "me" | "shared";
@@ -41,6 +43,8 @@ function TaskRow({ t, onOpen }: { t: DmTask; onOpen: (uid: string) => void }) {
   );
 }
 
+const DUE_COLOR: Record<string, string> = { Overdue: "#dc2626", Today: "#d97706", Upcoming: "#2563eb", "No due date": "#8a8f98" };
+
 /** DM "Tasks" tab: open tasks of the people in this conversation */
 export function DmTasks({ uid, others }: { uid: string; others: WorkUser[] }) {
   const [who, setWho] = useState<Who>("all");
@@ -64,14 +68,13 @@ export function DmTasks({ uid, others }: { uid: string; others: WorkUser[] }) {
         <span className="font-mono text-[11.5px] text-muted-foreground">{data.filter((t) => !t.parentId).length} open</span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
-        {isLoading ? <div className="h-32 animate-pulse rounded-xl bg-muted" /> : !groups.length ? (
-          <div className="flex flex-col items-center py-16 text-center"><CircleCheck className="h-7 w-7 text-primary" /><p className="mt-2 text-[14px] font-semibold">No open tasks</p><p className="mt-1 text-[12.5px] text-muted-foreground">Tasks assigned to people in this conversation show up here.</p></div>
-        ) : groups.map(([label, list]) => (
-          <section key={label} aria-label={label} className="mb-4">
-            <h3 className={cn("mb-1 px-3 text-[11.5px] font-semibold uppercase tracking-wide", label === "Overdue" ? "text-destructive" : "text-muted-foreground")}>{label} <span className="font-mono font-normal">{list.length}</span></h3>
-            <ul className="divide-y divide-border rounded-xl border border-border bg-card">{list.map((t) => <TaskRow key={t.id} t={t} onOpen={setOpen} />)}</ul>
-          </section>
-        ))}
+        {isLoading ? <div className="h-32 animate-pulse rounded-xl bg-muted" /> : (
+          <TaskTable
+            onOpen={setOpen}
+            empty={<span className="flex flex-col items-center"><CircleCheck className="h-7 w-7 text-primary" /><span className="mt-2 text-[14px] font-semibold text-foreground">No open tasks</span><span className="mt-1 text-[12.5px]">Tasks assigned to people in this conversation show up here.</span></span>}
+            groups={groups.map(([label, list]) => ({ name: label, color: DUE_COLOR[label] ?? "#8a8f98", items: list.map((t) => ({ ...t, where: { label: `${t.list.space.name} / ${t.list.name}` } })) }))}
+          />
+        )}
       </div>
       <TaskDrawer taskUid={open} onClose={() => setOpen(null)} onOpenTask={setOpen} />
     </div>
@@ -96,51 +99,11 @@ type CalTask = Pick<DmTask, "id" | "uid" | "name" | "dueDate" | "completedAt" | 
 export function TaskMonthCalendar({ queryKey, load, toolbar }: { queryKey: unknown[]; load: (from: string, to: string) => Promise<CalTask[]>; toolbar?: React.ReactNode }) {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [open, setOpen] = useState<string | null>(null);
-  const days = useMemo(() => {
-    const first = new Date(month);
-    first.setDate(1 - first.getDay()); // start the grid on Sunday
-    return Array.from({ length: 42 }, (_, i) => new Date(first.getFullYear(), first.getMonth(), first.getDate() + i));
-  }, [month]);
-  const from = days[0]!, to = new Date(days[41]!.getFullYear(), days[41]!.getMonth(), days[41]!.getDate() + 1);
+  const { from, to } = useMemo(() => monthWindow(month), [month]);
   const { data = [] } = useQuery({ queryKey: [...queryKey, from.toISOString()], queryFn: () => load(from.toISOString(), to.toISOString()) });
-  const byDay = useMemo(() => {
-    const m = new Map<string, CalTask[]>();
-    for (const t of data) if (t.dueDate) { const k = dayKey(new Date(t.dueDate)); m.set(k, [...(m.get(k) ?? []), t]); }
-    return m;
-  }, [data]);
-  const today = dayKey(new Date());
-  const shift = (n: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + n, 1));
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-2.5">
-        {toolbar}
-        <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={() => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); }} className="h-7 rounded-md border border-border px-2 text-[12px] hover:bg-accent">Today</button>
-          <button type="button" aria-label="Previous month" onClick={() => shift(-1)} className="rounded-md p-1 hover:bg-accent"><ChevronLeft className="h-4 w-4" /></button>
-          <h3 aria-live="polite" className="w-36 text-center text-[13.5px] font-semibold">{month.toLocaleDateString([], { month: "long", year: "numeric" })}</h3>
-          <button type="button" aria-label="Next month" onClick={() => shift(1)} className="rounded-md p-1 hover:bg-accent"><ChevronRight className="h-4 w-4" /></button>
-        </div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto p-3">
-        <div className="grid grid-cols-7 border-l border-t border-border text-[11px]">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} className="border-b border-r border-border bg-muted/40 px-2 py-1 font-semibold text-muted-foreground">{d}</div>)}
-          {days.map((d) => {
-            const list = byDay.get(dayKey(d)) ?? [];
-            const inMonth = d.getMonth() === month.getMonth();
-            return (
-              <div key={d.toISOString()} role="gridcell" aria-label={d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} className={cn("min-h-[96px] border-b border-r border-border p-1", !inMonth && "bg-muted/20")}>
-                <span className={cn("mb-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-mono", dayKey(d) === today ? "bg-primary text-primary-foreground" : inMonth ? "text-foreground" : "text-muted-foreground/60")}>{d.getDate()}</span>
-                <ul className="space-y-0.5">
-                  {list.slice(0, 4).map((t) => (
-                    <li key={t.id}><button type="button" onClick={() => setOpen(t.uid)} title={t.name} className={cn("flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[11.5px] hover:bg-accent", t.completedAt && "text-muted-foreground line-through")}><span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: t.status?.color ?? "#8a8f98" }} /><span className="truncate">{t.name}</span></button></li>
-                  ))}
-                  {list.length > 4 && <li className="px-1 text-[11px] text-muted-foreground">+{list.length - 4} more</li>}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+    <div className="min-h-0 flex-1 overflow-auto p-4">
+      <CalendarGrid month={month} onMonth={setMonth} items={data.map((t) => ({ id: t.id, uid: t.uid, name: t.name, dueDate: t.dueDate, completedAt: t.completedAt, color: t.status?.color }))} onOpen={setOpen} toolbar={toolbar} />
       <TaskDrawer taskUid={open} onClose={() => setOpen(null)} onOpenTask={setOpen} />
     </div>
   );

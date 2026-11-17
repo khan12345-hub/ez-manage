@@ -12,6 +12,7 @@ import { TaskDrawer } from "../_components/TaskDrawer";
 import { CreateSpaceDialog } from "../_components/CreateSpaceDialog";
 import { RemindersCard } from "../_components/Reminders";
 import { WorkHome } from "../_components/WorkHome";
+import { TaskTable } from "../_components/TaskTable";
 
 type Bucket = "overdue" | "today" | "week" | "later" | "none";
 const BUCKETS: { id: Bucket; label: string; tone: string }[] = [
@@ -21,6 +22,8 @@ const BUCKETS: { id: Bucket; label: string; tone: string }[] = [
   { id: "later", label: "Later", tone: "text-muted-foreground" },
   { id: "none", label: "No due date", tone: "text-muted-foreground" },
 ];
+
+const BUCKET_COLOR: Record<Bucket, string> = { overdue: "#dc2626", today: "#d97706", week: "#2563eb", later: "#64748b", none: "#8a8f98" };
 
 function bucketOf(t: MyWorkTask, today: Date): Bucket {
   if (!t.dueDate) return "none";
@@ -134,36 +137,16 @@ function MyWorkInner() {
               <p className="mt-1 text-[13.5px] text-muted-foreground">You&apos;re on track. Upcoming tasks are under Assigned to me.</p>
             </section>
           )}
-          {!isLoading && BUCKETS.filter((b) => !todayOnly || b.id === "overdue" || b.id === "today").map((b) => {
-            const items = grouped.m.get(b.id)!;
-            if (!items.length) return null;
-            return (
-              <section key={b.id} aria-label={b.label} className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgb(11_42_31/0.04)]">
-                <header className="flex items-baseline gap-2 bg-table-head px-4 py-2.5">
-                  <h2 className={cn("text-[13px] font-bold uppercase tracking-[0.06em]", b.tone)}>{b.label}</h2>
-                  <span className="font-mono text-[12px] text-muted-foreground">{items.length}</span>
-                </header>
-                <ul>
-                  {items.map((t) => (
-                    <li key={t.id}>
-                      <button type="button" onClick={() => setTask(t.uid)} className="flex w-full items-center gap-3 border-t border-border/70 px-4 py-2.5 text-left transition-colors hover:bg-accent/30">
-                        <StatusGlyph status={t.status} size={15} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[14px] font-medium">{t.name}</span>
-                          <span className="mt-0.5 flex items-center gap-1.5 truncate text-[12px] text-muted-foreground">
-                            <span className="h-2 w-2 shrink-0 rounded-[3px]" style={{ background: t.list.space.color }} aria-hidden />
-                            {t.list.space.name} / {t.list.name}
-                          </span>
-                        </span>
-                        {t.priority && <PriorityFlag priority={t.priority} />}
-                        <DueLabel task={t} className="w-[76px] text-right" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
+          {!isLoading && grouped.open.length > 0 && (
+            <TaskTable
+              onOpen={(uid) => setTask(uid)}
+              groups={BUCKETS.filter((b) => !todayOnly || b.id === "overdue" || b.id === "today").map((b) => ({
+                name: b.label,
+                color: BUCKET_COLOR[b.id],
+                items: grouped.m.get(b.id)!.map((t) => ({ ...t, where: { label: `${t.list.space.name} / ${t.list.name}`, color: t.list.space.color, href: `/work/${workspaceId}/list/${t.list.uid}` } })),
+              }))}
+            />
+          )}
           {grouped.done.length > 0 && (
             <button type="button" onClick={() => setShowDone((s) => !s)} className="text-[13px] font-medium text-muted-foreground hover:text-foreground">
               {showDone ? "Hide" : "Show"} {grouped.done.length} completed
