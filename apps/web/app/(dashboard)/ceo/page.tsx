@@ -55,8 +55,8 @@ function Bar({ value }: { value: number }) {
 }
 function Panel({ icon: Icon, title, kicker, badge, children, footer }: { icon: typeof LayoutGrid; title: string; kicker: string; badge?: React.ReactNode; children: React.ReactNode; footer?: React.ReactNode }) {
   return (
-    <section aria-label={title} className="flex min-h-0 flex-col rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(11,42,31,0.04)]">
-      <header className="flex items-center gap-3 border-b border-border px-5 py-4">
+    <section aria-label={title} className="flex min-h-0 flex-col rounded-[24px] border border-white/70 bg-white/65 shadow-[0_16px_48px_-28px_rgba(11,42,31,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
+      <header className="flex items-center gap-3 border-b border-black/[0.06] px-5 py-4 dark:border-white/10">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest text-brass-soft"><Icon className="h-4.5 w-4.5" /></span>
         <span className="min-w-0 flex-1"><span className="block font-serif text-[19px] leading-tight">{title}</span><span className="block font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">{kicker}</span></span>
         {badge}
@@ -112,49 +112,83 @@ export default function CeoTowerPage() {
   const forYouCount = forYou?.count ?? 0;
   const attentionCount = forYouCount + (data?.attention.companies.length ?? 0) + (data?.attention.overdue.length ? 1 : 0);
   return (
-    <div className="min-h-full bg-[#f6f8f6] dark:bg-background">
-      {/* header */}
-      <header className="z-20 border-b sm:sticky sm:top-0 border-border bg-card/95 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-3 px-5 py-3">
-          <Link href="/home" className="flex items-center gap-2.5" aria-label="EZ Manage home">
-            <BrandMark size={34} />
-            <span><span className="block font-serif text-[18px] leading-none">CEO Tower</span><span className="mt-0.5 block font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">EZ Manage · Executive</span></span>
+    <div className="relative flex min-h-full bg-[#eef3f0] dark:bg-background">
+      {/* soft colour behind the glass */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -left-32 -top-32 h-[520px] w-[520px] rounded-full bg-[#34d399]/25 blur-[110px] dark:bg-[#34d399]/10" />
+        <div className="absolute -bottom-40 left-[30%] h-[460px] w-[460px] rounded-full bg-[#b08d57]/20 blur-[120px] dark:bg-[#b08d57]/10" />
+        <div className="absolute -right-24 top-20 h-[380px] w-[380px] rounded-full bg-[#0b2a1f]/10 blur-[100px]" />
+      </div>
+
+      {/* glass sidebar */}
+      <aside aria-label="CEO Tower menu" className="sticky top-0 z-30 hidden h-screen w-[260px] shrink-0 p-3 lg:block">
+        <div className="flex h-full flex-col overflow-y-auto rounded-[28px] border border-white/70 bg-white/55 p-3 shadow-[0_20px_60px_-24px_rgba(11,42,31,0.35)] ring-1 ring-black/[0.03] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10 dark:bg-white/[0.04]">
+          <Link href="/home" className="flex items-center gap-2.5 rounded-2xl px-2 py-2" aria-label="EZ Manage home">
+            <BrandMark size={38} />
+            <span><span className="block font-serif text-[18px] leading-none">CEO Tower</span><span className="mt-1 block text-[11px] text-muted-foreground">EZ Manage · Executive</span></span>
           </Link>
-          <nav role="tablist" aria-label="CEO Tower views" className="ml-2 flex flex-wrap items-center gap-0.5 rounded-xl bg-muted/60 p-1 ring-1 ring-border/60">
+
+          <button type="button" onClick={() => setAttention(true)} disabled={!attentionCount} className={cn("mt-4 flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left text-[13px] font-semibold transition", attentionCount ? "bg-gradient-to-br from-[#fee2e2] to-[#fecaca]/70 text-[#b91c1c] shadow-[0_8px_20px_-12px_rgba(185,28,28,0.6)] hover:brightness-[1.02] dark:from-destructive/20 dark:to-destructive/10 dark:text-[#fca5a5]" : "bg-white/50 text-muted-foreground dark:bg-white/5")}>
+            <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl", attentionCount ? "bg-white/70 dark:bg-white/10" : "bg-white/60")}><AlertTriangle className="h-4 w-4" /></span>
+            <span className="min-w-0 flex-1"><span className="block">Attention needed</span>{(forYouCount > 0 || (forYou?.approvals ?? 0) > 0) && <span className="block text-[11px] font-medium opacity-80">{forYouCount > 0 && `${forYouCount} for you`}{forYouCount > 0 && (forYou?.approvals ?? 0) > 0 && " · "}{(forYou?.approvals ?? 0) > 0 && `${forYou!.approvals} to approve`}</span>}</span>
+            <span className="rounded-full bg-white/80 px-2 py-0.5 font-mono text-[12px] dark:bg-white/10">{attentionCount}</span>
+          </button>
+
+          <p className="mb-1.5 mt-5 px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Views</p>
+          <nav role="tablist" aria-label="CEO Tower views" className="space-y-0.5">
             {VIEWS.map((v) => (
-              <button key={v.id} type="button" role="tab" aria-selected={view === v.id} disabled={!v.ready} title={v.ready ? undefined : "Being built — next steps"} onClick={() => setView(v.id)}
-                className={cn("flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold", view === v.id ? "bg-card text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:text-muted-foreground")}>
-                <v.icon className="h-3.5 w-3.5" /> {v.label}{!v.ready && <span className="font-mono text-[8.5px] uppercase tracking-wide">soon</span>}
+              <button key={v.id} type="button" role="tab" aria-selected={view === v.id} onClick={() => setView(v.id)}
+                className={cn("group flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-[13.5px] font-medium transition-all",
+                  view === v.id ? "bg-forest text-white shadow-[0_10px_24px_-12px_rgba(11,42,31,0.8)] dark:bg-primary dark:text-primary-foreground" : "text-foreground/75 hover:bg-white/70 hover:text-foreground dark:hover:bg-white/5")}>
+                <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition", view === v.id ? "bg-white/10 text-brass-soft" : "bg-white/60 text-muted-foreground group-hover:text-foreground dark:bg-white/5")}><v.icon className="h-4 w-4" /></span>
+                {v.label}
               </button>
             ))}
           </nav>
-          <span className="flex-1" />
-          <div role="group" aria-label="Product" className="flex rounded-lg border border-border p-0.5">
+
+          <p className="mb-1.5 mt-5 px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Companies</p>
+          <div role="group" aria-label="Product" className="grid grid-cols-3 gap-1 rounded-2xl bg-white/50 p-1 ring-1 ring-black/[0.04] dark:bg-white/5">
             {(["all", "boards", "work"] as const).map((s) => (
-              <button key={s} type="button" aria-pressed={source === s} onClick={() => { setSource(s); setCompany(null); }} className={cn("rounded-md px-2.5 py-1 text-[12px] font-medium", source === s ? "bg-forest text-forest-foreground dark:bg-primary dark:text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{s === "all" ? "All companies" : s === "boards" ? "Boards" : "Work"}</button>
+              <button key={s} type="button" aria-pressed={source === s} onClick={() => { setSource(s); setCompany(null); }} className={cn("rounded-xl py-1.5 text-[12px] font-semibold transition", source === s ? "bg-white text-foreground shadow-sm dark:bg-white/15" : "text-muted-foreground hover:text-foreground")}>{s === "all" ? "All" : s === "boards" ? "Boards" : "Work"}</button>
             ))}
           </div>
-          <button type="button" onClick={() => setAttention(true)} disabled={!attentionCount} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold ring-1", attentionCount ? "bg-destructive/8 text-destructive ring-destructive/25 hover:bg-destructive/12" : "text-muted-foreground ring-border")}>
-            <span className={cn("h-2 w-2 rounded-full", attentionCount ? "bg-destructive" : "bg-primary")} /> Attention needed ({attentionCount}){forYouCount > 0 && <span className="ml-0.5 rounded-full bg-destructive px-1.5 font-mono text-[10.5px] text-white">{forYouCount} for you</span>}{(forYou?.approvals ?? 0) > 0 && <span className="ml-0.5 rounded-full bg-[#b08d57] px-1.5 font-mono text-[10.5px] text-white">{forYou!.approvals} to approve</span>}
-          </button>
-          <Link href="/ceo/report" title="Executive report (PDF)" className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12.5px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"><FileDown className="h-3.5 w-3.5 text-[#b08d57]" /> Report</Link>
-          <button type="button" onClick={() => setSettingsOpen(true)} title="Morning brief and alerts" aria-label="Settings" className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12.5px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"><Settings2 className="h-3.5 w-3.5 text-[#b08d57]" /> Settings</button>
-          {access.canShare && (
-            <button type="button" onClick={() => setSharing(true)} title="Share CEO Tower" className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12.5px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground">
-              <KeyRound className="h-3.5 w-3.5 text-[#b08d57]" /> Access
-            </button>
-          )}
-          <span className="flex items-center gap-2 sm:border-l sm:border-border sm:pl-3">
-            {user && <Avatar user={{ id: user.id, firstName: user.firstName, lastName: user.lastName, avatarUrl: (user as any).avatarUrl ?? null, email: user.email } as any} size={30} />}
-            <span className="hidden 2xl:block"><span className="block text-[13px] font-semibold leading-tight">{user?.firstName} {user?.lastName}</span><span className="block text-[11px] text-muted-foreground">{access.canShare ? "Owner" : access.sharedBy.length ? `Shared by ${access.sharedBy.map((o) => o.name).join(", ")}` : "Shared"} · {data ? `${data.owned.boards + data.owned.work} companies` : "…"}</span></span>
-          </span>
-        </div>
-        {company && (
-          <div className="flex items-center gap-2 border-t border-border bg-[#b08d57]/8 px-5 py-1.5 text-[12.5px]">
-            Scope: <strong>{company.name}</strong> <SourceBadge source={company.source} />
-            <button type="button" onClick={() => setCompany(null)} className="ml-1 flex items-center gap-1 font-medium text-primary hover:underline"><X className="h-3 w-3" /> Show all companies</button>
+
+          <div className="mt-auto space-y-0.5 pt-5">
+            <Link href="/ceo/report" className="flex items-center gap-3 rounded-2xl px-3 py-2 text-[13px] font-medium text-foreground/75 hover:bg-white/70 hover:text-foreground dark:hover:bg-white/5"><FileDown className="h-4 w-4 text-[#b08d57]" /> Executive report</Link>
+            <button type="button" onClick={() => setSettingsOpen(true)} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-[13px] font-medium text-foreground/75 hover:bg-white/70 hover:text-foreground dark:hover:bg-white/5"><Settings2 className="h-4 w-4 text-[#b08d57]" /> Brief &amp; alerts</button>
+            {access.canShare && <button type="button" onClick={() => setSharing(true)} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-[13px] font-medium text-foreground/75 hover:bg-white/70 hover:text-foreground dark:hover:bg-white/5"><KeyRound className="h-4 w-4 text-[#b08d57]" /> Share access</button>}
+            <div className="mt-2 flex items-center gap-2.5 rounded-2xl bg-white/60 p-2.5 ring-1 ring-black/[0.04] dark:bg-white/5">
+              {user && <Avatar user={{ id: user.id, firstName: user.firstName, lastName: user.lastName, avatarUrl: (user as any).avatarUrl ?? null, email: user.email } as any} size={34} />}
+              <span className="min-w-0"><span className="block truncate text-[13px] font-semibold leading-tight">{user?.firstName} {user?.lastName}</span><span className="block truncate text-[11px] text-muted-foreground">{access.canShare ? "Owner" : "Shared"} · {data ? `${data.owned.boards + data.owned.work} companies` : "…"}</span></span>
+            </div>
           </div>
-        )}
+        </div>
+      </aside>
+
+      <div className="relative z-10 min-w-0 flex-1">
+      {/* top bar: title + scope (and the menu on small screens) */}
+      <header className="z-20 px-5 pb-1 pt-5 sm:sticky sm:top-0">
+        <div className="flex flex-wrap items-center gap-3 rounded-[22px] border border-white/70 bg-white/55 px-4 py-3 shadow-[0_12px_40px_-24px_rgba(11,42,31,0.35)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04]">
+          <Link href="/home" className="lg:hidden" aria-label="EZ Manage home"><BrandMark size={32} /></Link>
+          <span className="min-w-0">
+            <span className="block text-[11px] font-medium text-muted-foreground">CEO Tower</span>
+            <h1 className="font-serif text-[22px] leading-tight">{VIEWS.find((v) => v.id === view)?.label}</h1>
+          </span>
+          {company && (
+            <span className="flex items-center gap-1.5 rounded-full bg-[#b08d57]/12 px-3 py-1 text-[12.5px]">
+              <strong>{company.name}</strong> <SourceBadge source={company.source} />
+              <button type="button" aria-label="Show all companies" onClick={() => setCompany(null)} className="ml-0.5 rounded-full p-0.5 hover:bg-black/5"><X className="h-3.5 w-3.5" /></button>
+            </span>
+          )}
+          <span className="flex-1" />
+          <span className="hidden text-[12.5px] text-muted-foreground sm:block">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>
+          {/* small screens: the menu as chips */}
+          <div className="flex w-full gap-1 overflow-x-auto lg:hidden">
+            <button type="button" onClick={() => setAttention(true)} className="shrink-0 rounded-full bg-destructive/10 px-3 py-1 text-[12px] font-semibold text-destructive">Attention {attentionCount}</button>
+            {VIEWS.map((v) => <button key={v.id} type="button" onClick={() => setView(v.id)} className={cn("shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold", view === v.id ? "bg-forest text-white dark:bg-primary" : "bg-white/70 text-muted-foreground dark:bg-white/5")}>{v.label}</button>)}
+            {(["all", "boards", "work"] as const).map((s) => <button key={s} type="button" onClick={() => { setSource(s); setCompany(null); }} className={cn("shrink-0 rounded-full px-3 py-1 text-[12px]", source === s ? "bg-white font-semibold shadow-sm dark:bg-white/15" : "text-muted-foreground")}>{s === "all" ? "All" : s === "boards" ? "Boards" : "Work"}</button>)}
+          </div>
+        </div>
       </header>
       {!access.canShare && access.sharedBy.length > 0 && (
         <p className="border-b border-border bg-[#b08d57]/8 px-5 py-1.5 text-[12px] text-muted-foreground">
@@ -182,8 +216,8 @@ export default function CeoTowerPage() {
               ["Progress", `${data.kpis.progress}%`, `${data.kpis.done} done`, ""],
               ["Unassigned", data.kpis.unassigned, "open, nobody on it", data.kpis.unassigned ? "warn" : ""],
             ] as const).map(([label, value, sub, tone]) => (
-              <div key={label} role="listitem" className={cn("rounded-xl border bg-card px-4 py-3", tone === "bad" ? "border-destructive/30" : tone === "warn" ? "border-[#b08d57]/40" : tone === "good" ? "border-primary/25" : "border-border")}>
-                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+              <div key={label} role="listitem" className={cn("rounded-[20px] border bg-white/65 px-4 py-3 shadow-[0_12px_32px_-24px_rgba(11,42,31,0.45)] backdrop-blur-xl dark:bg-white/[0.04]", tone === "bad" ? "border-destructive/30" : tone === "warn" ? "border-[#b08d57]/40" : tone === "good" ? "border-primary/25" : "border-white/70 dark:border-white/10")}>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
                 <p className={cn("mt-1 font-serif text-[30px] leading-none", tone === "bad" && "text-destructive", tone === "good" && "text-primary", tone === "warn" && "text-[#8a6a35] dark:text-[#d9bd8c]")}>{value}</p>
                 <p className="mt-1 truncate text-[11.5px] text-muted-foreground">{sub}</p>
               </div>
@@ -282,6 +316,7 @@ export default function CeoTowerPage() {
       {messageTo && <MessageDialog person={messageTo} onClose={() => setMessageTo(null)} />}
       {assignTo && <AssignTaskDialog companies={companies} people={[]} defaultCompany={company?.key ?? null} defaultAssignee={assignTo} onClose={() => setAssignTo(null)} />}
       {attention && data && <AttentionDialog data={data} forYou={forYou?.items ?? []} onClose={() => setAttention(false)} onPick={(key) => { const c = companies.find((x) => x.key === key); if (c) setCompany(c); setAttention(false); }} />}
+      </div>
     </div>
   );
 }
