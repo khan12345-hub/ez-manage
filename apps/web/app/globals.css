@@ -107,7 +107,7 @@ body {
   --font-heading: var(--font-poppins), var(--font-figtree), Roboto, sans-serif;
   --font-sans:    var(--font-figtree), Roboto, "Noto Sans Hebrew", "Noto Kufi Arabic", "Noto Sans JP", sans-serif;
   /* Ledger type roles: font-serif (luxury headlines), font-mono (numbers, labels) */
-  --font-serif:   var(--font-serif-display), Georgia, "Times New Roman", serif;
+  --font-serif:   var(--font-serif-display), "Segoe UI", system-ui, sans-serif;
   --font-mono:    var(--font-mono-display), ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
 
   /* Ledger brand colours (bg-forest, text-brass, bg-product-work, …) */
@@ -722,4 +722,15 @@ body {
   background-image:
     radial-gradient(1000px 460px at 90% -6%, rgba(13, 148, 136, 0.14), transparent 55%),
     radial-gradient(1000px 540px at 4% -2%, rgba(16, 185, 129, 0.12), transparent 55%);
+}
+
+/* Headings: plain, straight and easy to read (Inter, semi-bold, never italic).
+   Unlayered on purpose so it wins over font-normal / italic utilities on headings. */
+.font-serif {
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: -0.02em;
+}
+.font-serif * {
+  font-style: normal;
 }

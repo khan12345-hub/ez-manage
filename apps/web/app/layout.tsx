@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { IBM_Plex_Mono, Instrument_Serif } from "next/font/google";
+import { IBM_Plex_Mono, Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import Providers from "@/providers/providers";
 
@@ -10,7 +10,7 @@ import Providers from "@/providers/providers";
  *                  Roboto on Android) via --font-figtree / --font-poppins in
  *                  globals.css — crisp at small sizes, nothing to download
  *   --font-mono-display  → numbers, labels (IBM Plex Mono)
- *   --font-serif-display → big headings only (Instrument Serif)
+ *   --font-serif-display → headings (Inter: a plain, straight, easy-to-read sans)
  */
 const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
@@ -19,10 +19,8 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
+const headingFont = Inter({
   subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
   variable: "--font-serif-display",
   display: "swap",
 });
@@ -38,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn(plexMono.variable, instrumentSerif.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn(plexMono.variable, headingFont.variable)} suppressHydrationWarning>
       <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
