@@ -47,9 +47,12 @@ export class WorkFormsService {
   async list(workspaceId: number, userId: number) {
     await this.access.requireWorkspace(workspaceId, userId, 'view');
     const forms = await this.prisma.workForm.findMany({ where: { workspaceId }, orderBy: { createdAt: 'desc' } });
-    const lists = await this.prisma.workList.findMany({ where: { id: { in: forms.map((f) => f.listId) } }, select: { id: true, uid: true, name: true } });
-    const byId = new Map(lists.map((l) => [l.id, l]));
-    return forms.map((f) => ({ ...f, list: byId.get(f.listId) ?? null }));
+    const lists = await this.prisma.workList.findMany({ where: { id: { in: forms.map((f) => f.listId) } }, select: { id: true, uid: true, name: true, spaceId: true } });
+    // only forms that feed a list in a space this person can open (guests / limited members see their spaces only)
+    const ok = new Set<number>();
+    for (const sid of [...new Set(lists.map((l) => l.spaceId))]) { try { await this.access.requireSpace(sid, userId, 'view'); ok.add(sid); } catch { /* hidden */ } }
+    const byId = new Map(lists.filter((l) => ok.has(l.spaceId)).map(({ spaceId, ...l }) => [l.id, l]));
+    return forms.filter((f) => byId.has(f.listId)).map((f) => ({ ...f, list: byId.get(f.listId)! }));
   }
 
   async create(workspaceId: number, userId: number, dto: { name?: string; description?: string; listId?: number; fields?: unknown }) {

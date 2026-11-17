@@ -34,12 +34,14 @@ export class WorkWhiteboardsService {
   private async boardOf(idOrUid: string, userId: number, level: 'view' | 'edit') {
     const b = await this.prisma.workWhiteboard.findFirst({ where: /^\d+$/.test(idOrUid) ? { id: Number(idOrUid) } : { uid: idOrUid } });
     if (!b || b.archivedAt) throw new NotFoundException('Whiteboard not found.');
-    await this.access.requireWorkspace(b.workspaceId, userId, level);
+    const ws = await this.access.requireWorkspace(b.workspaceId, userId, level);
+    if (ws.scope === 'shared') throw new NotFoundException('Whiteboard not found.');
     return b;
   }
 
   async list(workspaceId: number, userId: number) {
-    await this.access.requireWorkspace(workspaceId, userId, 'view');
+    const ws = await this.access.requireWorkspace(workspaceId, userId, 'view');
+    if (ws.scope === 'shared') return [];
     const rows = await this.prisma.workWhiteboard.findMany({ where: { workspaceId, archivedAt: null }, orderBy: { updatedAt: 'desc' }, select: { id: true, uid: true, title: true, updatedAt: true, updatedById: true, data: true } });
     const people = await this.prisma.user.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.updatedById))] } }, select: USER_MINI });
     const byId = new Map(people.map((p) => [p.id, p]));

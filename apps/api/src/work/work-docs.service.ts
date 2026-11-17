@@ -31,15 +31,16 @@ export class WorkDocsService {
   private async docOf(idOrUid: string, userId: number, level: 'view' | 'edit') {
     const d = await this.prisma.workDoc.findFirst({ where: /^\d+$/.test(idOrUid) ? { id: Number(idOrUid) } : { uid: idOrUid } });
     if (!d || d.archivedAt) throw new NotFoundException('Doc not found.');
-    await this.access.requireWorkspace(d.workspaceId, userId, level);
+    const ws = await this.access.requireWorkspace(d.workspaceId, userId, level);
     if (d.spaceId) await this.access.requireSpace(d.spaceId, userId, level);
+    else if (ws.scope === 'shared') throw new NotFoundException('Doc not found.');
     return d;
   }
 
   async list(workspaceId: number, userId: number) {
-    await this.access.requireWorkspace(workspaceId, userId, 'view');
+    const ws = await this.access.requireWorkspace(workspaceId, userId, 'view');
     const docs = await this.prisma.workDoc.findMany({
-      where: { workspaceId, archivedAt: null },
+      where: { workspaceId, archivedAt: null, ...(ws.scope === 'shared' ? { spaceId: { not: null } } : {}) },
       orderBy: [{ updatedAt: 'desc' }],
       select: { id: true, uid: true, title: true, spaceId: true, parentId: true, updatedAt: true, createdById: true, updatedById: true, content: true },
     });

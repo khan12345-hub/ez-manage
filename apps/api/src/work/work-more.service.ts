@@ -189,7 +189,7 @@ export class WorkMoreService {
   // ───────── templates ─────────
 
   async templates(workspaceId: number, userId: number) {
-    await this.access.requireWorkspace(workspaceId, userId, 'view');
+    await this.access.requireWorkspace(workspaceId, userId, 'edit');
     const rows = await this.prisma.workTaskTemplate.findMany({ where: { workspaceId }, orderBy: { createdAt: 'desc' }, take: 200, select: { id: true, name: true, data: true, createdById: true, createdAt: true } });
     return rows.map((r) => { const d = r.data as TemplateData; return { id: r.id, name: r.name, createdById: r.createdById, createdAt: r.createdAt, taskName: d.name, checklists: d.checklists?.length ?? 0, subtasks: d.subtasks?.length ?? 0 }; });
   }
@@ -270,7 +270,7 @@ export class WorkMoreService {
   }
 
   async clips(workspaceId: number, userId: number) {
-    await this.access.requireWorkspace(workspaceId, userId, 'view');
+    await this.access.requireWorkspace(workspaceId, userId, 'edit');
     return this.shapeClips(await this.prisma.workClip.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 200, select: this.clipRow }));
   }
 
