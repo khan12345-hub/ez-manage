@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AtSign, Loader2, Paperclip, SendHorizontal, Smile, UserCheck } from "lucide-react";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { userName, workApi, workKeys, type WorkAttachment, type WorkTaskDetail, type WorkUser } from "@/services/work.api";
 import { Avatar } from "./primitives";
 import { AssigneePicker } from "./pickers";
@@ -30,6 +31,10 @@ export function Composer({
 }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
+  // top-level composer: Comment, Post (a titled update) or Email (sent to people outside)
+  const [mode, setMode] = useState<"comment" | "post" | "email">("comment");
+  const [title, setTitle] = useState("");
+  const [emailTo, setEmailTo] = useState("");
   const [outside, setOutside] = useState(false);
   const [files, setFiles] = useState<WorkAttachment[]>([]);
   const [mentions, setMentions] = useState<WorkUser[]>([]);
@@ -49,7 +54,16 @@ export function Composer({
   });
 
   const send = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
+      if (!parentId && mode === "email") {
+        const r = await api.post<{ sent: number; to: string[] }>(`/work/tasks/${task.uid}/email-out`, { to: emailTo, subject: title, body: text });
+        toast.success(r.data.sent ? `Email sent to ${r.data.to.join(", ")}` : "Saved on the task (email isn't set up on this server)");
+        return r.data;
+      }
+      if (!parentId && mode === "post") {
+        if (!title.trim()) throw new Error("Add a title for the post.");
+        return workApi.addComment(task.id, `## ${title.trim()}\n${text.trim()}`, { attachmentIds: files.map((f) => f.id), mentionIds: mentions.map((m) => m.id) });
+      }
       const body = text.trim() || (files.length ? `Attached ${files.length === 1 ? "a file" : `${files.length} files`}` : "");
       const mentionIds = mentions.filter((m) => body.includes(`@${userName(m)}`)).map((m) => m.id);
       const sent = workApi.addComment(task.id, body, { parentId, assigneeId: assignee?.id, attachmentIds: files.map((f) => f.id), mentionIds });
@@ -58,6 +72,8 @@ export function Composer({
     },
     onSuccess: () => {
       setText("");
+      setTitle("");
+      setEmailTo("");
       setFiles([]);
       setMentions([]);
       setAssignee(null);
@@ -66,7 +82,7 @@ export function Composer({
       qc.invalidateQueries({ queryKey: workKeys.tasks(task.listId) });
       onPosted?.();
     },
-    onError: (e) => toast.error(errMsg(e)),
+    onError: (e: any) => toast.error(e?.message && !e?.response ? e.message : errMsg(e)),
   });
 
   // Quote (comment toolbar) drops "> text" into the main composer
@@ -117,7 +133,7 @@ export function Composer({
   };
 
   const candidates = members.filter((m) => userName(m).toLowerCase().includes(mq.toLowerCase())).slice(0, 8);
-  const canSend = (!!text.trim() || files.length > 0) && !send.isPending && !upload.isPending;
+  const canSend = (mode === "email" && !parentId ? !!emailTo.trim() && !!title.trim() && !!text.trim() : mode === "post" && !parentId ? !!title.trim() : !!text.trim() || files.length > 0) && !send.isPending && !upload.isPending;
 
   return (
     <div
@@ -128,6 +144,19 @@ export function Composer({
         if (e.dataTransfer.files.length) upload.mutate(Array.from(e.dataTransfer.files));
       }}
     >
+      {!parentId && (
+        <div role="tablist" aria-label="Write a" className="flex gap-1 border-b border-border px-2 pt-1.5">
+          {(["comment", "post", "email"] as const).map((m) => (
+            <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={cn("-mb-px border-b-2 px-2 pb-1.5 text-[12.5px] font-semibold capitalize", mode === m ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{m}</button>
+          ))}
+        </div>
+      )}
+      {!parentId && mode === "email" && (
+        <input value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="To: name@company.com, …" aria-label="Email to" className="block w-full border-b border-border bg-transparent px-3 py-2 text-[13px] outline-none" />
+      )}
+      {!parentId && mode !== "comment" && (
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={mode === "email" ? "Subject" : "Post title"} aria-label={mode === "email" ? "Subject" : "Post title"} className="block w-full border-b border-border bg-transparent px-3 py-2 text-[14px] font-semibold outline-none" />
+      )}
       <Popover open={mentionOpen} onOpenChange={setMentionOpen}>
         <PopoverAnchor asChild>
           <textarea
@@ -217,7 +246,7 @@ export function Composer({
           onClick={() => send.mutate()}
           className="flex h-8 items-center gap-1.5 rounded-lg bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-40 dark:bg-primary dark:text-primary-foreground"
         >
-          {send.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SendHorizontal className="h-3.5 w-3.5" />} {parentId ? "Reply" : "Comment"}
+          {send.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SendHorizontal className="h-3.5 w-3.5" />} {parentId ? "Reply" : mode === "email" ? "Send email" : mode === "post" ? "Post" : "Comment"}
         </button>
       </div>
     </div>

@@ -3,31 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Activity,
-  Archive,
-  CalendarDays,
-  Check,
-  ChevronsLeft,
-  ChevronsRight,
-  CircleDot,
-  Flag,
-  GitBranch,
-  Hourglass,
-  LayoutList,
-  Link2,
-  Loader2,
-  Maximize2,
-  MessageSquare,
-  PanelRight,
-  Paperclip,
-  Plus,
-  Repeat,
-  SquareStack,
-  Tag as TagIcon,
-  Timer,
-  Users,
-} from "lucide-react";
+import { Activity, Archive, CalendarDays, Check, ChevronsLeft, ChevronsRight, CircleDot, Flag, GitBranch, Hourglass, LayoutList, Link2, Loader2, Maximize2, MessageSquare, PanelRight, Paperclip, Plus, Repeat, SquareStack, Tag as TagIcon, Timer, Users, Gauge } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -369,9 +345,24 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                 {/* properties */}
                 <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-1 border-b border-border px-6 py-4 sm:grid-cols-2", layout === "full" && !panelOpen && "xl:grid-cols-3")}>
                   <Prop icon={CircleDot} label="Status">
-                    <StatusPicker statuses={task.statuses} value={task.statusId} disabled={!canEdit} onChange={(id) => update({ statusId: id })}>
-                      <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent"><StatusPill status={status} /></button>
-                    </StatusPicker>
+                    <span className="flex items-center gap-1">
+                      <StatusPicker statuses={task.statuses} value={task.statusId} disabled={!canEdit} onChange={(id) => update({ statusId: id })}>
+                        <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent"><StatusPill status={status} /></button>
+                      </StatusPicker>
+                      {canEdit && (() => {
+                        const done = task.statuses.find((x) => x.category === "DONE");
+                        const open = task.statuses.find((x) => x.category !== "DONE");
+                        const isDone = status?.category === "DONE";
+                        const target = isDone ? open : done;
+                        return target ? (
+                          <button type="button" aria-label={isDone ? "Reopen task" : "Mark complete"} title={isDone ? `Reopen (${target.name})` : `Mark complete (${target.name})`} onClick={() => update({ statusId: target.id })}
+                            className={cn("flex h-6 w-6 items-center justify-center rounded-md border transition", isDone ? "border-transparent text-white" : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary")}
+                            style={isDone ? { background: done?.color ?? "#16a34a" } : undefined}>
+                            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                          </button>
+                        ) : null;
+                      })()}
+                    </span>
                   </Prop>
                   <Prop icon={Users} label="Assignees">
                     <AssigneePicker members={members} value={task.assignees} disabled={!canEdit || !list} onChange={(ids) => update({ assigneeIds: ids })}>
@@ -408,6 +399,9 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                   </Prop>
                   <Prop icon={Hourglass} label="Estimate">
                     <EstimateField task={task} onSave={(m) => update({ timeEstimate: m })} />
+                  </Prop>
+                  <Prop icon={Gauge} label="Sprint points">
+                    <PointsField value={task.points ?? null} disabled={!canEdit} onSave={(n) => update({ points: n })} />
                   </Prop>
                   <Prop icon={Timer} label="Track time">
                     <TimeTracker task={task} />
@@ -675,4 +669,14 @@ function Prop({ icon: Icon, label, children }: { icon: typeof Users; label: stri
       <dd className="min-w-0 flex-1">{children}</dd>
     </div>
   );
+}
+
+/** Sprint points: a small number you can click to edit */
+function PointsField({ value, disabled, onSave }: { value: number | null; disabled: boolean; onSave: (n: number | null) => void }) {
+  const [edit, setEdit] = useState(false);
+  const [v, setV] = useState(value == null ? "" : String(value));
+  useEffect(() => { setV(value == null ? "" : String(value)); }, [value]);
+  const commit = () => { setEdit(false); const n = v.trim() === "" ? null : Math.max(0, Math.min(1000, Math.round(Number(v)))); if (n !== value && (n === null || Number.isFinite(n))) onSave(n); };
+  if (edit && !disabled) return <input autoFocus type="number" min={0} max={1000} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEdit(false); setV(value == null ? "" : String(value)); } }} aria-label="Sprint points" className="h-7 w-20 rounded-md border border-border bg-background px-2 text-[13px] outline-none focus:border-primary/50" />;
+  return <button type="button" disabled={disabled} onClick={() => setEdit(true)} className="rounded-md px-1 py-0.5 text-[13px] hover:bg-accent disabled:hover:bg-transparent">{value == null ? <span className="text-muted-foreground">Empty</span> : value}</button>;
 }

@@ -676,7 +676,19 @@ export function CommentCard({
             </button>
           )}
         </div>
-        <p className="mt-0.5 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">{renderMentions(c.content, members)}</p>
+        {c.content.startsWith("## ") ? (
+          <div className="mt-1 rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2">
+            <p className="text-[14px] font-semibold">{c.content.slice(3).split("\n")[0]}</p>
+            <p className="mt-1 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">{renderMentions(c.content.split("\n").slice(1).join("\n"), members)}</p>
+          </div>
+        ) : c.content.startsWith("📧 Email to ") ? (
+          <div className="mt-1 rounded-lg border border-border bg-muted/40 px-3 py-2">
+            <p className="text-[12.5px] font-semibold text-muted-foreground">{c.content.split("\n")[0]}</p>
+            <p className="mt-1 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">{c.content.split("\n").slice(2).join("\n")}</p>
+          </div>
+        ) : (
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">{renderMentions(c.content, members)}</p>
+        )}
         {!!c.attachments?.length && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {c.attachments.map((a) => <FileChip key={a.id} a={a} />)}

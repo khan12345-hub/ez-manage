@@ -2556,6 +2556,9 @@ model WorkDoc {
   uid         String    @unique
   workspaceId Int
   spaceId     Int?
+  /// a doc can also live in a folder or a list (shows in its Overview / as a view)
+  folderId    Int?
+  listId      Int?
   parentId    Int?
   title       String
   content     String    @default("") @db.Text
@@ -2776,4 +2779,26 @@ model VaultToken {
 
   @@index([userId])
   @@map("vault_tokens")
+}
+
+/// Saved views of a list / folder / space (shared with everyone who can open it), ClickUp style:
+/// any number of views, named, in the order people arrange them.
+model WorkView {
+  id           Int      @id @default(autoincrement())
+  uid          String   @unique
+  /// list | folder | space
+  locationType String
+  locationId   Int
+  /// list | board | calendar | table | gallery | gantt | timeline | workload | activity | mindmap | team | map | collection | dashboard | embed | doc | form
+  kind         String
+  name         String
+  position     Float    @default(1000)
+  /// filters, grouping, columns, embed url, doc / form uid …
+  settings     Json?
+  createdById  Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([locationType, locationId])
+  @@map("work_views")
 }

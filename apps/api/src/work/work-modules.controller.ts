@@ -349,6 +349,12 @@ export class WorkModulesController {
     return this.more.deleteTemplate(id, u.id);
   }
 
+  @Post('tasks/:taskUid/email-out')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  emailOut(@Param('taskUid') taskUid: string, @Body() b: { to?: string; subject?: string; body?: string }, @CurrentUser() u: SessionUser) {
+    return this.more.emailOut(taskUid, u.id, b ?? {});
+  }
+
   @Get('tasks/:taskUid/email')
   taskEmail(@Param('taskUid') taskUid: string, @CurrentUser() u: SessionUser) {
     return this.more.taskEmail(taskUid, u.id, false);

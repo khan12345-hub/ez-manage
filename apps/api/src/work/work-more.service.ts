@@ -8,6 +8,7 @@ import { WorkAccessService } from './work-access.service';
 import { WorkService } from './work.service';
 import { WorkDetailService } from './work-detail.service';
 import { ATTACHMENT_SELECT } from './work-files.service';
+import { MailService } from 'src/mail/mail.service';
 
 const USER_MINI = { id: true, firstName: true, lastName: true, avatarUrl: true } as const;
 const uid = () => randomBytes(9).toString('base64url');
@@ -34,6 +35,7 @@ export class WorkMoreService {
     private readonly work: WorkService,
     private readonly detail: WorkDetailService,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageProvider,
+    private readonly mail: MailService,
   ) {}
 
   private async listOf(uidOrId: string, userId: number) {
@@ -257,6 +259,30 @@ export class WorkMoreService {
     const { task } = await this.taskOf(taskUid, userId, 'comment');
     await this.prisma.workLink.updateMany({ where: { kind: 'TASK_EMAIL', targetId: task.id, revokedAt: null }, data: { revokedAt: new Date() } });
     return { ok: true };
+  }
+
+  /**
+   * The composer's "Email" tab: send an email about the task to up to 5 addresses; the task gets
+   * a comment so everyone sees it was sent. Plain text only (escaped in the HTML part).
+   */
+  async emailOut(taskUid: string, userId: number, b: { to?: unknown; subject?: unknown; body?: unknown }) {
+    const { task } = await this.taskOf(taskUid, userId, 'comment');
+    const to = [...new Set(String(b?.to ?? '').split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean))];
+    if (!to.length) throw new BadRequestException('Add at least one email address.');
+    if (to.length > 5) throw new BadRequestException('Send to 5 addresses at most.');
+    if (to.some((x) => !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(x) || x.length > 200)) throw new BadRequestException('One of the email addresses is not valid.');
+    const subject = String(b?.subject ?? '').trim().slice(0, 200);
+    const body = String(b?.body ?? '').trim().slice(0, 10000);
+    if (!subject || !body) throw new BadRequestException('Add a subject and a message.');
+    const t = await this.prisma.workTask.findUnique({ where: { id: task.id }, select: { name: true } });
+    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
+    const from = me ? `${me.firstName} ${me.lastName}`.trim() : 'EZ Manage';
+    const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const html = `<p>${esc(body).replace(/\n/g, '<br>')}</p><hr><p style="color:#666;font-size:12px">Sent by ${esc(from)} from the task “${esc(t?.name ?? '')}” in EZ Manage.</p>`;
+    let sent = 0;
+    for (const addr of to) { if (await this.mail.sendMail({ to: addr, subject, html, text: `${body}\n\n— ${from} (EZ Manage task: ${t?.name ?? ''})` }).catch(() => null)) sent++; }
+    await this.work.createComment(task.id, userId, { content: `📧 Email to ${to.join(', ')} — ${subject}\n\n${body}` } as any);
+    return { ok: true, sent, to };
   }
 
   // ───────── clips (screen recordings) ─────────
