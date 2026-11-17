@@ -57,7 +57,7 @@ export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "fold
 
   return (
     <div className="flex min-h-full w-full flex-col">
-      <div className="relative border-b border-border bg-card px-4 pt-4 sm:px-6">
+      <div className="work-glass relative mx-3 mt-3 overflow-hidden rounded-[22px] px-4 pt-4 sm:px-6">
         <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, ${data.space.color} 0%, var(--brass) 60%, transparent 100%)` }} />
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="flex min-w-0 items-center gap-2 text-[15px] font-semibold">

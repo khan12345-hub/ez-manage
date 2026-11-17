@@ -124,7 +124,10 @@ const MORE_PAGES = [
   { id: "clips", label: "Clips", path: "clips", icon: Video },
 ];
 
-const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13.5px] transition-colors";
+const ROW = "group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-[13.5px] font-medium transition-all";
+/* active row: the forest pill (icons turn brass) */
+const ACTIVE = "bg-forest text-white font-semibold shadow-[0_10px_22px_-14px_rgba(11,42,31,0.9)] [&_svg]:text-brass-soft dark:bg-primary dark:text-primary-foreground";
+const IDLE = "text-foreground/75 hover:bg-white/75 hover:text-foreground dark:hover:bg-white/5";
 
 export function WorkSidebar({
   isOpen,
@@ -279,7 +282,7 @@ export function WorkSidebar({
   const ListRow = ({ list, depth }: { list: WorkListNode; depth: number }) => {
     const active = list.uid === activeListUid;
     return (
-      <div className={cn(ROW, active ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")} style={{ paddingLeft: 8 + depth * 14 }}>
+      <div className={cn(ROW, active ? ACTIVE : IDLE)} style={{ paddingLeft: 8 + depth * 14 }}>
         <button type="button" onClick={() => go(`/work/${wsParam}/list/${list.uid}`)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: list.color ?? "var(--muted-foreground)" }} />
           <span className="truncate">{list.name}</span>
@@ -305,7 +308,7 @@ export function WorkSidebar({
   return (
     <div
       className={cn(
-        "select-none flex-col border-r border-border bg-background",
+        "select-none flex-col bg-background md:bg-transparent",
         "fixed inset-y-0 left-0 z-50 flex h-full shadow-xl transition-transform duration-300 ease-in-out",
         isMobileOpen ? "translate-x-0" : "-translate-x-full",
         "md:relative md:z-auto md:flex md:h-full md:translate-x-0 md:shadow-none md:transition-none",
@@ -313,13 +316,13 @@ export function WorkSidebar({
     >
       <div
         className={cn(
-          "flex h-full flex-col overflow-hidden bg-background ez-sidebar-surface",
+          "flex h-full flex-col overflow-hidden ez-sidebar-surface md:my-3 md:ml-3 md:h-[calc(100%-1.5rem)] md:rounded-[26px] md:work-glass",
           "w-[270px] md:transition-[width] md:duration-300 md:ease-in-out",
-          isOpen ? "md:w-[270px]" : "md:w-0",
+          isOpen ? "md:w-[272px]" : "md:w-0 md:ml-0 md:border-0",
         )}
       >
         {/* Brand */}
-        <div className="flex h-16 items-center justify-between border-b border-border px-4">
+        <div className="flex h-16 items-center justify-between px-4">
           <Link href="/home" className="flex min-w-0 items-center gap-2.5" aria-label="EZ Manage — Home">
             <BrandMark />
             <span className="truncate font-heading text-base font-semibold tracking-tight text-foreground">EZ Manage</span>
@@ -402,7 +405,7 @@ export function WorkSidebar({
               <Link
                 href={wsParam ? `/work/${wsParam}/inbox` : "#"}
                 onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/inbox` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/inbox` ? ACTIVE : IDLE)}
               >
                 <Inbox className="h-4 w-4 shrink-0" /> <span className="flex-1">Inbox</span>
                 {inbox.primaryUnread > 0 && <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{inbox.primaryUnread}</span>}
@@ -411,14 +414,14 @@ export function WorkSidebar({
               <Link
                 href={wsParam ? `/work/${wsParam}/replies` : "#"}
                 onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/replies` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/replies` ? ACTIVE : IDLE)}
               >
                 <MessageSquareReply className="h-4 w-4 shrink-0" /> Replies
               </Link>
               <Link
                 href={wsParam ? `/work/${wsParam}/assigned-comments` : "#"}
                 onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/assigned-comments` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/assigned-comments` ? ACTIVE : IDLE)}
               >
                 <CheckCheck className="h-4 w-4 shrink-0" /> Assigned Comments
               </Link>
@@ -426,20 +429,20 @@ export function WorkSidebar({
               <Link
                 href={wsParam ? `/work/${wsParam}/chat/posts` : "#"}
                 onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/chat/posts` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/chat/posts` ? ACTIVE : IDLE)}
               >
                 <Megaphone className="h-4 w-4 shrink-0" /> Posts
               </Link>
               <Link
                 href={wsParam ? `/work/${wsParam}/chat/search` : "#"}
                 onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/chat/search` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/chat/search` ? ACTIVE : IDLE)}
               >
                 <Search className="h-4 w-4 shrink-0" /> Search Chat
               </Link>
 
               {/* My Tasks */}
-              <div className={cn(ROW, "py-[7px] text-foreground/80 hover:bg-accent/60")}>
+              <div className={cn(ROW, "py-[7px]", IDLE)}>
                 <button type="button" aria-label={myOpen ? "Collapse My Tasks" : "Expand My Tasks"} aria-expanded={myOpen} onClick={() => setMyOpen(!myOpen)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                   <UserCheck className="h-4 w-4 shrink-0" />
                   <span className="flex-1">My Tasks</span>
@@ -451,7 +454,7 @@ export function WorkSidebar({
                   <Link
                     href={wsParam ? `/work/${wsParam}` : "#"}
                     onClick={onMobileClose}
-                    className={cn(ROW, "py-[6px] pl-7", pathname === `/work/${wsParam}` && myView !== "today" ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/75 hover:bg-accent/60")}
+                    className={cn(ROW, "py-[6px] pl-7", pathname === `/work/${wsParam}` && myView !== "today" ? ACTIVE : IDLE)}
                   >
                     <Home className="h-3.5 w-3.5 shrink-0" /> <span className="flex-1">Assigned to me</span>
                     {myCounts.open > 0 && <span className="font-mono text-[11px] text-muted-foreground">{myCounts.open}</span>}
@@ -459,7 +462,7 @@ export function WorkSidebar({
                   <Link
                     href={wsParam ? `/work/${wsParam}?view=today` : "#"}
                     onClick={onMobileClose}
-                    className={cn(ROW, "py-[6px] pl-7", pathname === `/work/${wsParam}` && myView === "today" ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/75 hover:bg-accent/60")}
+                    className={cn(ROW, "py-[6px] pl-7", pathname === `/work/${wsParam}` && myView === "today" ? ACTIVE : IDLE)}
                   >
                     <CalendarClock className="h-3.5 w-3.5 shrink-0" /> <span className="flex-1">Today &amp; Overdue</span>
                     {myCounts.todayOverdue > 0 && <span className={cn("font-mono text-[11px]", myCounts.overdue ? "text-destructive" : "text-muted-foreground")}>{myCounts.todayOverdue}</span>}
@@ -473,7 +476,7 @@ export function WorkSidebar({
                   key={m.id}
                   href={`/work/${wsParam}/${m.path}`}
                   onClick={onMobileClose}
-                  className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/${m.path}` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+                  className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/${m.path}` ? ACTIVE : IDLE)}
                 >
                   <m.icon className="h-4 w-4 shrink-0" /> {m.label}
                 </Link>
@@ -481,7 +484,7 @@ export function WorkSidebar({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button type="button" className={cn(ROW, "py-[7px] text-foreground/80 hover:bg-accent/60")}>
+                  <button type="button" className={cn(ROW, "py-[7px]", IDLE)}>
                     <MoreHorizontal className="h-4 w-4 shrink-0" /> More
                   </button>
                 </DropdownMenuTrigger>
@@ -524,7 +527,7 @@ export function WorkSidebar({
             <Link
               href={`/work/${wsParam}/all-tasks`}
               onClick={onMobileClose}
-              className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/all-tasks` ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")}
+              className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/all-tasks` ? ACTIVE : IDLE)}
             >
               <Asterisk className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="truncate">All Tasks</span>
@@ -593,7 +596,7 @@ export function WorkSidebar({
                         const folderActive = pathname === `/work/${wsParam}/folder/${folder.uid}`;
                         return (
                           <div key={folder.id}>
-                            <div className={cn(ROW, folderActive ? "bg-accent font-semibold text-accent-foreground" : "text-foreground/80 hover:bg-accent/60")} style={{ paddingLeft: 18 }}>
+                            <div className={cn(ROW, folderActive ? ACTIVE : IDLE)} style={{ paddingLeft: 18 }}>
                               <button type="button" onClick={() => toggle(`f${folder.id}`)} aria-label={fOpen ? `Collapse ${folder.name}` : `Expand ${folder.name}`} aria-expanded={fOpen} className="rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground">
                                 {fOpen ? <FolderOpen className="h-3.5 w-3.5" /> : <Folder className="h-3.5 w-3.5" />}
                               </button>

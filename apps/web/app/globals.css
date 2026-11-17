@@ -734,3 +734,25 @@ body {
 .font-serif * {
   font-style: normal;
 }
+
+/* ─── Work (ClickUp) look: Inter everywhere, soft backdrop, glass panels ─── */
+.work-ui {
+  background-color: #eef3f0;
+  font-family: var(--font-serif-display), "Segoe UI", system-ui, sans-serif;
+}
+.dark .work-ui { background-color: var(--background); }
+.work-ui .ez-page-surface,
+.work-ui .ez-sidebar-surface { background-color: transparent; }
+/* cards and panels inside Work: soft white glass over the backdrop */
+.work-ui main .bg-card { background-color: rgb(255 255 255 / 0.78); }
+.dark .work-ui main .bg-card { background-color: rgb(255 255 255 / 0.04); }
+@utility work-glass {
+  border: 1px solid rgb(255 255 255 / 0.7);
+  background-color: rgb(255 255 255 / 0.58);
+  box-shadow: 0 18px 50px -28px rgb(11 42 31 / 0.38);
+  backdrop-filter: blur(24px) saturate(1.5);
+  &:where(.dark, .dark *) {
+    border-color: rgb(255 255 255 / 0.08);
+    background-color: rgb(255 255 255 / 0.04);
+  }
+}
