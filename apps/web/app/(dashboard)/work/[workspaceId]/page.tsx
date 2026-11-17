@@ -11,6 +11,7 @@ import { DueLabel, PriorityFlag, StatusGlyph } from "../_components/primitives";
 import { TaskDrawer } from "../_components/TaskDrawer";
 import { CreateSpaceDialog } from "../_components/CreateSpaceDialog";
 import { RemindersCard } from "../_components/Reminders";
+import { WorkHome } from "../_components/WorkHome";
 
 type Bucket = "overdue" | "today" | "week" | "later" | "none";
 const BUCKETS: { id: Bucket; label: string; tone: string }[] = [
@@ -65,6 +66,16 @@ function MyWorkInner() {
   const noSpaces = tree && tree.spaces.length === 0;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  // Home (no ?view) is the dashboard; My Tasks lives at ?view=mine / ?view=today
+  if (!sp.get("view") && !noSpaces) {
+    return (
+      <>
+        <WorkHome ws={workspaceId} onOpenTask={(uid) => setTask(uid)} />
+        <TaskDrawer taskUid={taskUid} onClose={() => setTask(null)} onOpenTask={(uid) => setTask(uid)} />
+      </>
+    );
+  }
 
   return (
     <div className="w-full px-4 py-6 sm:px-8">

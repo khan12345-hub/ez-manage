@@ -1,5 +1,6 @@
 "use client";
 import { cn } from "@/lib/utils";
+import { WorkRail } from "./Sidebar/WorkRail";
 
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -270,6 +271,7 @@ export function AppShell({ children }: AppShellProps) {
                 />
               )}
 
+              {isWorkPage && <WorkRail />}
               {isWorkPage ? (
                 <Suspense fallback={<div className="hidden w-[270px] shrink-0 border-r border-border bg-background md:block" />}>
                 <WorkSidebar

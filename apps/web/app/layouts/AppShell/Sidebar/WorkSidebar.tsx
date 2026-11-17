@@ -129,6 +129,7 @@ const ROW = "group flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[1
 const ACTIVE = "bg-primary/[0.09] text-foreground font-semibold [&_svg]:text-primary dark:bg-white/10";
 const IDLE = "text-foreground/70 hover:bg-[#f2f4f3] hover:text-foreground dark:hover:bg-white/5";
 /* section titles: Spaces, Channels, Direct Messages */
+const INBOX_PATHS = ["inbox", "replies", "assigned-comments", "chat/posts", "chat/search"];
 const SECTION = "flex items-center gap-1 px-3 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
 
 export function WorkSidebar({
@@ -324,7 +325,7 @@ export function WorkSidebar({
         )}
       >
         {/* Brand */}
-        <div className="flex h-16 items-center justify-between px-4">
+        <div className="flex h-16 items-center justify-between px-4 md:hidden">
           <Link href="/home" className="flex min-w-0 items-center gap-2.5" aria-label="EZ Manage — Home">
             <BrandMark />
             <span className="truncate font-heading text-base font-semibold tracking-tight text-foreground">EZ Manage</span>
@@ -339,16 +340,17 @@ export function WorkSidebar({
           </div>
         </div>
 
-        <ProductSwitcher
+        <div className="md:hidden"><ProductSwitcher
           active="work"
           workHref={wsParam ? `/work/${wsParam}` : undefined}
           showCeo={user?.systemRole === "SUPER_ADMIN"}
           onNavigate={onMobileClose}
-        />
+        /></div>
 
         {/* Home row: search + Create menu (always visible, like ClickUp) */}
-        <div className="flex items-center gap-1 px-4 pb-1 pt-3">
-          <span className="flex-1 text-[15px] font-semibold">Home</span>
+        <div className="flex items-center gap-1 px-4 pb-1 pt-4">
+          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{wsName || "Work"}</span>
+          <button type="button" onClick={onToggle} className="hidden rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground md:flex" aria-label="Collapse sidebar" title="Collapse sidebar"><ChevronLeft className="h-4 w-4" /></button>
           <button type="button" aria-label="Search the sidebar" title="Search" aria-pressed={searchOpen} onClick={() => { setSearchOpen(!searchOpen); setTerm(""); }} className={cn("rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground", searchOpen && "bg-accent text-foreground")}>
             <Search className="h-4 w-4" />
           </button>
@@ -404,43 +406,17 @@ export function WorkSidebar({
         <nav className="flex-1 overflow-y-auto px-3 pb-3" aria-label="Work">
           {!term && (
             <>
+              <p className={cn(SECTION, "pt-1")}>Menu</p>
+              <Link href={wsParam ? `/work/${wsParam}` : "#"} onClick={onMobileClose} className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}` && !myView ? ACTIVE : IDLE)}>
+                <LayoutDashboard className="h-4 w-4 shrink-0" /> <span className="flex-1">Home</span>
+              </Link>
               <Link
                 href={wsParam ? `/work/${wsParam}/inbox` : "#"}
                 onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/inbox` ? ACTIVE : IDLE)}
+                className={cn(ROW, "py-[7px]", INBOX_PATHS.some((x) => pathname === `/work/${wsParam}/${x}`) ? ACTIVE : IDLE)}
               >
                 <Inbox className="h-4 w-4 shrink-0" /> <span className="flex-1">Inbox</span>
                 {inbox.primaryUnread > 0 && <span className="rounded-full bg-primary px-1.5 font-mono text-[10.5px] text-primary-foreground">{inbox.primaryUnread}</span>}
-              </Link>
-
-              <Link
-                href={wsParam ? `/work/${wsParam}/replies` : "#"}
-                onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/replies` ? ACTIVE : IDLE)}
-              >
-                <MessageSquareReply className="h-4 w-4 shrink-0" /> Replies
-              </Link>
-              <Link
-                href={wsParam ? `/work/${wsParam}/assigned-comments` : "#"}
-                onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/assigned-comments` ? ACTIVE : IDLE)}
-              >
-                <CheckCheck className="h-4 w-4 shrink-0" /> Assigned Comments
-              </Link>
-
-              <Link
-                href={wsParam ? `/work/${wsParam}/chat/posts` : "#"}
-                onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/chat/posts` ? ACTIVE : IDLE)}
-              >
-                <Megaphone className="h-4 w-4 shrink-0" /> Posts
-              </Link>
-              <Link
-                href={wsParam ? `/work/${wsParam}/chat/search` : "#"}
-                onClick={onMobileClose}
-                className={cn(ROW, "py-[7px]", pathname === `/work/${wsParam}/chat/search` ? ACTIVE : IDLE)}
-              >
-                <Search className="h-4 w-4 shrink-0" /> Search Chat
               </Link>
 
               {/* My Tasks */}
@@ -454,9 +430,9 @@ export function WorkSidebar({
               {myOpen && (
                 <>
                   <Link
-                    href={wsParam ? `/work/${wsParam}` : "#"}
+                    href={wsParam ? `/work/${wsParam}?view=mine` : "#"}
                     onClick={onMobileClose}
-                    className={cn(ROW, "py-[6px] pl-7", pathname === `/work/${wsParam}` && myView !== "today" ? ACTIVE : IDLE)}
+                    className={cn(ROW, "py-[6px] pl-7", pathname === `/work/${wsParam}` && myView === "mine" ? ACTIVE : IDLE)}
                   >
                     <Home className="h-3.5 w-3.5 shrink-0" /> <span className="flex-1">Assigned to me</span>
                     {myCounts.open > 0 && <span className="font-mono text-[11px] text-muted-foreground">{myCounts.open}</span>}
@@ -654,13 +630,6 @@ export function WorkSidebar({
           </div>
         )}
         <WorkInviteModal />
-        <div className="flex items-center gap-2.5 border-t border-border px-4 py-3.5">
-          <BrandMark size={26} />
-          <div className="min-w-0 leading-tight">
-            <p className="text-xs font-semibold text-foreground">EZ Manage · Work</p>
-            <p className="truncate font-serif text-[13px] italic text-muted-foreground">One desk for every company.</p>
-          </div>
-        </div>
       </div>
 
       {!isOpen && (
