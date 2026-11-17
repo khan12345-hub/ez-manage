@@ -9,7 +9,7 @@ import { ArrowDown, ArrowUp, ClipboardList, Copy, ExternalLink, Pencil, Plus, Tr
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { workApi } from "@/services/work.api";
+import { workApi, workKeys } from "@/services/work.api";
 
 type Field = { id: string; label: string; type: "text" | "textarea" | "email" | "number" | "date" | "select"; required: boolean; options?: string[]; maps?: "name" | "description" | "dueDate" | "priority" | null };
 type FormRow = { id: number; uid: string; name: string; description: string | null; listId: number; fields: Field[]; active: boolean; submissions: number; list: { id: number; uid: string; name: string } | null };
@@ -21,6 +21,8 @@ const linkOf = (uid: string) => `${typeof window !== "undefined" ? window.locati
 /** Work → Forms: share a link; every answer becomes a task in the list you pick. */
 export default function FormsPage() {
   const { workspaceId: ws } = useParams<{ workspaceId: string }>();
+  const { data: accessTree } = useQuery({ queryKey: workKeys.tree(ws), queryFn: () => workApi.tree(ws), enabled: !!ws, staleTime: 30_000 });
+  const canCreate = !!accessTree?.access.canEdit;
   const qc = useQueryClient();
   const key = ["work", "forms", ws];
   const { data: forms = [], isLoading } = useQuery({ queryKey: key, queryFn: async () => (await api.get<FormRow[]>(`/work/workspaces/${ws}/forms`)).data });
@@ -43,7 +45,7 @@ export default function FormsPage() {
       <header className="mb-4 flex flex-wrap items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><ClipboardList className="h-5 w-5" /></span>
         <span className="min-w-[200px] flex-1"><h1 className="text-[22px] font-semibold leading-tight">Forms</h1><p className="text-[12.5px] text-muted-foreground">Share a link — every answer becomes a task in the list you choose.</p></span>
-        <button type="button" onClick={() => setEditing("new")} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> New form</button>
+        {canCreate && <button type="button" onClick={() => setEditing("new")} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> New form</button>}
       </header>
       {isLoading ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : !forms.length ? (
         <p className="rounded-xl border border-dashed border-border p-10 text-center text-[13px] text-muted-foreground">No forms yet — e.g. a request form that drops tasks into a list.</p>

@@ -71,10 +71,10 @@ function MyWorkInner() {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   // Home (no ?view) is the dashboard; My Tasks lives at ?view=mine / ?view=today
-  if (!sp.get("view") && !noSpaces) {
+  if (!sp.get("view") && !(noSpaces && tree?.access.canManage)) {
     return (
       <>
-        <WorkHome ws={workspaceId} onOpenTask={(uid) => setTask(uid)} />
+        <WorkHome ws={workspaceId} canCreate={!!tree?.access.canEdit} onOpenTask={(uid) => setTask(uid)} />
         <TaskDrawer taskUid={taskUid} onClose={() => setTask(null)} onOpenTask={(uid) => setTask(uid)} />
       </>
     );

@@ -16,8 +16,9 @@ import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { ySyncPluginKey } from "@tiptap/y-tiptap";
 import { useAuth } from "@/providers/AuthProvider";
 import { LiveRoom, PeersBar, colorFor, usePeers, type CollabUser } from "../../_components/collab";
-import { Archive, Bold, ChevronRight, Code, FilePlus2, FileText, Heading1, Heading2, Highlighter, Italic, Link2, List, ListChecks, ListOrdered, Quote, Strikethrough, Table as TableIcon } from "lucide-react";
+import { Archive, Bold, ChevronRight, Code, FilePlus2, FileText, Heading1, Heading2, Highlighter, Italic, Link2, List, ListChecks, ListOrdered, Quote, Strikethrough, Table as TableIcon, ChevronLeft } from "lucide-react";
 import { api } from "@/lib/api";
+import { workApi, workKeys } from "@/services/work.api";
 import { cn } from "@/lib/utils";
 import type { WorkUser } from "@/services/work.api";
 
@@ -29,6 +30,8 @@ const ago = (d: string) => { const m = Math.round((Date.now() - +new Date(d)) / 
 /** Work → Docs: pages with headings, lists, checklists, tables and links; autosaves as you type. */
 export default function DocsPage() {
   const { workspaceId: ws } = useParams<{ workspaceId: string }>();
+  const { data: accessTree } = useQuery({ queryKey: workKeys.tree(ws), queryFn: () => workApi.tree(ws), enabled: !!ws, staleTime: 30_000 });
+  const canCreate = !!accessTree?.access.canEdit;
   const sp = useSearchParams();
   const router = useRouter();
   const qc = useQueryClient();
@@ -57,17 +60,19 @@ export default function DocsPage() {
 
   return (
     <div className="flex h-full min-h-0">
-      <aside className="w-[260px] shrink-0 overflow-y-auto border-r border-border p-3">
+      <aside className={cn("w-full shrink-0 overflow-y-auto border-r border-border p-3 md:block md:w-[260px]", sp.get("doc") ? "hidden" : "block")}>
         <div className="mb-2 flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><FileText className="h-4 w-4" /></span>
           <h1 className="flex-1 text-[17px] font-semibold">Docs</h1>
-          <button type="button" onClick={() => create.mutate(undefined)} aria-label="New page" title="New page" className="rounded-md p-1.5 hover:bg-accent"><FilePlus2 className="h-4 w-4" /></button>
+          {canCreate && <button type="button" onClick={() => create.mutate(undefined)} aria-label="New page" title="New page" className="rounded-md p-1.5 hover:bg-accent"><FilePlus2 className="h-4 w-4" /></button>}
         </div>
         {isLoading ? <div className="h-32 animate-pulse rounded-lg bg-muted" /> : !docs.length ? (
-          <p className="rounded-lg border border-dashed border-border p-4 text-center text-[12.5px] text-muted-foreground">No docs yet. <button type="button" onClick={() => create.mutate(undefined)} className="font-medium text-primary hover:underline">Create the first page</button>.</p>
+          <p className="rounded-lg border border-dashed border-border p-4 text-center text-[12.5px] text-muted-foreground">No docs yet.{canCreate && <> <button type="button" onClick={() => create.mutate(undefined)} className="font-medium text-primary hover:underline">Create the first page</button>.</>}</p>
         ) : <ul aria-label="Pages">{tree.map((d) => <Node key={d.id} d={d} depth={0} />)}</ul>}
       </aside>
-      <main className="min-w-0 flex-1 overflow-y-auto">
+      <main className={cn("min-w-0 flex-1 overflow-y-auto md:block", sp.get("doc") ? "block" : "hidden")}>
+        {/* phones: the page list and the editor take turns */}
+        <button type="button" onClick={() => router.push(`/work/${ws}/docs`)} className="m-3 mb-0 flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium md:hidden"><ChevronLeft className="h-4 w-4" /> All pages</button>
         {current ? <DocEditor key={current} uid={current} ws={ws} onSubPage={(id) => create.mutate(id)} onOpen={open} onArchived={() => { qc.invalidateQueries({ queryKey: listKey }); router.replace(`/work/${ws}/docs`); }} /> : !isLoading && <p className="py-24 text-center text-muted-foreground">Pick a page or create one.</p>}
       </main>
     </div>

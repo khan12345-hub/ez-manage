@@ -37,7 +37,7 @@ export function BoardView({ list, tasks, onOpenTask }: { list: WorkListDetail; t
               if (t && t.statusId !== status.id) update.mutate({ id: t.id, body: { statusId: status.id } });
             }}
             className={cn(
-              "flex w-[290px] shrink-0 flex-col rounded-xl border bg-table-head transition-colors",
+              "flex min-w-[236px] max-w-[340px] shrink-0 grow basis-[236px] flex-col rounded-xl border bg-table-head transition-colors",
               overCol === status.id ? "border-primary/60 ring-2 ring-primary/15" : "border-border",
             )}
             style={{ borderTopColor: status.color, borderTopWidth: 3 }}

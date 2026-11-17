@@ -13,6 +13,8 @@ import {
   ListChecks, PenTool, Plus, Search, Sparkles, UsersRound, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { workApi, workKeys } from "@/services/work.api";
 import { useAuth } from "@/providers/AuthProvider";
 import { useProductAccess } from "@/hooks/useProductAccess";
 import { useCeoAccess } from "@/services/ceo-tower.api";
@@ -62,6 +64,8 @@ export function WorkRail() {
   const setPaletteOpen = useCommandPalette((s) => s.setPaletteOpen);
   const openCreate = useWorkCreate((s) => s.openCreate);
   const inbox = useInboxCounts();
+  const { data: accessTree } = useQuery({ queryKey: workKeys.tree(workspaceId ?? ""), queryFn: () => workApi.tree(workspaceId ?? ""), enabled: !!workspaceId, staleTime: 30_000 });
+  const canCreate = !!accessTree?.access.canEdit;
   const base = workspaceId ? `/work/${workspaceId}` : access.workHref ?? "/work";
   const initials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase() || "?";
   const isOn = (p: string) => (p === "" ? pathname === base : p === "inbox" ? INBOX_PATHS.some((x) => pathname === `${base}/${x}`) : pathname.startsWith(`${base}/${p}`));
@@ -114,9 +118,9 @@ export function WorkRail() {
 
       <div className="mt-2 flex flex-col items-center gap-2.5">
         <button type="button" aria-label="Search" title="Search (Ctrl K)" onClick={() => setPaletteOpen(true)} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/70 hover:bg-white/10 hover:text-white"><Search className="h-[18px] w-[18px]" /></button>
-        <button type="button" aria-label="Create a task" title="Create a task" onClick={() => openCreate(null)} className="flex h-10 w-10 items-center justify-center rounded-full bg-brass text-forest shadow-[0_8px_18px_-8px_rgba(176,141,87,0.9)] transition hover:brightness-110">
+        {canCreate && <button type="button" aria-label="Create a task" title="Create a task" onClick={() => openCreate(null)} className="flex h-10 w-10 items-center justify-center rounded-full bg-brass text-forest shadow-[0_8px_18px_-8px_rgba(176,141,87,0.9)] transition hover:brightness-110">
           <Plus className="h-5 w-5" strokeWidth={2.5} />
-        </button>
+        </button>}
         <span title={user ? `${user.firstName} ${user.lastName}` : undefined} className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white/15 text-[12px] font-semibold text-white ring-2 ring-white/20">
           {(user as any)?.avatarUrl ? <img src={(user as any).avatarUrl} alt="" className="h-full w-full object-cover" /> : initials}
         </span>

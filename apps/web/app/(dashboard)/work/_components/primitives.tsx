@@ -76,7 +76,7 @@ export function PriorityFlag({ priority, showLabel = false, className }: { prior
 const AVATAR_TONES = ["#0b2a1f", "#047857", "#b08d57", "#1d4ed8", "#9d174d", "#0f766e", "#b45309"];
 
 export function Avatar({ user, size = 24, className }: { user: WorkUser; size?: number; className?: string }) {
-  const tone = AVATAR_TONES[user.id % AVATAR_TONES.length];
+  const tone = `hsl(${Math.round((user.id * 137.508) % 360)} 58% 40%)`;
   return user.avatarUrl ? (
     <img
       src={resolveUrl(user.avatarUrl)}

@@ -125,7 +125,8 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
   const [layout, setLayout] = useStored<TaskLayout>(LAYOUT_KEY, "modal", (v) => v in LAYOUT_CLASS);
   const [panelW, setPanelW] = useStored<number>(PANEL_KEY, 420, (v) => Number.isFinite(v) && v >= 300 && v <= 900);
   const [tab, setTab] = useState<PanelTab>("comments");
-  const [panelOpen, setPanelOpen] = useState(true);
+  // phones open on the details; the comments are one tap away
+  const [panelOpen, setPanelOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 1024);
   const wide = layout !== "sidebar";
   // Sidebar layout: the rail switches the whole body (Details / Comments / Activity / …)
   const [sideTab, setSideTab] = useState<PanelTab | "details">("details");
@@ -357,8 +358,14 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
               />
             </SheetHeader>
 
+            {wide && (
+              <div role="tablist" aria-label="Task sections" className="flex gap-1 border-b border-border px-4 py-2 lg:hidden">
+                <button type="button" role="tab" aria-selected={!panelOpen} onClick={() => setPanelOpen(false)} className={cn("flex-1 rounded-lg py-1.5 text-[13px] font-semibold", !panelOpen ? "bg-primary/10 text-primary" : "text-muted-foreground")}>Details</button>
+                <button type="button" role="tab" aria-selected={panelOpen} onClick={() => { setTab("comments"); setPanelOpen(true); }} className={cn("flex-1 rounded-lg py-1.5 text-[13px] font-semibold", panelOpen ? "bg-primary/10 text-primary" : "text-muted-foreground")}>Comments{comments.length ? ` (${comments.length})` : ""}</button>
+              </div>
+            )}
             <div ref={body} className={cn("flex min-h-0 flex-1", wide ? "flex-col lg:flex-row" : "flex-row")} style={{ ["--panel-w" as any]: `${panelW}px` }}>
-              <div hidden={!wide && active !== "details"} className="min-h-0 flex-1 overflow-y-auto">
+              <div hidden={!wide && active !== "details"} className={cn("min-h-0 flex-1 overflow-y-auto", wide && panelOpen && "max-lg:hidden")}>
                 {/* properties */}
                 <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-1 border-b border-border px-6 py-4 sm:grid-cols-2", layout === "full" && !panelOpen && "xl:grid-cols-3")}>
                   <Prop icon={CircleDot} label="Status">

@@ -158,7 +158,7 @@ export function LocationBoard({ src }: { src: LocSrc }) {
   return (
     <div className="flex min-h-0 flex-1 gap-3 overflow-auto p-4">
       {columns.filter((c) => c.items.length || columns.length <= 6).map((c) => (
-        <section key={c.name} aria-label={c.name} className="flex w-[290px] shrink-0 flex-col rounded-xl border border-border bg-table-head" style={{ borderTopColor: c.color, borderTopWidth: 3 }}>
+        <section key={c.name} aria-label={c.name} className="flex min-w-[236px] max-w-[340px] shrink-0 grow basis-[236px] flex-col rounded-xl border border-border bg-table-head" style={{ borderTopColor: c.color, borderTopWidth: 3 }}>
           <header className="flex items-center gap-2 px-3 py-2.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} /><span className="truncate text-[12.5px] font-bold uppercase tracking-[0.05em]" style={{ color: c.color }}>{c.name}</span><span className="ml-auto text-[12px] text-muted-foreground">{c.items.length}</span></header>
           <ul className="flex max-h-[calc(100vh-300px)] min-h-[60px] flex-col gap-2 overflow-y-auto px-2.5 pb-2.5">
             {c.items.map((t) => (

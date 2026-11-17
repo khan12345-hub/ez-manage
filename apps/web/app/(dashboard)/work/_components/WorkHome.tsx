@@ -99,7 +99,7 @@ function MiniCalendar({ tasks, onOpen }: { tasks: MyWorkTask[]; onOpen: (uid: st
   );
 }
 
-export function WorkHome({ ws, onOpenTask }: { ws: string; onOpenTask: (uid: string) => void }) {
+export function WorkHome({ ws, onOpenTask, canCreate = true }: { ws: string; onOpenTask: (uid: string) => void; canCreate?: boolean }) {
   const { user } = useAuth();
   const openCreate = useWorkCreate((s) => s.openCreate);
   const { data: tasks = [], isLoading } = useQuery({ queryKey: workKeys.my(ws), queryFn: () => workApi.myTasks(ws) });
@@ -149,7 +149,7 @@ export function WorkHome({ ws, onOpenTask }: { ws: string; onOpenTask: (uid: str
                 {isLoading ? "Loading your day…" : s.today.length || s.overdue.length ? <>You have <b className="text-white">{s.today.length} due today</b>{s.overdue.length > 0 && <> and <b className="text-[#fca5a5]">{s.overdue.length} overdue</b></>}.</> : "Nothing urgent today. Nice work."}
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
-                <button type="button" onClick={() => openCreate(null)} className="flex h-10 items-center gap-1.5 rounded-xl bg-brass px-4 text-[13.5px] font-semibold text-forest transition hover:brightness-110"><Plus className="h-4 w-4" strokeWidth={2.5} /> New task</button>
+                {canCreate && <button type="button" onClick={() => openCreate(null)} className="flex h-10 items-center gap-1.5 rounded-xl bg-brass px-4 text-[13.5px] font-semibold text-forest transition hover:brightness-110"><Plus className="h-4 w-4" strokeWidth={2.5} /> New task</button>}
                 <Link href={`/work/${ws}/inbox`} className="flex h-10 items-center gap-1.5 rounded-xl bg-white/10 px-4 text-[13.5px] font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/15"><Inbox className="h-4 w-4" /> Open inbox</Link>
                 <Link href={`/work/${ws}?view=mine`} className="flex h-10 items-center gap-1.5 rounded-xl px-3 text-[13.5px] font-medium text-white/80 hover:text-white">All my tasks <ArrowRight className="h-4 w-4" /></Link>
               </div>

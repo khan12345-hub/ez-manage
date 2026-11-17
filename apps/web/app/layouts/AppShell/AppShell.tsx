@@ -149,7 +149,10 @@ function CallToast() {
 
 function PushPermissionBanner({ top = false, corner = false }: { top?: boolean; corner?: boolean }) {
   const { state, loading, enable } = usePushNotifications();
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    try { return Date.now() - Number(localStorage.getItem("ez:push-banner-later") ?? 0) < 7 * 86_400_000; } catch { return false; }
+  });
+  const later = () => { try { localStorage.setItem("ez:push-banner-later", String(Date.now())); } catch {} setDismissed(true); };
 
   if (
     dismissed ||
@@ -163,13 +166,13 @@ function PushPermissionBanner({ top = false, corner = false }: { top?: boolean; 
     <div className={corner
       ? "fixed bottom-5 right-5 z-[70] flex max-w-[360px] items-center gap-3 rounded-xl border border-primary/25 bg-popover px-4 py-3 shadow-xl animate-in slide-in-from-bottom-4"
       : top
-      // Work: a slim strip under the header so it never covers a chat box or composer
-      ? "fixed left-1/2 top-16 z-[70] flex -translate-x-1/2 items-center gap-3 rounded-xl border border-primary/25 bg-popover px-4 py-2 shadow-lg animate-in slide-in-from-top-2"
+      // Work: a small toast in the bottom-left corner, never over a page header or a composer
+      ? "fixed bottom-4 left-4 z-[70] flex max-w-[320px] items-center gap-2.5 rounded-2xl border border-border bg-popover px-3 py-2.5 shadow-xl animate-in slide-in-from-bottom-4 md:left-[88px]"
       : "fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 flex items-center gap-3 rounded-xl border border-primary/25 bg-popover px-4 py-3 shadow-2xl animate-in slide-in-from-bottom-4"}>
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
         <Bell className="h-4 w-4 text-primary" />
       </div>
-      <p className="text-sm text-foreground">
+      <p className={top ? "text-[12.5px] leading-snug text-foreground" : "text-sm text-foreground"}>
         <span className="font-semibold">Enable notifications</span> to get alerts when you're away
       </p>
       <button
@@ -180,8 +183,10 @@ function PushPermissionBanner({ top = false, corner = false }: { top?: boolean; 
         {loading ? "…" : "Enable"}
       </button>
       <button
-        onClick={() => setDismissed(true)}
-        className="text-slate-400 hover:text-slate-600"
+        onClick={later}
+        aria-label="Not now"
+        title="Not now"
+        className="shrink-0 text-slate-400 hover:text-slate-600"
       >
         <X className="h-4 w-4" />
       </button>

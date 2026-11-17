@@ -32,6 +32,9 @@ function loadPrefs(): Record<string, SectionPrefs> {
 
 /** "Channels", "Direct Messages" (and "Favorites") sections of the Work sidebar, with ClickUp's ⋯ menus. */
 export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void }) {
+  const wsForAccess = useWs();
+  const { data: accessTree } = useQuery({ queryKey: workKeys.tree(wsForAccess), queryFn: () => workApi.tree(wsForAccess), enabled: !!wsForAccess, staleTime: 30_000 });
+  const canCreate = !!accessTree?.access.canEdit;
   const ws = useWs();
   const qc = useQueryClient();
   const router = useRouter();
@@ -255,13 +258,13 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
         );
       })}
       <section aria-label="Channels">
-        {head("ch", "Channels", <>{sectionMenu("ch")}<button type="button" aria-label="Add Channel" title="Add Channel" onClick={() => setCreating(true)} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button></>)}
+        {head("ch", "Channels", <>{sectionMenu("ch")}{canCreate && <button type="button" aria-label="Add Channel" title="Add Channel" onClick={() => setCreating(true)} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button>}</>)}
         {open.ch && (
           <div className="space-y-px">
             {ch.rows.map(rowFor)}
             {ch.more > 0 && <button type="button" onClick={() => setPref("ch", { limit: 999 })} className={cn(ROW, "text-muted-foreground hover:bg-[#f2f4f3] dark:hover:bg-white/5")}>Show {ch.more} more</button>}
             <Link href={`/work/${ws}/chat/channels`} onClick={onNavigate} className={cn(ROW, "text-muted-foreground hover:bg-[#f2f4f3] hover:text-foreground dark:hover:bg-white/5")}><Search className="h-3.5 w-3.5 shrink-0" /> Browse channels</Link>
-            <button type="button" onClick={() => setCreating(true)} className={cn(ROW, "text-muted-foreground hover:bg-[#f2f4f3] hover:text-foreground dark:hover:bg-white/5")}><Plus className="h-3.5 w-3.5 shrink-0" /> Add Channel</button>
+            {canCreate && <button type="button" onClick={() => setCreating(true)} className={cn(ROW, "text-muted-foreground hover:bg-[#f2f4f3] hover:text-foreground dark:hover:bg-white/5")}><Plus className="h-3.5 w-3.5 shrink-0" /> Add Channel</button>}
           </div>
         )}
       </section>

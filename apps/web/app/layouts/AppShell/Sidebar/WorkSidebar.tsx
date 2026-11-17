@@ -18,6 +18,7 @@ import { useParams, usePathname, useRouter, useSearchParams } from "next/navigat
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
+  Star,
   Asterisk,
   AtSign,
   ListChecks,
@@ -178,6 +179,7 @@ export function WorkSidebar({
     setPins(next);
     try { localStorage.setItem("ez:work:sidebarPins", JSON.stringify(next)); } catch {}
   };
+  const { data: favorites = [] } = useQuery({ queryKey: ["work", "favorites", wsParam], queryFn: () => workApi.favorites(wsParam), enabled: !!wsParam, staleTime: 30_000 });
   const wsName = (workspaces as any[]).find((w) => w.uid === wsParam)?.name ?? "";
   const searchParams = useSearchParams();
   const myView = searchParams.get("view");
@@ -354,6 +356,7 @@ export function WorkSidebar({
           <button type="button" aria-label="Search the sidebar" title="Search" aria-pressed={searchOpen} onClick={() => { setSearchOpen(!searchOpen); setTerm(""); }} className={cn("rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground", searchOpen && "bg-accent text-foreground")}>
             <Search className="h-4 w-4" />
           </button>
+          {canEdit && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label="Create" title="Create" className="flex h-7 items-center gap-0.5 rounded-md border border-border bg-card px-1.5 text-foreground shadow-sm hover:bg-accent">
@@ -393,6 +396,7 @@ export function WorkSidebar({
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
         {searchOpen && (
           <div className="px-4 pb-1">
@@ -492,6 +496,23 @@ export function WorkSidebar({
             </>
           )}
 
+          {!term && favorites.length > 0 && (
+            <>
+              <div className={cn(SECTION, "mt-2 border-t border-black/[0.06] dark:border-white/10")}>
+                <button type="button" onClick={() => toggle("favorites")} aria-expanded={!collapsed.favorites} className="flex flex-1 items-center gap-1 text-left uppercase tracking-[0.08em] hover:text-foreground">
+                  Favorites {collapsed.favorites ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </button>
+                <span className="text-[11px] font-medium normal-case tracking-normal">{favorites.length}</span>
+              </div>
+              {!collapsed.favorites && favorites.slice(0, 12).map((f) => (
+                <Link key={f.uid} href={`/work/${wsParam}/list/${f.list.uid}?task=${f.uid}`} onClick={onMobileClose} title={`${f.name} · ${f.list.name}`} className={cn(ROW, "py-1.5", IDLE)}>
+                  <Star className="h-3.5 w-3.5 shrink-0 fill-[#b08d57] text-[#b08d57]" />
+                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                  <span className="max-w-[80px] truncate text-[11px] text-muted-foreground">{f.list.name}</span>
+                </Link>
+              ))}
+            </>
+          )}
           <div className={cn(SECTION, "mt-2 border-t border-black/[0.06] dark:border-white/10")}>
             <button type="button" onClick={() => toggle("spaces")} aria-expanded={!collapsed.spaces} className="flex flex-1 items-center gap-1 text-left uppercase tracking-[0.08em] hover:text-foreground">
               Spaces {collapsed.spaces ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -517,8 +538,8 @@ export function WorkSidebar({
           {isLoading && <p className="px-2 py-2 text-xs text-muted-foreground">Loading…</p>}
           {!isLoading && tree && tree.spaces.length === 0 && (
             <div className="mx-1 mt-1 rounded-lg border border-dashed border-border bg-card/60 px-3 py-4 text-center">
-              <p className="text-[13px] font-medium">No spaces yet</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{canManage ? "Create a space for a team or department." : "Ask a Work admin to create a space."}</p>
+              <p className="text-[13px] font-medium">{canManage ? "No spaces yet" : "Nothing shared with you yet"}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{canManage ? "Create a space for a team or department." : "When someone adds you to a space, it shows up here."}</p>
               {canManage && (
                 <button type="button" onClick={() => setDialog({ kind: "space" })} className="mt-2.5 inline-flex items-center gap-1 rounded-md bg-forest px-2.5 py-1.5 text-xs font-semibold text-forest-foreground hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground">
                   <Plus className="h-3.5 w-3.5" /> New space

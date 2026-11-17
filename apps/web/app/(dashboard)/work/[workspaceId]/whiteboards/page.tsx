@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowUpRight, Circle, Hand, MousePointer2, PenTool, Plus, Square, StickyNote, Trash2, Type, ZoomIn, ZoomOut } from "lucide-react";
 import { api } from "@/lib/api";
+import { workApi, workKeys } from "@/services/work.api";
 import { cn } from "@/lib/utils";
 import type { WorkUser } from "@/services/work.api";
 import { useAuth } from "@/providers/AuthProvider";
@@ -21,6 +22,8 @@ const newId = () => Math.random().toString(36).slice(2, 10);
 /** Work → Whiteboards: notes, shapes, text, arrows and pen drawing; autosaves. */
 export default function WhiteboardsPage() {
   const { workspaceId: ws } = useParams<{ workspaceId: string }>();
+  const { data: accessTree } = useQuery({ queryKey: workKeys.tree(ws), queryFn: () => workApi.tree(ws), enabled: !!ws, staleTime: 30_000 });
+  const canCreate = !!accessTree?.access.canEdit;
   const sp = useSearchParams();
   const router = useRouter();
   const qc = useQueryClient();
@@ -37,7 +40,7 @@ export default function WhiteboardsPage() {
       <header className="mb-4 flex flex-wrap items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#d97706]/10 text-[#d97706]"><PenTool className="h-5 w-5" /></span>
         <span className="min-w-[200px] flex-1"><h1 className="text-[22px] font-semibold leading-tight">Whiteboards</h1><p className="text-[12.5px] text-muted-foreground">Brainstorm with sticky notes, shapes, arrows and drawing.</p></span>
-        <button type="button" onClick={() => create.mutate()} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> New whiteboard</button>
+        {canCreate && <button type="button" onClick={() => create.mutate()} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> New whiteboard</button>}
       </header>
       {isLoading ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : !rows.length ? (
         <p className="rounded-xl border border-dashed border-border p-10 text-center text-[13px] text-muted-foreground">No whiteboards yet.</p>
