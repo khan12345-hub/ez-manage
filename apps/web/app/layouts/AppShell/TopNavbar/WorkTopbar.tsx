@@ -120,7 +120,7 @@ export function WorkTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
 
   return (
     <>
-      <header className="work-glass relative z-20 mx-3 mt-3 flex h-14 shrink-0 items-center gap-2 rounded-[20px] px-3 sm:px-4">
+      <header className="relative z-20 flex h-16 shrink-0 items-center gap-2 bg-transparent px-3 sm:px-5">
         <button type="button" onClick={onMenuToggle} aria-label="Open menu" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted md:hidden">
           <Menu className="h-5 w-5" />
         </button>
@@ -158,7 +158,7 @@ export function WorkTopbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
 
         {/* search */}
         <div className="flex flex-1 justify-center px-1">
-          <button type="button" onClick={() => setPaletteOpen(true)} className="flex h-10 w-full max-w-[520px] items-center gap-2 rounded-2xl border border-white/80 bg-white/70 px-4 text-[13.5px] text-muted-foreground shadow-[inset_0_1px_2px_rgba(11,42,31,0.06)] hover:border-primary/30 dark:border-white/10 dark:bg-white/5">
+          <button type="button" onClick={() => setPaletteOpen(true)} className="flex h-10 w-full max-w-[520px] items-center gap-2 rounded-full bg-[#f2f4f3] px-4 text-[13.5px] text-muted-foreground hover:bg-[#eaeeec] dark:bg-white/5">
             <Search className="h-4 w-4" />
             <span className="flex-1 truncate text-left">Search Work</span>
             <kbd className="hidden rounded border border-border bg-muted px-1.5 font-mono text-[10.5px] sm:inline">Ctrl K</kbd>

@@ -155,7 +155,7 @@ function ListPageInner() {
   return (
     <div className="flex min-h-full flex-col">
       {/* header */}
-      <div className="work-glass relative mx-3 mt-3 overflow-hidden rounded-[22px] px-4 pb-0 pt-4 sm:px-6">
+      <div className="relative mx-4 mt-4 overflow-hidden rounded-[20px] border border-black/[0.05] bg-card shadow-[0_1px_2px_rgba(11,42,31,0.04)] dark:border-white/10 px-4 pb-0 pt-4 sm:px-6">
         <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[2px]" style={{ background: "linear-gradient(90deg, var(--primary) 0%, var(--brass) 60%, transparent 100%)" }} />
         <p className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
           <span className="h-1.5 w-1.5 rounded-full bg-product-work" aria-hidden />

@@ -52,11 +52,11 @@ export function ProfilePanel() {
           <>
             <header className="flex gap-4 px-6 pb-3 pt-6">
               <span className="relative shrink-0">
-                <Avatar user={p.member.user} size={88} className="!rounded-2xl" />
+                <Avatar user={p.member.user} size={72} className="!rounded-2xl" />
               </span>
               <div className="min-w-0 flex-1 pr-8">
-                <h2 className="truncate text-[22px] font-semibold">{userName(p.member.user)}</h2>
-                <p className="mt-0.5 flex items-center gap-2 text-[13.5px] text-muted-foreground">
+                <h2 className="text-[22px] font-semibold leading-tight">{userName(p.member.user)}</h2>
+                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13.5px] text-muted-foreground">
                   {p.canEdit ? (
                     <input
                       key={p.member.title ?? ""}
@@ -66,7 +66,7 @@ export function ProfilePanel() {
                       maxLength={80}
                       onBlur={(e) => e.target.value.trim() !== (p.member.title ?? "") && save.mutate({ title: e.target.value.trim() || null })}
                       onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                      className="w-48 rounded bg-transparent px-1 outline-none hover:bg-accent focus:bg-accent"
+                      className="w-56 rounded-md bg-transparent px-1.5 py-0.5 outline-none hover:bg-accent focus:bg-accent"
                     />
                   ) : (
                     <span>{p.member.title || WORK_ROLE_META[p.member.role]?.label}</span>
@@ -78,7 +78,7 @@ export function ProfilePanel() {
                 <span className="mt-2 inline-flex rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{WORK_ROLE_META[p.member.role]?.label}</span>
               </div>
             </header>
-            <nav role="tablist" aria-label="Profile" className="flex gap-1 overflow-x-auto border-b border-border px-6">
+            <nav role="tablist" aria-label="Profile" className="mx-6 mb-2 mt-1 flex flex-wrap gap-1 rounded-xl bg-muted/60 p-1">
               {([
                 ["activity", "Activity"],
                 ["tasks", `Tasks (${p.counts.tasks})`],
@@ -86,7 +86,7 @@ export function ProfilePanel() {
                 ["calendar", "Calendar"],
                 ["org", "Org Chart"],
               ] as const).map(([id, label]) => (
-                <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("-mb-px whitespace-nowrap border-b-2 px-2 pb-2 text-[13px] font-medium", tab === id ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+                <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px] font-medium transition", tab === id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
                   {label}
                 </button>
               ))}

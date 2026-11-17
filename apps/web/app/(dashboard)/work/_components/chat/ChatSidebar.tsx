@@ -18,7 +18,7 @@ import { ShareChannelDialog, useShareChannel } from "./ShareChannel";
 import { LocIcon, LocationPicker, type PickedLocation } from "./LocationChannel";
 import { chatSidebarKey, useChatSidebar, useWs } from "./useChat";
 
-const ROW = "group flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-[13.5px] transition-colors";
+const ROW = "group flex w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-[14px] transition-colors";
 const chatSectionsKey = (ws: string) => ["work", "chat-sections", ws] as const;
 
 type Show = "all" | "unread" | "mentions";
@@ -150,7 +150,7 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
   const rowFor = (c: ChatChannelRow) => {
     const one = c.kind !== "channel" && c.people.length === 1 ? c.people[0]! : null;
     return (
-      <div key={c.uid} className={cn(ROW, "pr-1", active(c.uid) ? "bg-accent font-semibold text-accent-foreground" : c.unread && !c.muted ? "font-semibold text-foreground hover:bg-accent/60" : "text-foreground/80 hover:bg-accent/60")}>
+      <div key={c.uid} className={cn(ROW, "pr-1", active(c.uid) ? "bg-primary/[0.09] font-semibold text-foreground [&_svg]:text-primary dark:bg-white/10" : c.unread && !c.muted ? "font-semibold text-foreground hover:bg-[#f2f4f3] dark:hover:bg-white/5" : "font-medium text-foreground/70 hover:bg-[#f2f4f3] hover:text-foreground dark:hover:bg-white/5")}>
         <Link href={href(c.uid)} onClick={onNavigate} className="flex min-w-0 flex-1 items-center gap-2">
           {c.kind === "channel" ? (
             c.locationType ? <span className="relative shrink-0" title={`Linked to a ${c.locationType}`}><Hash className="h-4 w-4 text-muted-foreground" /><LocIcon type={c.locationType as "space" | "folder" | "list"} className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-sm bg-background text-primary" /></span> :
@@ -220,8 +220,8 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
   };
 
   const head = (k: string, title: string, extra: React.ReactNode) => (
-    <div className="flex items-center gap-0.5 px-2 pb-1">
-      <button type="button" onClick={() => setOpen({ ...open, [k]: !(open[k] ?? true) })} aria-expanded={open[k] ?? true} className="flex flex-1 items-center gap-1 text-left text-[12px] font-semibold text-muted-foreground hover:text-foreground">
+    <div className="flex items-center gap-0.5 px-3 pb-1.5 pt-1">
+      <button type="button" onClick={() => setOpen({ ...open, [k]: !(open[k] ?? true) })} aria-expanded={open[k] ?? true} className="flex flex-1 items-center gap-1 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hover:text-foreground">
         <span className="truncate">{title}</span> {(open[k] ?? true) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
       </button>
       {extra}
@@ -231,7 +231,7 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
   const dm = arrange(dms, "dm");
 
   return (
-    <div className="mt-3 space-y-3">
+    <div className="mt-1 space-y-2">
       {favorites.length > 0 && (
         <section aria-label="Favorites">
           {head("fav", "Favorites", null)}
@@ -247,7 +247,7 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
             {(open[k] ?? true) && (
               <div className="space-y-px">
                 {r.rows.map(rowFor)}
-                {r.more > 0 && <button type="button" onClick={() => setPref(k, { limit: 999 })} className={cn(ROW, "text-muted-foreground hover:bg-accent/60")}>Show {r.more} more</button>}
+                {r.more > 0 && <button type="button" onClick={() => setPref(k, { limit: 999 })} className={cn(ROW, "text-muted-foreground hover:bg-[#f2f4f3] dark:hover:bg-white/5")}>Show {r.more} more</button>}
                 {!r.rows.length && !r.more && <p className="px-2 py-1 text-[12px] text-muted-foreground">Use “Move to” on a channel or direct message to add it here.</p>}
               </div>
             )}
@@ -259,9 +259,9 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
         {open.ch && (
           <div className="space-y-px">
             {ch.rows.map(rowFor)}
-            {ch.more > 0 && <button type="button" onClick={() => setPref("ch", { limit: 999 })} className={cn(ROW, "text-muted-foreground hover:bg-accent/60")}>Show {ch.more} more</button>}
-            <Link href={`/work/${ws}/chat/channels`} onClick={onNavigate} className={cn(ROW, "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}><Search className="h-3.5 w-3.5 shrink-0" /> Browse channels</Link>
-            <button type="button" onClick={() => setCreating(true)} className={cn(ROW, "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}><Plus className="h-3.5 w-3.5 shrink-0" /> Add Channel</button>
+            {ch.more > 0 && <button type="button" onClick={() => setPref("ch", { limit: 999 })} className={cn(ROW, "text-muted-foreground hover:bg-[#f2f4f3] dark:hover:bg-white/5")}>Show {ch.more} more</button>}
+            <Link href={`/work/${ws}/chat/channels`} onClick={onNavigate} className={cn(ROW, "text-muted-foreground hover:bg-[#f2f4f3] hover:text-foreground dark:hover:bg-white/5")}><Search className="h-3.5 w-3.5 shrink-0" /> Browse channels</Link>
+            <button type="button" onClick={() => setCreating(true)} className={cn(ROW, "text-muted-foreground hover:bg-[#f2f4f3] hover:text-foreground dark:hover:bg-white/5")}><Plus className="h-3.5 w-3.5 shrink-0" /> Add Channel</button>
           </div>
         )}
       </section>
@@ -270,8 +270,8 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
         {open.dm && (
           <div className="space-y-px">
             {dm.rows.map(rowFor)}
-            {dm.more > 0 && <button type="button" onClick={() => setPref("dm", { limit: 999 })} className={cn(ROW, "text-muted-foreground hover:bg-accent/60")}>Show {dm.more} more</button>}
-            <button type="button" onClick={() => setMessaging(true)} className={cn(ROW, "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}><Plus className="h-3.5 w-3.5 shrink-0" /> New message</button>
+            {dm.more > 0 && <button type="button" onClick={() => setPref("dm", { limit: 999 })} className={cn(ROW, "text-muted-foreground hover:bg-[#f2f4f3] dark:hover:bg-white/5")}>Show {dm.more} more</button>}
+            <button type="button" onClick={() => setMessaging(true)} className={cn(ROW, "text-muted-foreground hover:bg-[#f2f4f3] hover:text-foreground dark:hover:bg-white/5")}><Plus className="h-3.5 w-3.5 shrink-0" /> New message</button>
           </div>
         )}
       </section>

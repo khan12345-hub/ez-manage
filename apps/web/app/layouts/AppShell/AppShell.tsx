@@ -251,13 +251,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className={cn("relative flex h-screen w-screen overflow-hidden bg-background text-foreground antialiased font-sans", isWorkPage && "work-ui")}>
-      {isWorkPage && (
-        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -left-40 -top-40 h-[560px] w-[560px] rounded-full bg-[#34d399]/22 blur-[120px] dark:bg-[#34d399]/8" />
-          <div className="absolute -bottom-48 left-[35%] h-[480px] w-[480px] rounded-full bg-[#b08d57]/16 blur-[130px] dark:bg-[#b08d57]/8" />
-          <div className="absolute -right-32 top-24 h-[420px] w-[420px] rounded-full bg-[#60a5fa]/10 blur-[110px]" />
-        </div>
-      )}
+
       {user && (
         <ChatProvider>
           <ImportJobProvider>
@@ -300,7 +294,7 @@ export function AppShell({ children }: AppShellProps) {
                 ) : (
                   <TopNavbar product="boards" onMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
                 )}
-                <main className="flex-1 overflow-auto bg-background ez-page-surface">{children}</main>
+                <main className={cn("flex-1 overflow-auto bg-background ez-page-surface", isWorkPage && "work-body")}>{children}</main>
               </div>
 
               {/* Boards and Work never share UI: own search, task drawer and helper */}

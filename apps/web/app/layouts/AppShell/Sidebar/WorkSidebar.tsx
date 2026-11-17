@@ -124,10 +124,12 @@ const MORE_PAGES = [
   { id: "clips", label: "Clips", path: "clips", icon: Video },
 ];
 
-const ROW = "group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-[13.5px] font-medium transition-all";
+const ROW = "group flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[14px] font-medium transition-colors";
 /* active row: the forest pill (icons turn brass) */
-const ACTIVE = "bg-forest text-white font-semibold shadow-[0_10px_22px_-14px_rgba(11,42,31,0.9)] [&_svg]:text-brass-soft dark:bg-primary dark:text-primary-foreground";
-const IDLE = "text-foreground/75 hover:bg-white/75 hover:text-foreground dark:hover:bg-white/5";
+const ACTIVE = "bg-primary/[0.09] text-foreground font-semibold [&_svg]:text-primary dark:bg-white/10";
+const IDLE = "text-foreground/70 hover:bg-[#f2f4f3] hover:text-foreground dark:hover:bg-white/5";
+/* section titles: Spaces, Channels, Direct Messages */
+const SECTION = "flex items-center gap-1 px-3 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
 
 export function WorkSidebar({
   isOpen,
@@ -282,12 +284,12 @@ export function WorkSidebar({
   const ListRow = ({ list, depth }: { list: WorkListNode; depth: number }) => {
     const active = list.uid === activeListUid;
     return (
-      <div className={cn(ROW, active ? ACTIVE : IDLE)} style={{ paddingLeft: 8 + depth * 14 }}>
+      <div className={cn(ROW, "py-1.5 pl-2", active ? ACTIVE : IDLE)} data-depth={depth}>
         <button type="button" onClick={() => go(`/work/${wsParam}/list/${list.uid}`)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: list.color ?? "var(--muted-foreground)" }} />
           <span className="truncate">{list.name}</span>
         </button>
-        {list.openTaskCount > 0 && <span className="font-mono text-[11px] text-muted-foreground group-hover:hidden">{list.openTaskCount}</span>}
+        {list.openTaskCount > 0 && <span className="rounded-md border border-black/[0.08] px-1.5 text-[11px] font-medium text-muted-foreground group-hover:hidden dark:border-white/10">{list.openTaskCount}</span>}
         {canManage && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -316,9 +318,9 @@ export function WorkSidebar({
     >
       <div
         className={cn(
-          "flex h-full flex-col overflow-hidden ez-sidebar-surface md:my-3 md:ml-3 md:h-[calc(100%-1.5rem)] md:rounded-[26px] md:work-glass",
+          "flex h-full flex-col overflow-hidden ez-sidebar-surface",
           "w-[270px] md:transition-[width] md:duration-300 md:ease-in-out",
-          isOpen ? "md:w-[272px]" : "md:w-0 md:ml-0 md:border-0",
+          isOpen ? "md:w-[272px]" : "md:w-0",
         )}
       >
         {/* Brand */}
@@ -514,15 +516,18 @@ export function WorkSidebar({
             </>
           )}
 
-          <div className="mt-3 flex items-center justify-between border-t border-border/70 px-2 pb-1 pt-3">
-            <span className="text-[12px] font-semibold text-muted-foreground">Spaces</span>
+          {wsParam && !term && <div className="mt-2 border-t border-black/[0.06] dark:border-white/10"><ChatSidebarSections onNavigate={onMobileClose} /></div>}
+          <div className={cn(SECTION, "mt-2 border-t border-black/[0.06] dark:border-white/10")}>
+            <button type="button" onClick={() => toggle("spaces")} aria-expanded={!collapsed.spaces} className="flex flex-1 items-center gap-1 text-left uppercase tracking-[0.08em] hover:text-foreground">
+              Spaces {collapsed.spaces ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
             {canManage && (
-              <button type="button" aria-label="New space" title="New space" onClick={() => setDialog({ kind: "space" })} className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+              <button type="button" aria-label="New space" title="New space" onClick={() => setDialog({ kind: "space" })} className="rounded-md p-1 text-muted-foreground hover:bg-[#f2f4f3] hover:text-foreground">
                 <Plus className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
-
+          {(!collapsed.spaces || !!term) && (<>
           {!term && (tree?.spaces.length ?? 0) > 0 && (
             <Link
               href={`/work/${wsParam}/all-tasks`}
@@ -554,7 +559,7 @@ export function WorkSidebar({
               const spaceActive = pathname === `/work/${wsParam}/space/${space.uid}`;
               return (
                 <div key={space.id}>
-                  <div className={cn(ROW, "pl-1 font-semibold", spaceActive ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/60")}>
+                  <div className={cn(ROW, "pl-1 font-semibold", spaceActive ? "bg-primary/10 text-foreground" : "text-foreground hover:bg-[#f2f4f3] dark:hover:bg-white/5")}>
                     <button type="button" onClick={() => toggle(`s${space.id}`)} aria-label={open ? `Collapse ${space.name}` : `Expand ${space.name}`} aria-expanded={open} className="rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground">
                       {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                     </button>
@@ -590,13 +595,13 @@ export function WorkSidebar({
                   </div>
 
                   {open && (
-                    <div className="mb-1">
+                    <div className="mb-1 ml-[22px] border-l border-black/[0.08] pl-1.5 dark:border-white/10">
                       {folders.map(({ folder, lists: fLists }) => {
                         const fOpen = !!term || !collapsed[`f${folder.id}`];
                         const folderActive = pathname === `/work/${wsParam}/folder/${folder.uid}`;
                         return (
                           <div key={folder.id}>
-                            <div className={cn(ROW, folderActive ? ACTIVE : IDLE)} style={{ paddingLeft: 18 }}>
+                            <div className={cn(ROW, "py-1.5 pl-2", folderActive ? ACTIVE : IDLE)}>
                               <button type="button" onClick={() => toggle(`f${folder.id}`)} aria-label={fOpen ? `Collapse ${folder.name}` : `Expand ${folder.name}`} aria-expanded={fOpen} className="rounded p-0.5 text-muted-foreground hover:bg-card hover:text-foreground">
                                 {fOpen ? <FolderOpen className="h-3.5 w-3.5" /> : <Folder className="h-3.5 w-3.5" />}
                               </button>
@@ -619,14 +624,14 @@ export function WorkSidebar({
                                 </span>
                               )}
                             </div>
-                            {fOpen && fLists.map((l) => <ListRow key={l.id} list={l} depth={2} />)}
-                            {fOpen && fLists.length === 0 && !term && <p className="py-1 pl-[50px] text-xs text-muted-foreground/70">No lists</p>}
+                            {fOpen && fLists.length > 0 && <div className="ml-[15px] border-l border-black/[0.08] pl-1.5 dark:border-white/10">{fLists.map((l) => <ListRow key={l.id} list={l} depth={2} />)}</div>}
+                            {fOpen && fLists.length === 0 && !term && <p className="py-1 pl-8 text-xs text-muted-foreground/70">No lists</p>}
                           </div>
                         );
                       })}
                       {lists.map((l) => <ListRow key={l.id} list={l} depth={1} />)}
                       {!term && space.folders.length === 0 && space.lists.length === 0 && (
-                        <p className="py-1 pl-9 text-xs text-muted-foreground/70">{canManage ? "Use + to add a list" : "No lists yet"}</p>
+                        <p className="py-1 pl-3 text-xs text-muted-foreground/70">{canManage ? "Use + to add a list" : "No lists yet"}</p>
                       )}
                     </div>
                   )}
@@ -634,7 +639,7 @@ export function WorkSidebar({
               );
             })}
           </div>
-          {wsParam && <ChatSidebarSections onNavigate={onMobileClose} />}
+          </>)}
         </nav>
 
         {canManage && (
