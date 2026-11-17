@@ -516,7 +516,6 @@ export function WorkSidebar({
             </>
           )}
 
-          {wsParam && !term && <div className="mt-2 border-t border-black/[0.06] dark:border-white/10"><ChatSidebarSections onNavigate={onMobileClose} /></div>}
           <div className={cn(SECTION, "mt-2 border-t border-black/[0.06] dark:border-white/10")}>
             <button type="button" onClick={() => toggle("spaces")} aria-expanded={!collapsed.spaces} className="flex flex-1 items-center gap-1 text-left uppercase tracking-[0.08em] hover:text-foreground">
               Spaces {collapsed.spaces ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -640,6 +639,7 @@ export function WorkSidebar({
             })}
           </div>
           </>)}
+          {wsParam && !term && <div className="mt-2 border-t border-black/[0.06] dark:border-white/10"><ChatSidebarSections onNavigate={onMobileClose} /></div>}
         </nav>
 
         {canManage && (
