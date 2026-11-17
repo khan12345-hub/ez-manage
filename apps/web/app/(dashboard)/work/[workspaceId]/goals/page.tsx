@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CalendarDays, Goal as GoalIcon, Plus, Target, Trash2 } from "lucide-react";
@@ -36,6 +36,8 @@ export default function GoalsPage() {
   const key = ["work", "goals", ws];
   const { data: goals = [], isLoading } = useQuery({ queryKey: key, queryFn: async () => (await api.get<GoalT[]>(`/work/workspaces/${ws}/goals`)).data });
   const [open, setOpen] = useState<number | null>(null);
+  const goalParam = useSearchParams().get("goal");
+  useEffect(() => { if (goalParam) setOpen(Number(goalParam) || null); }, [goalParam]);
   const [creating, setCreating] = useState(false);
   const goal = goals.find((g) => g.id === open) ?? null;
   const set = (g: GoalT) => qc.setQueryData<GoalT[]>(key, (old) => (old ?? []).map((x) => (x.id === g.id ? g : x)));

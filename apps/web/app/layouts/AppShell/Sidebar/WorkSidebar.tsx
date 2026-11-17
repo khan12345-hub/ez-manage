@@ -82,6 +82,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NameDialog, type NameDialogResult } from "@/app/(dashboard)/work/_components/NameDialog";
 import { BrandMark, ProductSwitcher } from "./ProductNav";
+import { WorkAreaNav, areaOf } from "./WorkAreaNav";
 import { CreatePanel } from "@/app/(dashboard)/work/_components/CreatePanel";
 import { useWorkCreate } from "@/store/work-create";
 import { useInboxCounts } from "@/app/(dashboard)/work/[workspaceId]/inbox/useInboxCounts";
@@ -180,6 +181,7 @@ export function WorkSidebar({
     try { localStorage.setItem("ez:work:sidebarPins", JSON.stringify(next)); } catch {}
   };
   const { data: favorites = [] } = useQuery({ queryKey: ["work", "favorites", wsParam], queryFn: () => workApi.favorites(wsParam), enabled: !!wsParam, staleTime: 30_000 });
+  const area = areaOf(pathname ?? "", wsParam);
   const wsName = (workspaces as any[]).find((w) => w.uid === wsParam)?.name ?? "";
   const searchParams = useSearchParams();
   const myView = searchParams.get("view");
@@ -407,6 +409,11 @@ export function WorkSidebar({
           </div>
         )}
 
+        {area !== "home" && !term ? (
+          <nav className="flex-1 overflow-y-auto pt-1" aria-label="Work">
+            <WorkAreaNav area={area} ws={wsParam} pathname={pathname ?? ""} search={new URLSearchParams(searchParams?.toString() ?? "")} canEdit={canEdit} meId={user?.id} onNavigate={onMobileClose} />
+          </nav>
+        ) : (
         <nav className="flex-1 overflow-y-auto px-3 pb-3" aria-label="Work">
           {!term && (
             <>
@@ -453,7 +460,7 @@ export function WorkSidebar({
               )}
 
               {/* pinned or currently open "More" pages show here, like ClickUp */}
-              {MORE_PAGES.filter((m) => pins.includes(m.id) || pathname === `/work/${wsParam}/${m.path}`).map((m) => (
+              {MORE_PAGES.filter((m) => m.id !== "all-tasks" && (pins.includes(m.id) || pathname === `/work/${wsParam}/${m.path}`)).map((m) => (
                 <Link
                   key={m.id}
                   href={`/work/${wsParam}/${m.path}`}
@@ -638,6 +645,7 @@ export function WorkSidebar({
           </>)}
           {wsParam && !term && <div className="mt-2 border-t border-black/[0.06] dark:border-white/10"><ChatSidebarSections onNavigate={onMobileClose} /></div>}
         </nav>
+        )}
 
         {canManage && (
           <div className="px-3 pb-2">

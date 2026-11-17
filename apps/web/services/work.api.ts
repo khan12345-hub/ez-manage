@@ -660,7 +660,17 @@ export const workApi = {
   deleteTime: (id: number) => del(`/work/time/${id}`),
   editComment: (id: number, content: string) => patch<WorkComment>(`/work/comments/${id}`, { content }),
   deleteComment: (id: number) => del(`/work/comments/${id}`),
+  // saved views (shared per list / folder / space)
+  views: (type: ViewLocation, ref: string) => get<{ canEdit: boolean; views: SavedView[] }>(`/work/views?type=${type}&ref=${encodeURIComponent(ref)}`),
+  createView: (body: { type: ViewLocation; ref: string; kind: string; name?: string; settings?: Record<string, unknown> }) => post<SavedView>(`/work/views`, body),
+  updateView: (uid: string, body: { name?: string; settings?: Record<string, unknown> | null }) => patch<SavedView>(`/work/views/${uid}`, body),
+  moveView: (uid: string, dir: "left" | "right") => post(`/work/views/${uid}/move`, { dir }),
+  duplicateView: (uid: string) => post<SavedView>(`/work/views/${uid}/duplicate`),
+  deleteView: (uid: string) => del(`/work/views/${uid}`),
 };
+
+export type ViewLocation = "list" | "folder" | "space";
+export interface SavedView { uid: string; kind: string; name: string; position: number; settings: Record<string, any> | null; createdById: number; updatedAt: string }
 
 /* ─── shared helpers ───────────────────────────────────────────────────── */
 

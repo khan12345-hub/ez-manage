@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useMemo, useState, useEffect } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -37,7 +37,9 @@ export default function TimesheetsPage() {
   const { workspaceId: ws } = useParams<{ workspaceId: string }>();
   const qc = useQueryClient();
   const [week, setWeek] = useState(() => mondayOf(new Date()));
-  const [view, setView] = useState<"mine" | "team">("mine");
+  const viewParam = useSearchParams().get("view");
+  const [view, setView] = useState<"mine" | "team">(viewParam === "team" ? "team" : "mine");
+  useEffect(() => { setView(viewParam === "team" ? "team" : "mine"); }, [viewParam]);
   const [extra, setExtra] = useState<Row["task"][]>([]);
   const [adding, setAdding] = useState(false);
   const tz = new Date().getTimezoneOffset();

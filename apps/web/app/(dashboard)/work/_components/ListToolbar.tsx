@@ -71,6 +71,8 @@ export function ListToolbar({
   showListControls,
   fields = [],
   onCreateField,
+  canSave = true,
+  boardGroup,
 }: {
   list: WorkListDetail;
   tasks: WorkTask[];
@@ -88,6 +90,10 @@ export function ListToolbar({
   fields?: { id: number; name: string; type: string }[];
   /** managers only: open the "Create field" dialog */
   onCreateField?: () => void;
+  /** only people who can edit the location save a shared view */
+  canSave?: boolean;
+  /** Board view: what the columns are */
+  boardGroup?: { value: string; options: { value: string; label: string }[]; onChange: (v: string) => void };
 }) {
   const f = view.filters;
   const setFilters = (patch: Partial<ViewSettings["filters"]>) => onView({ ...view, filters: { ...f, ...patch } });
@@ -100,6 +106,25 @@ export function ListToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {boardGroup && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className={chip(boardGroup.value !== "status")}>
+              <Layers className="h-3.5 w-3.5" /> Group: {boardGroup.options.find((g) => g.value === boardGroup.value)?.label ?? "Status"}
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-52 p-1">
+            <p className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Group board by</p>
+            {boardGroup.options.map((g) => (
+              <button key={g.value} type="button" onClick={() => boardGroup.onChange(g.value)} className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-[13px] hover:bg-accent">
+                <span className="truncate">{g.label}</span>
+                {boardGroup.value === g.value && <Check className="h-3.5 w-3.5 text-primary" />}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+      )}
       {showListControls && (
         <>
           <Popover>
@@ -265,7 +290,7 @@ export function ListToolbar({
             <RotateCcw className="h-3.5 w-3.5" /> Reset
           </button>
         )}
-        <button
+        {canSave && <button
           type="button"
           onClick={onSave}
           disabled={!dirty}
@@ -275,7 +300,7 @@ export function ListToolbar({
           )}
         >
           <Save className="h-3.5 w-3.5" /> {dirty ? "Save view" : "View saved"}
-        </button>
+        </button>}
       </div>
     </div>
   );

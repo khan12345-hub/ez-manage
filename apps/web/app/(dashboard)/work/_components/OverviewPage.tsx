@@ -16,10 +16,12 @@ import { TaskDrawer } from "./TaskDrawer";
 import { SpaceIcon } from "./SpaceIcon";
 import { AutomateButton } from "./Automations";
 import { LocationBoard, LocationCalendar, LocationChannelTab, LocationList, LocationTeam } from "./chat/LocationChannel";
+import { ModuleView, SavedViewTabs, useSavedViews, type ViewHome } from "./SavedViews";
 import { loadBookmarks, recentPlaces, saveBookmarks, trackPlace, type Bookmark, type RecentPlace } from "./recent";
 
-type Tab = "channel" | "overview" | "list" | "board" | "calendar" | "team" | "dashboard";
-const TABS: Tab[] = ["channel", "overview", "list", "board", "calendar", "team", "dashboard"];
+/** fixed first tabs; the rest are the location's saved views (?v=<uid>) */
+type Tab = "channel" | "overview" | "view";
+const OLD_TABS = ["list", "board", "calendar", "team", "dashboard"];
 
 /** Space / Folder page (ClickUp): Overview cards and a Dashboard tab. */
 export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "folder"; uid: string; workspaceId: string }) {
@@ -32,7 +34,18 @@ export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "fold
     queryKey: key,
     queryFn: () => (kind === "space" ? workApi.spaceOverview(uid) : workApi.folderOverview(uid)),
   });
-  const tab: Tab = TABS.find((t) => t === sp.get("tab")) ?? "overview";
+  const { views, canEdit: canEditViews } = useSavedViews(kind, uid);
+  // old links (?tab=board) open the first saved view of that kind
+  const legacy = OLD_TABS.includes(sp.get("tab") ?? "") ? views.find((v) => v.kind === sp.get("tab")) : undefined;
+  const activeView = views.find((v) => v.uid === sp.get("v")) ?? legacy ?? null;
+  const tab: Tab = activeView ? "view" : sp.get("tab") === "channel" ? "channel" : "overview";
+  const pick = (t: "channel" | "overview" | string) => {
+    const next = new URLSearchParams(sp.toString());
+    next.delete("tab"); next.delete("v");
+    if (t === "channel") next.set("tab", "channel");
+    else if (t !== "overview") next.set("v", t);
+    router.replace(`${pathname}${next.toString() ? `?${next}` : ""}`, { scroll: false });
+  };
   const taskUid = sp.get("task");
   const setParam = (k: string, v: string | null) => {
     const next = new URLSearchParams(sp.toString());
@@ -50,6 +63,7 @@ export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "fold
   if (isLoading || !data) return <div className="space-y-3 p-8">{[0, 1, 2].map((i) => <div key={i} className="h-24 animate-pulse rounded-xl bg-muted" />)}</div>;
 
   const title = kind === "space" ? data.space.name : data.folder!.name;
+  const home: ViewHome = { ws: workspaceId, type: kind, ref: uid, name: title, spaceId: data.space.id, folderId: data.folder?.id ?? null };
   const refresh = () => {
     qc.invalidateQueries({ queryKey: key });
     qc.invalidateQueries({ queryKey: workKeys.tree(workspaceId) });
@@ -90,28 +104,35 @@ export function OverviewPage({ kind, uid, workspaceId }: { kind: "space" | "fold
             </div>
           )}
         </div>
-        <nav role="tablist" aria-label="Views" className="mt-3 flex gap-1">
-          {([["channel", "Channel", Hash], ["overview", "Overview", LayoutGrid], ["list", "List", ListIcon], ["board", "Board", Columns3], ["calendar", "Calendar", CalendarDays], ["team", "Team", UsersRound], ["dashboard", "Dashboard", BarChart3]] as const).map(([id, label, Icon]) => (
-            <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setParam("tab", id === "overview" ? null : id)} className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-2.5 pb-2 text-[13px] font-medium", tab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
-              <Icon className="h-3.5 w-3.5" /> {label}
+        <SavedViewTabs
+          home={home}
+          views={views}
+          canEdit={canEditViews}
+          activeUid={activeView?.uid ?? null}
+          onSelect={pick}
+          leading={([["channel", "Channel", Hash], ["overview", "Overview", LayoutGrid]] as const).map(([id, label, Icon]) => (
+            <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => pick(id)} className={cn("flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors", tab === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+              <Icon className="h-4 w-4" /> {label}
             </button>
           ))}
-        </nav>
+        />
       </div>
 
       <div className="flex-1 bg-muted/20 px-4 py-4 sm:px-6">
         {tab === "channel" ? (
           <LocationChannelTab type={kind} uid={uid} locationId={kind === "space" ? data.space.id : data.folder!.id} label={title} />
-        ) : tab === "list" ? (
+        ) : activeView?.kind === "list" ? (
           <LocationList src={{ type: kind, uid }} />
-        ) : tab === "board" ? (
-          <div className="flex h-[calc(100vh-232px)] min-h-[480px]"><LocationBoard src={{ type: kind, uid }} /></div>
-        ) : tab === "calendar" ? (
+        ) : activeView?.kind === "board" ? (
+          <div className="flex h-[calc(100vh-232px)] min-h-[480px]"><LocationBoard src={{ type: kind, uid }} view={activeView} canEdit={canEditViews} /></div>
+        ) : activeView?.kind === "calendar" ? (
           <div className="flex h-[calc(100vh-232px)] min-h-[560px] flex-col overflow-hidden rounded-xl border border-border bg-card"><LocationCalendar src={{ type: kind, uid }} /></div>
-        ) : tab === "team" ? (
+        ) : activeView?.kind === "team" ? (
           <LocationTeam src={{ type: kind, uid }} />
-        ) : tab === "dashboard" ? (
+        ) : activeView?.kind === "dashboard" ? (
           <LocationDashboard kind={kind} uid={uid} onOpenTask={(t) => setParam("task", t)} />
+        ) : activeView ? (
+          <ModuleView view={activeView} home={home} canEdit={canEditViews} />
         ) : (
           <OverviewCards kind={kind} uid={uid} data={data} workspaceId={workspaceId} onNewList={data.access.canManage ? () => setDialog("list") : undefined} onOpenTask={(t) => setParam("task", t)} />
         )}
@@ -203,7 +224,7 @@ function OverviewCards({
         )}
       </Panel>
 
-      <SpaceDocs workspaceId={workspaceId} spaceId={data.space.id} canEdit={!!data.access.canEdit} />
+      <SpaceDocs workspaceId={workspaceId} spaceId={data.space.id} folderId={kind === "folder" ? data.folder?.id ?? null : null} canEdit={!!data.access.canEdit} />
 
       <Panel
         title="Bookmarks"
@@ -337,16 +358,17 @@ function ListsTable({ lists, fallbackColor, onOpen }: { lists: WorkOverviewList[
 }
 
 /** Docs in this space (Work → Docs pages filed under the space) */
-function SpaceDocs({ workspaceId, spaceId, canEdit }: { workspaceId: string; spaceId: number; canEdit: boolean }) {
+/** Docs of this space (all of it) or of this folder (the folder's own and its lists' docs) */
+function SpaceDocs({ workspaceId, spaceId, folderId = null, canEdit }: { workspaceId: string; spaceId: number; folderId?: number | null; canEdit: boolean }) {
   const router = useRouter();
   const { data: docs } = useQuery({
     queryKey: ["work", "docs", workspaceId],
-    queryFn: async () => (await api.get<{ uid: string; title: string; spaceId: number | null; parentId: number | null; updatedAt: string }[]>(`/work/workspaces/${workspaceId}/docs`)).data,
+    queryFn: async () => (await api.get<{ uid: string; title: string; spaceId: number | null; folderId: number | null; listId: number | null; parentId: number | null; updatedAt: string }[]>(`/work/workspaces/${workspaceId}/docs`)).data,
   });
-  const here = (docs ?? []).filter((d) => d.spaceId === spaceId && !d.parentId).slice(0, 8);
+  const here = (docs ?? []).filter((d) => !d.parentId && (folderId ? d.folderId === folderId : d.spaceId === spaceId)).slice(0, 8);
   const create = async () => {
     try {
-      const d = (await api.post<{ uid: string }>(`/work/workspaces/${workspaceId}/docs`, { title: "Untitled", spaceId })).data;
+      const d = (await api.post<{ uid: string }>(`/work/workspaces/${workspaceId}/docs`, { title: "Untitled", ...(folderId ? { folderId } : { spaceId }) })).data;
       router.push(`/work/${workspaceId}/docs?doc=${d.uid}`);
     } catch (e: any) { toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't create the doc."); }
   };

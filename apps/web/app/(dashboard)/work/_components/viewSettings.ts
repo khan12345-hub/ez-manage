@@ -36,6 +36,8 @@ export interface ViewSettings {
     tagIds: number[];
   };
   hiddenGroups: string[];
+  /** Board view: columns by status (default), assignee, priority or a custom field "cf:<id>" */
+  boardGroup?: string;
   /** per-column "Calculate" choice for group footers */
   calcs?: Record<string, "none" | "sum" | "avg" | "min" | "max" | "filled" | "empty" | "pct">;
 }

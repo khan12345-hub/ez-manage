@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Check, ChevronDown, ChevronRight, ExternalLink, Folder, Hash, ListChecks, Lock, MessageSquarePlus, Search, Users } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { workApi, workKeys, type ChatLocationType, type LocationTask, type LocationTasks } from "@/services/work.api";
+import { workApi, workKeys, type ChatLocationType, type LocationTask, type LocationTasks, type SavedView } from "@/services/work.api";
 import { Avatar, PriorityFlag } from "../primitives";
 import { SpaceIcon } from "../SpaceIcon";
 import { TaskDrawer } from "../TaskDrawer";
@@ -141,12 +141,36 @@ function statusGroups(tasks: LocationTask[], own: St[]) {
 }
 
 /** channel tab "Board": tasks of every list as columns by status */
-export function LocationBoard({ src }: { src: LocSrc }) {
+export function LocationBoard({ src, view, canEdit = false }: { src: LocSrc; view?: SavedView | null; canEdit?: boolean }) {
   const { data, isLoading, isError } = useLocationTasks(src);
+  const qc = useQueryClient();
   const [open, setOpen] = useState<string | null>(null);
+  const [localGroup, setLocalGroup] = useState<string | null>(null);
+  const group = (localGroup ?? view?.settings?.boardGroup ?? "status") as "status" | "assignee" | "priority";
+  const setGroup = async (g: string) => {
+    setLocalGroup(g);
+    // a saved view keeps it for everyone (people who can edit the location)
+    if (view && canEdit) {
+      try { await workApi.updateView(view.uid, { settings: { ...(view.settings ?? {}), boardGroup: g } }); await qc.invalidateQueries({ queryKey: ["work", "views"] }); } catch { /* stays local */ }
+    }
+  };
   const columns = useMemo(() => {
     if (!data) return [];
     const m = new Map<string, { name: string; color: string; rank: number; items: LocationTask[] }>();
+    if (group === "priority") {
+      const order = [["URGENT", "Urgent", "#DC2626"], ["HIGH", "High", "#D97706"], ["NORMAL", "Normal", "#2563EB"], ["LOW", "Low", "#9CA3AF"], ["", "No priority", "#9CA3AF"]] as const;
+      order.forEach(([k, name, color], i) => m.set(k, { name, color, rank: i, items: [] }));
+      for (const t of data.tasks) if (!t.parentId) m.get(t.priority && t.priority !== "NONE" ? t.priority : "")?.items.push(t);
+      return [...m.values()];
+    }
+    if (group === "assignee") {
+      for (const t of data.tasks) {
+        if (t.parentId) continue;
+        if (!t.assignees.length) { if (!m.has("none")) m.set("none", { name: "Unassigned", color: "#9CA3AF", rank: 9999, items: [] }); m.get("none")!.items.push(t); }
+        for (const a of t.assignees) { const k = `u${a.id}`; if (!m.has(k)) m.set(k, { name: `${a.firstName} ${a.lastName}`.trim(), color: "#475569", rank: m.size, items: [] }); m.get(k)!.items.push(t); }
+      }
+      return [...m.values()].sort((a, b) => a.rank - b.rank);
+    }
     const add = (st: St) => { const k = st.name.toLowerCase(); if (!m.has(k)) m.set(k, { name: st.name, color: st.color, rank: catRank(st.category) * 100 + m.size, items: [] }); };
     for (const l of data.lists) l.statuses.forEach(add);
     for (const t of data.tasks) if (t.status) add(t.status);
@@ -156,6 +180,15 @@ export function LocationBoard({ src }: { src: LocSrc }) {
   if (isError) return <p className="p-10 text-center text-[13px] text-muted-foreground">You don&apos;t have access to this channel&apos;s location.</p>;
   if (isLoading || !data) return <div className="p-6"><div className="h-40 animate-pulse rounded-xl bg-muted" /></div>;
   return (
+    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex items-center gap-2 px-4 pt-3">
+      <label className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-[12.5px] font-medium text-muted-foreground">
+        Group:
+        <select aria-label="Group board by" value={group} onChange={(e) => void setGroup(e.target.value)} className="bg-transparent text-foreground outline-none">
+          <option value="status">Status</option><option value="assignee">Assignee</option><option value="priority">Priority</option>
+        </select>
+      </label>
+    </div>
     <div className="flex min-h-0 flex-1 gap-3 overflow-auto p-4">
       {columns.filter((c) => c.items.length || columns.length <= 6).map((c) => (
         <section key={c.name} aria-label={c.name} className="flex min-w-[236px] max-w-[340px] shrink-0 grow basis-[236px] flex-col rounded-xl border border-border bg-table-head" style={{ borderTopColor: c.color, borderTopWidth: 3 }}>
@@ -174,6 +207,7 @@ export function LocationBoard({ src }: { src: LocSrc }) {
         </section>
       ))}
       <TaskDrawer taskUid={open} onClose={() => setOpen(null)} onOpenTask={setOpen} />
+    </div>
     </div>
   );
 }

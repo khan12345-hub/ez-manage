@@ -4,10 +4,11 @@ import { Suspense, useMemo, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Activity, Check, ChevronLeft, ChevronRight, LayoutGrid, Network, Plus, Search, Trash2, UserPlus, Users } from "lucide-react";
+import { Activity, Check, ChevronLeft, ChevronRight, LayoutGrid, List as ListIcon, Network, Plus, Search, Trash2, UserPlus, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { userName, workApi, type WorkTeam } from "@/services/work.api";
+import { userName, WORK_ROLE_META, workApi, type WorkPerson, type WorkRole, type WorkTeam } from "@/services/work.api";
+import { PeopleTable } from "../../_components/PeopleTable";
 import { Avatar } from "../../_components/primitives";
 import { FocusList } from "../../_components/ProfilePanel";
 import { OnlineDot, OrgChart, directoryKey, useDirectory, useProfilePanel } from "../../_components/people";
@@ -38,6 +39,14 @@ function TeamsHub() {
   const openInvite = useWorkInvite((s) => s.setOpen);
   const [q, setQ] = useState("");
   const term = q.trim().toLowerCase();
+  // All People: card grid or the roles table; filters by role / team / manager
+  const view = sp.get("view") === "list" ? "list" : "grid";
+  const setView = (v: "grid" | "list") => router.replace(`${pathname}?tab=people${v === "list" ? "&view=list" : ""}`, { scroll: false });
+  const [role, setRole] = useState<WorkRole | "">("");
+  const [team, setTeam] = useState<number | "">("");
+  const [manager, setManager] = useState<number | "">("");
+  const [orgMode, setOrgMode] = useState<"classic" | "levels">("classic");
+  const keep = (p: WorkPerson) => (!role || p.role === role) && (!team || p.teamIds.includes(team)) && (!manager || p.managerId === manager);
 
   return (
     <div className="flex min-h-full w-full flex-col">
@@ -67,15 +76,37 @@ function TeamsHub() {
         {!dir ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-6">{Array.from({ length: 6 }, (_, i) => <div key={i} className="h-48 animate-pulse rounded-xl bg-muted" />)}</div>
         ) : tab === "people" ? (
+          <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <select aria-label="Filter by role" value={role} onChange={(e) => setRole(e.target.value as WorkRole | "")} className="h-8 rounded-full border border-border bg-card px-3 text-[12.5px]">
+              <option value="">All roles</option>
+              {(Object.keys(WORK_ROLE_META) as WorkRole[]).map((r) => <option key={r} value={r}>{WORK_ROLE_META[r].label}</option>)}
+            </select>
+            <select aria-label="Filter by team" value={team} onChange={(e) => setTeam(e.target.value ? Number(e.target.value) : "")} className="h-8 rounded-full border border-border bg-card px-3 text-[12.5px]">
+              <option value="">All teams</option>
+              {dir.teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <select aria-label="Filter by manager" value={manager} onChange={(e) => setManager(e.target.value ? Number(e.target.value) : "")} className="h-8 rounded-full border border-border bg-card px-3 text-[12.5px]">
+              <option value="">Any manager</option>
+              {dir.people.filter((m) => dir.people.some((x) => x.managerId === m.user.id)).map((m) => <option key={m.user.id} value={m.user.id}>{userName(m.user)}</option>)}
+            </select>
+            {(role || team || manager) && <button type="button" onClick={() => { setRole(""); setTeam(""); setManager(""); }} className="text-[12.5px] text-muted-foreground hover:text-foreground">Clear</button>}
+            <span className="flex-1" />
+            <div role="group" aria-label="Layout" className="flex rounded-lg border border-border bg-card p-0.5">
+              <button type="button" aria-pressed={view === "grid"} aria-label="Cards" title="Cards" onClick={() => setView("grid")} className={cn("rounded-md p-1.5", view === "grid" ? "bg-accent text-foreground" : "text-muted-foreground")}><LayoutGrid className="h-4 w-4" /></button>
+              <button type="button" aria-pressed={view === "list"} aria-label="List with roles" title="List with roles" onClick={() => setView("list")} className={cn("rounded-md p-1.5", view === "list" ? "bg-accent text-foreground" : "text-muted-foreground")}><ListIcon className="h-4 w-4" /></button>
+            </div>
+          </div>
+          {view === "list" ? <PeopleTable workspaceId={ws} q={q} filter={(id) => { const p = dir.people.find((x) => x.user.id === id); return !p || keep(p); }} /> : (
           <ul aria-label="All People" className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8">
-            {dir.people.filter((p) => !term || `${userName(p.user)} ${p.user.email} ${p.title ?? ""}`.toLowerCase().includes(term)).map((p) => (
+            {dir.people.filter((p) => keep(p) && (!term || `${userName(p.user)} ${p.user.email} ${p.title ?? ""}`.toLowerCase().includes(term))).map((p) => (
               <li key={p.user.id}>
                 <button type="button" onClick={() => openProfile(p.user.id)} className="group block w-full overflow-hidden rounded-xl border border-border bg-card text-left transition-shadow hover:shadow-md">
                   {p.user.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.user.avatarUrl} alt="" className="aspect-square w-full object-cover" />
                   ) : (
-                    <span className="flex aspect-square w-full items-center justify-center text-[40px] font-bold text-white" style={{ background: TONES[p.user.id % TONES.length] }}>
+                    <span className="flex aspect-square w-full items-center justify-center text-[40px] font-bold text-white" style={{ background: `hsl(${Math.round((p.user.id * 137.508) % 360)} 58% 40%)` }}>
                       {(p.user.firstName[0] ?? "") + (p.user.lastName[0] ?? "")}
                     </span>
                   )}
@@ -87,6 +118,8 @@ function TeamsHub() {
               </li>
             ))}
           </ul>
+          )}
+          </div>
         ) : tab === "teams" ? (
           <TeamsGrid ws={ws} canManage={canManage} />
         ) : tab === "org" ? (
@@ -96,8 +129,13 @@ function TeamsHub() {
               const f = hit?.user.id ?? focus;
               return (
                 <>
-                  {f && <button type="button" onClick={() => { setQ(""); go("org"); }} className="m-3 rounded-md border border-border bg-card px-2.5 py-1 text-[12px] hover:bg-accent">Show everyone</button>}
-                  <OrgChart dir={dir} focusId={f} onPick={openProfile} />
+                  <div className="flex items-center gap-2 p-3">
+                    <div role="group" aria-label="Org chart layout" className="flex rounded-lg border border-border bg-card p-0.5 text-[12.5px]">
+                      {(["classic", "levels"] as const).map((m) => <button key={m} type="button" aria-pressed={orgMode === m} onClick={() => setOrgMode(m)} className={cn("rounded-md px-3 py-1", orgMode === m ? "bg-accent font-medium" : "text-muted-foreground")}>{m === "classic" ? "Classic" : "By levels"}</button>)}
+                    </div>
+                    {f && <button type="button" onClick={() => { setQ(""); go("org"); }} className="rounded-md border border-border bg-card px-2.5 py-1 text-[12px] hover:bg-accent">Show everyone</button>}
+                  </div>
+                  {orgMode === "levels" && !f ? <OrgLevels people={dir.people} onPick={openProfile} /> : <OrgChart dir={dir} focusId={f} onPick={openProfile} />}
                 </>
               );
             })()}
@@ -269,5 +307,30 @@ export default function TeamsPage() {
     <Suspense fallback={null}>
       <TeamsHub />
     </Suspense>
+  );
+}
+
+/** Org chart "By levels": everyone in rows by how far they are from the top of the reporting line */
+function OrgLevels({ people, onPick }: { people: WorkPerson[]; onPick: (id: number) => void }) {
+  const byId = new Map(people.map((p) => [p.user.id, p]));
+  const depth = (p: WorkPerson) => { let d = 0, cur = p; const seen = new Set<number>(); while (cur.managerId && byId.has(cur.managerId) && !seen.has(cur.managerId) && d < 20) { seen.add(cur.managerId); cur = byId.get(cur.managerId)!; d++; } return d; };
+  const rows = new Map<number, WorkPerson[]>();
+  for (const p of people) { const d = depth(p); rows.set(d, [...(rows.get(d) ?? []), p]); }
+  return (
+    <div className="space-y-5 p-4">
+      {[...rows.entries()].sort((a, b) => a[0] - b[0]).map(([d, list]) => (
+        <section key={d} aria-label={`Level ${d + 1}`}>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Level {d + 1} · {list.length}</p>
+          <div className="flex flex-wrap gap-2.5">
+            {list.map((p) => (
+              <button key={p.user.id} type="button" onClick={() => onPick(p.user.id)} className="flex w-52 items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 text-left shadow-sm hover:shadow-md">
+                <span className="relative shrink-0"><Avatar user={p.user} size={30} /><OnlineDot online={p.online} className="absolute -bottom-0.5 -right-0.5 h-3 w-3" /></span>
+                <span className="min-w-0"><span className="block truncate text-[12.5px] font-semibold">{userName(p.user)}</span><span className="block truncate text-[11px] text-muted-foreground">{p.title || WORK_ROLE_META[p.role]?.label}</span></span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }

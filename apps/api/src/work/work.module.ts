@@ -9,6 +9,8 @@ import { WorkLinksService } from './work-links.service';
 import { WorkWhiteboardsService } from './work-whiteboards.service';
 import { WorkCallsService } from './work-calls.service';
 import { WorkMoreService } from './work-more.service';
+import { WorkViewsService } from './work-views.service';
+import { WorkViewsController } from './work-views.controller';
 import { WorkCollabService } from './work-collab.service';
 import { WorkCollabController } from './work-collab.controller';
 import { LivekitModule } from 'src/livekit/livekit.module';
@@ -36,9 +38,9 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
 /** Work — the ClickUp-style product (Space → Folder → List → Task). */
 @Module({
   imports: [StorageModule, NotificationsModule, MailModule, LivekitModule],
-  controllers: [WorkController, WorkModulesController, WorkCollabController],
+  controllers: [WorkController, WorkModulesController, WorkCollabController, WorkViewsController],
   // CEO Tower acts through Work's own services (as the CEO, with Work's permissions)
   exports: [WorkService, WorkChatService, WorkNotifyService],
-  providers: [WorkService, WorkAccessService, WorkDetailService, WorkFilesService, WorkPeopleService, WorkInboxService, WorkOverviewService, WorkFieldsService, WorkRemindersService, WorkExtrasService, WorkStatsService, WorkProfileService, WorkNotifyService, WorkAutomationsService, WorkChatService, WorkTimesheetService, WorkSprintsService, WorkGoalsService, WorkDocsService, WorkFormsService, WorkAiService, WorkLinksService, WorkWhiteboardsService, WorkCallsService, WorkCollabService, WorkMoreService],
+  providers: [WorkService, WorkAccessService, WorkDetailService, WorkFilesService, WorkPeopleService, WorkInboxService, WorkOverviewService, WorkFieldsService, WorkRemindersService, WorkExtrasService, WorkStatsService, WorkProfileService, WorkNotifyService, WorkAutomationsService, WorkChatService, WorkTimesheetService, WorkSprintsService, WorkGoalsService, WorkDocsService, WorkFormsService, WorkAiService, WorkLinksService, WorkWhiteboardsService, WorkCallsService, WorkCollabService, WorkMoreService, WorkViewsService],
 })
 export class WorkModule {}

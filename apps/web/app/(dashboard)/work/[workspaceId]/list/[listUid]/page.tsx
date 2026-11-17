@@ -1,52 +1,40 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BarChart3, CalendarDays, Columns3, LayoutGrid, List as ListIcon, Plus, Table2, X, GanttChartSquare, CalendarRange, Gauge, Activity, GitFork, Users, Map as MapIcon, FolderOpen, Globe } from "lucide-react";
-import { ActivityView, CollectionView, EmbedFrame, MapView, MindMapView, type EmbedView } from "../../../_components/MoreViews";
+import { useQueryClient } from "@tanstack/react-query";
+import { ChevronRight, Folder, Plus } from "lucide-react";
+import { ActivityView, CollectionView, MapView, MindMapView } from "../../../_components/MoreViews";
 import { LocationTeam } from "../../../_components/chat/LocationChannel";
-import { api } from "@/lib/api";
 import { LocationDashboard } from "../../../_components/Dashboard";
 import { trackPlace } from "../../../_components/recent";
 import { AutomateButton } from "../../../_components/Automations";
 import { LocationChannelButton } from "../../../_components/chat/LocationChannel";
 import { ShareListButton } from "../../../_components/ShareAndEmail";
 import { GalleryView } from "../../../_components/GalleryView";
-import { AddViewMenu, type WorkModule, type WorkView } from "../../../_components/AddViewMenu";
+import { ModuleView, SavedViewTabs, pickView, useSavedViews, viewsKey } from "../../../_components/SavedViews";
+import { SpaceIcon } from "../../../_components/SpaceIcon";
 import { pushRecentList, useWorkCreate } from "@/store/work-create";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
+import { workApi } from "@/services/work.api";
 import { ListView } from "../../../_components/ListView";
-import { BoardView } from "../../../_components/BoardView";
+import { BoardView, boardGroupOptions, type BoardGroup } from "../../../_components/BoardView";
 import { CalendarView } from "../../../_components/CalendarView";
 import { GanttView, WorkloadView } from "../../../_components/GanttView";
 import { TaskDrawer } from "../../../_components/TaskDrawer";
 import { useListTasks, useWorkList } from "../../../_components/hooks";
 import { ListToolbar } from "../../../_components/ListToolbar";
-import { ALL_COLUMNS, DEFAULT_VIEW, cfCol, filterTasks, loadView, sameView, saveView, type ViewSettings } from "../../../_components/viewSettings";
+import { ALL_COLUMNS, DEFAULT_VIEW, cfCol, filterTasks, loadView, sameView, type ViewSettings } from "../../../_components/viewSettings";
 import { CreateFieldDialog, useListFieldValues, useSetFieldValue, useSpaceFields } from "../../../_components/CustomFields";
 
-type View = WorkView;
-const VIEW_META: Record<View, { label: string; icon: typeof ListIcon }> = {
-  list: { label: "List", icon: ListIcon },
-  board: { label: "Board", icon: Columns3 },
-  calendar: { label: "Calendar", icon: CalendarDays },
-  table: { label: "Table", icon: Table2 },
-  gallery: { label: "Gallery", icon: LayoutGrid },
-  dashboard: { label: "Dashboard", icon: BarChart3 },
-  gantt: { label: "Gantt", icon: GanttChartSquare },
-  timeline: { label: "Timeline", icon: CalendarRange },
-  workload: { label: "Workload", icon: Gauge },
-  activity: { label: "Activity", icon: Activity },
-  mindmap: { label: "Mind Map", icon: GitFork },
-  team: { label: "Team", icon: Users },
-  map: { label: "Map", icon: MapIcon },
-  collection: { label: "Files", icon: FolderOpen },
-};
-const BASE_VIEWS: View[] = ["list", "board", "calendar"];
-const viewsKey = (uid: string) => `ez:work:views:${uid}`;
-const embedsKey = (uid: string) => `ez:work:embeds:${uid}`;
+/** the old per-browser views (before views were saved for everyone) */
+const oldViewsKey = (uid: string) => `ez:work:views:${uid}`;
+const oldEmbedsKey = (uid: string) => `ez:work:embeds:${uid}`;
+const NO_TOOLBAR = ["dashboard", "activity", "collection", "team", "embed", "doc", "form"];
+const asSettings = (raw: Record<string, any> | null | undefined, fallback: ViewSettings): ViewSettings =>
+  raw && raw.filters ? { ...DEFAULT_VIEW, ...raw, filters: { ...DEFAULT_VIEW.filters, ...(raw.filters ?? {}) } } as ViewSettings : { ...fallback, ...(raw?.boardGroup ? { boardGroup: raw.boardGroup } : {}) };
 
 function ListPageInner() {
   const { listUid, workspaceId } = useParams<{ workspaceId: string; listUid: string }>();
@@ -55,33 +43,10 @@ function ListPageInner() {
   const pathname = usePathname();
   const sp = useSearchParams();
   const { user } = useAuth();
-  const view = (Object.keys(VIEW_META).includes(sp.get("view") ?? "") ? sp.get("view") : "list") as View;
-  // views added with "+ View" are remembered per list
-  const [extraViews, setExtraViews] = useState<View[]>([]);
-  useEffect(() => {
-    try {
-      const v = JSON.parse(localStorage.getItem(viewsKey(listUid)) ?? "[]");
-      setExtraViews(Array.isArray(v) ? v.filter((x: string) => x in VIEW_META && !BASE_VIEWS.includes(x as View)) : []);
-    } catch {
-      setExtraViews([]);
-    }
-  }, [listUid]);
-  // embedded views (any website, YouTube, Figma, Google Docs / Sheets / Calendar), remembered per list
-  const [embeds, setEmbeds] = useState<EmbedView[]>([]);
-  useEffect(() => {
-    try { const v = JSON.parse(localStorage.getItem(embedsKey(listUid)) ?? "[]"); setEmbeds(Array.isArray(v) ? v.filter((x) => x?.id && typeof x.url === "string" && /^https:\/\//.test(x.url)) : []); } catch { setEmbeds([]); }
-  }, [listUid]);
-  const saveEmbeds = (v: EmbedView[]) => {
-    setEmbeds(v);
-    try { localStorage.setItem(embedsKey(listUid), JSON.stringify(v)); } catch {}
-  };
-  const embedId = sp.get("view") === "embed" ? sp.get("embed") : null;
-  const activeEmbed = embeds.find((e) => e.id === embedId) ?? null;
-  const saveExtra = (v: View[]) => {
-    setExtraViews(v);
-    try { localStorage.setItem(viewsKey(listUid), JSON.stringify(v)); } catch {}
-  };
-  const tabs: View[] = [...BASE_VIEWS, ...extraViews, ...(BASE_VIEWS.includes(view) || extraViews.includes(view) ? [] : [view])];
+  const qc = useQueryClient();
+  const { views, canEdit: canEditViews, isLoading: viewsLoading } = useSavedViews("list", listUid);
+  const active = pickView(views, sp.get("v"), sp.get("view"));
+  const view = (active?.kind ?? "list") as string;
   const taskUid = sp.get("task");
 
   const { data: list, isLoading, isError } = useWorkList(listUid);
@@ -99,14 +64,36 @@ function ListPageInner() {
   const onFieldChange = (taskId: number, fieldId: number, value: unknown) => setField.mutate({ taskId, fieldId, value });
   const [q, setQ] = useState("");
   const [meMode, setMeMode] = useState(false);
-  // view settings: the saved copy (localStorage) and the working copy
+  // view settings: the copy saved on the view (shared) and the working copy
   const [saved, setSaved] = useState<ViewSettings>(DEFAULT_VIEW);
   const [vs, setVs] = useState<ViewSettings>(DEFAULT_VIEW);
   useEffect(() => {
-    const v = loadView(listUid);
+    if (!active) return;
+    // the first List view takes over this browser's old saved settings
+    const first = views.find((v) => v.kind === "list")?.uid === active.uid;
+    const v = asSettings(active.settings, first ? loadView(listUid) : DEFAULT_VIEW);
     setSaved(v);
     setVs(v);
-  }, [listUid]);
+  }, [active?.uid, active?.updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // once: this browser's old extra views and embeds become saved views for everyone
+  const migrated = useRef(false);
+  useEffect(() => {
+    if (migrated.current || viewsLoading || !canEditViews || !views.length) return;
+    migrated.current = true;
+    let kinds: string[] = [], embeds: { name: string; url: string; kind: string }[] = [];
+    try { kinds = JSON.parse(localStorage.getItem(oldViewsKey(listUid)) ?? "[]"); } catch {}
+    try { embeds = JSON.parse(localStorage.getItem(oldEmbedsKey(listUid)) ?? "[]"); } catch {}
+    if (!Array.isArray(kinds)) kinds = [];
+    if (!Array.isArray(embeds)) embeds = [];
+    if (!kinds.length && !embeds.length) return;
+    void (async () => {
+      for (const k of kinds) if (typeof k === "string" && !views.some((v) => v.kind === k)) await workApi.createView({ type: "list", ref: listUid, kind: k }).catch(() => null);
+      for (const e of embeds) if (e?.url && /^https:\/\//.test(e.url)) await workApi.createView({ type: "list", ref: listUid, kind: "embed", name: e.name, settings: { url: e.url, embedKind: e.kind } }).catch(() => null);
+      try { localStorage.removeItem(oldViewsKey(listUid)); localStorage.removeItem(oldEmbedsKey(listUid)); } catch {}
+      await qc.invalidateQueries({ queryKey: viewsKey("list", listUid) });
+    })();
+  }, [viewsLoading, canEditViews, views, listUid, qc]);
 
   const setParam = (key: string, value: string | null) => {
     const next = new URLSearchParams(sp.toString());
@@ -114,21 +101,19 @@ function ListPageInner() {
     router.replace(`${pathname}${next.toString() ? `?${next}` : ""}`, { scroll: false });
   };
   const openTask = (uid: string) => setParam("task", uid);
-  const goView = (v: string | null, embed?: string) => {
+  const selectView = (uid: string) => {
     const next = new URLSearchParams(sp.toString());
-    v === null ? next.delete("view") : next.set("view", v);
-    embed ? next.set("embed", embed) : next.delete("embed");
-    router.replace(`${pathname}${next.toString() ? `?${next}` : ""}`, { scroll: false });
+    next.set("v", uid);
+    next.delete("view");
+    next.delete("embed");
+    router.replace(`${pathname}?${next}`, { scroll: false });
   };
-  /** "+ View" → Doc / Form / Whiteboard: made for this list's space and opened */
-  const openModule = async (m: WorkModule) => {
-    if (!list) return;
-    try {
-      if (m === "form") router.push(`/work/${workspaceId}/forms?new=1&list=${list.id}`);
-      else if (m === "doc") router.push(`/work/${workspaceId}/docs?doc=${(await api.post<{ uid: string }>(`/work/workspaces/${workspaceId}/docs`, { title: `${list.name} doc`, spaceId: list.spaceId })).data.uid}`);
-      else router.push(`/work/${workspaceId}/whiteboards?board=${(await api.post<{ uid: string }>(`/work/workspaces/${workspaceId}/whiteboards`, { title: `${list.name} whiteboard` })).data.uid}`);
-    } catch (e: any) { toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't create it."); }
+  const saveSettings = async (next: ViewSettings) => {
+    if (!active) return;
+    try { await workApi.updateView(active.uid, { settings: next as unknown as Record<string, unknown> }); setSaved(next); await qc.invalidateQueries({ queryKey: viewsKey("list", listUid) }); toast.success("View saved for everyone"); }
+    catch (e: any) { toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't save the view."); }
   };
+  const boardGroup = (vs.boardGroup ?? "status") as BoardGroup;
 
   // Search + "Me mode" (only my tasks). Keep a subtask's parent visible when the subtask matches.
   const shown = useMemo(() => {
@@ -157,22 +142,24 @@ function ListPageInner() {
       {/* header */}
       <div className="relative mx-4 mt-4 overflow-hidden rounded-[20px] border border-black/[0.05] bg-card shadow-[0_1px_2px_rgba(11,42,31,0.04)] dark:border-white/10 px-4 pb-0 pt-4 sm:px-6">
         <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[2px]" style={{ background: "linear-gradient(90deg, var(--primary) 0%, var(--brass) 60%, transparent 100%)" }} />
-        <p className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-product-work" aria-hidden />
-          Work
-          {list && (
+        {/* breadcrumb: Space / Folder / List */}
+        <nav aria-label="Breadcrumb" className="flex min-w-0 flex-wrap items-center gap-1 text-[13px] text-muted-foreground">
+          {list ? (
             <>
-              <span aria-hidden>/</span>
-              <span className="normal-case tracking-normal">{list.space.name}</span>
+              <Link href={`/work/${workspaceId}/space/${list.space.uid}`} className="flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-accent hover:text-foreground">
+                <SpaceIcon name={list.space.name} color={list.space.color} size={16} /> {list.space.name}
+              </Link>
               {list.folder && (
                 <>
-                  <span aria-hidden>/</span>
-                  <span className="normal-case tracking-normal">{list.folder.name}</span>
+                  <ChevronRight className="h-3.5 w-3.5 opacity-60" />
+                  <Link href={`/work/${workspaceId}/folder/${list.folder.uid}`} className="flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-accent hover:text-foreground"><Folder className="h-3.5 w-3.5" /> {list.folder.name}</Link>
                 </>
               )}
+              <ChevronRight className="h-3.5 w-3.5 opacity-60" />
+              <span aria-current="page" className="flex items-center gap-1.5 px-1 font-semibold text-foreground"><span className="h-2 w-2 rounded-full" style={{ background: list.color ?? "var(--primary)" }} /> {list.name}</span>
             </>
-          )}
-        </p>
+          ) : <span>…</span>}
+        </nav>
         <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
           <h1 className="font-serif text-[30px] font-normal leading-tight tracking-tight sm:text-[34px]">{list?.name ?? (isLoading ? "…" : "")}</h1>
           {list && (
@@ -195,75 +182,20 @@ function ListPageInner() {
             </div>
           )}
         </div>
-        {/* views */}
-        <div className="-mb-px mt-2 flex items-center gap-1 overflow-x-auto">
-          <div role="tablist" aria-label="Views" className="flex gap-1">
-            {tabs.map((id) => {
-              const { label, icon: Icon } = VIEW_META[id];
-              const removable = !BASE_VIEWS.includes(id);
-              return (
-                <div key={id} className="group/tab relative flex">
-                  <button
-                    role="tab"
-                    aria-selected={view === id && !activeEmbed}
-                    type="button"
-                    onClick={() => goView(id === "list" ? null : id)}
-                    className={cn(
-                      "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
-                      view === id && !activeEmbed ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
-                      removable && "pr-6",
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </button>
-                  {removable && (
-                    <button
-                      type="button"
-                      aria-label={`Remove ${label} view`}
-                      title="Remove view"
-                      onClick={() => {
-                        saveExtra(extraViews.filter((x) => x !== id));
-                        if (view === id) goView(null);
-                      }}
-                      className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground group-hover/tab:block"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-            {embeds.map((e) => (
-              <div key={e.id} className="group/tab relative flex">
-                <button role="tab" aria-selected={activeEmbed?.id === e.id} type="button" onClick={() => goView("embed", e.id)} className={cn("flex items-center gap-1.5 border-b-2 px-3 py-2.5 pr-6 text-sm font-medium transition-colors", activeEmbed?.id === e.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
-                  <Globe className="h-4 w-4" />
-                  <span className="max-w-[140px] truncate">{e.name}</span>
-                </button>
-                <button type="button" aria-label={`Remove ${e.name} view`} title="Remove view" onClick={() => { saveEmbeds(embeds.filter((x) => x.id !== e.id)); if (activeEmbed?.id === e.id) goView(null); }} className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground group-hover/tab:block">
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-          <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-          <AddViewMenu
-            onAdd={(v) => {
-              if (!BASE_VIEWS.includes(v) && !extraViews.includes(v)) saveExtra([...extraViews, v]);
-              goView(v === "list" ? null : v);
-            }}
-            onModule={list?.access.canEdit ? (m) => void openModule(m) : undefined}
-            onEmbed={(e) => {
-              const id = Math.random().toString(36).slice(2, 10);
-              saveEmbeds([...embeds, { id, ...e }]);
-              goView("embed", id);
-            }}
+        {/* views: saved for everyone */}
+        {list && (
+          <SavedViewTabs
+            home={{ ws: workspaceId, type: "list", ref: listUid, name: list.name, spaceId: list.spaceId, folderId: list.folderId, listId: list.id }}
+            views={views}
+            canEdit={canEditViews}
+            activeUid={active?.uid ?? null}
+            onSelect={selectView}
           />
-        </div>
+        )}
       </div>
 
       {/* toolbar */}
-      {list && !activeEmbed && !["dashboard", "activity", "collection", "team"].includes(view) && (
+      {list && active && !NO_TOOLBAR.includes(view) && (
         <div className="px-4 pt-4 sm:px-6">
           <ListToolbar
             list={list}
@@ -271,11 +203,9 @@ function ListPageInner() {
             view={vs}
             onView={setVs}
             dirty={!sameView(vs, saved)}
-            onSave={() => {
-              saveView(listUid, vs);
-              setSaved(vs);
-              toast.success("View saved");
-            }}
+            onSave={() => void saveSettings(vs)}
+            canSave={canEditViews}
+            boardGroup={view === "board" ? { value: boardGroup, options: boardGroupOptions(fields), onChange: (g) => setVs({ ...vs, boardGroup: g }) } : undefined}
             onReset={() => setVs(saved)}
             q={q}
             onQ={setQ}
@@ -289,12 +219,12 @@ function ListPageInner() {
       )}
 
       <div className="flex-1 px-4 py-4 sm:px-6">
-        {(isLoading || tasksLoading || !list) ? (
+        {(isLoading || tasksLoading || viewsLoading || !list) ? (
           <div className="space-y-4">
             {[0, 1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-xl border border-border bg-card" />)}
           </div>
-        ) : activeEmbed ? (
-          <EmbedFrame view={activeEmbed} />
+        ) : active && ["embed", "doc", "form"].includes(view) ? (
+          <ModuleView view={active} canEdit={canEditViews} home={{ ws: workspaceId, type: "list", ref: listUid, name: list.name, spaceId: list.spaceId, folderId: list.folderId, listId: list.id }} />
         ) : view === "activity" ? (
           <ActivityView listUid={list.uid} members={list.members} onOpenTask={openTask} />
         ) : view === "mindmap" ? (
@@ -306,7 +236,7 @@ function ListPageInner() {
         ) : view === "collection" ? (
           <CollectionView listUid={list.uid} onOpenTask={openTask} />
         ) : view === "board" ? (
-          <BoardView list={list} tasks={shown} onOpenTask={openTask} />
+          <BoardView list={list} tasks={shown} onOpenTask={openTask} groupBy={boardGroup} fields={fields} fieldValues={fieldValues} onFieldChange={onFieldChange} />
         ) : view === "calendar" ? (
           <CalendarView list={list} tasks={shown} onOpenTask={openTask} />
         ) : view === "dashboard" ? (

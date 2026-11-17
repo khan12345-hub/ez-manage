@@ -42,7 +42,7 @@ export class WorkDocsService {
     const docs = await this.prisma.workDoc.findMany({
       where: { workspaceId, archivedAt: null, ...(ws.scope === 'shared' ? { spaceId: { not: null } } : {}) },
       orderBy: [{ updatedAt: 'desc' }],
-      select: { id: true, uid: true, title: true, spaceId: true, parentId: true, updatedAt: true, createdById: true, updatedById: true, content: true },
+      select: { id: true, uid: true, title: true, spaceId: true, folderId: true, listId: true, parentId: true, updatedAt: true, createdById: true, updatedById: true, content: true },
     });
     // only docs in spaces this person can open
     const spaceIds = [...new Set(docs.map((d) => d.spaceId).filter((v): v is number => !!v))];
@@ -76,13 +76,27 @@ export class WorkDocsService {
     return { ...d, yState: row?.yState ?? null };
   }
 
-  async create(workspaceId: number, userId: number, dto: { title?: string; spaceId?: number | null; parentId?: number | null; content?: string }) {
+  async create(workspaceId: number, userId: number, dto: { title?: string; spaceId?: number | null; folderId?: number | null; listId?: number | null; parentId?: number | null; content?: string }) {
     await this.access.requireWorkspace(workspaceId, userId, 'edit');
     let spaceId = dto.spaceId ? Number(dto.spaceId) : null;
+    let folderId: number | null = null;
+    let listId: number | null = null;
+    // a doc in a list or a folder belongs to that list's / folder's space
+    if (dto.listId) {
+      const l = await this.prisma.workList.findFirst({ where: { id: Number(dto.listId), archivedAt: null, space: { workspaceId } }, select: { id: true, spaceId: true, folderId: true } });
+      if (!l) throw new BadRequestException('That list is not in this workspace.');
+      await this.access.requireList(l.id, userId, 'edit');
+      listId = l.id; folderId = l.folderId; spaceId = l.spaceId;
+    } else if (dto.folderId) {
+      const f = await this.prisma.workFolder.findFirst({ where: { id: Number(dto.folderId), archivedAt: null, space: { workspaceId } }, select: { id: true, spaceId: true } });
+      if (!f) throw new BadRequestException('That folder is not in this workspace.');
+      await this.access.requireFolder(f.id, userId, 'edit');
+      folderId = f.id; spaceId = f.spaceId;
+    }
     if (dto.parentId) {
       const p = await this.docOf(String(dto.parentId), userId, 'edit');
       if (p.workspaceId !== workspaceId) throw new BadRequestException('That page is in another workspace.');
-      spaceId = p.spaceId;
+      spaceId = p.spaceId; folderId = p.folderId; listId = p.listId;
     }
     if (spaceId) {
       const s = await this.prisma.space.findFirst({ where: { id: spaceId, workspaceId }, select: { id: true } });
@@ -90,7 +104,7 @@ export class WorkDocsService {
       await this.access.requireSpace(spaceId, userId, 'edit');
     }
     return this.prisma.workDoc.create({
-      data: { uid: uid(), workspaceId, spaceId, parentId: dto.parentId ? Number(dto.parentId) : null, title: (dto.title ?? '').trim().slice(0, 300) || 'Untitled', content: cleanDocHtml(dto.content ?? ''), createdById: userId, updatedById: userId },
+      data: { uid: uid(), workspaceId, spaceId, folderId, listId, parentId: dto.parentId ? Number(dto.parentId) : null, title: (dto.title ?? '').trim().slice(0, 300) || 'Untitled', content: cleanDocHtml(dto.content ?? ''), createdById: userId, updatedById: userId },
     });
   }
 

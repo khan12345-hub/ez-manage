@@ -41,7 +41,16 @@ export function useMe() {
   return useQuery({
     queryKey: ["me"],
     queryFn: getMe,
-    retry: false,
+    // A restarting API (network error / 5xx, or a stray 401 while it boots) is not "signed out":
+    // keep trying until it answers (the page shows its loader meanwhile); a 401 only counts once it
+    // repeats a few seconds later.
+    retry: (n: number, err: any) => {
+      const st = err?.response?.status;
+      if (st === 403) return false;
+      if (st === 401) return n < 2;
+      return true;
+    },
+    retryDelay: (n: number, err: any) => (err?.response?.status === 401 ? 2500 : Math.min(1000 * (n + 1), 5000)),
     retryOnMount: false,
     refetchOnMount: true,
     staleTime: 30_000,

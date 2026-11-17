@@ -64,7 +64,7 @@ const EMBEDS: Item[] = [
 ];
 
 /** ClickUp-style "+ View" catalog. Ready views are added to the list's tabs. */
-export function AddViewMenu({ onAdd, onModule, onEmbed }: { onAdd: (v: WorkView) => void; onModule?: (m: WorkModule) => void; onEmbed?: (e: { kind: EmbedKind; name: string; url: string }) => void }) {
+export function AddViewMenu({ onAdd, onModule, onEmbed, only }: { onAdd: (v: WorkView) => void; onModule?: (m: WorkModule) => void; onEmbed?: (e: { kind: EmbedKind; name: string; url: string }) => void; /** limit to these kinds (a space / folder shows fewer) */ only?: string[] }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [embedFor, setEmbedFor] = useState<Item | null>(null);
@@ -80,7 +80,7 @@ export function AddViewMenu({ onAdd, onModule, onEmbed }: { onAdd: (v: WorkView)
   const term = q.trim().toLowerCase();
   const match = (i: Item) => !term || `${i.label} ${i.hint}`.toLowerCase().includes(term);
   const Section = ({ title, items }: { title: string; items: Item[] }) => {
-    const shown = items.filter(match);
+    const shown = items.filter(match).filter((i) => !only || only.includes(i.ready ?? i.module ?? (i.embed ? "embed" : "")));
     if (!shown.length) return null;
     return (
       <div className="border-b border-border/70 px-2 pb-2 pt-2 last:border-b-0">
