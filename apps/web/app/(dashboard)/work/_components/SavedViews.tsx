@@ -60,6 +60,25 @@ export function SavedViewTabs({ home, views, canEdit, activeUid, onSelect, leadi
   const [name, setName] = useState("");
   const refresh = () => qc.invalidateQueries({ queryKey: key });
   const run = async (fn: () => Promise<unknown>, fail: string) => { try { await fn(); await refresh(); } catch (e) { toast.error(errMsg(e, fail)); } };
+  // drag a tab to reorder: it lands between its new neighbours (shared with everyone)
+  const [dragUid, setDragUid] = useState<string | null>(null);
+  const [overUid, setOverUid] = useState<string | null>(null);
+  const dropOn = (targetUid: string) => {
+    const from = dragUid;
+    setDragUid(null); setOverUid(null);
+    if (!from || from === targetUid) return;
+    const rest = views.filter((x) => x.uid !== from);
+    const at = rest.findIndex((x) => x.uid === targetUid);
+    const fromIdx = views.findIndex((x) => x.uid === from), toIdx = views.findIndex((x) => x.uid === targetUid);
+    // dropping on a tab to the right puts it after that tab, to the left puts it before
+    const insert = toIdx > fromIdx ? at + 1 : at;
+    const prev = rest[insert - 1], next = rest[insert];
+    const position = prev && next ? (prev.position + next.position) / 2 : prev ? prev.position + 1000 : next ? next.position / 2 : 1000;
+    const moved = views.find((x) => x.uid === from)!;
+    const order = [...rest.slice(0, insert), { ...moved, position }, ...rest.slice(insert)];
+    qc.setQueryData(key, (old: any) => (old ? { ...old, views: order } : old));
+    void run(() => workApi.updateView(from, { position }), "Couldn't move it.");
+  };
 
   const add = async (kind: string, extra: { name?: string; settings?: Record<string, unknown> } = {}) => {
     try {
@@ -99,7 +118,14 @@ export function SavedViewTabs({ home, views, canEdit, activeUid, onSelect, leadi
             );
           }
           return (
-            <div key={v.uid} className="group/tab relative flex">
+            <div key={v.uid} className={cn("group/tab relative flex rounded-t-md", dragUid === v.uid && "opacity-40", overUid === v.uid && dragUid && dragUid !== v.uid && "bg-primary/10")}
+              draggable={canEdit}
+              onDragStart={(e) => { setDragUid(v.uid); e.dataTransfer.effectAllowed = "move"; }}
+              onDragOver={(e) => { if (dragUid) { e.preventDefault(); setOverUid(v.uid); } }}
+              onDragLeave={() => setOverUid((o) => (o === v.uid ? null : o))}
+              onDrop={(e) => { e.preventDefault(); dropOn(v.uid); }}
+              onDragEnd={() => { setDragUid(null); setOverUid(null); }}
+              title={canEdit ? "Drag to reorder" : undefined}>
               <button role="tab" aria-selected={on} type="button" onClick={() => onSelect(v.uid)} onDoubleClick={() => { if (canEdit) { setName(v.name); setRenaming(v.uid); } }}
                 className={cn("flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors", on ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground", canEdit && "pr-7")}>
                 <meta.icon className="h-4 w-4" style={{ color: meta.color }} />

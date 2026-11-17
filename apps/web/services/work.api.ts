@@ -413,7 +413,7 @@ export interface DmTask {
 export type ChatLocationType = "space" | "folder" | "list";
 export type ChatLocation =
   | { type: ChatLocationType; locked: true }
-  | { type: ChatLocationType; locked: false; id: number; uid: string; name: string; space: { uid: string; name: string }; folder: { uid: string; name: string } | null; listCount: number };
+  | { type: ChatLocationType; locked: false; id: number; uid: string; name: string; spaceId?: number; space: { uid: string; name: string }; folder: { uid: string; name: string } | null; listCount: number };
 export interface LocationTask extends DmTask { listId: number; status: { id: number; name: string; color: string; category: string } | null }
 export interface LocationTasks {
   location: Exclude<ChatLocation, { locked: true }>;
@@ -663,7 +663,7 @@ export const workApi = {
   // saved views (shared per list / folder / space)
   views: (type: ViewLocation, ref: string) => get<{ canEdit: boolean; views: SavedView[] }>(`/work/views?type=${type}&ref=${encodeURIComponent(ref)}`),
   createView: (body: { type: ViewLocation; ref: string; kind: string; name?: string; settings?: Record<string, unknown> }) => post<SavedView>(`/work/views`, body),
-  updateView: (uid: string, body: { name?: string; settings?: Record<string, unknown> | null }) => patch<SavedView>(`/work/views/${uid}`, body),
+  updateView: (uid: string, body: { name?: string; settings?: Record<string, unknown> | null; position?: number }) => patch<SavedView>(`/work/views/${uid}`, body),
   moveView: (uid: string, dir: "left" | "right") => post(`/work/views/${uid}/move`, { dir }),
   duplicateView: (uid: string) => post<SavedView>(`/work/views/${uid}/duplicate`),
   deleteView: (uid: string) => del(`/work/views/${uid}`),

@@ -433,20 +433,20 @@ export class WorkChatService {
         if (!sp) return null;
         await this.access.requireSpace(sp.id, userId, 'view');
         const lists = await this.prisma.workList.findMany({ where: { spaceId: sp.id, archivedAt: null, OR: [{ folderId: null }, { folder: { archivedAt: null } }] }, select: { id: true } });
-        return { type, id: sp.id, uid: sp.uid, name: sp.name, space: { uid: sp.uid, name: sp.name }, folder: null, listIds: lists.map((l) => l.id) };
+        return { type, id: sp.id, uid: sp.uid, name: sp.name, spaceId: sp.id, space: { uid: sp.uid, name: sp.name }, folder: null, listIds: lists.map((l) => l.id) };
       }
       if (type === 'folder') {
         const f = await this.prisma.workFolder.findFirst({ where: { id, archivedAt: null, space: { workspaceId, archivedAt: null } }, select: { id: true, uid: true, name: true, spaceId: true, space: { select: { uid: true, name: true } } } });
         if (!f) return null;
         await this.access.requireSpace(f.spaceId, userId, 'view');
         const lists = await this.prisma.workList.findMany({ where: { folderId: f.id, archivedAt: null }, select: { id: true } });
-        return { type, id: f.id, uid: f.uid, name: f.name, space: f.space, folder: { uid: f.uid, name: f.name }, listIds: lists.map((l) => l.id) };
+        return { type, id: f.id, uid: f.uid, name: f.name, spaceId: f.spaceId, space: f.space, folder: { uid: f.uid, name: f.name }, listIds: lists.map((l) => l.id) };
       }
       if (type === 'list') {
         const l = await this.prisma.workList.findFirst({ where: { id, archivedAt: null, space: { workspaceId, archivedAt: null } }, select: { id: true, uid: true, name: true, spaceId: true, space: { select: { uid: true, name: true } }, folder: { select: { uid: true, name: true, archivedAt: true } } } });
         if (!l || l.folder?.archivedAt) return null;
         await this.access.requireSpace(l.spaceId, userId, 'view');
-        return { type, id: l.id, uid: l.uid, name: l.name, space: l.space, folder: l.folder ? { uid: l.folder.uid, name: l.folder.name } : null, listIds: [l.id] };
+        return { type, id: l.id, uid: l.uid, name: l.name, spaceId: l.spaceId, space: l.space, folder: l.folder ? { uid: l.folder.uid, name: l.folder.name } : null, listIds: [l.id] };
       }
     } catch {
       return null;

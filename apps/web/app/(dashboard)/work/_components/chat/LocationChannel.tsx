@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Check, ChevronDown, ChevronRight, ExternalLink, Folder, Hash, ListChecks, Lock, MessageSquarePlus, Search, Users } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { workApi, workKeys, type ChatLocationType, type LocationTask, type LocationTasks, type SavedView } from "@/services/work.api";
 import { Avatar, PriorityFlag } from "../primitives";
 import { SpaceIcon } from "../SpaceIcon";
@@ -146,7 +147,20 @@ export function LocationBoard({ src, view, canEdit = false }: { src: LocSrc; vie
   const qc = useQueryClient();
   const [open, setOpen] = useState<string | null>(null);
   const [localGroup, setLocalGroup] = useState<string | null>(null);
-  const group = (localGroup ?? view?.settings?.boardGroup ?? "status") as "status" | "assignee" | "priority";
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [overCol, setOverCol] = useState<string | null>(null);
+  const group = String(localGroup ?? view?.settings?.boardGroup ?? "status"); // status | assignee | priority | field:<id>
+  const spaceId = data?.location.spaceId;
+  // the space's custom fields (every list in a space / folder shares them) and their values per list
+  const { data: fields = [] } = useQuery({ queryKey: ["work", "fields", spaceId ?? 0], queryFn: () => workApi.fields(spaceId!), enabled: !!spaceId, staleTime: 30_000 });
+  const listIds = useMemo(() => (data?.lists ?? []).map((l) => l.id), [data]);
+  const { data: values = {} } = useQuery({
+    queryKey: ["work", "loc-field-values", listIds.join(",")],
+    queryFn: async () => Object.assign({}, ...(await Promise.all(listIds.map((id) => workApi.listFieldValues(id).catch(() => ({})))))) as Record<number, Record<number, unknown>>,
+    enabled: listIds.length > 0 && fields.length > 0,
+  });
+  const groupFields = fields.filter((f) => f.type === "dropdown" || f.type === "labels");
+  const groupField = group.startsWith("field:") ? groupFields.find((f) => f.id === Number(group.slice(6))) : undefined;
   const setGroup = async (g: string) => {
     setLocalGroup(g);
     // a saved view keeps it for everyone (people who can edit the location)
@@ -154,31 +168,78 @@ export function LocationBoard({ src, view, canEdit = false }: { src: LocSrc; vie
       try { await workApi.updateView(view.uid, { settings: { ...(view.settings ?? {}), boardGroup: g } }); await qc.invalidateQueries({ queryKey: ["work", "views"] }); } catch { /* stays local */ }
     }
   };
-  const columns = useMemo(() => {
+  type Col = { key: string; name: string; color: string; rank: number; items: LocationTask[] };
+  const columns = useMemo<Col[]>(() => {
     if (!data) return [];
-    const m = new Map<string, { name: string; color: string; rank: number; items: LocationTask[] }>();
+    const m = new Map<string, Col>();
+    const top = data.tasks.filter((t) => !t.parentId);
     if (group === "priority") {
-      const order = [["URGENT", "Urgent", "#DC2626"], ["HIGH", "High", "#D97706"], ["NORMAL", "Normal", "#2563EB"], ["LOW", "Low", "#9CA3AF"], ["", "No priority", "#9CA3AF"]] as const;
-      order.forEach(([k, name, color], i) => m.set(k, { name, color, rank: i, items: [] }));
-      for (const t of data.tasks) if (!t.parentId) m.get(t.priority && t.priority !== "NONE" ? t.priority : "")?.items.push(t);
+      ([["URGENT", "Urgent", "#DC2626"], ["HIGH", "High", "#D97706"], ["NORMAL", "Normal", "#2563EB"], ["LOW", "Low", "#9CA3AF"], ["", "No priority", "#9CA3AF"]] as const).forEach(([k, name, color], i) => m.set(k, { key: k, name, color, rank: i, items: [] }));
+      for (const t of top) m.get(t.priority && t.priority !== "NONE" ? t.priority : "")?.items.push(t);
       return [...m.values()];
     }
     if (group === "assignee") {
-      for (const t of data.tasks) {
-        if (t.parentId) continue;
-        if (!t.assignees.length) { if (!m.has("none")) m.set("none", { name: "Unassigned", color: "#9CA3AF", rank: 9999, items: [] }); m.get("none")!.items.push(t); }
-        for (const a of t.assignees) { const k = `u${a.id}`; if (!m.has(k)) m.set(k, { name: `${a.firstName} ${a.lastName}`.trim(), color: "#475569", rank: m.size, items: [] }); m.get(k)!.items.push(t); }
+      for (const t of top) {
+        if (!t.assignees.length) { if (!m.has("none")) m.set("none", { key: "none", name: "Unassigned", color: "#9CA3AF", rank: 9999, items: [] }); m.get("none")!.items.push(t); }
+        for (const a of t.assignees) { const k = `u${a.id}`; if (!m.has(k)) m.set(k, { key: k, name: `${a.firstName} ${a.lastName}`.trim(), color: `hsl(${Math.round((a.id * 137.508) % 360)} 58% 40%)`, rank: m.size, items: [] }); m.get(k)!.items.push(t); }
       }
       return [...m.values()].sort((a, b) => a.rank - b.rank);
     }
-    const add = (st: St) => { const k = st.name.toLowerCase(); if (!m.has(k)) m.set(k, { name: st.name, color: st.color, rank: catRank(st.category) * 100 + m.size, items: [] }); };
+    if (groupField) {
+      (groupField.config?.options ?? []).forEach((o, i) => m.set(o.id, { key: o.id, name: o.name, color: o.color, rank: i, items: [] }));
+      m.set("", { key: "", name: `No ${groupField.name}`, color: "#9CA3AF", rank: 9999, items: [] });
+      for (const t of top) {
+        const v = values[t.id]?.[groupField.id];
+        const ids = Array.isArray(v) ? (v as string[]) : v ? [String(v)] : [];
+        if (!ids.length) m.get("")!.items.push(t);
+        for (const id of ids) m.get(id)?.items.push(t);
+      }
+      return [...m.values()].sort((a, b) => a.rank - b.rank);
+    }
+    const add = (st: St) => { const k = st.name.toLowerCase(); if (!m.has(k)) m.set(k, { key: k, name: st.name, color: st.color, rank: catRank(st.category) * 100 + m.size, items: [] }); };
     for (const l of data.lists) l.statuses.forEach(add);
-    for (const t of data.tasks) if (t.status) add(t.status);
-    for (const t of data.tasks) m.get((t.status?.name ?? "").toLowerCase())?.items.push(t);
+    for (const t of top) if (t.status) add(t.status);
+    for (const t of top) m.get((t.status?.name ?? "").toLowerCase())?.items.push(t);
     return [...m.values()].sort((a, b) => a.rank - b.rank);
-  }, [data]);
+  }, [data, group, groupField, values]);
+
+  /** dropping a card on a column sets that column's value on the task */
+  const drop = async (col: Col) => {
+    const t = data?.tasks.find((x) => x.id === dragId);
+    setDragId(null); setOverCol(null);
+    if (!t || !canEdit) return;
+    try {
+      if (group === "status") {
+        const st = data!.lists.find((l) => l.id === t.listId)?.statuses.find((x) => x.name.toLowerCase() === col.key);
+        if (!st) { toast.error(`"${t.list.name}" has no "${col.name}" status.`); return; }
+        if (st.id === t.status?.id) return;
+        await workApi.updateTask(t.id, { statusId: st.id });
+      } else if (group === "priority") {
+        await workApi.updateTask(t.id, { priority: (col.key || null) as any });
+      } else if (group === "assignee") {
+        await workApi.updateTask(t.id, { assigneeIds: col.key === "none" ? [] : [Number(col.key.slice(1))] });
+      } else if (groupField) {
+        await workApi.setFieldValue(t.id, groupField.id, col.key ? (groupField.type === "labels" ? [col.key] : col.key) : null);
+        await qc.invalidateQueries({ queryKey: ["work", "loc-field-values"] });
+      }
+      await qc.invalidateQueries({ queryKey: ["work", "loc-tasks"] });
+    } catch (e: any) { toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't move it."); }
+  };
+
   if (isError) return <p className="p-10 text-center text-[13px] text-muted-foreground">You don&apos;t have access to this channel&apos;s location.</p>;
   if (isLoading || !data) return <div className="p-6"><div className="h-40 animate-pulse rounded-xl bg-muted" /></div>;
+  const shownFields = fields.filter((f) => f.id !== groupField?.id).slice(0, 8);
+  const fieldRows = (t: LocationTask) => shownFields.map((f) => ({ f, v: values[t.id]?.[f.id] })).filter((x) => x.v !== undefined && x.v !== null && x.v !== "" && !(Array.isArray(x.v) && !x.v.length)).slice(0, 4);
+  const showVal = (f: (typeof fields)[number], v: unknown) => {
+    const opts = f.config?.options ?? [];
+    if (f.type === "dropdown") { const o = opts.find((x) => x.id === v); return o ? <span className="rounded px-1.5 py-px text-[11px] font-semibold text-white" style={{ background: o.color }}>{o.name}</span> : null; }
+    if (f.type === "labels") return <span className="flex flex-wrap gap-1">{(v as string[]).map((id) => opts.find((x) => x.id === id)).filter(Boolean).map((o) => <span key={o!.id} className="rounded px-1.5 py-px text-[11px] font-semibold" style={{ background: `${o!.color}22`, color: o!.color }}>{o!.name}</span>)}</span>;
+    if (f.type === "checkbox") return <Check className="h-3.5 w-3.5 text-primary" />;
+    if (f.type === "date") return <span>{new Date(String(v)).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>;
+    if (f.type === "location") return <span className="truncate">{String((v as any)?.address ?? "")}</span>;
+    if (f.type === "people") return <span>{(v as number[]).length} people</span>;
+    return <span className="truncate">{String(v)}</span>;
+  };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
     <div className="flex items-center gap-2 px-4 pt-3">
@@ -186,23 +247,39 @@ export function LocationBoard({ src, view, canEdit = false }: { src: LocSrc; vie
         Group:
         <select aria-label="Group board by" value={group} onChange={(e) => void setGroup(e.target.value)} className="bg-transparent text-foreground outline-none">
           <option value="status">Status</option><option value="assignee">Assignee</option><option value="priority">Priority</option>
+          {groupFields.map((f) => <option key={f.id} value={`field:${f.id}`}>{f.name}</option>)}
         </select>
       </label>
+      {canEdit && <span className="text-[12px] text-muted-foreground">Drag a card to another column to change it.</span>}
     </div>
     <div className="flex min-h-0 flex-1 gap-3 overflow-auto p-4">
-      {columns.filter((c) => c.items.length || columns.length <= 6).map((c) => (
-        <section key={c.name} aria-label={c.name} className="flex min-w-[236px] max-w-[340px] shrink-0 grow basis-[236px] flex-col rounded-xl border border-border bg-table-head" style={{ borderTopColor: c.color, borderTopWidth: 3 }}>
+      {columns.filter((c) => c.items.length || columns.length <= 6 || groupField).map((c) => (
+        <section key={c.key || c.name} aria-label={c.name}
+          onDragOver={(e) => { if (dragId != null && canEdit) { e.preventDefault(); setOverCol(c.key); } }}
+          onDragLeave={() => setOverCol((o) => (o === c.key ? null : o))}
+          onDrop={(e) => { e.preventDefault(); void drop(c); }}
+          className={cn("flex min-w-[236px] max-w-[340px] shrink-0 grow basis-[236px] flex-col rounded-xl border bg-table-head transition-colors", overCol === c.key && dragId != null ? "border-primary/60 ring-2 ring-primary/15" : "border-border")} style={{ borderTopColor: c.color, borderTopWidth: 3 }}>
           <header className="flex items-center gap-2 px-3 py-2.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} /><span className="truncate text-[12.5px] font-bold uppercase tracking-[0.05em]" style={{ color: c.color }}>{c.name}</span><span className="ml-auto text-[12px] text-muted-foreground">{c.items.length}</span></header>
           <ul className="flex max-h-[calc(100vh-300px)] min-h-[60px] flex-col gap-2 overflow-y-auto px-2.5 pb-2.5">
             {c.items.map((t) => (
-              <li key={t.id}>
-                <button type="button" onClick={() => setOpen(t.uid)} className="block w-full rounded-lg border border-border bg-card p-3 text-left shadow-[0_1px_2px_rgb(11_42_31/0.05)] transition hover:border-primary/30 hover:shadow-md">
-                  <span className="block truncate text-[11.5px] text-muted-foreground">{t.list.name}</span>
+              <li key={`${c.key}-${t.id}`}>
+                <button type="button" draggable={canEdit} onDragStart={() => setDragId(t.id)} onDragEnd={() => { setDragId(null); setOverCol(null); }} onClick={() => setOpen(t.uid)}
+                  className={cn("block w-full rounded-lg border border-border bg-card p-3 text-left shadow-[0_1px_2px_rgb(11_42_31/0.05)] transition hover:border-primary/30 hover:shadow-md", canEdit && "cursor-grab active:cursor-grabbing", dragId === t.id && "opacity-50")}>
+                  <span className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+                    <span className="truncate">{t.list.name}</span>
+                    {group !== "status" && t.status && <span className="ml-auto shrink-0 rounded px-1.5 py-px text-[10.5px] font-bold uppercase text-white" style={{ background: t.status.color }}>{t.status.name}</span>}
+                  </span>
                   <span className={cn("mt-0.5 block text-[13.5px] font-medium leading-snug", t.completedAt && "text-muted-foreground line-through")}>{t.name}</span>
+                  {fieldRows(t).length > 0 && (
+                    <span className="mt-2 block space-y-1 text-[12px] text-muted-foreground">
+                      {fieldRows(t).map(({ f, v }) => <span key={f.id} className="flex min-w-0 items-center gap-1.5"><span className="w-[72px] shrink-0 truncate text-[11px]">{f.name}</span><span className="min-w-0 truncate text-foreground">{showVal(f, v)}</span></span>)}
+                    </span>
+                  )}
                   <span className="mt-2.5 flex items-center gap-2.5 text-[12px]"><span className="flex -space-x-1.5">{t.assignees.slice(0, 3).map((a) => <Avatar key={a.id} user={a} size={22} />)}</span>{t.dueDate && <span className="inline-flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" /><Due t={t} /></span>}<span className="ml-auto">{t.priority && <PriorityFlag priority={t.priority as any} />}</span></span>
                 </button>
               </li>
             ))}
+            {!c.items.length && <li className="flex h-14 items-center justify-center rounded-lg border border-dashed border-border text-[12px] text-muted-foreground">{dragId != null && canEdit ? "Drop here" : "No tasks"}</li>}
           </ul>
         </section>
       ))}

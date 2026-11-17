@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Columns3, ExternalLink, FileText, List as ListIcon, ListChecks, Lock, MessageSquare, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Columns3, ExternalLink, FileText, List as ListIcon, ListChecks, Lock, MessageSquare, MoreHorizontal, Pencil, Plus, Search, Trash2, Copy } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,8 @@ const KIND: Record<ChannelViewKind, { label: string; icon: typeof ListIcon; hint
 const err = (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Something went wrong.");
 
 /** tab bar under the channel header: Chat + List / Board / Doc views (ClickUp "Channel Views") */
+const KIND_COLOR: Record<ChannelViewKind, string> = { list: "#475569", board: "#2563EB", doc: "#2563EB" };
+
 export function ChannelViewTabs({ uid, views, active, canEdit, onSelect, builtins = [] }: { uid: string; views: ChannelViewTab[]; active: number | string | null; canEdit: boolean; onSelect: (id: number | string | null) => void; builtins?: { id: string; label: string; icon: typeof ListIcon }[] }) {
   const ws = useWs();
   const qc = useQueryClient();
@@ -38,32 +40,62 @@ export function ChannelViewTabs({ uid, views, active, canEdit, onSelect, builtin
   const refresh = () => qc.invalidateQueries({ queryKey: channelViewsKey(uid) });
   const remove = useMutation({ mutationFn: (id: number) => workApi.deleteChannelView(id), onSuccess: (_, id) => { if (active === id) onSelect(null); refresh(); toast.success("View removed"); }, onError: err });
   const reorder = useMutation({ mutationFn: (ids: number[]) => workApi.reorderChannelViews(uid, ids), onSuccess: (rows) => qc.setQueryData(channelViewsKey(uid), rows), onError: err });
+  // drag a tab to reorder (same as saved views)
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [overId, setOverId] = useState<number | null>(null);
+  const dropOn = (target: number) => {
+    const from = dragId;
+    setDragId(null); setOverId(null);
+    if (from == null || from === target) return;
+    const ids = views.map((v) => v.id).filter((x) => x !== from);
+    const fromIdx = views.findIndex((v) => v.id === from), toIdx = views.findIndex((v) => v.id === target);
+    const at = ids.indexOf(target);
+    ids.splice(toIdx > fromIdx ? at + 1 : at, 0, from);
+    qc.setQueryData<ChannelViewTab[]>(channelViewsKey(uid), (rows) => ids.map((id) => rows!.find((r) => r.id === id)!).filter(Boolean));
+    reorder.mutate(ids);
+  };
+  const duplicate = async (v: ChannelViewTab) => {
+    try {
+      const c = await workApi.addChannelView(uid, { kind: v.kind, name: `${v.name} copy`.slice(0, 60), ...(v.list ? { listId: v.list.id } : {}) });
+      if (v.kind === "doc" && v.content) await workApi.updateChannelView(c.id, { content: v.content });
+      await refresh();
+      onSelect(c.id);
+    } catch (e) { err(e); }
+  };
   const move = (i: number, d: -1 | 1) => {
     const ids = views.map((v) => v.id);
     const [x] = ids.splice(i, 1);
     ids.splice(i + d, 0, x!);
     reorder.mutate(ids);
   };
-  const tab = (id: number | string | null, label: string, Icon: typeof ListIcon, locked?: boolean) => (
-    <button type="button" role="tab" aria-selected={active === id} onClick={() => onSelect(id)} className={cn("-mb-px flex h-9 items-center gap-1.5 border-b-2 px-2.5 text-[12.5px] font-medium", active === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
-      <Icon className="h-3.5 w-3.5" /> <span className="max-w-[160px] truncate">{label}</span> {locked && <Lock className="h-3 w-3" aria-label="No access" />}
+  const tab = (id: number | string | null, label: string, Icon: typeof ListIcon, locked?: boolean, color?: string, roomForMenu?: boolean) => (
+    <button type="button" role="tab" aria-selected={active === id} onClick={() => onSelect(id)} className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors", active === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground", roomForMenu && "pr-7")}>
+      <Icon className="h-4 w-4" style={color ? { color } : undefined} /> <span className="max-w-[160px] truncate">{label}</span> {locked && <Lock className="h-3 w-3" aria-label="No access" />}
     </button>
   );
   return (
     <div className="flex items-center gap-0.5 overflow-x-auto border-b border-border bg-card px-4">
       <div role="tablist" aria-label="Channel views" className="flex items-center gap-0.5">
-        {tab(null, "Chat", MessageSquare)}
+        {tab(null, "Chat", MessageSquare, false, "#0f766e")}
         {builtins.map((b) => <span key={b.id}>{tab(b.id, b.label, b.icon)}</span>)}
         {views.map((v, i) => (
-          <div key={v.id} className="group flex items-center">
-            {tab(v.id, v.name, KIND[v.kind].icon, v.locked)}
+          <div key={v.id} className={cn("group relative flex items-center rounded-t-md", dragId === v.id && "opacity-40", overId === v.id && dragId != null && dragId !== v.id && "bg-primary/10")}
+            draggable={canEdit}
+            onDragStart={(e) => { setDragId(v.id); e.dataTransfer.effectAllowed = "move"; }}
+            onDragOver={(e) => { if (dragId != null) { e.preventDefault(); setOverId(v.id); } }}
+            onDragLeave={() => setOverId((o) => (o === v.id ? null : o))}
+            onDrop={(e) => { e.preventDefault(); dropOn(v.id); }}
+            onDragEnd={() => { setDragId(null); setOverId(null); }}
+            title={canEdit ? "Drag to reorder" : undefined}>
+            {tab(v.id, v.name, KIND[v.kind].icon, v.locked, KIND_COLOR[v.kind], canEdit)}
             {canEdit && (
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <button type="button" aria-label={`${v.name} view options`} className={cn("rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:visible", active === v.id ? "visible" : "invisible group-hover:visible")}><MoreHorizontal className="h-3.5 w-3.5" /></button>
+                  <button type="button" aria-label={`${v.name} view options`} className={cn("absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:visible", active === v.id ? "visible" : "invisible group-hover:visible")}><MoreHorizontal className="h-3.5 w-3.5" /></button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48">
                   <DropdownMenuItem onClick={() => setRenaming(v)}><Pencil className="mr-2 h-4 w-4" /> Rename</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void duplicate(v)}><Copy className="mr-2 h-4 w-4" /> Duplicate</DropdownMenuItem>
                   {i > 0 && <DropdownMenuItem onClick={() => move(i, -1)}><ArrowLeft className="mr-2 h-4 w-4" /> Move left</DropdownMenuItem>}
                   {i < views.length - 1 && <DropdownMenuItem onClick={() => move(i, 1)}><ArrowRight className="mr-2 h-4 w-4" /> Move right</DropdownMenuItem>}
                   {v.list && <DropdownMenuItem asChild><Link href={`/work/${ws}/list/${v.list.uid}`}><ExternalLink className="mr-2 h-4 w-4" /> Open list</Link></DropdownMenuItem>}
