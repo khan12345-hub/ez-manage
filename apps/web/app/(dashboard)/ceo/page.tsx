@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowRight, AtSign, CalendarClock, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, FileDown, Inbox, KeyRound, LayoutGrid, Settings2, ThumbsDown, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, AtSign, CalendarClock, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, LayoutDashboard, FileDown, Inbox, KeyRound, LayoutGrid, Settings2, ThumbsDown, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -30,10 +30,13 @@ import { TrendsCard } from "./_components/TrendsCard";
 import { SettingsDialog } from "./_components/SettingsDialog";
 import { TaskPopup, useTaskPopup } from "./_components/TaskPopup";
 import { BriefCard } from "./_components/BriefCard";
+import { CeoDashboard } from "./_components/CeoDashboard";
 
-type View = "portfolio" | "tasks" | "team" | "boards" | "work" | "meetings" | "email" | "ai";
+type View = "dashboard" | "portfolio" | "management" | "tasks" | "team" | "boards" | "work" | "meetings" | "email" | "ai";
 const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean }[] = [
-  { id: "portfolio", label: "Portfolio", icon: Building2, ready: true },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, ready: true },
+  { id: "portfolio", label: "Companies & Portfolio", icon: Building2, ready: true },
+  { id: "management", label: "Management & Teams", icon: Crown, ready: true },
   { id: "tasks", label: "Tasks", icon: ListChecks, ready: true },
   { id: "team", label: "Team", icon: Users, ready: true },
   { id: "boards", label: "Boards", icon: LayoutGrid, ready: true },
@@ -70,7 +73,19 @@ function Panel({ icon: Icon, title, kicker, badge, children, footer }: { icon: t
 export default function CeoTowerPage() {
   const { user } = useAuth();
   const access = useCeoAccess();
-  const [view, setView] = useState<View>("portfolio");
+  const [view, setViewState] = useState<View>("dashboard");
+  // the open view lives in the URL (?view=…) so a reload or a shared link lands on the same page
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("view") as View | null;
+    if (v && VIEWS.some((x) => x.id === v)) setViewState(v);
+  }, []);
+  const setView = (v: View) => {
+    setViewState(v);
+    const u = new URL(window.location.href);
+    if (v === "dashboard") u.searchParams.delete("view"); else u.searchParams.set("view", v);
+    window.history.replaceState(null, "", u.toString());
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const [source, setSource] = useState<CeoSource>("all");
   const [company, setCompany] = useState<CeoCompany | null>(null);
   const [q, setQ] = useState("");
@@ -204,8 +219,8 @@ export default function CeoTowerPage() {
         <div className="grid gap-4 p-5 lg:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="h-[520px] animate-pulse rounded-2xl bg-muted" />)}</div>
       ) : (
         <div className="space-y-4 p-5">
-          {/* KPIs */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8" role="list" aria-label="Key numbers">
+          {/* KPIs (the Dashboard has its own animated ones) */}
+          {view === "portfolio" && <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8" role="list" aria-label="Key numbers">
             {([
               ["Companies", data.kpis.companies, `${data.owned.boards} Boards · ${data.owned.work} Work`, ""],
               ["People", data.kpis.people, "across your companies", ""],
@@ -222,28 +237,63 @@ export default function CeoTowerPage() {
                 <p className="mt-1 truncate text-[11.5px] text-muted-foreground">{sub}</p>
               </div>
             ))}
-          </div>
+          </div>}
 
-          {view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} />
+          {view === "dashboard" ? <CeoDashboard data={data} source={source} company={company?.key ?? null} onFocus={(c) => setCompany(company?.key === c.key ? null : c)} onOpen={(c) => setPanel({ company: c, start: { tab: "tasks", state: "open" } })} onView={(v) => setView(v)} />
+            : view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} />
             : view === "meetings" ? <MeetingsView />
             : view === "email" ? <EmailView />
             : view === "team" ? <TeamView source={source} company={company?.key ?? null} companies={companies} />
             : view === "boards" || view === "work" ? <ProductView product={view} company={company?.source === view ? company.key : null} companies={companies} />
-            : view === "tasks" ? <TasksView key={tasksMine ? "mine" : "all"} source={source} company={company?.key ?? null} overview={data} initialMine={tasksMine} /> : (
+            : view === "tasks" ? <TasksView key={tasksMine ? "mine" : "all"} source={source} company={company?.key ?? null} overview={data} initialMine={tasksMine} /> :
+          view === "management" ? (
+          <div className="grid gap-4 xl:grid-cols-[1.7fr_1fr]">
+            <Panel icon={Users} title="Management & Teams" kicker="Managers and their teams" badge={<span className="flex items-center gap-1.5"><span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{data.kpis.people} people</span><button type="button" onClick={() => setManaging(true)} className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/25 hover:bg-primary/5">Manage</button></span>}
+              footer={<span className="flex flex-wrap items-center justify-between gap-2"><span>Your open tasks: <strong className="text-destructive">{data.ceoTasks?.open ?? 0}</strong>{data.ceoTasks?.overdue ? <span className="text-destructive"> · {data.ceoTasks.overdue} overdue</span> : null}</span><span className="flex gap-3"><button type="button" onClick={() => { setTasksMine(true); setView("tasks"); }} className="font-semibold text-primary hover:underline">View CEO tasks →</button><button type="button" onClick={() => { setTasksMine(false); setView("tasks"); }} className="font-semibold text-muted-foreground hover:text-foreground hover:underline">All tasks</button></span></span>}>
+              <div className="mb-3 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-1.5 text-[11.5px] font-semibold">
+                <span className="flex items-center gap-1.5 text-destructive"><span className="h-2 w-2 rounded-full bg-destructive" />Overdue</span>
+                <span className="flex items-center gap-1.5 text-[#8a6a35] dark:text-[#d9bd8c]"><span className="h-2 w-2 rounded-full bg-[#b08d57]" />Working on</span>
+                <span className="flex items-center gap-1.5 text-primary"><span className="h-2 w-2 rounded-full bg-primary" />Done · 7d</span>
+              </div>
+              <ManagementList source={source} company={company?.key ?? null} meId={user?.id} onMessage={(p) => setMessageTo(p)} onAssign={(id) => setAssignTo(id)} />
+            </Panel>
+            <div className="flex flex-col gap-4">
+              <Panel icon={BarChart3} title="Master Updates" kicker="What moved this week" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] text-primary ring-1 ring-primary/25">Live</span>}>
+                <BriefCard />
+                <h3 className="mb-1.5 mt-4 text-[12px] font-semibold text-muted-foreground">Finished · last 7 days</h3>
+                <ul aria-label="Recent updates" className="space-y-1.5">
+                  {data.updates.slice(0, 8).map((u) => (
+                    <li key={`${u.source}-${u.task.id}`} className="flex items-start gap-2 text-[12.5px]"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /><span className="min-w-0 flex-1"><strong className="font-semibold">{u.people.join(", ") || "Someone"}</strong> finished <button type="button" onClick={() => showTask(u.source, u.task.id)} className="text-left font-medium hover:text-primary hover:underline">{u.task.name}</button> <span className="text-muted-foreground">· {u.company} / {u.where}</span></span><span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">{ago(u.at)}</span></li>
+                  ))}
+                  {!data.updates.length && <li className="text-[12.5px] text-muted-foreground">Nothing finished in the last 7 days.</li>}
+                </ul>
+              </Panel>
+              <Panel icon={Bot} title="Ask Executive AI" kicker="Live data · acts only after you confirm">
+                <div className="flex flex-wrap gap-1.5">
+                  {aiPrompts(data, user?.id).slice(0, 4).map((c) => <button key={c} type="button" onClick={() => askAi(c)} className="rounded-lg border border-border px-2.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground">{c}</button>)}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <input value={aiText} onChange={(e) => setAiText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && askAi(aiText)} placeholder="Ask AI: e.g. Who is falling behind today?" aria-label="Ask AI" className="h-10 flex-1 rounded-xl border border-border bg-background px-3 text-[13px] outline-none focus:border-primary/50" />
+                  <button type="button" aria-label="Ask AI" onClick={() => askAi(aiText)} disabled={!aiText.trim()} className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest text-forest-foreground disabled:opacity-40 dark:bg-primary dark:text-primary-foreground"><ArrowRight className="h-4 w-4" /></button>
+                </div>
+              </Panel>
+            </div>
+          </div>
+          ) : (
           <>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {/* companies */}
-            <Panel icon={Building2} title="Companies & Portfolio" kicker={access.canShare ? "Every company you own" : "Every company shared with you"} badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{companies.length} active</span>}
-              footer={<span className="flex items-center justify-between"><span>Scope: <strong>{company ? company.name : `All ${companies.length} companies`}</strong></span>{company && <button type="button" onClick={() => setCompany(null)} className="font-semibold text-primary hover:underline">Reset</button>}</span>}>
-              <p className="mb-2 text-[12.5px] text-muted-foreground">Click a company to focus the whole tower on it.</p>
-              <label className="mb-3 flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-2.5"><Search className="h-3.5 w-3.5 text-muted-foreground" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search company by name" aria-label="Search companies" className="w-full bg-transparent text-[13px] outline-none" /></label>
-              <ul aria-label="Companies" className="space-y-2.5">
+          <section aria-label="Companies & Portfolio" className="rounded-[24px] border border-white/70 bg-white/55 p-4 shadow-[0_16px_48px_-28px_rgba(11,42,31,0.4)] backdrop-blur-xl sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <header className="mb-4 flex flex-wrap items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest text-brass-soft"><Building2 className="h-4.5 w-4.5" /></span>
+              <span className="min-w-0 flex-1"><span className="block text-[17px] font-semibold leading-tight">{access.canShare ? "Every company you own" : "Every company shared with you"}</span><span className="block text-[12px] text-muted-foreground">Click a company to focus the whole tower on it · {company ? <>Scope: <strong>{company.name}</strong> <button type="button" onClick={() => setCompany(null)} className="font-semibold text-primary hover:underline">Reset</button></> : `${companies.length} active`}</span></span>
+              <label className="flex h-10 w-full items-center gap-2 rounded-xl border border-border bg-background px-3 sm:w-[280px]"><Search className="h-4 w-4 text-muted-foreground" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search company by name" aria-label="Search companies" className="w-full bg-transparent text-[13px] outline-none" /></label>
+            </header>
+            <ul aria-label="Companies" className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
                 {shown.map((c) => {
                   const h = HEALTH[c.health];
                   const on = company?.key === c.key;
                   return (
                     <li key={c.key}>
-                      <div className={cn("rounded-xl border p-3.5 transition-colors", on ? "border-primary/50 bg-primary/5" : c.health === "critical" ? "border-destructive/30 bg-destructive/[0.03]" : "border-border hover:border-primary/30")}>
+                      <div className={cn("h-full rounded-[20px] border bg-white/70 p-4 shadow-[0_12px_32px_-26px_rgba(11,42,31,0.5)] backdrop-blur-xl transition-all hover:-translate-y-0.5 dark:bg-white/[0.04]", on ? "border-primary/50 bg-primary/5" : c.health === "critical" ? "border-destructive/30 bg-destructive/[0.03]" : "border-border hover:border-primary/30")}>
                         <button type="button" onClick={() => setCompany(on ? null : c)} aria-pressed={on} className="block w-full text-left">
                           <span className="flex items-center gap-2"><span className={cn("h-2 w-2 shrink-0 rounded-full", h.dot)} /><span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{c.name}</span><SourceBadge source={c.source} /><span className={cn("rounded-full px-2 py-0.5 text-[10.5px] font-semibold ring-1", h.cls)}>{h.label}</span></span>
                           <span className="mt-0.5 block truncate pl-4 text-[11.5px] text-muted-foreground">Lead: <span className="font-medium text-foreground/80">{c.leads?.length ? c.leads.join(" / ") : "you"}</span></span>
@@ -261,51 +311,9 @@ export default function CeoTowerPage() {
                     </li>
                   );
                 })}
-                {!shown.length && <li className="py-6 text-center text-[12.5px] text-muted-foreground">No company matches.</li>}
+                {!shown.length && <li className="col-span-full py-6 text-center text-[12.5px] text-muted-foreground">No company matches.</li>}
               </ul>
-            </Panel>
-
-            {/* people */}
-            <Panel icon={Users} title="Management & Teams" kicker="Managers and their teams" badge={<span className="flex items-center gap-1.5"><span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] ring-1 ring-border">{data.kpis.people} people</span><button type="button" onClick={() => setManaging(true)} className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/25 hover:bg-primary/5">Manage</button></span>}
-              footer={<span className="flex flex-wrap items-center justify-between gap-2"><span>Your open tasks: <strong className="text-destructive">{data.ceoTasks?.open ?? 0}</strong>{data.ceoTasks?.overdue ? <span className="text-destructive"> · {data.ceoTasks.overdue} overdue</span> : null}</span><span className="flex gap-3"><button type="button" onClick={() => { setTasksMine(true); setView("tasks"); }} className="font-semibold text-primary hover:underline">View CEO tasks →</button><button type="button" onClick={() => { setTasksMine(false); setView("tasks"); }} className="font-semibold text-muted-foreground hover:text-foreground hover:underline">All tasks</button></span></span>}>
-              <div className="mb-3 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-1.5 text-[11.5px] font-semibold">
-                <span className="flex items-center gap-1.5 text-destructive"><span className="h-2 w-2 rounded-full bg-destructive" />Overdue</span>
-                <span className="flex items-center gap-1.5 text-[#8a6a35] dark:text-[#d9bd8c]"><span className="h-2 w-2 rounded-full bg-[#b08d57]" />Working on</span>
-                <span className="flex items-center gap-1.5 text-primary"><span className="h-2 w-2 rounded-full bg-primary" />Done · 7d</span>
-              </div>
-              <ManagementList source={source} company={company?.key ?? null} meId={user?.id} onMessage={(p) => setMessageTo(p)} onAssign={(id) => setAssignTo(id)} />
-            </Panel>
-
-            {/* updates + AI */}
-            <div className="flex flex-col gap-4">
-              <Panel icon={BarChart3} title="Master Updates" kicker="What moved this week" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] text-primary ring-1 ring-primary/25">Live</span>}>
-                <BriefCard />
-                <h3 className="mb-1.5 mt-4 text-[12px] font-semibold text-muted-foreground">Finished · last 7 days</h3>
-                <ul aria-label="Recent updates" className="space-y-1.5">
-                  {data.updates.slice(0, 6).map((u) => (
-                    <li key={`${u.source}-${u.task.id}`} className="flex items-start gap-2 text-[12.5px]"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /><span className="min-w-0 flex-1"><strong className="font-semibold">{u.people.join(", ") || "Someone"}</strong> finished <button type="button" onClick={() => showTask(u.source, u.task.id)} className="text-left font-medium hover:text-primary hover:underline">{u.task.name}</button> <span className="text-muted-foreground">· {u.company} / {u.where}</span></span><span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">{ago(u.at)}</span></li>
-                  ))}
-                  {!data.updates.length && <li className="text-[12.5px] text-muted-foreground">Nothing finished in the last 7 days.</li>}
-                </ul>
-                <h3 className="mb-1.5 mt-4 text-[12px] font-semibold text-muted-foreground">Most overdue</h3>
-                <ul aria-label="Most overdue" className="space-y-1.5">
-                  {data.attention.overdue.slice(0, 5).map((o) => (
-                    <li key={`${o.source}-${o.task.id}`} className="flex items-start gap-2 text-[12.5px]"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" /><span className="min-w-0 flex-1"><button type="button" onClick={() => showTask(o.source, o.task.id)} className="text-left font-medium hover:text-primary hover:underline">{o.task.name}</button> <span className="text-muted-foreground">· {o.people.join(", ") || "unassigned"} · {o.company}</span></span><span className="shrink-0 font-mono text-[10.5px] font-semibold text-destructive">{fmtDate(o.due)}</span></li>
-                  ))}
-                  {!data.attention.overdue.length && <li className="text-[12.5px] text-muted-foreground">Nothing overdue. 👏</li>}
-                </ul>
-              </Panel>
-              <Panel icon={Bot} title="Ask Executive AI" kicker="Live data · acts only after you confirm" badge={<span className="rounded-full px-2.5 py-0.5 font-mono text-[11px] text-primary ring-1 ring-primary/25">Ready</span>}>
-                <div className="flex flex-wrap gap-1.5">
-                  {aiPrompts(data, user?.id).slice(0, 4).map((c) => <button key={c} type="button" onClick={() => askAi(c)} className="rounded-lg border border-border px-2.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground">{c}</button>)}
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <input value={aiText} onChange={(e) => setAiText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && askAi(aiText)} placeholder="Ask AI: e.g. Who is falling behind today?" aria-label="Ask AI" className="h-10 flex-1 rounded-xl border border-border bg-background px-3 text-[13px] outline-none focus:border-primary/50" />
-                  <button type="button" aria-label="Ask AI" onClick={() => askAi(aiText)} disabled={!aiText.trim()} className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest text-forest-foreground disabled:opacity-40 dark:bg-primary dark:text-primary-foreground"><ArrowRight className="h-4 w-4" /></button>
-                </div>
-              </Panel>
-            </div>
-          </div>
+          </section>
           <div className="mt-4"><TrendsCard source={source} company={company?.key ?? null} /></div>
           </>
           )}
