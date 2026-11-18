@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { CalendarDays, MessageSquare, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRIORITY_META, userName, workApi, type FieldValues, type WorkField, type WorkListDetail, type WorkPriority, type WorkTask } from "@/services/work.api";
-import { AvatarStack, DueLabel, PriorityFlag, StatusGlyph } from "./primitives";
+import { AvatarStack, DueLabel, PriorityFlag, StatusGlyph, onColor } from "./primitives";
 import { useCreateTask, useUpdateTask } from "./hooks";
 import { FIELD_META, FieldDisplay } from "./CustomFields";
 
@@ -164,7 +164,7 @@ export function BoardView({
                     )}
                   >
                     {groupBy !== "status" && st && (
-                      <span className="mb-1 inline-flex items-center gap-1 rounded px-1.5 py-px text-[10.5px] font-bold uppercase tracking-[0.04em] text-white" style={{ background: st.color }}>{st.name}</span>
+                      <span className="mb-1 inline-flex items-center gap-1 rounded px-1.5 py-px text-[10.5px] font-bold uppercase tracking-[0.04em]" style={{ background: st.color, color: onColor(st.color) }}>{st.name}</span>
                     )}
                     <p className={cn("text-[13.5px] font-medium leading-snug text-foreground", t.completedAt && "text-muted-foreground line-through decoration-muted-foreground/40")}>{t.name}</p>
                     {shownFields.length > 0 && (

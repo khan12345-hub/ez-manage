@@ -748,6 +748,10 @@ body {
 }
 .dark .work-ui .work-body { background-color: var(--background); }
 @media (max-width: 767px) { .work-ui .work-body { border-top-left-radius: 0; } }
+/* coloured text on a soft tint of the same colour (status pills, tags, icon tiles); set --c inline.
+   In dark mode the text is lifted toward white so dark brand colours stay readable on dark cards. */
+.ez-tint { color: var(--c); background-color: color-mix(in srgb, var(--c) 12%, transparent); }
+.dark .ez-tint { color: color-mix(in srgb, var(--c) 55%, white); background-color: color-mix(in srgb, var(--c) 24%, transparent); }
 
 /* Small CAPS labels (section titles like DESCRIPTION, kickers): plain Inter, not typewriter */
 .font-mono.uppercase {

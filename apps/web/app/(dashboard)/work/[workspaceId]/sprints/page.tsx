@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,12 +35,9 @@ export default function SprintsPage() {
 
   return (
     <div className="flex h-full min-h-0">
-      <aside className="w-[290px] shrink-0 overflow-y-auto border-r border-border p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><Zap className="h-4.5 w-4.5" /></span>
-          <h1 className="flex-1 text-[19px] font-semibold">Sprints</h1>
-          <button type="button" onClick={() => setCreating(true)} className="flex h-8 items-center gap-1 rounded-lg bg-primary px-2.5 text-[12.5px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> New</button>
-        </div>
+      <aside className={cn("w-full shrink-0 overflow-y-auto border-r border-border p-4 md:block md:w-[290px]", sp.get("sprint") ? "hidden" : "block")}>
+        <PageHeader icon={Zap} title="Sprints"
+          actions={<button type="button" onClick={() => setCreating(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[13px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> New</button>} />
         {isLoading ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : !sprints.length ? (
           <p className="rounded-xl border border-dashed border-border p-4 text-center text-[12.5px] text-muted-foreground">No sprints yet. Create one, add tasks, then start it.</p>
         ) : (
@@ -56,7 +54,8 @@ export default function SprintsPage() {
           </ul>
         )}
       </aside>
-      <main className="min-w-0 flex-1 overflow-y-auto p-6">
+      <main className={cn("min-w-0 flex-1 overflow-y-auto p-4 md:block sm:p-6", sp.get("sprint") ? "block" : "hidden")}>
+        <button type="button" onClick={() => router.push(`/work/${ws}/sprints`)} className="mb-3 flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium md:hidden">‹ All sprints</button>
         {selected ? <SprintView key={selected} id={selected} ws={ws} sprints={sprints} /> : <p className="py-20 text-center text-muted-foreground">Create your first sprint to plan work in time boxes.</p>}
       </main>
       {creating && <NewSprint ws={ws} onClose={() => setCreating(false)} onCreated={(id) => { qc.invalidateQueries({ queryKey: ["work", "sprints", ws] }); pick(id); }} />}

@@ -611,7 +611,12 @@ export const workApi = {
   listTasks: (listId: number) => get<WorkTask[]>(`/work/lists/${listId}/tasks`),
   createTask: (listId: number, body: TaskInput & { name: string }) => post<WorkTask>(`/work/lists/${listId}/tasks`, body),
   getTask: (uid: string) => get<WorkTaskDetail>(`/work/tasks/${uid}`),
-  updateTask: (id: number, body: TaskInput) => patch<WorkTask>(`/work/tasks/${id}`, body),
+  updateTask: async (id: number, body: TaskInput) => {
+    const t = await patch<WorkTask & { autoTimer?: "started" | "stopped" | null }>(`/work/tasks/${id}`, body);
+    // a status change into / out of "in progress" starts / stops the timer on the server: tell the top-bar timer
+    if (t?.autoTimer && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("work:auto-timer", { detail: { state: t.autoTimer, taskId: id, name: t.name } }));
+    return t;
+  },
   archiveTask: (id: number) => del(`/work/tasks/${id}`),
 
   comments: (taskId: number) => get<WorkComment[]>(`/work/tasks/${taskId}/comments`),
@@ -667,8 +672,11 @@ export const workApi = {
   moveView: (uid: string, dir: "left" | "right") => post(`/work/views/${uid}/move`, { dir }),
   duplicateView: (uid: string) => post<SavedView>(`/work/views/${uid}/duplicate`),
   deleteView: (uid: string) => del(`/work/views/${uid}`),
+  /** Dashboards hub: every dashboard view in the workspace this person can open */
+  dashboards: (ws: string) => get<DashboardRow[]>(`/work/views/dashboards?ws=${encodeURIComponent(ws)}`),
 };
 
+export interface DashboardRow { uid: string; name: string; updatedAt: string; canEdit: boolean; location: { type: ViewLocation; uid: string; name: string; path: string; color: string } }
 export type ViewLocation = "list" | "folder" | "space";
 export interface SavedView { uid: string; kind: string; name: string; position: number; settings: Record<string, any> | null; createdById: number; updatedAt: string }
 

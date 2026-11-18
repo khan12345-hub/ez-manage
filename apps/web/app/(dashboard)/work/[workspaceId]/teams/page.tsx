@@ -1,10 +1,11 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Activity, Check, ChevronLeft, ChevronRight, LayoutGrid, List as ListIcon, Network, Plus, Search, Trash2, UserPlus, Users } from "lucide-react";
+import { Activity, Check, ChevronLeft, ChevronRight, LayoutGrid, List as ListIcon, Network, Plus, Search, Trash2, UserPlus, Users, UsersRound } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { userName, WORK_ROLE_META, workApi, type WorkPerson, type WorkRole, type WorkTeam } from "@/services/work.api";
@@ -50,27 +51,25 @@ function TeamsHub() {
 
   return (
     <div className="flex min-h-full w-full flex-col">
-      <header className="border-b border-border bg-card px-4 pt-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-[16px] font-semibold">Teams</h1>
-          <span className="text-[12.5px] text-muted-foreground">{dir?.people.length ?? "…"} people · {dir?.teams.length ?? "…"} teams</span>
-          <span className="flex-1" />
+      <div className="px-4 pt-4 sm:px-6">
+        <PageHeader icon={UsersRound} title="Teams" count={`${dir?.people.length ?? "…"} people · ${dir?.teams.length ?? "…"} teams`} actions={<>
           {(tab === "people" || tab === "org") && (
-            <label className="flex h-8 w-56 items-center gap-2 rounded-md border border-border px-2.5">
+            <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-border bg-card px-2.5 sm:w-56">
               <Search className="h-3.5 w-3.5 text-muted-foreground" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tab === "org" ? "Find a person" : "Search people"} aria-label="Search people" className="w-full bg-transparent text-[13px] outline-none" />
             </label>
           )}
-          {canManage && <button type="button" onClick={() => openInvite(true)} className="flex h-8 items-center gap-1.5 rounded-md bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground"><UserPlus className="h-3.5 w-3.5" /> Invite</button>}
-        </div>
-        <nav role="tablist" aria-label="Teams" className="mt-3 flex gap-1">
+          {canManage && <button type="button" onClick={() => openInvite(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"><UserPlus className="h-4 w-4" /> Invite</button>}
+        </>}>
+        <nav role="tablist" aria-label="Teams" className="-mb-px flex gap-1 overflow-x-auto border-b border-border">
           {TABS.map((t) => (
-            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => go(t.id)} className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-2.5 pb-2 text-[13px] font-medium", tab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => go(t.id)} className={cn("-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 pb-2 text-[13px] font-medium", tab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
               <t.icon className="h-3.5 w-3.5" /> {t.label}
             </button>
           ))}
         </nav>
-      </header>
+        </PageHeader>
+      </div>
 
       <div className="flex-1 px-4 py-5 sm:px-6">
         {!dir ? (

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PageHeader } from "../../_components/PageHeader";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -60,22 +61,16 @@ export default function WorkNotificationSettingsPage() {
       <Link href={`/work/${workspaceId}/inbox`} className="mb-3 flex w-fit items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Back to Inbox
       </Link>
-      <header className="mb-5">
-        <p className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-product-work" aria-hidden /> Work
-        </p>
-        <h1 className="font-serif text-[34px] leading-tight tracking-tight">Notification settings</h1>
-        <p className="text-[13px] text-muted-foreground">Choose where each kind of Work update reaches you. These settings are only for Work; Boards has its own.</p>
-      </header>
+      <PageHeader icon={Bell} title="Notification settings" subtitle="Choose where each kind of Work update reaches you. These settings are only for Work; Boards has its own." />
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgb(11_42_31/0.04),0_12px_32px_-20px_rgb(11_42_31/0.25)]">
-        <div className="grid grid-cols-[minmax(260px,1fr)_110px_110px_110px] items-center border-b border-border bg-table-head px-5 py-2.5">
+        <div className="grid grid-cols-[minmax(0,1fr)_52px_52px_52px] sm:grid-cols-[minmax(260px,1fr)_110px_110px_110px] items-center border-b border-border bg-table-head px-3 py-2.5 sm:px-5">
           <span className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">Notify me about</span>
           {CHANNELS.map((c) => {
             const allOn = KINDS.every((k) => prefOf(k.kind)[c.key]);
             return (
               <button key={c.key} type="button" onClick={() => setAll(c.key, !allOn)} title={allOn ? `Turn ${c.label} off for all` : `Turn ${c.label} on for all`} className="flex items-center justify-center gap-1.5 text-[12.5px] font-semibold hover:text-primary">
-                <c.icon className="h-3.5 w-3.5 text-muted-foreground" /> {c.label}
+                <c.icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> <span className="sr-only sm:not-sr-only">{c.label}</span>
               </button>
             );
           })}
@@ -85,9 +80,9 @@ export default function WorkNotificationSettingsPage() {
           KINDS.map((k) => {
             const p = prefOf(k.kind);
             return (
-              <div key={k.kind} className="grid grid-cols-[minmax(260px,1fr)_110px_110px_110px] items-center border-b border-border/70 px-5 py-3 last:border-b-0">
+              <div key={k.kind} className="grid grid-cols-[minmax(0,1fr)_52px_52px_52px] sm:grid-cols-[minmax(260px,1fr)_110px_110px_110px] items-center border-b border-border/70 px-3 py-3 last:border-b-0 sm:px-5">
                 <span className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"><k.icon className="h-4 w-4" /></span>
+                  <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground sm:flex"><k.icon className="h-4 w-4" /></span>
                   <span className="min-w-0">
                     <span className="block text-[14px] font-medium">{k.label}</span>
                     <span className="block truncate text-[12.5px] text-muted-foreground">{k.hint}</span>

@@ -42,7 +42,30 @@ export function CalendarGrid({ month, onMonth, items, onOpen, toolbar, aside }: 
             <button type="button" aria-label="Next month" onClick={() => shift(1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground"><ChevronRight className="h-4 w-4" /></button>
           </div>
         </header>
-        <div className="overflow-x-auto">
+        {/* phones: an agenda (days that have tasks) instead of a 7-column grid */}
+        <ul aria-label="Agenda" className="divide-y divide-border border-t border-border sm:hidden">
+          {days.filter((d) => d.getMonth() === month.getMonth() && ((byDay.get(key(d)) ?? []).length || key(d) === today)).map((d) => {
+            const list = byDay.get(key(d)) ?? [];
+            return (
+              <li key={key(d)} className={cn("flex gap-3 px-4 py-2.5", key(d) === today && "bg-primary/[0.05]")}>
+                <span className="w-11 shrink-0 text-center">
+                  <span className="block text-[10.5px] font-semibold uppercase text-muted-foreground">{d.toLocaleDateString("en-US", { weekday: "short" })}</span>
+                  <span className={cn("mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-[14px] font-semibold", key(d) === today && "bg-primary text-primary-foreground")}>{d.getDate()}</span>
+                </span>
+                <span className="min-w-0 flex-1 space-y-1 pt-0.5">
+                  {!list.length && <span className="block py-1 text-[12.5px] text-muted-foreground">Nothing due</span>}
+                  {list.map((t) => (
+                    <button key={t.id} type="button" onClick={() => onOpen(t.uid)} className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-medium", t.completedAt && "line-through opacity-60")} style={{ background: `${overdue(t) ? "#dc2626" : t.color ?? "#9CA3AF"}1a` }}>
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: overdue(t) ? "#dc2626" : t.color ?? "#9CA3AF" }} />
+                      <span className="truncate">{t.name}</span>
+                    </button>
+                  ))}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="hidden overflow-x-auto sm:block">
           <div className="min-w-[640px]">
             <div className="grid grid-cols-7 border-t border-border bg-muted/40">
               {WEEKDAYS.map((d) => <div key={d} className="py-2 text-center text-[11.5px] font-semibold text-muted-foreground">{d}</div>)}

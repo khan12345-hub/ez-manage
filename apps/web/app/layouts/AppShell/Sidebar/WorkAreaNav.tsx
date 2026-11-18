@@ -11,20 +11,23 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Activity, AtSign, CheckCheck, ChevronRight, Clock, ClipboardList, FilePlus2, FileText, Goal, History, Inbox, LayoutGrid,
-  Megaphone, Network, Plus, Search, UserRound, Users, UsersRound,
+  Megaphone, Network, Plus, Search, UserRound, Users, UsersRound, BarChart3, CalendarRange,
 } from "lucide-react";
+import { workApi } from "@/services/work.api";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useDirectory } from "@/app/(dashboard)/work/_components/people";
 import { useInboxCounts } from "@/app/(dashboard)/work/[workspaceId]/inbox/useInboxCounts";
 
-export type WorkArea = "home" | "inbox" | "teams" | "docs" | "forms" | "goals" | "timesheet";
+export type WorkArea = "home" | "inbox" | "planner" | "teams" | "dashboards" | "docs" | "forms" | "goals" | "timesheet";
 const INBOX_PATHS = ["inbox", "replies", "assigned-comments", "chat/posts", "chat/search"];
 
 /** which rail area a Work path belongs to */
 export function areaOf(pathname: string, ws: string): WorkArea {
   const base = `/work/${ws}`;
   if (INBOX_PATHS.some((p) => pathname === `${base}/${p}`)) return "inbox";
+  if (pathname.startsWith(`${base}/planner`)) return "planner";
+  if (pathname.startsWith(`${base}/dashboards`)) return "dashboards";
   if (pathname.startsWith(`${base}/teams`) || pathname.startsWith(`${base}/people`)) return "teams";
   if (pathname.startsWith(`${base}/docs`)) return "docs";
   if (pathname.startsWith(`${base}/forms`)) return "forms";
@@ -62,6 +65,7 @@ export function WorkAreaNav({ area, ws, pathname, search, canEdit, meId, onNavig
   const { data: dir } = useDirectory(area === "teams");
   const { data: docs = [] } = useQuery({ queryKey: ["work", "docs", ws], queryFn: async () => (await api.get<DocRow[]>(`/work/workspaces/${ws}/docs`)).data, enabled: area === "docs" });
   const { data: forms = [] } = useQuery({ queryKey: ["work", "forms", ws], queryFn: async () => (await api.get<FormRow[]>(`/work/workspaces/${ws}/forms`)).data, enabled: area === "forms" });
+  const { data: dashboards = [] } = useQuery({ queryKey: ["work", "dashboards", ws], queryFn: () => workApi.dashboards(ws), enabled: area === "dashboards" });
   const { data: goals = [] } = useQuery({ queryKey: ["work", "goals", ws], queryFn: async () => (await api.get<GoalRow[]>(`/work/workspaces/${ws}/goals`)).data, enabled: area === "goals" });
   const on = (p: string) => pathname === `${base}/${p}`;
   const router = useRouter();
@@ -150,6 +154,31 @@ export function WorkAreaNav({ area, ws, pathname, search, canEdit, meId, onNavig
         <p className={SECTION}>Goals</p>
         {!goals.length && <p className="px-3 py-1 text-[12.5px] text-muted-foreground">No goals yet.</p>}
         {goals.map((x) => <Item key={x.id} href={`${base}/goals?goal=${x.id}`} dot={x.color} label={x.name} count={`${Math.round(x.progress)}%`} active={g === x.id} onNavigate={onNavigate} />)}
+      </div>
+    );
+  }
+
+  if (area === "planner") {
+    return (
+      <div className="px-3 pb-3">
+        <Title icon={CalendarRange} label="Planner" />
+        <Item href={`${base}/planner`} icon={CalendarRange} label="My week" active={on("planner")} onNavigate={onNavigate} />
+        <Item href={`${base}?view=mine`} icon={UserRound} label="Assigned to me" onNavigate={onNavigate} />
+        <Item href={`${base}?view=today`} icon={Clock} label="Today & Overdue" onNavigate={onNavigate} />
+        <p className="px-3 pt-3 text-[12px] leading-relaxed text-muted-foreground">Drag tasks onto days to plan your week. Tasks without a date wait under Unscheduled.</p>
+      </div>
+    );
+  }
+
+  if (area === "dashboards") {
+    return (
+      <div className="px-3 pb-3">
+        <Title icon={BarChart3} label="Dashboards" />
+        <Item href={`${base}/dashboards`} icon={LayoutGrid} label="All dashboards" count={dashboards.length} active={on("dashboards")} onNavigate={onNavigate} />
+        {dashboards.length > 0 && <p className={SECTION}>Dashboards</p>}
+        {dashboards.slice(0, 20).map((d) => (
+          <Item key={d.uid} href={`${base}/${d.location.type}/${d.location.uid}?v=${d.uid}`} dot={d.location.color} label={`${d.name} · ${d.location.name}`} onNavigate={onNavigate} />
+        ))}
       </div>
     );
   }

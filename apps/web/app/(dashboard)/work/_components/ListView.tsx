@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatMinutes, workApi, workKeys, type WorkListDetail, type WorkTask } from "@/services/work.api";
-import { DueLabel, PriorityFlag, StatusGlyph, dueText } from "./primitives";
+import { DueLabel, PriorityFlag, StatusGlyph, dueText, onColor } from "./primitives";
 import { AssigneeCell, AssigneePicker, DatePicker, PriorityPicker, StatusPicker } from "./pickers";
 import { useCreateTask, useUpdateTask } from "./hooks";
 import { cfId, colMeta, groupTasks, isCf, sortTasks, type Col, type SortKey, type TaskGroup, type ViewSettings } from "./viewSettings";
@@ -38,9 +38,25 @@ import type { FieldValues, WorkField } from "@/services/work.api";
 import { NameDialog } from "./NameDialog";
 import { StatusesDialog } from "./StatusesDialog";
 
-const gridFor = (cols: Col[], fields: WorkField[]) => ({
-  gridTemplateColumns: `minmax(240px,1fr) ${cols.map((c) => `${colMeta(c, fields).width}px`).join(" ")}`,
+const gridFor = (cols: Col[], fields: WorkField[], phone = false) => ({
+  // phones: the name takes what is left and the two extra columns are narrow, so nothing scrolls sideways
+  gridTemplateColumns: phone
+    ? `minmax(0,1fr) ${cols.map(() => "72px").join(" ")}`
+    : `minmax(240px,1fr) ${cols.map((c) => `${colMeta(c, fields).width}px`).join(" ")}`,
 });
+
+/** true under 640px (Tailwind's sm breakpoint) */
+function usePhone() {
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const on = () => setPhone(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return phone;
+}
 
 /** ClickUp-style List view: grouped cards, configurable columns, editable rows. */
 export function ListView({
@@ -63,7 +79,12 @@ export function ListView({
   onFieldChange?: (taskId: number, fieldId: number, value: unknown) => void;
 }) {
   // drop columns of deleted custom fields
-  const columns = view.columns.filter((c) => !isCf(c) || fields.some((f) => f.id === cfId(c)));
+  const allColumns = view.columns.filter((c) => !isCf(c) || fields.some((f) => f.id === cfId(c)));
+  // phones: Name + Due + one more column (the first other built-in one), no sideways scroll
+  const phone = usePhone();
+  const columns: Col[] = phone
+    ? (["due", allColumns.find((c) => c !== "due" && !isCf(c)) ?? "assignee"] as Col[])
+    : allColumns;
   const canEdit = list.access.canEdit;
   const canManage = list.access.canManage;
   const update = useUpdateTask(list.id, list.statuses);
@@ -87,6 +108,7 @@ export function ListView({
     list,
     canEdit,
     columns,
+    phone,
     fields,
     fieldValues,
     onFieldChange,
@@ -121,8 +143,8 @@ export function ListView({
             <button type="button" aria-label={collapsed[g.key] ? `Expand ${g.label}` : `Collapse ${g.label}`} onClick={() => setCollapsed((c) => ({ ...c, [g.key]: !c[g.key] }))} aria-expanded={!collapsed[g.key]} className="rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground">
               {collapsed[g.key] ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
-            <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.06em] text-white shadow-sm" style={{ background: g.color }}>
-              {g.status && <StatusGlyph status={{ ...g.status, color: "#ffffff" }} size={11} />}
+            <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.06em] shadow-sm" style={{ background: g.color, color: onColor(g.color) }}>
+              {g.status && <StatusGlyph status={{ ...g.status, color: onColor(g.color) }} size={11} />}
               {g.label}
             </span>
             <span className="font-mono text-[12px] text-muted-foreground">{g.tasks.length}</span>
@@ -157,8 +179,8 @@ export function ListView({
 
           {!collapsed[g.key] && (
             <div className="overflow-x-auto">
-              <div className="min-w-max">
-                <div className="grid items-center border-t border-border bg-table-head px-3 py-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground" style={gridFor(columns, fields)}>
+              <div className={phone ? undefined : "min-w-max"}>
+                <div className="grid items-center border-t border-border bg-table-head px-3 py-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground" style={gridFor(columns, fields, phone)}>
                   <SortHeader label="Name" k="name" view={view} onSort={sortBy} className="pl-[26px]" />
                   {columns.map((c) => {
                     const m = colMeta(c, fields);
@@ -175,7 +197,7 @@ export function ListView({
                     tasks={g.tasks}
                     calcs={view.calcs ?? {}}
                     onCalc={(c, calc) => onView({ ...view, calcs: { ...(view.calcs ?? {}), [c]: calc } })}
-                    grid={gridFor(columns, fields)}
+                    grid={gridFor(columns, fields, phone)}
                   />
                 )}
                 {!canEdit && g.tasks.length === 0 && <p className="border-t border-border/70 px-4 py-3 text-xs text-muted-foreground">No tasks</p>}
@@ -235,6 +257,8 @@ type RowCtx = {
   list: WorkListDetail;
   canEdit: boolean;
   columns: Col[];
+  /** under 640px: compact grid */
+  phone: boolean;
   fields: WorkField[];
   fieldValues: FieldValues;
   onFieldChange?: (taskId: number, fieldId: number, value: unknown) => void;
@@ -301,7 +325,7 @@ function Row({ task, depth = 0, ctx }: { task: WorkTask; depth?: number; ctx: Ro
           <span key={c} className="flex min-w-0 flex-wrap gap-1">
             {task.tags?.length ? (
               task.tags.slice(0, 3).map((t) => (
-                <span key={t.id} className="truncate rounded px-1.5 py-px text-[10.5px] font-semibold" style={{ background: `${t.color}1f`, color: t.color }}>{t.name}</span>
+                <span key={t.id} className="ez-tint truncate rounded px-1.5 py-px text-[10.5px] font-semibold" style={{ "--c": t.color } as React.CSSProperties}>{t.name}</span>
               ))
             ) : (
               <span className="text-[12.5px] text-muted-foreground/50">—</span>
@@ -314,7 +338,7 @@ function Row({ task, depth = 0, ctx }: { task: WorkTask; depth?: number; ctx: Ro
   };
   return (
     <>
-      <div className="group grid min-h-[42px] items-center border-t border-border/70 px-3 transition-colors hover:bg-accent/30" style={gridFor(columns, ctx.fields)}>
+      <div className="group grid min-h-[42px] items-center border-t border-border/70 px-3 transition-colors hover:bg-accent/30" style={gridFor(columns, ctx.fields, ctx.phone)}>
         <div className="relative flex min-w-0 items-center gap-2" style={{ paddingLeft: depth * 22 }}>
           {canEdit && (
             <input
@@ -323,7 +347,7 @@ function Row({ task, depth = 0, ctx }: { task: WorkTask; depth?: number; ctx: Ro
               checked={ctx.selected.includes(task.id)}
               onChange={() => ctx.toggleSelect(task.id)}
               className={cn(
-                "absolute -left-[13px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 cursor-pointer accent-[var(--primary)] transition-opacity",
+                "absolute -left-[13px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 cursor-pointer rounded-sm accent-[var(--primary)] transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
                 ctx.selected.length ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100",
               )}
             />

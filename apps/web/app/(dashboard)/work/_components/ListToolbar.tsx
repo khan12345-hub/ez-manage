@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Check, CheckCircle2, ChevronDown, Columns3, Filter, Layers, ListTree, Plus, RotateCcw, Save, Search, User, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
@@ -95,6 +96,7 @@ export function ListToolbar({
   /** Board view: what the columns are */
   boardGroup?: { value: string; options: { value: string; label: string }[]; onChange: (v: string) => void };
 }) {
+  const [phoneOpen, setPhoneOpen] = useState(false);
   const f = view.filters;
   const setFilters = (patch: Partial<ViewSettings["filters"]>) => onView({ ...view, filters: { ...f, ...patch } });
   const nFilters = activeFilterCount(view);
@@ -104,8 +106,9 @@ export function ListToolbar({
     return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [tasks]);
 
-  return (
-    <div className="flex flex-wrap items-center gap-2">
+  // phones: the view controls live behind one "Filters" button so the toolbar stays one row
+  const controls = (
+    <>
       {boardGroup && (
         <Popover>
           <PopoverTrigger asChild>
@@ -275,8 +278,25 @@ export function ListToolbar({
         <User className="h-3.5 w-3.5" /> Me mode
       </button>
 
-      <div className="ml-auto flex items-center gap-2">
-        <label className="flex h-8 w-[220px] items-center gap-2 rounded-md border border-border bg-card px-2.5">
+    </>
+  );
+  const active = (view.filters ? Object.values(view.filters).filter((v: any) => (Array.isArray(v) ? v.length : !!v)).length : 0) + (meMode ? 1 : 0) + (view.showClosed ? 0 : 0);
+  return (
+    <div className="flex items-center gap-2 sm:flex-wrap">
+      <div className="hidden flex-wrap items-center gap-2 sm:flex">{controls}</div>
+      <button type="button" onClick={() => setPhoneOpen(true)} className={cn(chip(active > 0), "sm:hidden")} aria-label="View options and filters">
+        <Filter className="h-3.5 w-3.5" /> Filters{active > 0 ? ` · ${active}` : ""}
+      </button>
+      <Dialog open={phoneOpen} onOpenChange={setPhoneOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>View options</DialogTitle>
+          <DialogDescription className="sr-only">Group, columns, filters and more for this view.</DialogDescription>
+          <div className="flex flex-wrap items-center gap-2">{controls}</div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="ml-auto flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+        <label className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-border bg-card px-2.5 sm:w-[220px]">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input value={q} onChange={(e) => onQ(e.target.value)} placeholder="Search tasks" aria-label="Search tasks" className="w-full bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" />
           {q && (
@@ -295,11 +315,11 @@ export function ListToolbar({
           onClick={onSave}
           disabled={!dirty}
           className={cn(
-            "flex h-8 items-center gap-1.5 rounded-md px-3 text-[12.5px] font-semibold transition-colors",
+            "flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-[12.5px] font-semibold transition-colors",
             dirty ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90" : "border border-border bg-card text-muted-foreground opacity-70",
           )}
         >
-          <Save className="h-3.5 w-3.5" /> {dirty ? "Save view" : "View saved"}
+          <Save className="h-3.5 w-3.5" aria-hidden /> <span className={dirty ? undefined : "sr-only sm:not-sr-only"}>{dirty ? "Save view" : "View saved"}</span>
         </button>}
       </div>
     </div>

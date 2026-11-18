@@ -138,23 +138,23 @@ export function WorkHome({ ws, onOpenTask, canCreate = true }: { ws: string; onO
     <div className="mx-auto w-full max-w-[1400px] space-y-5 px-4 py-5 sm:px-6">
       {/* hero */}
       <div className="grid gap-5 lg:grid-cols-3">
-        <section aria-label="Today" className="relative overflow-hidden rounded-[26px] bg-forest p-6 text-white shadow-[0_24px_60px_-30px_rgba(11,42,31,0.9)] lg:col-span-2 dark:bg-[#0d2a20]">
+        <section aria-label="Today" className="relative overflow-hidden rounded-[26px] bg-forest p-5 text-white sm:p-6 shadow-[0_24px_60px_-30px_rgba(11,42,31,0.9)] lg:col-span-2 dark:bg-[#0d2a20]">
           <div aria-hidden className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(rgb(255 255 255 / 0.04) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.04) 1px, transparent 1px)", backgroundSize: "26px 26px" }} />
           <div aria-hidden className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-brass/25 blur-3xl" />
           <div className="relative flex flex-wrap items-center gap-6">
             <div className="min-w-0 flex-1">
               <p className="text-[12.5px] font-medium text-white/60">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
-              <h1 className="mt-1 text-[30px] font-semibold leading-tight tracking-tight">{greeting}, <span className="text-brass-soft">{user?.firstName ?? "there"}</span></h1>
+              <h1 className="mt-1 text-[24px] font-semibold leading-tight tracking-tight sm:text-[30px]">{greeting}, <span className="text-brass-soft">{user?.firstName ?? "there"}</span></h1>
               <p className="mt-2 max-w-md text-[14px] text-white/75">
                 {isLoading ? "Loading your day…" : s.today.length || s.overdue.length ? <>You have <b className="text-white">{s.today.length} due today</b>{s.overdue.length > 0 && <> and <b className="text-[#fca5a5]">{s.overdue.length} overdue</b></>}.</> : "Nothing urgent today. Nice work."}
               </p>
-              <div className="mt-5 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
                 {canCreate && <button type="button" onClick={() => openCreate(null)} className="flex h-10 items-center gap-1.5 rounded-xl bg-brass px-4 text-[13.5px] font-semibold text-forest transition hover:brightness-110"><Plus className="h-4 w-4" strokeWidth={2.5} /> New task</button>}
                 <Link href={`/work/${ws}/inbox`} className="flex h-10 items-center gap-1.5 rounded-xl bg-white/10 px-4 text-[13.5px] font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/15"><Inbox className="h-4 w-4" /> Open inbox</Link>
                 <Link href={`/work/${ws}?view=mine`} className="flex h-10 items-center gap-1.5 rounded-xl px-3 text-[13.5px] font-medium text-white/80 hover:text-white">All my tasks <ArrowRight className="h-4 w-4" /></Link>
               </div>
             </div>
-            <Ring value={s.pct} />
+            <div className="hidden sm:block"><Ring value={s.pct} /></div>
           </div>
         </section>
         <Card title="Due today" action={<span className="rounded-full bg-[#b45309]/10 px-2 py-0.5 text-[12px] font-semibold text-[#b45309]">{s.today.length}</span>}>
@@ -172,7 +172,7 @@ export function WorkHome({ ws, onOpenTask, canCreate = true }: { ws: string; onO
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((x) => (
           <div key={x.label} className="flex items-center gap-4 rounded-[20px] bg-card p-4 shadow-[0_1px_2px_rgba(11,42,31,0.05)] ring-1 ring-black/[0.04] dark:ring-white/10">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl" style={{ background: x.bg, color: x.tone }}><x.icon className="h-5 w-5" /></span>
+            <span className="ez-tint flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl" style={{ "--c": x.tone } as React.CSSProperties}><x.icon className="h-5 w-5" /></span>
             <span className="min-w-0"><span className="block text-[26px] font-bold leading-none tracking-tight tabular-nums" style={{ color: x.label === "Overdue" && x.value ? x.tone : undefined }}>{isLoading ? "–" : x.value}</span><span className="mt-1 block truncate text-[12.5px] text-muted-foreground">{x.label}</span></span>
           </div>
         ))}

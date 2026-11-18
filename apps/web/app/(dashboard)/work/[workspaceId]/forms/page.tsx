@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -43,12 +44,10 @@ export default function FormsPage() {
   const del = useMutation({ mutationFn: (f: FormRow) => api.delete(`/work/forms/${f.id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: key }); toast.success("Form deleted"); } });
 
   return (
-    <div className="mx-auto max-w-[1100px] p-6">
-      <header className="mb-4 flex flex-wrap items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><ClipboardList className="h-5 w-5" /></span>
-        <span className="min-w-[200px] flex-1"><h1 className="text-[22px] font-semibold leading-tight">Forms</h1><p className="text-[12.5px] text-muted-foreground">Share a link — every answer becomes a task in the list you choose.</p></span>
+    <div className="mx-auto max-w-[1100px] p-4 sm:p-6">
+      <PageHeader icon={ClipboardList} title="Forms" subtitle="Share a link — every answer becomes a task in the list you choose." actions={<>
         {canCreate && <button type="button" onClick={() => setEditing("new")} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> New form</button>}
-      </header>
+      </>} />
       {isLoading ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : !forms.length ? (
         <p className="rounded-xl border border-dashed border-border p-10 text-center text-[13px] text-muted-foreground">No forms yet — e.g. a request form that drops tasks into a list.</p>
       ) : (

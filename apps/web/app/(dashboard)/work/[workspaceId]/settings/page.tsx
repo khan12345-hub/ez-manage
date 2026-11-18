@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, Trash2 } from "lucide-react";
+import { Check, Trash2, Settings } from "lucide-react";
 import { workApi } from "@/services/work.api";
 import { SPACE_COLORS } from "../../_components/SpaceIcon";
 
@@ -39,8 +40,7 @@ export default function WorkWorkspaceSettings() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
-      <h1 className="text-[22px] font-semibold">Workspace settings</h1>
-      <p className="mt-1 text-[13px] text-muted-foreground">This Work workspace is separate from Boards — changes here never touch Boards.</p>
+      <PageHeader icon={Settings} title="Workspace settings" subtitle="This Work workspace is separate from Boards — changes here never touch Boards." />
 
       <section aria-label="General" className="mt-6 rounded-xl border border-border bg-card p-5">
         <h2 className="text-[14px] font-semibold">General</h2>

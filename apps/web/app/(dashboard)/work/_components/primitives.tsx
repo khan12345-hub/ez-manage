@@ -42,12 +42,21 @@ export function StatusGlyph({ status, size = 16, className }: { status?: Pick<Wo
   );
 }
 
+/** readable text colour on a solid chip of this colour (light greys/yellows get dark text) */
+export function onColor(hex?: string | null) {
+  const m = /^#?([0-9a-f]{6})/i.exec(hex ?? "");
+  if (!m) return "#ffffff";
+  const n = parseInt(m[1] ?? "0", 16);
+  const yiq = (((n >> 16) & 255) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000;
+  return yiq >= 150 ? "#0e1a14" : "#ffffff";
+}
+
 export function StatusPill({ status, className }: { status?: Pick<WorkStatus, "name" | "color" | "category"> | null; className?: string }) {
   if (!status) return <span className={cn("text-xs text-muted-foreground", className)}>No status</span>;
   return (
     <span
-      className={cn("inline-flex max-w-full items-center gap-1.5 truncate rounded-md px-2 py-0.5 text-[11.5px] font-semibold uppercase tracking-[0.04em]", className)}
-      style={{ background: `${status.color}1f`, color: status.color }}
+      className={cn("ez-tint inline-flex max-w-full items-center gap-1.5 truncate rounded-md px-2 py-0.5 text-[11.5px] font-semibold uppercase tracking-[0.04em]", className)}
+      style={{ "--c": status.color } as React.CSSProperties}
     >
       <StatusGlyph status={status} size={10} />
       <span className="truncate">{status.name}</span>

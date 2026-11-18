@@ -69,6 +69,49 @@ export class WorkViewsService {
     return s as Prisma.InputJsonValue;
   }
 
+  /**
+   * Every "dashboard" view in a workspace this person can open (the Dashboards hub), with where
+   * it lives and whether they may edit that location. Outsiders get 404; guests / limited members
+   * only see the spaces shared with them.
+   */
+  async dashboards(wsRef: string, userId: number) {
+    const ref = String(wsRef ?? '');
+    const ws = await this.prisma.workWorkspace.findFirst({ where: { deletedAt: null, ...(/^\d+$/.test(ref) ? { id: Number(ref) } : { uid: ref }) }, select: { id: true } });
+    if (!ws) throw new NotFoundException('Workspace not found.');
+    await this.access.requireWorkspace(ws.id, userId, 'view');
+    const spaces = await this.prisma.space.findMany({ where: { workspaceId: ws.id, archivedAt: null }, select: { id: true, uid: true, name: true, color: true } });
+    const can = new Map<number, { view: boolean; edit: boolean }>();
+    for (const sp of spaces) { const a = await this.access.forSpace(sp.id, userId); can.set(sp.id, { view: a.canView, edit: a.canEdit }); }
+    const open = spaces.filter((sp) => can.get(sp.id)!.view);
+    const ids = open.map((sp) => sp.id);
+    const [folders, lists] = await Promise.all([
+      this.prisma.workFolder.findMany({ where: { spaceId: { in: ids }, archivedAt: null }, select: { id: true, uid: true, name: true, spaceId: true } }),
+      this.prisma.workList.findMany({ where: { spaceId: { in: ids }, archivedAt: null, OR: [{ folderId: null }, { folder: { archivedAt: null } }] }, select: { id: true, uid: true, name: true, spaceId: true, folderId: true } }),
+    ]);
+    const rows = await this.prisma.workView.findMany({
+      where: { kind: 'dashboard', OR: [
+        { locationType: 'space', locationId: { in: ids } },
+        { locationType: 'folder', locationId: { in: folders.map((f) => f.id) } },
+        { locationType: 'list', locationId: { in: lists.map((l) => l.id) } },
+      ] },
+      orderBy: [{ updatedAt: 'desc' }],
+      select: { uid: true, name: true, updatedAt: true, locationType: true, locationId: true },
+    });
+    const spaceOf = new Map(open.map((sp) => [sp.id, sp]));
+    return rows.map((v) => {
+      if (v.locationType === 'space') {
+        const sp = spaceOf.get(v.locationId)!;
+        return { uid: v.uid, name: v.name, updatedAt: v.updatedAt, location: { type: 'space', uid: sp.uid, name: sp.name, path: '', color: sp.color }, canEdit: can.get(sp.id)!.edit };
+      }
+      if (v.locationType === 'folder') {
+        const f = folders.find((x) => x.id === v.locationId)!; const sp = spaceOf.get(f.spaceId)!;
+        return { uid: v.uid, name: v.name, updatedAt: v.updatedAt, location: { type: 'folder', uid: f.uid, name: f.name, path: sp.name, color: sp.color }, canEdit: can.get(sp.id)!.edit };
+      }
+      const l = lists.find((x) => x.id === v.locationId)!; const sp = spaceOf.get(l.spaceId)!; const f = l.folderId ? folders.find((x) => x.id === l.folderId) : null;
+      return { uid: v.uid, name: v.name, updatedAt: v.updatedAt, location: { type: 'list', uid: l.uid, name: l.name, path: f ? `${sp.name} / ${f.name}` : sp.name, color: sp.color }, canEdit: can.get(sp.id)!.edit };
+    });
+  }
+
   /** the views of a location; the defaults are made the first time anyone opens it */
   async list(type: string, ref: string, userId: number) {
     const loc = await this.location(type, ref, userId, 'view');

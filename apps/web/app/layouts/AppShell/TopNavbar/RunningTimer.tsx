@@ -18,6 +18,18 @@ export function RunningTimer() {
     staleTime: 15_000,
   });
   const [now, setNow] = useState(Date.now());
+  // status moved into / out of "in progress": the server started / stopped the timer
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ state: "started" | "stopped"; taskId: number; name: string }>).detail;
+      qc.invalidateQueries({ queryKey: ["work", "running"] });
+      qc.invalidateQueries({ queryKey: ["work", "time", d.taskId] });
+      qc.invalidateQueries({ queryKey: ["work", "task"] });
+      toast.success(d.state === "started" ? `Timer started on "${d.name}"` : `Timer stopped on "${d.name}"`, { icon: "⏱" });
+    };
+    window.addEventListener("work:auto-timer", on);
+    return () => window.removeEventListener("work:auto-timer", on);
+  }, [qc]);
   useEffect(() => {
     if (!data) return;
     const t = setInterval(() => setNow(Date.now()), 1000);

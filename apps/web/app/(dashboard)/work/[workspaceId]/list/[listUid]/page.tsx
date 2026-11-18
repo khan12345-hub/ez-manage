@@ -161,10 +161,10 @@ function ListPageInner() {
           ) : <span>…</span>}
         </nav>
         <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
-          <h1 className="font-serif text-[30px] font-normal leading-tight tracking-tight sm:text-[34px]">{list?.name ?? (isLoading ? "…" : "")}</h1>
+          <h1 className="min-w-0 max-w-full truncate font-serif text-[26px] font-normal leading-tight tracking-tight sm:text-[34px]">{list?.name ?? (isLoading ? "…" : "")}</h1>
           {list && (
-            <div className="flex items-center gap-3 pb-1.5">
-              <p className="font-mono text-[12px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 pb-1.5 sm:gap-3">
+              <p className="w-full whitespace-nowrap font-mono text-[12px] text-muted-foreground sm:w-auto">
                 {open} open · {doneCount} done
               </p>
               <LocationChannelButton type="list" uid={list.uid} locationId={list.id} label={list.name} />

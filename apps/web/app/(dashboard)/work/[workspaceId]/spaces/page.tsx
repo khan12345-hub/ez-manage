@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock, Orbit, Plus, Search } from "lucide-react";
@@ -24,13 +25,13 @@ export default function AllSpacesPage() {
 
   return (
     <div className="flex min-h-full w-full flex-col">
-      <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 sm:px-6">
-        <h1 className="text-[18px] font-semibold">All Spaces</h1>
-        {tree?.access.canManage && (
-          <button type="button" onClick={() => setCreating(true)} className="flex h-8 items-center gap-1.5 rounded-md bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground">
-            <Plus className="h-3.5 w-3.5" /> New Space
-          </button>
-        )}
+      <div className="px-4 pt-4 sm:px-6">
+        <PageHeader icon={Orbit} title="All Spaces" subtitle="Every space you can open in this workspace."
+          actions={tree?.access.canManage ? (
+            <button type="button" onClick={() => setCreating(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground">
+              <Plus className="h-4 w-4" /> New Space
+            </button>
+          ) : undefined} />
       </div>
       <div className="px-4 pt-4 sm:px-6">
         <label className="flex h-9 w-[300px] items-center gap-2 rounded-md border border-border bg-card px-2.5">

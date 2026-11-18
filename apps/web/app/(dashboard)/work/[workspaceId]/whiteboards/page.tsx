@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -36,12 +37,10 @@ export default function WhiteboardsPage() {
   });
   if (current) return <Canvas key={current} uid={current} onBack={() => router.push(`/work/${ws}/whiteboards`)} />;
   return (
-    <div className="mx-auto max-w-[1100px] p-6">
-      <header className="mb-4 flex flex-wrap items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#d97706]/10 text-[#d97706]"><PenTool className="h-5 w-5" /></span>
-        <span className="min-w-[200px] flex-1"><h1 className="text-[22px] font-semibold leading-tight">Whiteboards</h1><p className="text-[12.5px] text-muted-foreground">Brainstorm with sticky notes, shapes, arrows and drawing.</p></span>
+    <div className="mx-auto max-w-[1100px] p-4 sm:p-6">
+      <PageHeader icon={PenTool} title="Whiteboards" subtitle="Brainstorm with sticky notes, shapes, arrows and drawing." color="#d97706" actions={<>
         {canCreate && <button type="button" onClick={() => create.mutate()} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> New whiteboard</button>}
-      </header>
+      </>} />
       {isLoading ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : !rows.length ? (
         <p className="rounded-xl border border-dashed border-border p-10 text-center text-[13px] text-muted-foreground">No whiteboards yet.</p>
       ) : (

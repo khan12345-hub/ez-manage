@@ -1,13 +1,14 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, ChevronDown, ChevronRight, Layers, Search } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, Layers, Search, ListChecks } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { workApi, type MyWorkTask } from "@/services/work.api";
-import { AvatarStack, DueLabel, PriorityFlag, StatusGlyph } from "../../_components/primitives";
+import { AvatarStack, DueLabel, PriorityFlag, StatusGlyph, onColor } from "../../_components/primitives";
 import { TaskDrawer } from "../../_components/TaskDrawer";
 
 type GroupBy = "status" | "list";
@@ -55,9 +56,8 @@ function AllTasksInner() {
 
   return (
     <div className="flex min-h-full w-full flex-col">
-      <div className="border-b border-border bg-card px-4 pb-3 pt-4 sm:px-6">
-        <h1 className="text-[18px] font-semibold">All Tasks {wsName && <span className="font-normal text-muted-foreground">· {wsName}</span>}</h1>
-        <p className="text-[12.5px] text-muted-foreground">Every task you can see, across all spaces and lists.</p>
+      <div className="px-4 pt-4 sm:px-6">
+        <PageHeader icon={ListChecks} title="All Tasks" count={wsName ? `· ${wsName}` : undefined} subtitle="Every task you can see, across all spaces and lists." />
       </div>
       <div className="flex flex-wrap items-center gap-2 px-4 pt-3 sm:px-6">
         <div className="flex rounded-full border border-border bg-card p-0.5">
@@ -87,7 +87,7 @@ function AllTasksInner() {
                 <button type="button" aria-label={collapsed[g.key] ? `Expand ${g.label}` : `Collapse ${g.label}`} onClick={() => setCollapsed((c) => ({ ...c, [g.key]: !c[g.key] }))} className="rounded p-0.5 text-muted-foreground hover:bg-card">
                   {collapsed[g.key] ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
-                <span className="rounded-md px-2 py-0.5 text-[12px] font-bold uppercase tracking-[0.05em] text-white" style={{ background: g.color }}>{g.label}</span>
+                <span className="rounded-md px-2 py-0.5 text-[12px] font-bold uppercase tracking-[0.05em]" style={{ background: g.color, color: onColor(g.color) }}>{g.label}</span>
                 <span className="font-mono text-[12px] text-muted-foreground">{g.tasks.length}</span>
               </header>
               {!collapsed[g.key] && (

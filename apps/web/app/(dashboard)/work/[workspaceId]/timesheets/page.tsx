@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -76,10 +77,8 @@ export default function TimesheetsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1200px] p-6">
-      <header className="mb-4 flex flex-wrap items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><Timer className="h-5 w-5" /></span>
-        <span className="min-w-[200px] flex-1"><h1 className="text-[22px] font-semibold leading-tight">Timesheets</h1><p className="text-[12.5px] text-muted-foreground">Time tracked on tasks, by day. Type into a day to add time.</p></span>
+    <div className="mx-auto max-w-[1200px] p-4 sm:p-6">
+      <PageHeader icon={Timer} title="Timesheets" subtitle="Time tracked on tasks, by day. Type into a day to add time." actions={<>
         {mine?.canManage && (
           <span role="group" aria-label="View" className="flex rounded-lg border border-border p-0.5">
             {(["mine", "team"] as const).map((v) => <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-md px-3 py-1 text-[12.5px] font-medium", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{v === "mine" ? "My timesheet" : "Team"}</button>)}
@@ -91,10 +90,10 @@ export default function TimesheetsPage() {
           <button type="button" aria-label="Next week" onClick={() => setWeek(new Date(+week + 7 * 86400000))} className="rounded-md p-1.5 hover:bg-accent"><ChevronRight className="h-4 w-4" /></button>
         </span>
         {view === "mine" && <button type="button" onClick={csv} disabled={!rows.length} className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-medium hover:bg-accent disabled:opacity-50"><Download className="h-3.5 w-3.5" /> CSV</button>}
-      </header>
+      </>} />
 
       {view === "team" && mine?.canManage ? (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card [-webkit-overflow-scrolling:touch]">
           <table className="w-full min-w-[760px] text-[13px]">
             <thead><tr className="border-b border-border text-left text-[11.5px] text-muted-foreground"><th className="px-4 py-2 font-medium"><Users className="mr-1 inline h-3.5 w-3.5" />Person</th>{(team?.days ?? []).map((d) => <th key={d} className={cn("px-2 py-2 text-right font-medium", d === today && "text-primary")}>{dayLabel(d)}</th>)}<th className="px-4 py-2 text-right font-medium">Total</th></tr></thead>
             <tbody>
@@ -110,12 +109,12 @@ export default function TimesheetsPage() {
           </table>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card [-webkit-overflow-scrolling:touch]">
           <table className="w-full min-w-[820px] text-[13px]">
             <thead><tr className="border-b border-border text-left text-[11.5px] text-muted-foreground"><th className="px-4 py-2 font-medium">Task</th>{(mine?.days ?? []).map((d) => <th key={d} className={cn("w-[84px] px-1 py-2 text-center font-medium", d === today && "text-primary")}>{dayLabel(d)}</th>)}<th className="px-4 py-2 text-right font-medium">Total</th></tr></thead>
             <tbody>
               {isLoading ? <tr><td colSpan={9} className="h-24 animate-pulse bg-muted/40" /></tr> : !rows.length ? (
-                <tr><td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">No time this week. Start a timer on a task, or add a task below and type hours into a day.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-10 text-left text-muted-foreground sm:text-center"><span className="sticky left-4 inline-block max-w-[calc(100vw-4rem)] whitespace-normal sm:static sm:max-w-none">No time this week. Start a timer on a task, or add a task below and type hours into a day.</span></td></tr>
               ) : rows.map((r) => (
                 <tr key={r.task.id} className="border-b border-border/60">
                   <td className="max-w-[320px] px-4 py-1.5"><Link href={`/work/${ws}/list/${r.task.listUid}?task=${r.task.uid}`} className="block truncate font-medium hover:text-primary hover:underline">{r.task.name}</Link><span className="block truncate text-[11.5px] text-muted-foreground">{r.task.listName}</span></td>

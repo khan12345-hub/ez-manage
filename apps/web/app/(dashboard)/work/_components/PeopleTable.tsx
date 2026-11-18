@@ -49,7 +49,7 @@ export function PeopleTable({ workspaceId, q = "", filter }: { workspaceId: stri
     <div className="flex w-full flex-col">
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgb(11_42_31/0.04),0_12px_32px_-20px_rgb(11_42_31/0.25)]">
-        <div className="grid grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_200px_48px] items-center border-b border-border bg-table-head px-5 py-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">
+        <div className="hidden grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_200px_48px] items-center border-b border-border bg-table-head px-5 py-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground md:grid">
           <span>Name</span><span>Email</span><span>Role</span><span />
         </div>
         {isLoading && <div className="space-y-2 p-4">{[0, 1, 2].map((i) => <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />)}</div>}
@@ -57,12 +57,15 @@ export function PeopleTable({ workspaceId, q = "", filter }: { workspaceId: stri
           const Icon = ROLE_ICON[m.role];
           const editable = canManage && m.role !== "OWNER";
           return (
-            <div key={m.user.id} className="group grid grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_200px_48px] items-center border-b border-border/70 px-5 py-2.5 last:border-b-0 hover:bg-accent/20">
+            <div key={m.user.id} className="group grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-1 border-b border-border/70 px-3 py-2.5 last:border-b-0 hover:bg-accent/20 md:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_200px_48px] md:gap-x-0 md:px-5">
               <span className="flex min-w-0 items-center gap-2.5">
                 <Avatar user={m.user} size={30} />
-                <span className="truncate text-[14px] font-medium">{userName(m.user)}</span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[14px] font-medium">{userName(m.user)}</span>
+                  <span className="block truncate text-[12px] text-muted-foreground md:hidden">{m.user.email}</span>
+                </span>
               </span>
-              <span className="truncate text-[13px] text-muted-foreground">{m.user.email}</span>
+              <span className="hidden truncate text-[13px] text-muted-foreground md:block">{m.user.email}</span>
               {editable ? (
                 <RolePicker
                   value={m.role}
@@ -73,7 +76,7 @@ export function PeopleTable({ workspaceId, q = "", filter }: { workspaceId: stri
                 <span className="flex items-center gap-1.5 text-[13px]"><Icon className="h-3.5 w-3.5 text-muted-foreground" /> {WORK_ROLE_META[m.role].label}</span>
               )}
               {editable ? (
-                <button type="button" aria-label={`Remove ${userName(m.user)} from Work`} onClick={() => window.confirm(`Remove ${userName(m.user)} from Work? Their Boards access is not affected.`) && remove.mutate(m.user.id)} className="hidden justify-self-end rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover:block">
+                <button type="button" aria-label={`Remove ${userName(m.user)} from Work`} onClick={() => window.confirm(`Remove ${userName(m.user)} from Work? Their Boards access is not affected.`) && remove.mutate(m.user.id)} className="block justify-self-end rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:hidden md:group-hover:block">
                   <Trash2 className="h-4 w-4" />
                 </button>
               ) : <span />}

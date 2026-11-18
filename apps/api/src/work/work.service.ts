@@ -612,6 +612,7 @@ export class WorkService {
     }
 
     // snapshot for the activity history
+    let autoTimer: "started" | "stopped" | null = null;
     const before = await this.prisma.workTask.findUnique({
       where: { id: taskId },
       select: {
@@ -699,6 +700,9 @@ export class WorkService {
       await this.emit({ type: 'status_changed', taskId, actorId: userId, from: from?.name ?? null, to: to?.name ?? null }, opts);
       // a repeating task that was just completed: the next one is created
       if (!before.completedAt && updated.completedAt) await this.repeatTask(taskId, userId).catch(() => null);
+      // auto time tracking: into an "in progress" status (category ACTIVE) starts the mover's timer;
+      // out of it (to do / done) stops every timer running on this task
+      if (!opts?.fromAutomation) autoTimer = await this.autoTimer(taskId, userId, before.statusId, updated.statusId).catch(() => null);
     }
     if (before && !opts?.fromAutomation) {
       if (dto.assigneeIds) {
@@ -710,7 +714,32 @@ export class WorkService {
       if (dto.dueDate !== undefined && +(before.dueDate ?? 0) !== +(updated.dueDate ?? 0)) await this.emit({ type: 'due_date_changed', taskId, actorId: userId }, opts);
       if (listId !== task.listId) await this.emit({ type: 'task_moved', taskId, actorId: userId }, opts);
     }
-    return shapeTask(updated);
+    return { ...shapeTask(updated), autoTimer };
+  }
+
+  /** Start / stop timers when a task's status moves into or out of an "in progress" (ACTIVE) status. */
+  private async autoTimer(taskId: number, userId: number, fromId: number | null, toId: number | null): Promise<'started' | 'stopped' | null> {
+    const ids = [fromId, toId].filter((x): x is number => !!x);
+    const cats = new Map((await this.prisma.workStatus.findMany({ where: { id: { in: ids } }, select: { id: true, category: true } })).map((s) => [s.id, s.category]));
+    const wasActive = !!fromId && cats.get(fromId) === 'ACTIVE';
+    const isActive = !!toId && cats.get(toId) === 'ACTIVE';
+    if (isActive && !wasActive) {
+      const mine = await this.prisma.workTimeEntry.findFirst({ where: { userId, endedAt: null }, select: { taskId: true } });
+      if (mine?.taskId === taskId) return null; // already timing this task
+      await this.detail.startTimer(taskId, userId); // stops the mover's timer on any other task first
+      return 'started';
+    }
+    if (wasActive && !isActive) {
+      const running = await this.prisma.workTimeEntry.findMany({ where: { taskId, endedAt: null } });
+      if (!running.length) return null;
+      const endedAt = new Date();
+      await this.prisma.$transaction(running.map((e) => this.prisma.workTimeEntry.update({
+        where: { id: e.id },
+        data: { endedAt, duration: Math.max(1, Math.round((endedAt.getTime() - e.startedAt.getTime()) / 1000)) },
+      })));
+      return 'stopped';
+    }
+    return null;
   }
 
   // ---------- recurring tasks ----------

@@ -8,6 +8,8 @@ import { WorkViewsService } from './work-views.service';
 export class WorkViewsController {
   constructor(private readonly views: WorkViewsService) {}
 
+  /** the Dashboards hub: every dashboard view in the workspace this person can open (?ws=<workspace uid>) */
+  @Get('dashboards') dashboards(@Query('ws') ws: string, @CurrentUser() u: SessionUser) { return this.views.dashboards(ws, u.id); }
   @Get() list(@Query('type') type: string, @Query('ref') ref: string, @CurrentUser() u: SessionUser) { return this.views.list(type, ref, u.id); }
   @Post() create(@Body() b: any, @CurrentUser() u: SessionUser) { return this.views.create(u.id, b ?? {}); }
   @Patch(':uid') update(@Param('uid') uid: string, @Body() b: any, @CurrentUser() u: SessionUser) { return this.views.update(uid, u.id, b ?? {}); }

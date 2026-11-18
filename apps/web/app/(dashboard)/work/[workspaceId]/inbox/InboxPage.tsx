@@ -494,7 +494,7 @@ function Row({
     <li
       data-focused={focused || undefined}
       className={cn(
-        "group relative flex cursor-pointer items-center gap-3 border-b border-border/70 px-4 py-[11px] text-[14px] leading-5 transition-colors last:border-b-0 hover:bg-accent/40",
+        "group relative flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/70 px-4 py-[11px] text-[14px] leading-5 transition-colors last:border-b-0 hover:bg-accent/40 sm:flex-nowrap",
         row.unread ? "bg-card" : "bg-muted/25",
         focused && "ring-1 ring-inset ring-primary/40",
         selected && "bg-accent/60",
@@ -502,12 +502,12 @@ function Row({
       onClick={onOpen}
     >
       {/* task */}
-      <span className={cn("flex min-w-0 items-center gap-2.5", compact ? "w-1/2" : "w-[clamp(240px,30vw,460px)] shrink-0")}>
+      <span className={cn("flex min-w-0 flex-1 items-center gap-2.5 sm:flex-none", compact ? "sm:w-1/2" : "sm:w-[clamp(240px,30vw,460px)] sm:shrink-0")}>
         {n.task?.status ? <StatusGlyph status={n.task.status} size={15} /> : k === "added" ? <UserPlus className="h-4 w-4 text-muted-foreground" /> : <ListChecks className="h-4 w-4 text-muted-foreground" />}
         <span className={cn("truncate", row.unread ? "text-foreground" : "text-foreground/65", n.task?.completedAt && "line-through decoration-muted-foreground/50")}>{name}</span>
       </span>
       {/* event */}
-      <span className={cn("flex min-w-0 flex-1 items-center gap-2.5", row.unread ? "text-foreground/80" : "text-muted-foreground")}>
+      <span className={cn("order-last flex min-w-0 basis-full items-center gap-2.5 pl-[26px] text-[13px] sm:order-none sm:flex-1 sm:basis-auto sm:pl-0 sm:text-[14px]", row.unread ? "text-foreground/80" : "text-muted-foreground")}>
         {k === "reaction" && n.metadata?.emoji ? (
           <span className="w-4 shrink-0 text-center text-[15px] leading-none" aria-label={`Reaction ${n.metadata.emoji}`}>{n.metadata.emoji}</span>
         ) : (
@@ -518,7 +518,7 @@ function Row({
       </span>
       {tab === "later" && n.snoozedUntil && <span className="hidden shrink-0 items-center gap-1 text-[11.5px] text-[#8a6a3a] sm:flex dark:text-brass-soft"><AlarmClock className="h-3 w-3" />{new Date(n.snoozedUntil).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}</span>}
       {row.events.length > 1 && <span className="shrink-0 rounded-full border border-border px-1.5 font-mono text-[10.5px] text-muted-foreground" title={`${row.events.length} updates`}>{row.events.length}</span>}
-      <span className="w-20 shrink-0 text-right text-[12.5px] text-muted-foreground group-hover:invisible">{timeLabel(row.at)}</span>
+      <span className="shrink-0 text-right text-[12px] text-muted-foreground group-hover:invisible sm:w-20 sm:text-[12.5px]">{timeLabel(row.at)}</span>
 
       {/* hover actions */}
       <span className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 group-hover:flex" onClick={(e) => e.stopPropagation()}>

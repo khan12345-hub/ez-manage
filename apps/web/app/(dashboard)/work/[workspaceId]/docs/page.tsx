@@ -62,11 +62,12 @@ export default function DocsPage() {
   return (
     <div className="flex h-full min-h-0">
       <aside className={cn("w-full shrink-0 overflow-y-auto border-r border-border p-3 md:block md:w-[260px]", sp.get("doc") ? "hidden" : "block")}>
-        <div className="mb-2 flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><FileText className="h-4 w-4" /></span>
-          <h1 className="flex-1 text-[17px] font-semibold">Docs</h1>
+        {/* same look as PageHeader, kept on one row for this narrow pane */}
+        <header className="mb-4 flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><FileText className="h-5 w-5" /></span>
+          <h1 className="min-w-0 flex-1 truncate text-[22px] font-semibold leading-tight tracking-tight">Docs</h1>
           {canCreate && <button type="button" onClick={() => create.mutate(undefined)} aria-label="New page" title="New page" className="rounded-md p-1.5 hover:bg-accent"><FilePlus2 className="h-4 w-4" /></button>}
-        </div>
+        </header>
         {isLoading ? <div className="h-32 animate-pulse rounded-lg bg-muted" /> : !docs.length ? (
           <p className="rounded-lg border border-dashed border-border p-4 text-center text-[12.5px] text-muted-foreground">No docs yet.{canCreate && <> <button type="button" onClick={() => create.mutate(undefined)} className="font-medium text-primary hover:underline">Create the first page</button>.</>}</p>
         ) : <ul aria-label="Pages">{tree.map((d) => <Node key={d.id} d={d} depth={0} />)}</ul>}

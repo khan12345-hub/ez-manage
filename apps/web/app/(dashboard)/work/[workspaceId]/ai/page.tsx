@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import { useParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2, SendHorizontal, Sparkles } from "lucide-react";
@@ -24,11 +25,8 @@ export default function WorkAiPage() {
   });
   const send = (q: string) => { const v = q.trim(); if (v && !ask.isPending) ask.mutate(v); };
   return (
-    <div className="mx-auto flex h-full max-w-[860px] flex-col p-6">
-      <header className="mb-4 flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#7c3aed]/10 text-[#7c3aed]"><Sparkles className="h-5 w-5" /></span>
-        <span><h1 className="text-[22px] font-semibold leading-tight">Ask AI</h1><p className="text-[12.5px] text-muted-foreground">Answers come only from the tasks you can see in this workspace.</p></span>
-      </header>
+    <div className="mx-auto flex h-full max-w-[860px] flex-col p-4 sm:p-6">
+      <PageHeader icon={Sparkles} title="Ask AI" subtitle="Answers come only from the tasks you can see in this workspace." color="#7c3aed" />
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-border bg-card p-4">
         {!lines.length && (
           <div className="py-10 text-center">

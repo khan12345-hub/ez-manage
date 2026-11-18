@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,12 +45,10 @@ export default function GoalsPage() {
   const act = useMutation({ mutationFn: async (f: () => Promise<{ data: GoalT }>) => (await f()).data, onSuccess: set, onError: (e) => toast.error(errMsg(e, "Couldn't save.")) });
 
   return (
-    <div className="mx-auto max-w-[1200px] p-6">
-      <header className="mb-4 flex flex-wrap items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><GoalIcon className="h-5 w-5" /></span>
-        <span className="min-w-[200px] flex-1"><h1 className="text-[22px] font-semibold leading-tight">Goals</h1><p className="text-[12.5px] text-muted-foreground">Set targets and watch progress — task targets update by themselves as work gets done.</p></span>
+    <div className="mx-auto max-w-[1200px] p-4 sm:p-6">
+      <PageHeader icon={GoalIcon} title="Goals" subtitle="Set targets and watch progress — task targets update by themselves as work gets done." actions={<>
         <button type="button" onClick={() => setCreating(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> New goal</button>
-      </header>
+      </>} />
       <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
         <ul aria-label="Goals" className="grid content-start gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
           {isLoading ? [0, 1].map((i) => <li key={i} className="h-24 animate-pulse rounded-xl bg-muted" />) : !goals.length ? (

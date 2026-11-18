@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import { PageHeader } from "../../_components/PageHeader";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -33,15 +34,9 @@ function ClipsInner() {
   if (current) return <ClipViewer ws={ws} uid={current} me={user?.id} onBack={() => router.push(`/work/${ws}/clips`)} onChanged={() => qc.invalidateQueries({ queryKey: key })} />;
 
   return (
-    <div className="flex min-h-full w-full flex-col px-4 py-6 sm:px-8">
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-product-work" aria-hidden /> Work</p>
-          <h1 className="font-serif text-[34px] leading-tight tracking-tight">Clips</h1>
-          <p className="text-[13px] text-muted-foreground">Record your screen and voice, then share the link instead of writing a long message.</p>
-        </div>
-        <button type="button" onClick={() => setRecOpen(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"><Video className="h-4 w-4" /> Record a clip</button>
-      </header>
+    <div className="flex min-h-full w-full flex-col p-4 sm:p-6">
+      <PageHeader icon={Video} color="#db2777" title="Clips" subtitle="Record your screen and voice, then share the link instead of writing a long message."
+        actions={<button type="button" onClick={() => setRecOpen(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"><Video className="h-4 w-4" /> Record a clip</button>} />
       {isLoading ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="h-52 animate-pulse rounded-xl bg-muted" />)}</div>
       ) : !clips.length ? (
