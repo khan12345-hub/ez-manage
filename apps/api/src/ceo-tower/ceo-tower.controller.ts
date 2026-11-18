@@ -258,6 +258,20 @@ export class CeoTowerController {
     });
   }
 
+  @Get('assigned')
+  assigned(@Query() q: Record<string, string>, @CurrentUser() u: SessionUser) {
+    return this.tower.assignedByMe(u.id, {
+      person: /^\d+$/.test(q.person ?? '') ? Number(q.person) : undefined,
+      company: /^work:\d+$/.test(q.company ?? '') ? q.company : undefined,
+      state: ['open', 'done', 'overdue', 'all'].includes(q.state) ? q.state : 'all',
+    });
+  }
+
+  @Get('channels')
+  channels(@CurrentUser() u: SessionUser) {
+    return this.tower.execChannels(u.id);
+  }
+
   @Get('overview')
   overview(@Query('source') source: string, @Query('company') company: string, @CurrentUser() u: SessionUser) {
     return this.tower.overview(u.id, (['boards', 'work'].includes(source) ? source : 'all') as Source, /^(boards|work):\d+$/.test(company ?? '') ? company : undefined);

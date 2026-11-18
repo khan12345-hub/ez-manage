@@ -1520,13 +1520,14 @@ model WorkList {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  space        Space             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  folder       WorkFolder?       @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  createdBy    User              @relation("WorkListCreator", fields: [createdById], references: [id])
-  tasks        WorkTask[]
-  extraTasks   WorkTaskList[]
-  channelViews WorkChannelView[]
-  statuses     WorkStatus[]
+  space              Space             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  folder             WorkFolder?       @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdBy          User              @relation("WorkListCreator", fields: [createdById], references: [id])
+  tasks              WorkTask[]
+  extraTasks         WorkTaskList[]
+  channelViews       WorkChannelView[]
+  defaultForChannels WorkChannel[]     @relation("WorkChannelDefaultList")
+  statuses           WorkStatus[]
 
   @@index([spaceId])
   @@index([folderId])
@@ -1589,33 +1590,37 @@ model WorkTask {
   dependsOn   WorkTaskLink[]  @relation("WorkLinkFrom")
   dependedBy  WorkTaskLink[]  @relation("WorkLinkTo")
 
-  list           WorkList              @relation(fields: [listId], references: [id], onDelete: Cascade)
-  status         WorkStatus?           @relation(fields: [statusId], references: [id], onDelete: SetNull)
-  parent         WorkTask?             @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks       WorkTask[]            @relation("WorkSubtasks")
-  createdBy      User                  @relation("WorkTaskCreator", fields: [createdById], references: [id])
-  assignees      WorkTaskAssignee[]
-  comments       WorkComment[]
-  attachments    WorkAttachment[]
-  webLinks       WorkWebLink[]
-  fieldValues    WorkFieldValue[]
-  reminders      WorkReminder[]
-  watches        WorkTaskWatch[]
-  priorities     WorkProfilePriority[]
-  favorites      WorkFavorite[]
-  extraLists     WorkTaskList[]
-  chatMessages   WorkChatMessage[]     @relation("WorkChatTask")
+  list            WorkList              @relation(fields: [listId], references: [id], onDelete: Cascade)
+  status          WorkStatus?           @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  parent          WorkTask?             @relation("WorkSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks        WorkTask[]            @relation("WorkSubtasks")
+  createdBy       User                  @relation("WorkTaskCreator", fields: [createdById], references: [id])
+  assignees       WorkTaskAssignee[]
+  comments        WorkComment[]
+  attachments     WorkAttachment[]
+  webLinks        WorkWebLink[]
+  fieldValues     WorkFieldValue[]
+  reminders       WorkReminder[]
+  watches         WorkTaskWatch[]
+  priorities      WorkProfilePriority[]
+  favorites       WorkFavorite[]
+  extraLists      WorkTaskList[]
+  chatMessages    WorkChatMessage[]     @relation("WorkChatTask")
+  /// the chat channel / DM this task was created from (Task composer)
+  sourceChannelId Int?
+  sourceChannel   WorkChannel?          @relation("WorkTaskSourceChannel", fields: [sourceChannelId], references: [id], onDelete: SetNull)
   /// repeat when completed: { freq: DAILY|WEEKLY|MONTHLY|YEARLY, interval, until? } — the next copy takes it over
-  recurrence     Json?
+  recurrence      Json?
   /// the task this one was repeated from
-  recurredFromId Int?
+  recurredFromId  Int?
   /// sprint this task is planned in, and its story points
-  sprintId       Int?
-  points         Int?
+  sprintId        Int?
+  points          Int?
 
   @@index([listId, order])
   @@index([statusId])
   @@index([parentId])
+  @@index([sourceChannelId])
   @@index([dueDate])
   @@map("work_tasks")
 }
@@ -2183,17 +2188,21 @@ model WorkChannel {
   createdById   Int
   lastMessageAt DateTime?
   archivedAt    DateTime?
+  /// list that tasks created from this chat go to (Task / Bulk composer)
+  defaultListId Int?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  workspace WorkWorkspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy User                  @relation("WorkChannelCreator", fields: [createdById], references: [id])
-  members   WorkChannelMember[]
-  messages  WorkChatMessage[]
-  drafts    WorkChatDraft[]
-  views     WorkChannelView[]
-  scheduled WorkChatScheduled[]
-  bookmarks WorkChannelBookmark[]
+  workspace   WorkWorkspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User                  @relation("WorkChannelCreator", fields: [createdById], references: [id])
+  defaultList WorkList?             @relation("WorkChannelDefaultList", fields: [defaultListId], references: [id], onDelete: SetNull)
+  sourceTasks WorkTask[]            @relation("WorkTaskSourceChannel")
+  members     WorkChannelMember[]
+  messages    WorkChatMessage[]
+  drafts      WorkChatDraft[]
+  views       WorkChannelView[]
+  scheduled   WorkChatScheduled[]
+  bookmarks   WorkChannelBookmark[]
 
   @@index([workspaceId, kind])
   @@map("work_channels")
@@ -2227,34 +2236,38 @@ model WorkChannelMember {
 }
 
 model WorkChatMessage {
-  id            Int       @id @default(autoincrement())
-  channelId     Int
-  userId        Int
+  id             Int       @id @default(autoincrement())
+  channelId      Int
+  userId         Int
   /// thread replies point at their parent message
-  parentId      Int?
-  /// message | post | system
-  kind          String    @default("message")
+  parentId       Int?
+  /// message | post | system | task (task card: taskIds)
+  kind           String    @default("message")
+  /// tasks shown on a task card (kind 'task')
+  taskIds        Int[]     @default([])
+  /// mentioned people who marked this mention as done (chat side panel)
+  mentionDoneIds Int[]     @default([])
   /// posts (ClickUp Posts): a title and a type (update, announcement, idea, question)
-  title         String?
-  postType      String?
-  content       String
+  title          String?
+  postType       String?
+  content        String
   /// people @mentioned (for notifications / Chat Activity)
-  mentionIds    Int[]
+  mentionIds     Int[]
   /// files sent with the message: [{ id, name, url, mime, size }]
-  files         Json?
-  replyCount    Int       @default(0)
-  lastReplyAt   DateTime?
+  files          Json?
+  replyCount     Int       @default(0)
+  lastReplyAt    DateTime?
   /// also posted to the channel from a thread
-  alsoInChannel Boolean   @default(false)
-  assigneeId    Int?
-  assignedById  Int?
-  taskId        Int?
-  forwarded     Json?
-  resolvedAt    DateTime?
-  pinnedAt      DateTime?
-  editedAt      DateTime?
-  deletedAt     DateTime?
-  createdAt     DateTime  @default(now())
+  alsoInChannel  Boolean   @default(false)
+  assigneeId     Int?
+  assignedById   Int?
+  taskId         Int?
+  forwarded      Json?
+  resolvedAt     DateTime?
+  pinnedAt       DateTime?
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
 
   assignee  User?              @relation("WorkChatAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   task      WorkTask?          @relation("WorkChatTask", fields: [taskId], references: [id], onDelete: SetNull)

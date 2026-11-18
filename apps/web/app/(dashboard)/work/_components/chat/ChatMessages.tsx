@@ -14,6 +14,7 @@ import { userName, workApi, type ChatMessage, type WorkUser } from "@/services/w
 import { Avatar } from "../primitives";
 import { PersonHover } from "../people";
 import { CHAT_REACTIONS, POST_TYPES, messagesKey, threadKey } from "./useChat";
+import { TaskCard } from "./ChatTasks";
 
 export const CHAT_QUOTE_EVENT = "ez:work-chat-quote";
 
@@ -124,6 +125,19 @@ export function MessageRow({
   });
   const link = () => `${window.location.origin}${window.location.pathname}?${m.parentId ? `thread=${m.parentId}&` : ""}message=${m.id}`;
 
+  if (m.kind === "system" && /^(✅ resolved|↩ reopened) /.test(m.content)) {
+    const ok = m.content.startsWith("✅");
+    return (
+      <li id={`msg-${m.id}`} className="flex items-center gap-2 px-6 py-1.5 text-[12.5px]">
+        <span className="h-px w-6 bg-border" />
+        <span className={cn("flex items-center gap-1.5 rounded-full px-2.5 py-1 ring-1", ok ? "bg-[#2563eb]/[0.07] text-[#1d4ed8] ring-[#2563eb]/20 dark:text-[#93c5fd]" : "bg-muted text-muted-foreground ring-border")}>
+          {ok ? <Check className="h-3.5 w-3.5" /> : <span aria-hidden>↩</span>}
+          <strong className="font-semibold">{userName(m.user)}</strong> {m.content.replace(/^(✅ |↩ )/, "")}
+        </span>
+        <span className="text-[11px] text-muted-foreground">{time(m.createdAt)}</span>
+      </li>
+    );
+  }
   if (m.kind === "system") {
     return (
       <li className="flex items-center gap-2 px-6 py-1 text-[12px] text-muted-foreground">
@@ -163,6 +177,11 @@ export function MessageRow({
               <button type="button" onClick={() => draft.trim() && edit.mutate()} className="rounded bg-forest px-2.5 py-1 font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground">Save</button>
             </div>
           </div>
+        ) : m.kind === "task" ? (
+          <>
+            <p className="text-[13px] text-muted-foreground">{m.content.startsWith("created a task") ? "created a task" : m.content}</p>
+            <TaskCard channelUid={channelUid} ids={m.taskIds ?? []} />
+          </>
         ) : post ? (
           <div className="mt-1 max-w-[720px] rounded-xl border border-border bg-card p-4 shadow-[0_1px_2px_rgb(11_42_31/0.05)]">
             <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: `${post.color}18`, color: post.color }}>{post.label}</span>

@@ -23,7 +23,7 @@ export interface ChatCallEvent {
 }
 
 export interface WorkChatEvent {
-  type: "message" | "message_updated" | "typing" | "channel" | "views" | "scheduled" | "bookmarks" | "call";
+  type: "message" | "message_updated" | "typing" | "channel" | "views" | "scheduled" | "bookmarks" | "call" | "chat_tasks";
   /** calls: ring / joined / declined / ended */
   call?: { action: "ring" | "joined" | "declined" | "ended"; room: string; video?: boolean; callerName?: string; channelName?: string; byName?: string };
   channelUid: string;

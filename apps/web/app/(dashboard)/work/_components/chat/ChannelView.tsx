@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Archive, Bell, Bookmark, CalendarDays, Columns3, LayoutGrid, List, ListChecks, UsersRound, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
+import { PanelRight, Archive, Bell, Bookmark, CalendarDays, Columns3, LayoutGrid, List, ListChecks, UsersRound, BellOff, Hash, Lock, LogOut, MessageSquareReply, MoreHorizontal, Paperclip, Pin, Search, Settings2, Star, UserPlus, Users, X } from "lucide-react";
 import { CallButtons } from "./WorkCalls";
 import { ChannelEmail } from "../ShareAndEmail";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -24,6 +24,8 @@ import { DmCalendar, DmTasks } from "./DmTabs";
 import { LocIcon, LocationBoard, LocationCalendar, LocationList, LocationOverview, LocationTeam, locationHref } from "./LocationChannel";
 import { ChannelViewPanel, ChannelViewTabs, channelViewsKey, useChannelViews } from "./ChannelViews";
 import { channelKey, chatSidebarKey, messagesKey, threadKey, useChannelMessages, useChatEvents, useWs } from "./useChat";
+import { CHAT_OPEN_TASK_EVENT, ChatWorkPanel, useChatTasks, usePanelPref } from "./ChatTasks";
+import { TaskDrawer } from "../TaskDrawer";
 
 type Panel = "members" | "search" | "threads" | "pinned" | "files" | "settings" | null;
 
@@ -32,7 +34,7 @@ export function channelTitle(c: { kind: string; name: string | null }, people: W
 }
 
 /** `embedded`: shown inside a Space / Folder page, which owns the "tab" URL parameter and its own task tabs */
-export function ChannelView({ uid, embedded = false }: { uid: string; embedded?: boolean }) {
+export function ChannelView({ uid, embedded = false, onOpenTask, hideHeaderExtras = false }: { uid: string; embedded?: boolean; onOpenTask?: (t: { id: number; uid: string; name: string }) => void; hideHeaderExtras?: boolean }) {
   const tabParam = embedded ? "ctab" : "tab";
   const ws = useWs();
   const qc = useQueryClient();
@@ -45,6 +47,17 @@ export function ChannelView({ uid, embedded = false }: { uid: string; embedded?:
   const thread = Number(sp.get("thread")) || null;
   const focus = Number(sp.get("message")) || null;
   const [panel, setPanel] = useState<Panel>(null);
+  // the "Chat work" panel (tasks from this chat + mentions): open by default on big screens, remembered
+  const [workOpen, setWorkOpen] = usePanelPref();
+  const [workSheet, setWorkSheet] = useState(false);
+  const [drawerTask, setDrawerTask] = useState<string | null>(null);
+  const { data: chatTasks } = useChatTasks(uid);
+  const openTasks = (chatTasks?.tasks ?? []).filter((t) => !t.completedAt).length;
+  useEffect(() => {
+    const on = (e: Event) => { const t = (e as CustomEvent<{ id: number; uid: string; name: string }>).detail; if (onOpenTask) onOpenTask(t); else setDrawerTask(t.uid); };
+    window.addEventListener(CHAT_OPEN_TASK_EVENT, on);
+    return () => window.removeEventListener(CHAT_OPEN_TASK_EVENT, on);
+  }, [onOpenTask]);
   const [addingBookmark, setAddingBookmark] = useState(false);
   const [typing, setTyping] = useState<Record<number, { name: string; at: number }>>({});
   const { data: ch, isError } = useQuery({ queryKey: channelKey(uid), queryFn: () => workApi.channel(uid), retry: false });
@@ -90,6 +103,13 @@ export function ChannelView({ uid, embedded = false }: { uid: string; embedded?:
     if (v) next.set(k, v); else next.delete(k);
     next.delete("message");
     router.replace(`${pathname}${next.toString() ? `?${next}` : ""}`, { scroll: false });
+  };
+  /** go to a message (or its thread) from the Mentions tab */
+  const jumpTo = (m: { id: number; parentId: number | null }) => {
+    const next = new URLSearchParams(sp.toString());
+    if (m.parentId) next.set("thread", String(m.parentId)); else next.delete("thread");
+    next.set("message", String(m.id));
+    router.replace(`${pathname}?${next}`, { scroll: false });
   };
   const join = useMutation({ mutationFn: () => workApi.joinChannel(uid), onSuccess: () => { qc.invalidateQueries({ queryKey: channelKey(uid) }); qc.invalidateQueries({ queryKey: chatSidebarKey(ws) }); qc.invalidateQueries({ queryKey: messagesKey(uid) }); } });
   const prefs = useMutation({ mutationFn: (b: { muted?: boolean; starred?: boolean }) => workApi.channelPrefs(uid, b), onSuccess: () => { qc.invalidateQueries({ queryKey: channelKey(uid) }); qc.invalidateQueries({ queryKey: chatSidebarKey(ws) }); } });
@@ -151,12 +171,18 @@ export function ChannelView({ uid, embedded = false }: { uid: string; embedded?:
         {ch.topic && <span className="hidden truncate text-[12.5px] text-muted-foreground md:inline">· {ch.topic}</span>}
         <span className="flex-1" />
         {!isDm && (
-          <button type="button" onClick={() => openShare(uid)} className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[12.5px] hover:bg-accent">
+          <button type="button" onClick={() => openShare(uid)} className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-2.5 py-1 text-[12.5px] hover:bg-accent">
             {ch.isPrivate ? <Lock className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />} Share · {ch.members.length}
           </button>
         )}
         {isDm && others.length === 1 && <button type="button" onClick={() => openProfile(others[0]!.id)} className="rounded-md border border-border px-2.5 py-1 text-[12.5px] hover:bg-accent">Show profile</button>}
-        <CallButtons channelUid={uid} disabled={!ch.canPost} />
+        <button type="button" aria-label={workOpen ? "Hide tasks & mentions" : "Show tasks & mentions"} title="Tasks & mentions from this chat" aria-pressed={workOpen}
+          onClick={() => { if (window.matchMedia("(min-width: 1024px)").matches) setWorkOpen(!workOpen); else setWorkSheet(true); }}
+          className={cn("relative flex items-center gap-1.5 rounded-md border px-2 py-1 text-[12.5px] transition", workOpen ? "border-primary/30 bg-primary/[0.06] text-primary lg:border-primary/30" : "border-border text-muted-foreground hover:bg-accent hover:text-foreground")}>
+          <PanelRight className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Tasks</span>
+          {openTasks > 0 && <span className="rounded-full bg-primary px-1.5 text-[10.5px] font-semibold leading-4 text-primary-foreground tabular-nums">{openTasks}</span>}
+        </button>
+        {!hideHeaderExtras && <CallButtons channelUid={uid} disabled={!ch.canPost} />}
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild><button type="button" aria-label="Channel options" className="rounded p-1 text-muted-foreground hover:bg-accent"><MoreHorizontal className="h-4 w-4" /></button></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
@@ -211,7 +237,8 @@ export function ChannelView({ uid, embedded = false }: { uid: string; embedded?:
             ) : (
               <>
               <ScheduledBanner channelUid={uid} />
-              <ChatComposer channelUid={uid} members={members} placeholder={`Write to ${isDm ? title : `#${ch.name}`}`} initialDraft={draft} allowPost={!isDm && ["full", "edit"].includes(ch.myPermission ?? "edit")} />
+              <ChatComposer channelUid={uid} members={members} placeholder={`Write to ${isDm ? title : `#${ch.name}`}`} initialDraft={draft} allowPost={!isDm && ["full", "edit"].includes(ch.myPermission ?? "edit")}
+                tasks={ch.canCreateTasks ? { people: isDm || ch.isPrivate ? ch.members.map((m) => m.user) : members.length ? members : ch.members.map((m) => m.user), me: user?.id } : null} />
               </>
             )
           ) : null}
@@ -219,6 +246,14 @@ export function ChannelView({ uid, embedded = false }: { uid: string; embedded?:
 
         {thread && <ThreadPanel uid={uid} id={thread} members={members} onClose={() => setParam("thread", null)} />}
         {!thread && panel && <SidePanel panel={panel} ch={ch} uid={uid} members={members} onOpenThread={(id) => setParam("thread", String(id))} onClose={() => setPanel(null)} />}
+        {!thread && !panel && workOpen && <ChatWorkPanel channelUid={uid} me={user?.id} className="hidden lg:flex" onClose={() => setWorkOpen(false)} onJump={jumpTo} />}
+        {workSheet && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/30 lg:hidden" onClick={() => setWorkSheet(false)}>
+            <div className="h-full w-[min(380px,92vw)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <ChatWorkPanel channelUid={uid} me={user?.id} className="h-full w-full" onClose={() => setWorkSheet(false)} onJump={(m) => { setWorkSheet(false); jumpTo(m); }} />
+            </div>
+          </div>
+        )}
 
         <nav aria-label="Channel panels" className="flex shrink-0 flex-col items-center gap-1 border-l border-border bg-card px-1.5 py-2">
           {!isDm && railBtn("members", "Members", Users, ch.members.length)}
@@ -230,6 +265,7 @@ export function ChannelView({ uid, embedded = false }: { uid: string; embedded?:
         </nav>
       </div>
       )}
+      {!onOpenTask && <TaskDrawer taskUid={drawerTask} onClose={() => setDrawerTask(null)} onOpenTask={(u) => setDrawerTask(u)} />}
     </div>
   );
 }

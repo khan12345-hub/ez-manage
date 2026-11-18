@@ -59,7 +59,22 @@ export type CeoSettings = { briefOn: boolean; briefEmail: boolean; briefHour: nu
 export type CeoBrief = { generatedAt: string; by: "claude" | "groq" | "summary"; bullets: string[] };
 export interface CeoTasks { state: CeoTaskState; counts: Record<CeoTaskState, number>; total: number; truncated: boolean; tasks: CeoTask[] }
 
-export type CeoForYouKind = "assigned" | "mention" | "reply" | "comment" | "message";
+export type CeoForYouKind = "assigned" | "mention" | "reply" | "comment" | "message" | "completed";
+export interface CeoMini { id: number; firstName: string | null; lastName: string | null; avatarUrl: string | null }
+export interface CeoAssignedTask {
+  id: number; uid: string; name: string; priority: string | null; dueDate: string | null; completedAt: string | null; createdAt: string; overdue: boolean;
+  status: { name: string; color: string; category: string } | null; company: { key: string; uid: string; name: string }; where: string; listUid: string;
+  channel: { uid: string; name: string } | null; assignees: CeoMini[]; completedBy: CeoMini | null; hoursToDone: number | null;
+}
+export interface CeoAssigned {
+  summary: { total: number; open: number; done: number; overdue: number; doneWeek: number };
+  people: { user: CeoMini; assigned: number; open: number; done: number; overdue: number; avgHoursToDone: number | null }[];
+  tasks: CeoAssignedTask[]; companies?: { key: string; name: string }[];
+}
+export interface CeoChannelGroup {
+  company: { key: string; uid: string; name: string };
+  channels: { uid: string; name: string | null; kind: "channel" | "dm" | "group"; isPrivate: boolean; lastMessageAt: string | null; memberCount: number; people: CeoMini[]; unread: boolean; openTasks: number }[];
+}
 export interface CeoForYouItem { source: "boards" | "work"; id: string; kind: CeoForYouKind; title: string; message: string; at: string; href: string | null; actor: string | null; approval?: boolean;
   /** answer in place: the task's thread, or a message back to the sender */
   task: { source: "boards" | "work"; id: number } | null; actorId: number | null }
@@ -104,6 +119,8 @@ export interface CeoEmailRow { id: number; subject: string; body: string; delive
 export interface CeoEmailResult { sent: number; failed: number; notSent: number; results: { id: number; name: string; status: "sent" | "failed" | "not_sent"; error?: string }[] }
 
 export const ceoApi = {
+  assigned: async (q: { person?: number; company?: string; state?: string } = {}) => (await api.get<CeoAssigned>(`/ceo-tower/assigned?${new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)]))}`)).data,
+  channels: async () => (await api.get<CeoChannelGroup[]>(`/ceo-tower/channels`)).data,
   audiences: async () => (await api.get<CeoAudiences>("/ceo-tower/audiences")).data,
   meetings: async (when: "upcoming" | "past") => (await api.get<CeoMeeting[]>(`/ceo-tower/meetings?when=${when}`)).data,
   createMeeting: async (b: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds: number[] }) => (await api.post<CeoMeeting>("/ceo-tower/meetings", b)).data,

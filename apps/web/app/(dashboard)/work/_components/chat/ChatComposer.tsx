@@ -3,24 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AtSign, Bold, Code, Italic, Link2, List, ListOrdered, Loader2, Mic, Paperclip, SendHorizontal, Smile, SquareCode, Square, Strikethrough, TextQuote, Type, X } from "lucide-react";
+import { ListChecks, Zap, AtSign, Bold, Code, Italic, Link2, List, ListOrdered, Loader2, Mic, Paperclip, SendHorizontal, Smile, SquareCode, Square, Strikethrough, TextQuote, Type, X } from "lucide-react";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { userName, workApi, type ChatFile, type ChatMessage, type WorkUser } from "@/services/work.api";
 import { Avatar } from "../primitives";
 import { CHAT_QUOTE_EVENT } from "./ChatMessages";
 import { ScheduleButton, whenLabel } from "./Scheduled";
+import { ChatTaskComposer } from "./ChatTasks";
 import { CHAT_REACTIONS, POST_TYPES, addOwnMessage, chatSidebarKey, threadKey, useWs } from "./useChat";
 
 /** ClickUp chat composer: Message / Post, @mentions, files, emoji, Enter to send. */
 export function ChatComposer({
-  channelUid, placeholder, members, parentId, allowPost = true, initialDraft = "", onSent,
+  channelUid, placeholder, members, parentId, allowPost = true, initialDraft = "", onSent, tasks,
 }: {
   channelUid: string; placeholder: string; members: WorkUser[]; parentId?: number; allowPost?: boolean; initialDraft?: string; onSent?: (m: ChatMessage) => void;
+  /** Task / Bulk tabs: who tasks can be assigned to (null = no task tabs) */
+  tasks?: { people: WorkUser[]; me?: number } | null;
 }) {
   const qc = useQueryClient();
   const ws = useWs();
-  const [mode, setMode] = useState<"message" | "post">("message");
+  const [mode, setMode] = useState<"message" | "post" | "task" | "bulk">("message");
   const [text, setText] = useState(initialDraft);
   const [title, setTitle] = useState("");
   const [postType, setPostType] = useState<string>("announcement");
@@ -179,16 +182,22 @@ export function ChatComposer({
   const tool = "flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground";
 
   return (
-    <div className="px-4 pb-4 pt-1">
-      {allowPost && !parentId && (
+    <div className="@container px-4 pb-4 pt-1">
+      {(allowPost || tasks) && !parentId && (
         <div role="tablist" aria-label="Compose" className="mb-1 flex gap-1 text-[12.5px]">
-          {(["message", "post"] as const).map((x) => (
-            <button key={x} type="button" role="tab" aria-selected={mode === x} onClick={() => setMode(x)} className={cn("rounded-md px-2 py-0.5", mode === x ? "border border-border bg-card font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-              {x === "message" ? "Message" : "Post"}
+          {(["message", ...(allowPost ? ["post"] : []), ...(tasks ? ["task", "bulk"] : [])] as ("message" | "post" | "task" | "bulk")[]).map((x) => (
+            <button key={x} type="button" role="tab" aria-selected={mode === x} onClick={() => setMode(x)} className={cn("flex items-center gap-1 rounded-md px-2 py-0.5", mode === x ? "border border-border bg-card font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              {x === "task" && <ListChecks className="h-3.5 w-3.5" />}{x === "bulk" && <Zap className="h-3.5 w-3.5 text-[#b08d57]" />}
+              {x === "message" ? "Message" : x === "post" ? "Post" : x === "task" ? "Task" : "Many tasks"}
             </button>
           ))}
         </div>
       )}
+      {tasks && (mode === "task" || mode === "bulk") ? (
+        <div className="rounded-xl border border-border bg-background shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
+          <ChatTaskComposer channelUid={channelUid} ws={ws} mode={mode} people={tasks.people} me={tasks.me} onCreated={() => setMode("message")} />
+        </div>
+      ) : (
       <div
         className="rounded-xl border border-border bg-background shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10"
         onDragOver={(e) => e.preventDefault()}
@@ -286,13 +295,14 @@ export function ChatComposer({
             </PopoverContent>
           </Popover>
           <span className="flex-1" />
-          <span className="mr-2 hidden text-[11px] text-muted-foreground sm:inline">Enter to send · Shift+Enter for a new line</span>
+          <span className="mr-2 hidden whitespace-nowrap text-[11px] text-muted-foreground @2xl:inline">Enter to send · Shift+Enter for a new line</span>
           {mode === "message" && <span className="mr-1"><ScheduleButton disabled={!canSend || schedule.isPending} onSchedule={(at) => schedule.mutate(at)} /></span>}
           <button type="button" aria-label={mode === "post" ? "Post" : "Send"} disabled={!canSend} onClick={() => send.mutate()} className="flex h-8 items-center gap-1.5 rounded-lg bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-40 dark:bg-primary dark:text-primary-foreground">
             {send.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SendHorizontal className="h-3.5 w-3.5" />} {mode === "post" ? "Post" : "Send"}
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }

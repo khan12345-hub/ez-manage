@@ -17,6 +17,8 @@ import {
   ValidateIf,
   IsObject,
   Allow,
+  ArrayMinSize,
+  ValidateNested,
 } from 'class-validator';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -215,6 +217,24 @@ export class EditChatMessageDto {
 export class ChatToTaskDto {
   @IsInt() listId!: number;
   @IsOptional() @IsString() @MaxLength(200) name?: string;
+}
+/** one task in the chat Task / Bulk composer */
+export class ChatTaskItemDto {
+  @IsString() @IsNotEmpty() @MaxLength(500) name!: string;
+  @IsOptional() @IsString() @MaxLength(20000) description?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsInt({ each: true }) assigneeIds?: number[];
+  @IsOptional() @ValidateIf((_, v) => v !== null) @IsDateString() dueDate?: string | null;
+  @IsOptional() @IsIn(PRIORITIES) priority?: (typeof PRIORITIES)[number];
+}
+export class ChatTasksDto {
+  @IsOptional() @IsInt() listId?: number;
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => ChatTaskItemDto) items!: ChatTaskItemDto[];
+}
+export class ChatTaskResolveDto {
+  @IsBoolean() done!: boolean;
+}
+export class ChatDefaultListDto {
+  @ValidateIf((_, v) => v !== null) @IsInt() listId!: number | null;
 }
 export class ChatRemindDto {
   @IsDateString() remindAt!: string;

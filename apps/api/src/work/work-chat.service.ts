@@ -17,7 +17,7 @@ const REACTIONS = ['👍', '❤️', '😂', '🎉', '👀', '🙏', '🔥', '�
 const POST_TYPES = ['announcement', 'discussion', 'idea', 'update'];
 const MSG_SELECT = {
   id: true, channelId: true, parentId: true, kind: true, title: true, postType: true, content: true, mentionIds: true, files: true,
-  replyCount: true, lastReplyAt: true, alsoInChannel: true, pinnedAt: true, editedAt: true, deletedAt: true, createdAt: true, assigneeId: true, resolvedAt: true,
+  replyCount: true, lastReplyAt: true, alsoInChannel: true, pinnedAt: true, editedAt: true, deletedAt: true, createdAt: true, assigneeId: true, resolvedAt: true, taskIds: true, mentionDoneIds: true,
   user: { select: USER_MINI },
   reactions: { select: { emoji: true, userId: true } },
   assignee: { select: USER_MINI },
@@ -171,6 +171,7 @@ export class WorkChatService {
       createdAt: ch.createdAt, joined: !!me, muted: !!me?.muted, starred: !!me?.starred, myRole: me?.role ?? null, notify: me?.notify ?? 'all',
       myPermission: ws.canManage ? 'full' : me?.permission ?? (ch.kind === 'channel' && !ch.isPrivate ? 'edit' : null),
       canManage: me?.role === 'owner' || me?.permission === 'full' || ws.canManage, canPost: ws.canManage || !me || me.permission !== 'view', members, pinned,
+      defaultList: await this.defaultListOf(ch.defaultListId), canCreateTasks: this.canCreateTasks(ch, me, ws),
       location: ch.locationType && ch.locationId ? await this.locationSummary(ch.workspaceId, userId, ch.locationType, ch.locationId) : null,
     };
   }
@@ -982,6 +983,177 @@ export class WorkChatService {
     const shaped = this.shape(up, userId);
     this.push(await this.audience(ch), 'message_updated', { channelUid: ch.uid, message: shaped });
     return shaped;
+  }
+
+  /* ── tasks from chat: Task / Bulk composer, task cards, the side panel ── */
+
+  /** guests and view / comment-only members can read the panel but not create tasks */
+  private canCreateTasks(ch: { kind: string; isPrivate: boolean }, me: { permission: string } | undefined, ws: { canManage: boolean; role?: string | null }) {
+    if (ws.canManage) return true;
+    if (ws.role === 'GUEST') return false;
+    if (me) return ['full', 'edit'].includes(me.permission);
+    return ch.kind === 'channel' && !ch.isPrivate;
+  }
+
+  private async defaultListOf(listId: number | null) {
+    if (!listId) return null;
+    const l = await this.prisma.workList.findFirst({ where: { id: listId, archivedAt: null }, select: { id: true, uid: true, name: true, folder: { select: { name: true } }, space: { select: { name: true, color: true } } } });
+    return l ? { id: l.id, uid: l.uid, name: l.name, path: [l.space.name, l.folder?.name].filter(Boolean).join(' / '), color: l.space.color } : null;
+  }
+
+  /** the list tasks from this chat go to (anyone who can edit here may change it) */
+  async setDefaultList(channelUid: string, userId: number, listId: number | null) {
+    const { ch, me, ws } = await this.channel(channelUid, userId, 'post');
+    if (!this.canCreateTasks(ch, me, ws)) throw new ForbiddenException('You need Edit access to change this.');
+    if (listId !== null) {
+      const l = await this.prisma.workList.findFirst({ where: { id: listId, archivedAt: null }, select: { space: { select: { workspaceId: true } } } });
+      if (!l || l.space.workspaceId !== ch.workspaceId) throw new BadRequestException('Pick a list in this workspace.');
+      await this.access.requireList(listId, userId, 'edit');
+    }
+    await this.prisma.workChannel.update({ where: { id: ch.id }, data: { defaultListId: listId } });
+    this.push(await this.audience(ch), 'channel', { channelUid: ch.uid });
+    return { defaultList: await this.defaultListOf(listId) };
+  }
+
+  /** create one or many tasks from the chat; one task card message is posted */
+  async createTasks(channelUid: string, userId: number, dto: { listId?: number; items: { name: string; description?: string; assigneeIds?: number[]; dueDate?: string | null; priority?: string }[] }) {
+    const { ch, me, ws } = await this.channel(channelUid, userId, 'post');
+    if (!this.canCreateTasks(ch, me, ws)) throw new ForbiddenException('You can view this chat but not create tasks in it.');
+    const items = (dto.items ?? []).map((i) => ({ ...i, name: (i.name ?? '').trim().slice(0, 500) })).filter((i) => i.name);
+    if (!items.length) throw new BadRequestException('Add at least one task.');
+    if (items.length > 50) throw new BadRequestException('Up to 50 tasks at a time.');
+    const listId = dto.listId ?? ch.defaultListId;
+    if (!listId) throw new BadRequestException('Pick a list for these tasks.');
+    const list = await this.prisma.workList.findFirst({ where: { id: listId, archivedAt: null }, select: { space: { select: { workspaceId: true } } } });
+    if (!list || list.space.workspaceId !== ch.workspaceId) throw new BadRequestException('Pick a list in this workspace.');
+    await this.access.requireList(listId, userId, 'edit');
+    // assignees: Work members; in private channels and DMs, people in this conversation
+    const people = [...new Set(items.flatMap((i) => i.assigneeIds ?? []))];
+    if (people.length) {
+      if (!(await this.access.areMembers(ch.workspaceId, people))) throw new BadRequestException('Tasks can only be assigned to Work members.');
+      if ((ch.kind !== 'channel' || ch.isPrivate) && people.some((p) => !ch.members.some((m) => m.userId === p))) throw new BadRequestException('Assign tasks to people in this conversation.');
+    }
+    for (const i of items) if (i.dueDate && isNaN(+new Date(i.dueDate))) throw new BadRequestException(`"${i.name}": that due date is not valid.`);
+    const ids: number[] = [];
+    for (const i of items) {
+      const t: any = await this.work.createTask(listId, userId, { name: i.name, description: i.description, assigneeIds: i.assigneeIds ?? [], dueDate: i.dueDate ?? undefined, priority: i.priority } as any);
+      await this.prisma.workTask.update({ where: { id: t.id }, data: { sourceChannelId: ch.id } });
+      ids.push(t.id);
+    }
+    if (!me && ch.kind === 'channel') await this.prisma.workChannelMember.create({ data: { channelId: ch.id, userId, lastReadAt: new Date() } });
+    const now = new Date();
+    const msg = await this.prisma.workChatMessage.create({
+      data: { channelId: ch.id, userId, kind: 'task', taskIds: ids, content: ids.length === 1 ? `created a task: ${items[0]!.name}` : `created ${ids.length} tasks` },
+      select: MSG_SELECT,
+    });
+    await this.prisma.workChannel.update({ where: { id: ch.id }, data: { lastMessageAt: now } });
+    await this.prisma.workChannelMember.updateMany({ where: { channelId: ch.id, userId }, data: { lastReadAt: now } });
+    const shaped = this.shape(msg, userId);
+    const aud = await this.audience(ch);
+    this.push(aud, 'message', { channelUid: ch.uid, message: shaped });
+    this.push(aud, 'chat_tasks', { channelUid: ch.uid });
+    return { message: shaped, taskIds: ids };
+  }
+
+  /** ids of tasks that belong to this chat: created here, or made from one of its messages */
+  private async chatTaskIds(channelId: number) {
+    const rows = await this.prisma.workChatMessage.findMany({ where: { channelId, deletedAt: null, OR: [{ taskId: { not: null } }, { kind: 'task' }] }, select: { taskId: true, taskIds: true } });
+    return [...new Set(rows.flatMap((r) => [...(r.taskId ? [r.taskId] : []), ...r.taskIds]))];
+  }
+
+  /** the side panel: every task from this chat the person can see, with status and who it is on */
+  async chatTasks(channelUid: string, userId: number) {
+    const { ch, me, ws } = await this.channel(channelUid, userId);
+    const linked = await this.chatTaskIds(ch.id);
+    const rows = await this.prisma.workTask.findMany({
+      where: {
+        archivedAt: null,
+        OR: [{ sourceChannelId: ch.id }, ...(linked.length ? [{ id: { in: linked } }] : [])],
+        list: { archivedAt: null, space: { workspaceId: ch.workspaceId, archivedAt: null, ...this.access.visibleSpaces(ws, userId) } },
+      },
+      orderBy: [{ dueDate: { sort: 'asc', nulls: 'last' } }, { id: 'desc' }],
+      take: 300,
+      select: {
+        id: true, uid: true, name: true, priority: true, dueDate: true, completedAt: true, createdAt: true, createdById: true,
+        status: { select: { id: true, name: true, color: true, category: true } },
+        list: { select: { id: true, uid: true, name: true, folderId: true, spaceId: true, space: { select: { name: true } } } },
+        assignees: { select: { user: { select: USER_MINI } } },
+        createdBy: { select: USER_MINI },
+      },
+    });
+    const owner = me?.role === 'owner' || ws.canManage;
+    // statuses per list for the panel's status menu
+    const sts = new Map<number, { id: number; name: string; color: string; category: string }[]>();
+    for (const t of rows) {
+      if (!sts.has(t.list.id)) sts.set(t.list.id, (await this.work.effectiveStatuses({ id: t.list.id, folderId: t.list.folderId, spaceId: t.list.spaceId })).map((s: any) => ({ id: s.id, name: s.name, color: s.color, category: s.category })));
+    }
+    const tasks = rows.map((t) => {
+      const assignees = t.assignees.map((a) => a.user);
+      return {
+        id: t.id, uid: t.uid, name: t.name, priority: t.priority, dueDate: t.dueDate, completedAt: t.completedAt, createdAt: t.createdAt, status: t.status,
+        list: { uid: t.list.uid, name: t.list.name, space: t.list.space.name }, assignees, createdBy: t.createdBy, statuses: sts.get(t.list.id) ?? [],
+        canResolve: owner || t.createdById === userId || assignees.some((a) => a.id === userId),
+      };
+    });
+    return { tasks, canCreate: this.canCreateTasks(ch, me, ws), defaultList: await this.defaultListOf(ch.defaultListId) };
+  }
+
+  /** Resolve (move to the list's Done status) or reopen a task from the chat; an activity line is posted */
+  async resolveTask(channelUid: string, taskId: number, userId: number, done: boolean) {
+    const { ch, me, ws } = await this.channel(channelUid, userId);
+    const t = await this.prisma.workTask.findFirst({
+      where: { id: taskId, archivedAt: null, list: { space: { workspaceId: ch.workspaceId } } },
+      select: { id: true, name: true, createdById: true, completedAt: true, sourceChannelId: true, list: { select: { id: true, folderId: true, spaceId: true } }, assignees: { select: { userId: true } } },
+    });
+    if (!t || (t.sourceChannelId !== ch.id && !(await this.chatTaskIds(ch.id)).includes(t.id))) throw new NotFoundException('Task not found in this chat.');
+    const allowed = ws.canManage || me?.role === 'owner' || t.createdById === userId || t.assignees.some((a) => a.userId === userId);
+    if (!allowed) throw new ForbiddenException('Only the people on the task, whoever created it or the channel owner can resolve it.');
+    const sts = await this.work.effectiveStatuses(t.list);
+    const target = done ? sts.find((s: any) => s.category === 'DONE') : sts.find((s: any) => s.category === 'NOT_STARTED') ?? sts[0];
+    if (!target) throw new BadRequestException(done ? 'This list has no Done status.' : 'This list has no open status.');
+    await this.work.updateTask(t.id, userId, { statusId: target.id } as any);
+    const now = new Date();
+    const msg = await this.prisma.workChatMessage.create({ data: { channelId: ch.id, userId, kind: 'system', content: `${done ? '✅ resolved' : '↩ reopened'} “${t.name}”`, taskIds: [t.id] }, select: MSG_SELECT });
+    await this.prisma.workChannel.update({ where: { id: ch.id }, data: { lastMessageAt: now } });
+    const aud = await this.audience(ch);
+    this.push(aud, 'message', { channelUid: ch.uid, message: this.shape(msg, userId) });
+    this.push(aud, 'chat_tasks', { channelUid: ch.uid });
+    return { ok: true, statusId: target.id };
+  }
+
+  /** the side panel's Mentions tab: who mentioned / assigned whom in this chat, and whether it's done */
+  async chatMentions(channelUid: string, userId: number) {
+    const { ch } = await this.channel(channelUid, userId);
+    const rows = await this.prisma.workChatMessage.findMany({
+      where: { channelId: ch.id, deletedAt: null, OR: [{ mentionIds: { isEmpty: false } }, { assigneeId: { not: null } }] },
+      orderBy: { createdAt: 'desc' }, take: 100,
+      select: { id: true, parentId: true, kind: true, title: true, content: true, createdAt: true, mentionIds: true, mentionDoneIds: true, assigneeId: true, resolvedAt: true, user: { select: USER_MINI }, assignee: { select: USER_MINI } },
+    });
+    const ids = [...new Set(rows.flatMap((r) => r.mentionIds))];
+    const users = new Map((await this.prisma.user.findMany({ where: { id: { in: ids } }, select: USER_MINI })).map((u) => [u.id, u]));
+    return rows.map((r) => {
+      const text = (r.title ? `${r.title}: ` : '') + r.content;
+      const mentioned = r.mentionIds.map((id) => ({ user: users.get(id) ?? null, done: r.mentionDoneIds.includes(id) })).filter((x) => x.user);
+      const forMe = r.mentionIds.includes(userId) || r.assigneeId === userId;
+      return {
+        id: r.id, parentId: r.parentId, snippet: text.length > 160 ? `${text.slice(0, 160)}…` : text, at: r.createdAt, author: r.user, mentioned,
+        assignee: r.assignee, resolvedAt: r.resolvedAt, forMe, mine: r.user.id === userId,
+        done: (r.assigneeId ? !!r.resolvedAt : true) && mentioned.every((m) => m.done),
+        canToggle: forMe || r.user.id === userId,
+      };
+    });
+  }
+
+  /** mark a mention done (the mentioned person for themself, the author for everyone) */
+  async mentionDone(messageId: number, userId: number, done: boolean) {
+    const { ch } = await this.ownMessage(messageId, userId);
+    const r = await this.prisma.workChatMessage.findUniqueOrThrow({ where: { id: messageId }, select: { userId: true, mentionIds: true, mentionDoneIds: true } });
+    let next: number[];
+    if (r.mentionIds.includes(userId)) next = done ? [...new Set([...r.mentionDoneIds, userId])] : r.mentionDoneIds.filter((x) => x !== userId);
+    else if (r.userId === userId) next = done ? [...r.mentionIds] : [];
+    else throw new ForbiddenException('Only the person mentioned or the author can do this.');
+    await this.prisma.workChatMessage.update({ where: { id: messageId }, data: { mentionDoneIds: next } });
+    return this.updated(ch, messageId, userId);
   }
 
   /** "Create task" from a message: the text becomes the description with a link back here */

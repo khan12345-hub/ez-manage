@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { WORK_CHAT_EVENT, type WorkChatEvent } from "@/services/notifications.sse";
@@ -11,9 +11,13 @@ export const messagesKey = (uid: string) => ["work", "chat-messages", uid] as co
 export const threadKey = (id: number) => ["work", "chat-thread", id] as const;
 export const channelKey = (uid: string) => ["work", "chat-channel", uid] as const;
 
+/** lets Work chat run outside /work/[workspaceId] (Executive Hub): the workspace uid to use */
+export const WorkWsContext = createContext<string | null>(null);
+
 export function useWs() {
-  const { workspaceId } = useParams<{ workspaceId: string }>();
-  return workspaceId ?? "";
+  const override = useContext(WorkWsContext);
+  const { workspaceId } = useParams<{ workspaceId?: string }>();
+  return override ?? workspaceId ?? "";
 }
 
 export function useChatSidebar() {

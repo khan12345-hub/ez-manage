@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { ceoApi, type CeoCompany, type CeoHealth, type CeoOverview, type CeoSource } from "@/services/ceo-tower.api";
 import { useTaskPopup } from "./TaskPopup";
+import { AssignedSummary } from "./ChannelsView";
 
 const C = {
   open: "text-[#047857] dark:text-[#059669]", openFill: "fill-[#047857] dark:fill-[#059669]", openStroke: "stroke-[#047857] dark:stroke-[#059669]", openBg: "bg-[#047857] dark:bg-[#059669]",
@@ -134,7 +135,7 @@ function WeekBars({ weeks }: { weeks: { start: string; created: number; complete
   );
 }
 
-export function CeoDashboard({ data, source, company, onFocus, onOpen, onView }: { data: CeoOverview; source: CeoSource; company: string | null; onFocus: (c: CeoCompany) => void; onOpen: (c: CeoCompany) => void; onView: (v: "tasks" | "team" | "portfolio") => void }) {
+export function CeoDashboard({ data, source, company, onFocus, onOpen, onView, onAssigned }: { data: CeoOverview; source: CeoSource; company: string | null; onFocus: (c: CeoCompany) => void; onOpen: (c: CeoCompany) => void; onView: (v: "tasks" | "team" | "portfolio") => void; onAssigned?: () => void }) {
   const { user } = useAuth();
   const reduced = useReducedMotion();
   const showTask = useTaskPopup((s) => s.show);
@@ -230,6 +231,9 @@ export function CeoDashboard({ data, source, company, onFocus, onOpen, onView }:
           </motion.button>
         ))}
       </motion.div>
+
+      {/* tasks the CEO gave out, and how many got done */}
+      <motion.div variants={fade}><AssignedSummary onOpen={onAssigned} /></motion.div>
 
       <motion.div variants={stagger} className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
         <Card title="Open vs overdue" sub="Last 30 days, all your companies"><TrendChart days={days} /></Card>

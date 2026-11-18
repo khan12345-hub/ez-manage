@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { WorkFilesService, type AttachmentSource } from './work-files.service';
@@ -12,7 +13,7 @@ import { WorkStatsService, type StatsKind } from './work-stats.service';
 import { WorkProfileService } from './work-profile.service';
 import { WorkAutomationsService } from './work-automations.service';
 import { WorkChatService } from './work-chat.service';
-import { ChatToTaskDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatSectionDto, ChatSectionOrderDto, ChannelSectionDto, ChannelViewDto, UpdateChannelViewDto, ScheduleChatDto, UpdateScheduledChatDto, BookmarkDto, UpdateBookmarkDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
+import { ChatToTaskDto, ChatTasksDto, ChatTaskResolveDto, ChatDefaultListDto, ChatRemindDto, ChatForwardDto, ChannelPermissionDto, CreateChannelDto, UpdateChannelDto, DmDto, ChannelMembersDto, ChannelPrefsDto, ChatSectionDto, ChatSectionOrderDto, ChannelSectionDto, ChannelViewDto, UpdateChannelViewDto, ScheduleChatDto, UpdateScheduledChatDto, BookmarkDto, UpdateBookmarkDto, ChatMessageDto, EditChatMessageDto, ChatDraftDto, CreateAutomationDto, UpdateAutomationDto, CreateWorkWorkspaceDto, UpdateWorkWorkspaceDto, DeleteWorkWorkspaceDto, UpdateProfileDto, PriorityDto, CreateTeamDto, UpdateTeamDto, ToggleDto, WatchDto, AssignCommentDto, ListRefDto, CreateReminderDto, UpdateReminderDto, CreateFieldDto, FieldValueDto, InboxBulkDto, NotificationPrefDto, ReactionDto, UpdateFieldDto } from './dto/work.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
 import { WorkService } from './work.service';
@@ -524,6 +525,38 @@ export class WorkController {
   @Get('chat/channels/:uid/tasks')
   dmTasks(@Param('uid') uid: string, @Query('who') who: string, @Query('from') from: string, @Query('to') to: string, @CurrentUser() u: SessionUser) {
     return this.chat.dmTasks(uid, u.id, { who, from, to });
+  }
+
+  // ── tasks from chat (Task / Bulk composer, side panel) ──
+  @Get('chat/channels/:uid/chat-tasks')
+  chatTasks(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.chatTasks(uid, u.id);
+  }
+
+  @Post('chat/channels/:uid/chat-tasks')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  createChatTasks(@Param('uid') uid: string, @Body() dto: ChatTasksDto, @CurrentUser() u: SessionUser) {
+    return this.chat.createTasks(uid, u.id, dto);
+  }
+
+  @Post('chat/channels/:uid/chat-tasks/:taskId/resolve')
+  resolveChatTask(@Param('uid') uid: string, @Param('taskId', ParseIntPipe) taskId: number, @Body() dto: ChatTaskResolveDto, @CurrentUser() u: SessionUser) {
+    return this.chat.resolveTask(uid, taskId, u.id, dto.done);
+  }
+
+  @Put('chat/channels/:uid/default-list')
+  chatDefaultList(@Param('uid') uid: string, @Body() dto: ChatDefaultListDto, @CurrentUser() u: SessionUser) {
+    return this.chat.setDefaultList(uid, u.id, dto.listId);
+  }
+
+  @Get('chat/channels/:uid/mentions')
+  chatMentions(@Param('uid') uid: string, @CurrentUser() u: SessionUser) {
+    return this.chat.chatMentions(uid, u.id);
+  }
+
+  @Post('chat/messages/:id/mention-done')
+  chatMentionDone(@Param('id', ParseIntPipe) id: number, @Body() dto: ChatTaskResolveDto, @CurrentUser() u: SessionUser) {
+    return this.chat.mentionDone(id, u.id, dto.done);
   }
 
   @Get('chat/channels/:uid/bookmarks')

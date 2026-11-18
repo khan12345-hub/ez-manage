@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowRight, AtSign, CalendarClock, CalendarDays, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, LayoutDashboard, FileDown, Inbox, KeyRound, LayoutGrid, Settings2, ThumbsDown, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, AtSign, CalendarClock, CalendarDays, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, LayoutDashboard, FileDown, Inbox, KeyRound, LayoutGrid, Settings2, ThumbsDown, ListChecks, MessageSquare, MessagesSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -32,11 +32,13 @@ import { BriefCard } from "./_components/BriefCard";
 import { CeoDashboard } from "./_components/CeoDashboard";
 import { AppSwitcher } from "@/components/AppSwitcher";
 import { CalendarView } from "./_components/CalendarView";
+import { ChannelsView } from "./_components/ChannelsView";
 import { PRODUCT_NAME } from "@/lib/products";
 
-type View = "dashboard" | "portfolio" | "management" | "tasks" | "team" | "boards" | "work" | "calendar" | "meetings" | "email" | "ai";
+type View = "dashboard" | "channels" | "portfolio" | "management" | "tasks" | "team" | "boards" | "work" | "calendar" | "meetings" | "email" | "ai";
 const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, ready: true },
+  { id: "channels", label: "Channels", icon: MessagesSquare, ready: true },
   { id: "portfolio", label: "Companies", icon: Building2, ready: true },
   { id: "management", label: "Management & Teams", icon: Crown, ready: true },
   { id: "tasks", label: "Tasks", icon: ListChecks, ready: true },
@@ -77,6 +79,7 @@ export default function CeoTowerPage() {
   const { user } = useAuth();
   const access = useCeoAccess();
   const [view, setViewState] = useState<View>("dashboard");
+  const [chTab, setChTab] = useState<"chat" | "assigned">("chat");
   // the open view lives in the URL (?view=…) so a reload or a shared link lands on the same page
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("view") as View | null;
@@ -248,7 +251,8 @@ export default function CeoTowerPage() {
             ))}
           </div>}
 
-          {view === "dashboard" ? <CeoDashboard data={data} source={source} company={company?.key ?? null} onFocus={(c) => setCompany(company?.key === c.key ? null : c)} onOpen={(c) => setPanel({ company: c, start: { tab: "tasks", state: "open" } })} onView={(v) => setView(v)} />
+          {view === "dashboard" ? <CeoDashboard data={data} source={source} company={company?.key ?? null} onFocus={(c) => setCompany(company?.key === c.key ? null : c)} onOpen={(c) => setPanel({ company: c, start: { tab: "tasks", state: "open" } })} onView={(v) => setView(v)} onAssigned={() => { setChTab("assigned"); setView("channels"); }} />
+            : view === "channels" ? <ChannelsView companies={companies} tab={chTab} onTab={setChTab} />
             : view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} />
             : view === "calendar" ? <CalendarView />
             : view === "meetings" ? <MeetingsView />
@@ -345,6 +349,7 @@ const KIND: Record<CeoForYouKind, { label: string; icon: typeof Inbox }> = {
   reply: { label: "Replied to you", icon: MessageSquareReply },
   comment: { label: "Commented", icon: MessageSquare },
   message: { label: "Message", icon: MessageSquare },
+  completed: { label: "Completed", icon: CheckCircle2 },
 };
 
 function AttentionDialog({ data, forYou, onClose, onPick }: { data: CeoOverview; forYou: CeoForYouItem[]; onClose: () => void; onPick: (key: string) => void }) {

@@ -475,7 +475,7 @@ export class CeoTowerService {
     const since = new Date(Date.now() - 30 * DAY);
     const [work, boards] = await Promise.all([
       this.prisma.workNotification.findMany({
-        where: { recipientId: userId, isRead: false, clearedAt: null, createdAt: { gte: since }, type: { in: ['TASK_ASSIGNED', 'COMMENT_MENTION', 'COMMENT_REPLY', 'COMMENT_CREATED', 'CHAT'] } },
+        where: { recipientId: userId, isRead: false, clearedAt: null, createdAt: { gte: since }, type: { in: ['TASK_ASSIGNED', 'COMMENT_MENTION', 'COMMENT_REPLY', 'COMMENT_CREATED', 'CHAT', 'TASK_STATUS_CHANGED'] } },
         orderBy: { createdAt: 'desc' }, take: 80,
         select: { id: true, type: true, title: true, message: true, metadata: true, createdAt: true, taskId: true },
       }),
@@ -485,8 +485,9 @@ export class CeoTowerService {
         select: { id: true, type: true, title: true, message: true, entityType: true, entityId: true, metadata: true, createdAt: true },
       }),
     ]);
-    const kindOf = (type: string, event?: string) =>
+    const kindOf = (type: string, event?: string, done?: boolean) =>
       event === 'reaction' ? null
+      : type === 'TASK_STATUS_CHANGED' ? (done ? 'completed' : null)
       : type === 'TASK_ASSIGNED' || event === 'assigned_comment' ? 'assigned'
       : type === 'COMMENT_MENTION' || event === 'chat_mention' || event === 'mention' ? 'mention'
       : type === 'COMMENT_REPLY' || event === 'chat_reply' || event === 'reply' ? 'reply'
@@ -504,7 +505,7 @@ export class CeoTowerService {
     const items = [
       ...work.map((n) => {
         const m = (n.metadata ?? {}) as Record<string, any>;
-        const kind = kindOf(n.type, m.event);
+        const kind = kindOf(n.type, m.event, m.done === true);
         return kind && { source: 'work' as const, id: n.id, kind, title: n.title, message: n.message, at: n.createdAt, href: typeof m.url === 'string' && m.url.startsWith('/work/') ? m.url : null, actor: m.actorName ?? null,
           // answer in place: the task's thread, or a direct message back to the sender
           task: n.taskId ? { source: 'work' as const, id: n.taskId } : null, actorId: num(m.actorId ?? m.senderId) };
@@ -522,8 +523,93 @@ export class CeoTowerService {
     ].filter(Boolean).sort((a, b) => +b!.at - +a!.at).slice(0, 60) as { source: 'work' | 'boards'; id: string; kind: string; title: string; message: string; at: Date; href: string | null; actor: string | null; task: { source: 'work' | 'boards'; id: number } | null; actorId: number | null }[];
     // approval requests: someone asks the CEO to approve / sign off on something in a task
     const APPROVAL = /\b(approv\w*|sign[\s-]?off|go[\s-]?ahead|permission|green[\s-]?light|manzoor\w*|ijazat)\b/i;
-    const withApproval = items.map((i) => ({ ...i, approval: !!i.task && i.kind !== 'assigned' && APPROVAL.test(`${i.title} ${i.message}`) }));
+    const withApproval = items.map((i) => ({ ...i, approval: !!i.task && !['assigned', 'completed'].includes(i.kind) && APPROVAL.test(`${i.title} ${i.message}`) }));
     return { count: withApproval.length, approvals: withApproval.filter((i) => i.approval).length, items: withApproval };
+  }
+
+  /**
+   * "Assigned by me": every Work task the Administrator created and gave to someone else, across their
+   * Work companies (chat-created ones say which channel), with who finished it and when, plus totals
+   * and a per-person breakdown.
+   */
+  async assignedByMe(userId: number, o: { person?: number; company?: string; state?: string } = {}) {
+    const own = await this.require(userId);
+    const wsIds = own.work.map((w) => w.id).filter((id) => !o.company || `work:${id}` === o.company);
+    if (!wsIds.length) return { summary: { total: 0, open: 0, done: 0, overdue: 0, doneWeek: 0 }, people: [], tasks: [] };
+    const rows = await this.prisma.workTask.findMany({
+      where: { createdById: userId, archivedAt: null, assignees: { some: { userId: { not: userId } } }, list: { archivedAt: null, space: { archivedAt: null, workspaceId: { in: wsIds } } } },
+      orderBy: { createdAt: 'desc' },
+      take: 1000,
+      select: {
+        id: true, uid: true, name: true, priority: true, dueDate: true, completedAt: true, createdAt: true,
+        status: { select: { name: true, color: true, category: true } },
+        list: { select: { uid: true, name: true, space: { select: { name: true, workspace: { select: { id: true, uid: true, name: true } } } } } },
+        assignees: { select: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
+        sourceChannel: { select: { uid: true, name: true, kind: true } },
+      },
+    });
+    // who finished it: the latest status change on a done task
+    const doneIds = rows.filter((t) => t.completedAt).map((t) => t.id);
+    const acts = doneIds.length ? await this.prisma.workActivity.findMany({ where: { taskId: { in: doneIds }, action: 'status' }, orderBy: { createdAt: 'desc' }, select: { taskId: true, createdAt: true, user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } }) : [];
+    const finisher = new Map<number, { id: number; firstName: string | null; lastName: string | null; avatarUrl: string | null }>();
+    for (const a of acts) if (!finisher.has(a.taskId)) finisher.set(a.taskId, a.user);
+    const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
+    const weekAgo = Date.now() - 7 * DAY;
+    const all = rows.map((t) => {
+      const assignees = t.assignees.map((a) => a.user).filter((u) => u.id !== userId);
+      const overdue = !t.completedAt && !!t.dueDate && t.dueDate < startOfToday;
+      return {
+        id: t.id, uid: t.uid, name: t.name, priority: t.priority, dueDate: t.dueDate, completedAt: t.completedAt, createdAt: t.createdAt, status: t.status, overdue,
+        company: { key: `work:${t.list.space.workspace.id}`, uid: t.list.space.workspace.uid, name: t.list.space.workspace.name },
+        where: `${t.list.space.name} / ${t.list.name}`, listUid: t.list.uid,
+        channel: t.sourceChannel ? { uid: t.sourceChannel.uid, name: t.sourceChannel.kind === 'channel' ? `#${t.sourceChannel.name}` : 'Direct message' } : null,
+        assignees, completedBy: t.completedAt ? finisher.get(t.id) ?? null : null,
+        hoursToDone: t.completedAt ? Math.max(0, Math.round((+t.completedAt - +t.createdAt) / 3_600_000)) : null,
+      };
+    });
+    // per person (a task with two people counts for both)
+    const per = new Map<number, { user: (typeof all)[number]['assignees'][number]; assigned: number; open: number; done: number; overdue: number; hours: number[] }>();
+    for (const t of all) for (const u of t.assignees) {
+      const p = per.get(u.id) ?? { user: u, assigned: 0, open: 0, done: 0, overdue: 0, hours: [] };
+      p.assigned++; if (t.completedAt) { p.done++; if (t.hoursToDone !== null) p.hours.push(t.hoursToDone); } else p.open++;
+      if (t.overdue) p.overdue++;
+      per.set(u.id, p);
+    }
+    const people = [...per.values()].map(({ hours, ...p }) => ({ ...p, avgHoursToDone: hours.length ? Math.round(hours.reduce((a, b) => a + b, 0) / hours.length) : null })).sort((a, b) => b.overdue - a.overdue || b.open - a.open);
+    const summary = {
+      total: all.length, open: all.filter((t) => !t.completedAt).length, done: all.filter((t) => t.completedAt).length,
+      overdue: all.filter((t) => t.overdue).length, doneWeek: all.filter((t) => t.completedAt && +t.completedAt >= weekAgo).length,
+    };
+    const state = o.state ?? 'all';
+    const tasks = all.filter((t) => (!o.person || t.assignees.some((u) => u.id === o.person)) && (state === 'all' || (state === 'open' ? !t.completedAt : state === 'done' ? !!t.completedAt : t.overdue)));
+    return { summary, people, tasks: tasks.slice(0, 500), companies: own.work.map((w) => ({ key: `work:${w.id}`, name: w.name })) };
+  }
+
+  /** Work chats (channels, group and direct messages) the Administrator is in, across their Work companies */
+  async execChannels(userId: number) {
+    const own = await this.require(userId);
+    if (!own.work.length) return [];
+    const rows = await this.prisma.workChannel.findMany({
+      where: { workspaceId: { in: own.work.map((w) => w.id) }, archivedAt: null, members: { some: { userId } } },
+      orderBy: [{ lastMessageAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+      take: 300,
+      select: {
+        uid: true, name: true, kind: true, isPrivate: true, lastMessageAt: true, workspaceId: true, defaultListId: true,
+        members: { select: { userId: true, lastReadAt: true, user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
+        _count: { select: { sourceTasks: { where: { completedAt: null, archivedAt: null } } } },
+      },
+    });
+    return own.work.map((w) => ({
+      company: { key: `work:${w.id}`, uid: w.uid, name: w.name },
+      channels: rows.filter((c) => c.workspaceId === w.id).map((c) => {
+        const me = c.members.find((m) => m.userId === userId);
+        return {
+          uid: c.uid, name: c.name, kind: c.kind, isPrivate: c.isPrivate, lastMessageAt: c.lastMessageAt, memberCount: c.members.length,
+          people: c.kind === 'channel' ? [] : c.members.filter((m) => m.userId !== userId).map((m) => m.user),
+          unread: !!c.lastMessageAt && (!me?.lastReadAt || c.lastMessageAt > me.lastReadAt), openTasks: c._count.sourceTasks,
+        };
+      }),
+    }));
   }
 
   /** opening an item marks it read in the CEO's own inbox (the only write CEO Tower makes) */

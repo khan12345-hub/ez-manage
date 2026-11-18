@@ -381,7 +381,7 @@ export interface WorkAutomationRun { id: number; taskId: number | null; ok: bool
 
 export interface ChatFile { id: number; name: string; url: string; mime: string; size: number }
 export interface ChatMessage {
-  id: number; channelId: number; parentId: number | null; kind: "message" | "post" | "system"; title: string | null; postType: string | null;
+  id: number; channelId: number; parentId: number | null; kind: "message" | "post" | "system" | "task"; taskIds?: number[]; mentionDoneIds?: number[]; title: string | null; postType: string | null;
   content: string; mentionIds: number[]; files: ChatFile[]; replyCount: number; lastReplyAt: string | null; alsoInChannel: boolean;
   pinnedAt: string | null; editedAt: string | null; deletedAt: string | null; createdAt: string; user: WorkUser;
   reactions: { emoji: string; userIds: number[] }[]; saved: boolean; mine: boolean;
@@ -438,6 +438,18 @@ export interface ChatChannelDetail {
   canManage: boolean; canPost: boolean; notify: ChatNotify; myPermission: ChatPermission | null;
   members: { role: string; permission: ChatPermission; workRole: WorkRole | null; joinedAt: string; user: WorkUser }[]; pinned: ChatMessage[];
   location: ChatLocation | null;
+  defaultList?: ChatDefaultList | null; canCreateTasks?: boolean;
+}
+export interface ChatDefaultList { id: number; uid: string; name: string; path: string; color: string | null }
+export interface ChatTaskRow {
+  id: number; uid: string; name: string; priority: WorkPriority | null; dueDate: string | null; completedAt: string | null; createdAt: string;
+  status: { id: number; name: string; color: string; category: string } | null; list: { uid: string; name: string; space: string };
+  assignees: WorkUser[]; createdBy: WorkUser; statuses: { id: number; name: string; color: string; category: string }[]; canResolve: boolean;
+}
+export interface ChatTaskInput { name: string; description?: string; assigneeIds?: number[]; dueDate?: string | null; priority?: WorkPriority }
+export interface ChatMentionRow {
+  id: number; parentId: number | null; snippet: string; at: string; author: WorkUser; mentioned: { user: WorkUser; done: boolean }[];
+  assignee: WorkUser | null; resolvedAt: string | null; forMe: boolean; mine: boolean; done: boolean; canToggle: boolean;
 }
 
 export const workApi = {
@@ -455,6 +467,12 @@ export const workApi = {
     return post<ChatFile[]>(`/work/workspaces/${ws}/chat/files`, fd);
   },
   channel: (uid: string) => get<ChatChannelDetail>(`/work/chat/channels/${uid}`),
+  chatTasks: (uid: string) => get<{ tasks: ChatTaskRow[]; canCreate: boolean; defaultList: ChatDefaultList | null }>(`/work/chat/channels/${uid}/chat-tasks`),
+  createChatTasks: (uid: string, body: { listId?: number; items: ChatTaskInput[] }) => post<{ message: ChatMessage; taskIds: number[] }>(`/work/chat/channels/${uid}/chat-tasks`, body),
+  resolveChatTask: (uid: string, taskId: number, done: boolean) => post<{ ok: boolean }>(`/work/chat/channels/${uid}/chat-tasks/${taskId}/resolve`, { done }),
+  chatDefaultList: (uid: string, listId: number | null) => put<{ defaultList: ChatDefaultList | null }>(`/work/chat/channels/${uid}/default-list`, { listId }),
+  chatMentions: (uid: string) => get<ChatMentionRow[]>(`/work/chat/channels/${uid}/mentions`),
+  chatMentionDone: (id: number, done: boolean) => post<ChatMessage>(`/work/chat/messages/${id}/mention-done`, { done }),
   updateChannel: (uid: string, body: { name?: string; description?: string | null; topic?: string | null; isPrivate?: boolean; locationType?: ChatLocationType | null; locationId?: number | null }) => patch(`/work/chat/channels/${uid}`, body),
   archiveChannel: (uid: string) => del(`/work/chat/channels/${uid}`),
   joinChannel: (uid: string) => post(`/work/chat/channels/${uid}/join`),

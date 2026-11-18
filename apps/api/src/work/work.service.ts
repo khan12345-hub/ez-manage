@@ -690,12 +690,12 @@ export class WorkService {
     }
     // status changes reach the task's people (assignees + creator)
     if (before && updated.statusId !== before.statusId) {
-      const to = updated.statusId ? await this.prisma.workStatus.findUnique({ where: { id: updated.statusId }, select: { name: true, color: true } }) : null;
+      const to = updated.statusId ? await this.prisma.workStatus.findUnique({ where: { id: updated.statusId }, select: { name: true, color: true, category: true } }) : null;
       const from = before.statusId ? await this.prisma.workStatus.findUnique({ where: { id: before.statusId }, select: { name: true, color: true } }) : null;
       const people = await this.prisma.workTask.findUnique({ where: { id: taskId }, select: { createdById: true, assignees: { select: { userId: true } } } });
       const rcpt = [people?.createdById ?? 0, ...(people?.assignees.map((a) => a.userId) ?? [])];
-      await this.files.notify(taskId, userId, rcpt, NotificationType.TASK_STATUS_CHANGED, 'Status changed', `${from?.name ?? 'none'} → ${to?.name ?? 'none'}`, {
-        event: 'status', from: from?.name ?? null, fromColor: from?.color ?? null, to: to?.name ?? null, toColor: to?.color ?? null,
+      await this.files.notify(taskId, userId, rcpt, NotificationType.TASK_STATUS_CHANGED, to?.category === 'DONE' ? `Completed: ${updated.name}` : 'Status changed', `${from?.name ?? 'none'} → ${to?.name ?? 'none'}`, {
+        event: 'status', from: from?.name ?? null, fromColor: from?.color ?? null, to: to?.name ?? null, toColor: to?.color ?? null, done: to?.category === 'DONE',
       });
       await this.emit({ type: 'status_changed', taskId, actorId: userId, from: from?.name ?? null, to: to?.name ?? null }, opts);
       // a repeating task that was just completed: the next one is created

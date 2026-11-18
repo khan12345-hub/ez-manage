@@ -1,5 +1,7 @@
 "use client";
 
+import { useWs } from "./chat/useChat";
+
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { create } from "zustand";
@@ -18,8 +20,7 @@ export const useProfilePanel = create<{ userId: number | null; open: (id: number
 
 export const directoryKey = (ws: string) => ["work", "directory", ws] as const;
 export function useDirectory(enabled = true) {
-  const { workspaceId } = useParams<{ workspaceId: string }>();
-  const ws = workspaceId ?? "";
+  const ws = useWs();
   return useQuery({ queryKey: directoryKey(ws), queryFn: () => workApi.directory(ws), enabled: enabled && !!ws, staleTime: 60_000 });
 }
 
