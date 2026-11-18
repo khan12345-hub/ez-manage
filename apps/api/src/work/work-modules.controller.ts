@@ -12,6 +12,8 @@ import { WorkLinksService } from './work-links.service';
 import { WorkWhiteboardsService } from './work-whiteboards.service';
 import { WorkCallsService } from './work-calls.service';
 import { WorkMoreService } from './work-more.service';
+import { WorkChatService } from './work-chat.service';
+import { PrismaService } from 'prisma/prisma.service';
 import { UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -34,6 +36,8 @@ export class WorkModulesController {
     private readonly boards: WorkWhiteboardsService,
     private readonly calls: WorkCallsService,
     private readonly more: WorkMoreService,
+    private readonly chat: WorkChatService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ── timesheets ──
@@ -190,6 +194,20 @@ export class WorkModulesController {
   @Throttle({ auth: { ttl: 60_000, limit: 20 } })
   taskAi(@Param('id', ParseIntPipe) id: number, @Body() b: { action?: string }, @CurrentUser() u: SessionUser) {
     return this.ai.forTask(id, u.id, String(b?.action ?? ''));
+  }
+
+  /** AI: split pasted notes into task rows for a chat's "Many tasks" preview (nothing is created here) */
+  @Post('chat/channels/:uid/ai-split')
+  @Throttle({ auth: { ttl: 60_000, limit: 10 } })
+  async aiSplitTasks(@Param('uid') uid: string, @Body() b: { text?: string; tz?: string }, @CurrentUser() u: SessionUser) {
+    const { ch } = await this.chat.channel(uid, u.id, 'post');
+    // who can get these tasks: the conversation's people (private / DM), or the workspace's people (public channel)
+    const ids = ch.kind === 'channel' && !ch.isPrivate
+      ? (await this.prisma.workMember.findMany({ where: { workspaceId: ch.workspaceId }, select: { userId: true } })).map((m) => m.userId)
+      : ch.members.map((m) => m.userId);
+    const users = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true } });
+    const tz = typeof b?.tz === 'string' && /^[A-Za-z_]+(\/[A-Za-z_+-]+)*$/.test(b.tz) ? b.tz : 'UTC';
+    return this.ai.splitTasks(String(b?.text ?? ''), users.map((x) => ({ id: x.id, name: `${x.firstName ?? ''} ${x.lastName ?? ''}`.trim() })), tz);
   }
 
   @Post('workspaces/:workspaceId/ai/ask')

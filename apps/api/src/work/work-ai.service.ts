@@ -51,6 +51,44 @@ export class WorkAiService {
     throw new ServiceUnavailableException('Work AI could not answer right now. Try again.');
   }
 
+  /**
+   * Split free text (meeting notes, a brain dump) into tasks for a chat's "Many tasks" preview.
+   * Only suggests: the person reviews the rows and creates them. Assignees are limited to `people`.
+   */
+  async splitTasks(text: string, people: { id: number; name: string }[], tz = 'UTC') {
+    try { new Date().toLocaleDateString('en-CA', { timeZone: tz }); } catch { tz = 'UTC'; } // unknown zone
+    const notes = text.trim().slice(0, 12000);
+    if (notes.length < 3) throw new BadRequestException('Paste some notes first.');
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
+    const weekday = new Date().toLocaleDateString('en-US', { timeZone: tz, weekday: 'long' });
+    const system = [
+      'You turn meeting notes or a list of to-dos into separate, actionable tasks.',
+      'Reply with JSON only: {"tasks":[{"name":string,"description":string|null,"assigneeIds":number[],"dueDate":"YYYY-MM-DD"|null,"priority":"URGENT"|"HIGH"|"NORMAL"|"LOW"}]}',
+      'Rules: one task per distinct action; name is short and starts with a verb (max 90 chars); keep the language of the notes;',
+      'description only for useful extra detail from the notes, else null;',
+      'assigneeIds only from the people list, matched by name or first name mentioned as the owner (empty if nobody is named);',
+      `dueDate only when the notes give a time ("by Friday", "tomorrow", "25 Nov"); today is ${weekday} ${today};`,
+      'priority NORMAL unless the notes say urgent / ASAP / important (HIGH) or critical / blocker (URGENT) or low / whenever (LOW);',
+      'at most 50 tasks; skip chit-chat, decisions without an action, and duplicates.',
+    ].join(' ');
+    const user = `People:\n${people.map((p) => `${p.id}: ${p.name}`).join('\n') || '(none)'}\n\nNotes:\n"""\n${notes}\n"""`;
+    const raw = await this.complete(system, user, 3000);
+    const json = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
+    let parsed: any;
+    try { parsed = JSON.parse(json); } catch { throw new ServiceUnavailableException('The AI answer could not be read. Try again.'); }
+    const ok = new Set(people.map((p) => p.id));
+    const pri = new Set(['URGENT', 'HIGH', 'NORMAL', 'LOW']);
+    const tasks = (Array.isArray(parsed?.tasks) ? parsed.tasks : []).slice(0, 50).map((t: any) => ({
+      name: String(t?.name ?? '').trim().slice(0, 200),
+      description: t?.description ? String(t.description).trim().slice(0, 2000) : null,
+      assigneeIds: (Array.isArray(t?.assigneeIds) ? t.assigneeIds : []).map(Number).filter((id: number) => ok.has(id)),
+      dueDate: /^\d{4}-\d{2}-\d{2}$/.test(String(t?.dueDate ?? '')) ? String(t.dueDate) : null,
+      priority: pri.has(String(t?.priority)) ? String(t.priority) : 'NORMAL',
+    })).filter((t: { name: string }) => t.name.length > 0);
+    if (!tasks.length) throw new BadRequestException('No tasks found in these notes.');
+    return { tasks };
+  }
+
   /** describe | summarize | subtasks for one task (needs view access; the person applies the result) */
   async forTask(taskId: number, userId: number, action: string) {
     await this.access.requireTask(taskId, userId, 'view');

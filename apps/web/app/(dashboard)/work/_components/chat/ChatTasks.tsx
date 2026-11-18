@@ -75,7 +75,7 @@ function findDate(line: string): { day: string; match: string } | null {
   return null;
 }
 
-export type BulkRow = { key: string; name: string; assigneeIds: number[]; due: string | null; priority: WorkPriority | null };
+export type BulkRow = { key: string; name: string; assigneeIds: number[]; due: string | null; priority: WorkPriority | null; description?: string | null };
 
 /** one task per line: "Landing page copy @Rubab Haider fri !high" */
 export function parseBulk(text: string, people: WorkUser[]): BulkRow[] {
@@ -188,7 +188,19 @@ export function ChatTaskComposer({ channelUid, ws, mode, people, me, onCreated }
   const [assignAll, setAssignAll] = useState<number[]>([]);
   const [edits, setEdits] = useState<Record<string, Partial<BulkRow> & { removed?: boolean }>>({});
   const parsed = useMemo(() => parseBulk(text, people), [text, people]);
-  const rows = parsed.map((r) => ({ ...r, ...edits[r.key] })).filter((r) => !r.removed).map((r) => ({ ...r, assigneeIds: r.assigneeIds.length ? r.assigneeIds : assignAll }));
+  // "Split with AI": the AI's rows replace the line-by-line ones until the text is edited again
+  const [aiRows, setAiRows] = useState<BulkRow[] | null>(null);
+  const { data: aiOn } = useQuery({ queryKey: ["work", "ai-status"], queryFn: () => workApi.aiStatus(), staleTime: 300_000 });
+  const split = useMutation({
+    mutationFn: () => workApi.aiSplitTasks(channelUid, text, Intl.DateTimeFormat().resolvedOptions().timeZone),
+    onSuccess: (r) => {
+      setEdits({});
+      setAiRows(r.tasks.map((t, i) => ({ key: `ai-${i}-${t.name}`, name: t.name, assigneeIds: t.assigneeIds, due: t.dueDate, priority: t.priority, description: t.description })));
+      toast.success(`AI found ${r.tasks.length} ${r.tasks.length === 1 ? "task" : "tasks"}. Check them, then create.`);
+    },
+    onError: (e) => err(e, "AI couldn't split these notes."),
+  });
+  const rows = (aiRows ?? parsed).map((r) => ({ ...r, ...edits[r.key] })).filter((r) => !r.removed).map((r) => ({ ...r, assigneeIds: r.assigneeIds.length ? r.assigneeIds : assignAll }));
 
   const create = useMutation({
     mutationFn: async (items: ChatTaskInput[]) => {
@@ -201,7 +213,7 @@ export function ChatTaskComposer({ channelUid, ws, mode, people, me, onCreated }
       qc.invalidateQueries({ queryKey: chatSidebarKey(ws) });
       qc.invalidateQueries({ queryKey: messagesKey(channelUid) });
       toast.success(r.taskIds.length === 1 ? "Task created" : `${r.taskIds.length} tasks created`);
-      setName(""); setAssignees([]); setDue(""); setPriority(null); setText(""); setEdits({}); setAssignAll([]);
+      setName(""); setAssignees([]); setDue(""); setPriority(null); setText(""); setEdits({}); setAssignAll([]); setAiRows(null);
       onCreated?.();
     },
     onError: (e) => err(e, "Couldn't create the tasks."),
@@ -243,14 +255,26 @@ export function ChatTaskComposer({ channelUid, ws, mode, people, me, onCreated }
   const people2 = new Set(rows.flatMap((r) => r.assigneeIds));
   return (
     <div className="space-y-2.5 p-3">
-      <textarea value={text} onChange={(e) => { setText(e.target.value); }} rows={4} aria-label="Tasks, one per line"
-        placeholder={"One task per line — @person, a day and !priority are picked up:\nLanding page copy @Rubab fri !high\nAds budget final @Ali 25 nov\nClient call notes tomorrow"}
+      <textarea value={text} onChange={(e) => { setText(e.target.value); if (aiRows) { setAiRows(null); setEdits({}); } }} rows={4} aria-label="Tasks, one per line, or notes for AI"
+        placeholder={"One task per line — @person, a day and !priority are picked up:\nLanding page copy @Rubab fri !high\nAds budget final @Ali 25 nov\n…or paste meeting notes and press Split with AI"}
         className="block max-h-56 min-h-[96px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2 font-mono text-[12.5px] leading-relaxed outline-none focus:border-primary/40" />
       <div className="flex flex-wrap items-center gap-2">
+        {aiOn?.configured && (
+          <button type="button" disabled={text.trim().length < 3 || split.isPending} onClick={() => split.mutate()} title="Turn meeting notes into separate tasks"
+            className="flex h-8 items-center gap-1.5 rounded-lg bg-gradient-to-br from-[#b08d57] to-[#8a6a35] px-3 text-[12.5px] font-semibold text-white shadow-[0_6px_14px_-8px_rgba(138,106,53,0.9)] transition hover:brightness-110 disabled:opacity-40">
+            {split.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} {split.isPending ? "Reading notes…" : "Split with AI"}
+          </button>
+        )}
         <span className="text-[12px] text-muted-foreground">No @ on a line?</span>
         <PeoplePick people={people} value={assignAll} onChange={setAssignAll} label="Assign all to…" me={me} />
         {listRow}
       </div>
+      {aiRows && (
+        <p className="flex items-center gap-2 rounded-lg bg-[#b08d57]/10 px-3 py-1.5 text-[12px] text-[#8a6a35] dark:text-[#d9bd8c]">
+          <Sparkles className="h-3.5 w-3.5 shrink-0" /> AI split your notes into {aiRows.length} tasks. Check names, people and dates; nothing is created until you press Create.
+          <button type="button" onClick={() => { setAiRows(null); setEdits({}); }} className="ml-auto shrink-0 font-semibold underline-offset-2 hover:underline">Use lines instead</button>
+        </p>
+      )}
       {rows.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-border">
           <div className="max-h-[280px] overflow-y-auto">
@@ -278,7 +302,7 @@ export function ChatTaskComposer({ channelUid, ws, mode, people, me, onCreated }
         <span className="text-[12px] text-muted-foreground">{rows.length ? `${rows.length} ${rows.length === 1 ? "task" : "tasks"} · ${people2.size} ${people2.size === 1 ? "person" : "people"}${rows.some((r) => !r.assigneeIds.length) ? ` · ${rows.filter((r) => !r.assigneeIds.length).length} unassigned` : ""}` : "Up to 50 at a time."}</span>
         <span className="flex-1" />
         <button type="button" disabled={!ready || !rows.length || rows.length > 50 || rows.some((r) => !r.name.trim())}
-          onClick={() => create.mutate(rows.map((r) => ({ name: r.name.trim(), assigneeIds: r.assigneeIds, dueDate: dueIso(r.due), ...(r.priority ? { priority: r.priority } : {}) })))}
+          onClick={() => create.mutate(rows.map((r) => ({ name: r.name.trim(), assigneeIds: r.assigneeIds, dueDate: dueIso(r.due), ...(r.priority ? { priority: r.priority } : {}), ...(r.description ? { description: r.description } : {}) })))}
           className="flex h-8 items-center gap-1.5 rounded-lg bg-forest px-3.5 text-[12.5px] font-semibold text-forest-foreground disabled:opacity-40 dark:bg-primary dark:text-primary-foreground">
           {create.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />} Create {rows.length || ""} {rows.length === 1 ? "task" : "tasks"}
         </button>
@@ -432,7 +456,7 @@ export function ChatWorkPanel({ channelUid, me, onClose, onOpenTask, onJump, cla
               <li className="flex flex-col items-center px-4 py-10 text-center">
                 <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10"><Sparkles className="h-5 w-5 text-primary" /></span>
                 <p className="mt-2 text-[13px] font-semibold">{tasks.length ? "Nothing here" : "No tasks from this chat yet"}</p>
-                <p className="mt-0.5 text-[12px] text-muted-foreground">{tasks.length ? "Try another filter." : "Use the Task or Bulk tab under the message box to turn chat into work."}</p>
+                <p className="mt-0.5 text-[12px] text-muted-foreground">{tasks.length ? "Try another filter." : "Use the Task or Many tasks tab under the message box to turn chat into work."}</p>
               </li>
             )}
           </ul>

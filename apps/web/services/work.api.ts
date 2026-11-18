@@ -468,6 +468,8 @@ export const workApi = {
   },
   channel: (uid: string) => get<ChatChannelDetail>(`/work/chat/channels/${uid}`),
   chatTasks: (uid: string) => get<{ tasks: ChatTaskRow[]; canCreate: boolean; defaultList: ChatDefaultList | null }>(`/work/chat/channels/${uid}/chat-tasks`),
+  aiSplitTasks: (uid: string, text: string, tz?: string) => post<{ tasks: { name: string; description: string | null; assigneeIds: number[]; dueDate: string | null; priority: WorkPriority }[] }>(`/work/chat/channels/${uid}/ai-split`, { text, tz }),
+  aiStatus: () => get<{ configured: boolean; provider: string | null }>(`/work/ai/status`),
   createChatTasks: (uid: string, body: { listId?: number; items: ChatTaskInput[] }) => post<{ message: ChatMessage; taskIds: number[] }>(`/work/chat/channels/${uid}/chat-tasks`, body),
   resolveChatTask: (uid: string, taskId: number, done: boolean) => post<{ ok: boolean }>(`/work/chat/channels/${uid}/chat-tasks/${taskId}/resolve`, { done }),
   chatDefaultList: (uid: string, listId: number | null) => put<{ defaultList: ChatDefaultList | null }>(`/work/chat/channels/${uid}/default-list`, { listId }),
