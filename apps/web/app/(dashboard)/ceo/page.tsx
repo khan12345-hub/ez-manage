@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowRight, AtSign, CalendarClock, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, LayoutDashboard, FileDown, Inbox, KeyRound, LayoutGrid, Settings2, ThumbsDown, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, AtSign, CalendarClock, CalendarDays, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, LayoutDashboard, FileDown, Inbox, KeyRound, LayoutGrid, Settings2, ThumbsDown, ListChecks, MessageSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -31,8 +31,9 @@ import { SettingsDialog } from "./_components/SettingsDialog";
 import { TaskPopup, useTaskPopup } from "./_components/TaskPopup";
 import { BriefCard } from "./_components/BriefCard";
 import { CeoDashboard } from "./_components/CeoDashboard";
+import { CalendarView } from "./_components/CalendarView";
 
-type View = "dashboard" | "portfolio" | "management" | "tasks" | "team" | "boards" | "work" | "meetings" | "email" | "ai";
+type View = "dashboard" | "portfolio" | "management" | "tasks" | "team" | "boards" | "work" | "calendar" | "meetings" | "email" | "ai";
 const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, ready: true },
   { id: "portfolio", label: "Companies & Portfolio", icon: Building2, ready: true },
@@ -41,6 +42,7 @@ const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean 
   { id: "team", label: "Team", icon: Users, ready: true },
   { id: "boards", label: "Boards", icon: LayoutGrid, ready: true },
   { id: "work", label: "Work", icon: CheckCircle2, ready: true },
+  { id: "calendar", label: "Calendar", icon: CalendarDays, ready: true },
   { id: "meetings", label: "Meetings", icon: CalendarClock, ready: true },
   { id: "email", label: "Email", icon: Mail, ready: true },
   { id: "ai", label: "Executive AI", icon: Sparkles, ready: true },
@@ -241,6 +243,7 @@ export default function CeoTowerPage() {
 
           {view === "dashboard" ? <CeoDashboard data={data} source={source} company={company?.key ?? null} onFocus={(c) => setCompany(company?.key === c.key ? null : c)} onOpen={(c) => setPanel({ company: c, start: { tab: "tasks", state: "open" } })} onView={(v) => setView(v)} />
             : view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} />
+            : view === "calendar" ? <CalendarView />
             : view === "meetings" ? <MeetingsView />
             : view === "email" ? <EmailView />
             : view === "team" ? <TeamView source={source} company={company?.key ?? null} companies={companies} />

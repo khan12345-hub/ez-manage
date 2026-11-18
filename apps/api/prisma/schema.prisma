@@ -2802,3 +2802,22 @@ model WorkView {
   @@index([locationType, locationId])
   @@map("work_views")
 }
+
+/// CEO Tower calendar: a connected Google account (read-only). Tokens are AES-256-GCM encrypted.
+model CalendarAccount {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @map("user_id")
+  provider     String    @default("google") @db.VarChar(20)
+  email        String    @db.VarChar(255)
+  refreshToken String    @map("refresh_token") @db.Text
+  accessToken  String?   @map("access_token") @db.Text
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz(6)
+  color        String    @default("#047857") @db.VarChar(20)
+  enabled      Boolean   @default(true)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([userId, provider, email])
+  @@index([userId])
+  @@map("calendar_accounts")
+}
