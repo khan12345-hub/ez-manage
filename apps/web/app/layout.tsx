@@ -27,7 +27,7 @@ const headingFont = Inter({
 
 export const metadata: Metadata = {
   title: "EZ Manage",
-  description: "Boards, Work and the CEO Tower for every company you run.",
+  description: "Accounts & Invoices, Company Work and the Command Center for every company you run.",
 };
 
 export default function RootLayout({

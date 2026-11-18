@@ -28,7 +28,7 @@ export type CeoBrief = { generatedAt: string; by: 'claude' | 'groq' | 'summary';
 type Step = { content: any[]; stop_reason: string | null };
 const EFFORT = () => (['low', 'medium', 'high', 'xhigh', 'max'].includes(process.env.CEO_AI_EFFORT ?? '') ? process.env.CEO_AI_EFFORT : 'medium') as 'low' | 'medium' | 'high';
 
-const SYSTEM = `You are the Executive AI inside EZ Manage's CEO Tower. You work for the CEO (the owner of the companies below) and answer questions about their companies, people and work.
+const SYSTEM = `You are the Executive AI inside EZ Manage's Command Center. You work for the CEO (the owner of the companies below) and answer questions about their companies, people and work.
 
 Data you can see (through tools only): every Boards workspace and Work workspace the CEO owns — tasks, statuses, due dates, who is assigned, progress of spaces / folders / lists / boards, teams and reporting lines, and chat ACTIVITY (who messages whom and how much — never message contents).
 
@@ -205,7 +205,7 @@ export class CeoAiService {
    */
   async brief(userId: number, refresh = false): Promise<CeoBrief> {
     const access = await this.tower.access(userId);
-    if (!access.allowed) throw new ForbiddenException('CEO Tower is for company owners and the people they share it with.');
+    if (!access.allowed) throw new ForbiddenException('Command Center is for company owners and the people they share it with.');
     const hit = this.briefs.get(userId);
     if (!refresh && hit && Date.now() - hit.at < 20 * 60_000) return hit.data;
 
@@ -301,7 +301,7 @@ export class CeoAiService {
   // ---------- conversation ----------
 
   async chatTurn(userId: number, text: string, conversationId?: string) {
-    await this.tower.access(userId).then((a) => { if (!a.allowed) throw new ForbiddenException('CEO Tower is only for Administrators.'); });
+    await this.tower.access(userId).then((a) => { if (!a.allowed) throw new ForbiddenException('Command Center is only for Administrators.'); });
     const question = (text ?? '').trim();
     if (!question) throw new BadRequestException('Ask something.');
     if (question.length > 4000) throw new BadRequestException('Keep the question under 4,000 characters.');
@@ -394,7 +394,7 @@ export class CeoAiService {
   /** exposed for tests (and only reachable from the API when CEO_AI_DEV_TOOLS=1) */
   async runTool(userId: number, conversationId: string, name: string, input: Record<string, any>): Promise<unknown> {
     const own = await this.tower.owned(userId);
-    if (!own.boards.length && !own.work.length) throw new ForbiddenException('CEO Tower is only for Administrators.');
+    if (!own.boards.length && !own.work.length) throw new ForbiddenException('Command Center is only for Administrators.');
     const workIds = own.work.map((w) => w.id);
     const int = (v: unknown) => (Number.isInteger(Number(v)) ? Number(v) : undefined);
     const days = Math.min(Math.max(int(input.days) ?? 7, 1), 90);

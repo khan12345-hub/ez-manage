@@ -32,7 +32,7 @@ export class CeoCommsService {
   /** every person in the CEO's companies */
   private async reachable(userId: number) {
     const own = await this.tower.owned(userId);
-    if (!own.boards.length && !own.work.length) throw new BadRequestException('CEO Tower is only for Administrators.');
+    if (!own.boards.length && !own.work.length) throw new BadRequestException('Command Center is only for Administrators.');
     const [b, w] = await Promise.all([
       this.prisma.workspaceMember.findMany({ where: { workspaceId: { in: own.boards.map((x) => x.id) }, deletedAt: null }, select: { userId: true, role: true, workspaceId: true } }),
       this.prisma.workMember.findMany({ where: { workspaceId: { in: own.work.map((x) => x.id) } }, select: { userId: true, role: true, workspaceId: true, managerId: true } }),
@@ -87,7 +87,7 @@ export class CeoCommsService {
     const results: { id: number; name: string; status: 'sent' | 'failed' | 'not_sent'; error?: string }[] = [];
     for (const p of people) {
       const text = body.replace(/\{first_name\}/gi, p.firstName);
-      const html = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#1f2933">${esc(text).replace(/\n/g, '<br>')}<p style="margin-top:24px;color:#6b7280;font-size:12px">— ${esc(from)}, via EZ Manage CEO Tower</p></div>`;
+      const html = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#1f2933">${esc(text).replace(/\n/g, '<br>')}<p style="margin-top:24px;color:#6b7280;font-size:12px">— ${esc(from)}, via EZ Manage Command Center</p></div>`;
       let status: 'sent' | 'failed' | 'not_sent' = 'sent';
       let error: string | undefined;
       try {

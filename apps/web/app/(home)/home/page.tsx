@@ -38,6 +38,7 @@ import {
 } from "@/app/(dashboard)/dashboard/useDashboardData";
 import type { AssignedTask } from "@/services/tasks.api";
 import { cn } from "@/lib/utils";
+import { PRODUCT_NAME } from "@/lib/products";
 
 /* ─── helpers ───────────────────────────────────────────────────────────── */
 
@@ -280,7 +281,7 @@ function ProductCard({
         {graphic}
       </div>
 
-      <h2 className={cn("relative mt-5 font-serif text-[30px] font-normal leading-none tracking-tight", dark ? "text-white" : "text-foreground")}>
+      <h2 className={cn("relative mt-5 max-w-[58%] font-serif text-[28px] font-normal leading-[1.05] tracking-tight", dark ? "text-white" : "text-foreground")}>
         {title}
       </h2>
       <p className={cn("relative mt-2 max-w-[62%] text-[13px] leading-relaxed", dark ? "text-[#b9c8be]" : "text-muted-foreground")}>
@@ -602,8 +603,8 @@ export default function HomePage() {
                 href={boardsHref}
                 icon={LayoutGrid}
                 kicker="Operations"
-                title="Boards"
-                blurb="Day-to-day tables, Kanban and forms for every team."
+                title={PRODUCT_NAME.boards}
+                blurb="Accounts, invoices and day-to-day tables for every team."
                 graphic={<BoardsGraphic />}
                 stats={[
                   { value: boardCount, label: boardCount === 1 ? "board" : "boards" },
@@ -612,7 +613,7 @@ export default function HomePage() {
                 ]}
                 footer={
                   <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-product-boards dark:text-[#a5b4fc]">
-                    Open Boards
+                    Open {PRODUCT_NAME.boards}
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
                   </span>
                 }
@@ -627,8 +628,8 @@ export default function HomePage() {
                 href={access.workHref}
                 icon={ListChecks}
                 kicker="Projects"
-                title="Work"
-                blurb="Spaces, lists and tasks for every project."
+                title={PRODUCT_NAME.work}
+                blurb="Every company's spaces, lists and tasks in one place."
                 graphic={<WorkGraphic />}
                 footer={
                   <div className="flex flex-wrap items-center gap-2">
@@ -638,7 +639,7 @@ export default function HomePage() {
                       </span>
                     ))}
                     <span className="ml-auto inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
-                      Open Work
+                      Open {PRODUCT_NAME.work}
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
                     </span>
                   </div>
@@ -650,7 +651,7 @@ export default function HomePage() {
             {!access.loading && productCount === 0 && (
               <motion.div variants={fadeUp} className="rounded-2xl border border-border bg-card/80 p-8 text-center">
                 <p className="font-serif text-[22px]">No products yet</p>
-                <p className="mt-1 text-[13.5px] text-muted-foreground">Ask an admin to invite you to Boards or Work. EZ Vault is ready for you below.</p>
+                <p className="mt-1 text-[13.5px] text-muted-foreground">Ask an admin to invite you to {PRODUCT_NAME.boards} or {PRODUCT_NAME.work}. EZ Vault is ready for you below.</p>
               </motion.div>
             )}
 
@@ -661,8 +662,8 @@ export default function HomePage() {
                   href="/ceo"
                   icon={BarChart3}
                   kicker="Executive"
-                  title="CEO Tower"
-                  blurb="The portfolio, the risks, and what needs your decision."
+                  title={PRODUCT_NAME.ceo}
+                  blurb="Every company, the risks, and what needs your decision."
                   graphic={<CeoGraphic />}
                   stats={[
                     { value: wsList.length, label: wsList.length === 1 ? "workspace" : "workspaces" },
@@ -671,7 +672,7 @@ export default function HomePage() {
                   ]}
                   footer={
                     <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#d9c7a0]">
-                      Open CEO Tower
+                      Open {PRODUCT_NAME.ceo}
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
                     </span>
                   }

@@ -7,6 +7,7 @@ import { ArrowUpRight, ChevronDown, ChevronRight, Folder, Hash, LayoutGrid, List
 import { cn } from "@/lib/utils";
 import { ceoApi, type CeoCompany, type CeoPlace, type CeoStats } from "@/services/ceo-tower.api";
 import { CompanyPanel } from "./CompanyPanel";
+import { PRODUCT_NAME } from "@/lib/products";
 
 function Stats({ s, people }: { s: CeoStats; people?: number }) {
   return (
@@ -20,7 +21,7 @@ function Stats({ s, people }: { s: CeoStats; people?: number }) {
   );
 }
 
-/** CEO Tower → Boards / Work: each company's boards, or spaces → folders → lists, with progress */
+/** Command Center → Boards / Work: each company's boards, or spaces → folders → lists, with progress */
 export function ProductView({ product, company, companies }: { product: "boards" | "work"; company: string | null; companies: CeoCompany[] }) {
   const { data = [], isLoading } = useQuery({ queryKey: ["ceo-tower", "structure", product, company], queryFn: () => ceoApi.structure(product, company), refetchInterval: 60_000 });
   const [panel, setPanel] = useState<{ company: CeoCompany; place: CeoPlace } | null>(null);
@@ -30,7 +31,7 @@ export function ProductView({ product, company, companies }: { product: "boards"
   const openPlace = (companyKey: string, place: CeoPlace) => { const c = co(companyKey); if (c) setPanel({ company: c, place }); };
 
   if (isLoading) return <div className="space-y-3">{[0, 1].map((i) => <div key={i} className="h-48 animate-pulse rounded-2xl bg-muted" />)}</div>;
-  if (!data.length) return <p className="rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center text-[13px] text-muted-foreground">You don&apos;t own any {product === "work" ? "Work" : "Boards"} companies{company ? " in this scope" : ""}.</p>;
+  if (!data.length) return <p className="rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center text-[13px] text-muted-foreground">You don&apos;t own any {product === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards} companies{company ? " in this scope" : ""}.</p>;
 
   const row = (companyKey: string, place: CeoPlace, depth: number, s: CeoStats, people: number, href: string, icon: React.ReactNode, expander?: React.ReactNode, lockedIcon?: boolean) => (
     <li key={`${place.type}-${place.id}`} className="flex items-center gap-2 border-b border-border/60 py-2 pr-4 hover:bg-accent/30" style={{ paddingLeft: 16 + depth * 22 }}>
@@ -39,7 +40,7 @@ export function ProductView({ product, company, companies }: { product: "boards"
         {icon}<span className={cn("truncate text-[13px]", depth === 0 ? "font-semibold" : "font-medium")}>{place.name}</span>{lockedIcon && <Lock className="h-3 w-3 text-muted-foreground" />}
       </button>
       <Stats s={s} people={people} />
-      <Link href={href} aria-label={`Open ${place.name} in ${product === "work" ? "Work" : "Boards"}`} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowUpRight className="h-3.5 w-3.5" /></Link>
+      <Link href={href} aria-label={`Open ${place.name} in ${product === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards}`} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowUpRight className="h-3.5 w-3.5" /></Link>
     </li>
   );
   const exp = (k: string) => <button type="button" aria-label={closed[k] ? "Expand" : "Collapse"} onClick={() => toggle(k)} className="flex w-4 justify-center text-muted-foreground">{closed[k] ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}</button>;

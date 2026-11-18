@@ -10,6 +10,7 @@ import { Avatar } from "../../work/_components/primitives";
 import { AssignTaskDialog } from "./AssignTaskDialog";
 import { SourceBadge, fmtDate } from "./bits";
 import { useTaskPopup } from "./TaskPopup";
+import { PRODUCT_NAME } from "@/lib/products";
 
 const STATES: { id: CeoTaskState; label: string; tone?: "bad" | "good" | "warn" }[] = [
   { id: "open", label: "Open" },
@@ -22,7 +23,7 @@ const STATES: { id: CeoTaskState; label: string; tone?: "bad" | "good" | "warn" 
 ];
 const PRIORITY: Record<string, string> = { URGENT: "#c0392b", HIGH: "#b08d57", NORMAL: "#3b6fd8", LOW: "#8a8f98" };
 
-/** CEO Tower → Tasks: every task across your companies, filtered */
+/** Command Center → Tasks: every task across your companies, filtered */
 export function TasksView({ source, company, overview, initialMine = false }: { source: CeoSource; company: string | null; overview: CeoOverview | undefined; initialMine?: boolean }) {
   const [state, setState] = useState<CeoTaskState>("open");
   // "CEO tasks": only what you gave out
@@ -95,7 +96,7 @@ export function TasksView({ source, company, overview, initialMine = false }: { 
                   <td className="px-3 py-2.5">{t.status ? <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11.5px] font-semibold text-white" style={{ background: t.status.color }}>{t.status.label}</span> : <span className="text-muted-foreground">—</span>}</td>
                   <td className="px-3 py-2.5">{t.assignees.length ? <span className="flex -space-x-1.5" title={t.assignees.map((a) => `${a.firstName} ${a.lastName}`).join(", ")}>{t.assignees.slice(0, 4).map((a) => <Avatar key={a.id} user={a as any} size={22} />)}</span> : <span className="text-[11.5px] font-medium text-[#8a6a35] dark:text-[#d9bd8c]">Unassigned</span>}</td>
                   <td className={cn("px-3 py-2.5 text-right font-mono text-[12px]", t.overdue ? "font-semibold text-destructive" : "text-muted-foreground")}>{t.due ? fmtDate(t.due) : "—"}</td>
-                  <td className="px-3 py-2.5"><Link href={t.href} aria-label={`Open ${t.name} in ${t.source === "work" ? "Work" : "Boards"}`} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowUpRight className="h-4 w-4" /></Link></td>
+                  <td className="px-3 py-2.5"><Link href={t.href} aria-label={`Open ${t.name} in ${t.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards}`} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowUpRight className="h-4 w-4" /></Link></td>
                 </tr>
               ))}
             </tbody>

@@ -11,8 +11,9 @@ import { cn } from "@/lib/utils";
 import { ceoApi, type CeoTaskDetail } from "@/services/ceo-tower.api";
 import { Avatar } from "../../work/_components/primitives";
 import { SourceBadge, fmtDate } from "./bits";
+import { PRODUCT_NAME } from "@/lib/products";
 
-/** open any task (Boards or Work) in the CEO Tower popup from anywhere on the page */
+/** open any task (Boards or Work) in the Command Center popup from anywhere on the page */
 export const useTaskPopup = create<{ open: { source: "boards" | "work"; id: number } | null; show: (source: "boards" | "work", id: number) => void; close: () => void }>((set) => ({
   open: null,
   show: (source, id) => set({ open: { source, id } }),
@@ -26,7 +27,7 @@ const fileUrl = (u: string) => (u.startsWith("/") ? `${process.env.NEXT_PUBLIC_B
 const when = (d: string) => new Date(d).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 /**
- * CEO Tower → task popup: details, the comment thread, "Send instruction" (a comment as you),
+ * Command Center → task popup: details, the comment thread, "Send instruction" (a comment as you),
  * change status / "Mark completed". Everything goes through Boards / Work themselves, so the
  * right people are notified and it shows in the product's own task view.
  */
@@ -188,7 +189,7 @@ function TaskPopupBody({ source, id, onClose }: { source: "boards" | "work"; id:
                     <button type="button" onClick={startRec} aria-label="Record a voice note" title="Record a voice note" className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><Mic className="h-4 w-4" /></button>
                   )}
                 </span>
-                <Link href={t.href} className="flex items-center gap-1 text-[12px] font-medium text-primary hover:underline">Open in {t.source === "work" ? "Work" : "Boards"} <ArrowUpRight className="h-3.5 w-3.5" /></Link>
+                <Link href={t.href} className="flex items-center gap-1 text-[12px] font-medium text-primary hover:underline">Open in {t.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards} <ArrowUpRight className="h-3.5 w-3.5" /></Link>
                 <span className="flex items-center gap-2">
                   {!t.done && hasDone && (
                     <button type="button" onClick={() => status.mutate(undefined)} disabled={status.isPending} className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-50"><CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Mark completed</button>

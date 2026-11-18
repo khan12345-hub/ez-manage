@@ -10,12 +10,13 @@ import { cn } from "@/lib/utils";
 import { ceoApi, type CeoCompany } from "@/services/ceo-tower.api";
 import { Avatar } from "../../work/_components/primitives";
 import { SourceBadge } from "./bits";
+import { PRODUCT_NAME } from "@/lib/products";
 
 const errMsg = (e: any, fallback: string) => e?.response?.data?.message?.toString?.() ?? fallback;
 const ROLE_LABEL: Record<string, string> = { OWNER: "Owner", ADMIN: "Admin", MEMBER: "Member", VIEWER: "Viewer", GUEST: "Guest", LIMITED_MEMBER: "Limited member" };
 
 /**
- * CEO Tower → Manage people: invite someone to a company, change their role, remove them.
+ * Command Center → Manage people: invite someone to a company, change their role, remove them.
  * Every change goes through Boards' / Work's own people routes as you, so their rules apply
  * (only owners / admins can change people; the owner can't be removed; invites are emailed).
  */
@@ -66,11 +67,11 @@ export function ManagePeopleDialog({ companies, defaultKey, onClose }: { compani
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[760px]">
         <DialogTitle className="flex items-center gap-2 font-serif text-[22px] font-normal"><UserCog className="h-5 w-5 text-[#b08d57]" /> Manage people</DialogTitle>
-        <DialogDescription>Invite people to a company, change their role or remove them. Changes go through {co?.source === "work" ? "Work" : "Boards"} itself, so its rules and notifications apply.</DialogDescription>
+        <DialogDescription>Invite people to a company, change their role or remove them. Changes go through {co?.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards} itself, so its rules and notifications apply.</DialogDescription>
 
         <label className="text-[12px] font-medium text-muted-foreground">Company
           <select aria-label="Company" value={key} onChange={(e) => { setKey(e.target.value); setBoardIds([]); }} className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground">
-            {companies.map((c) => <option key={c.key} value={c.key}>{c.name} · {c.source === "work" ? "Work" : "Boards"}</option>)}
+            {companies.map((c) => <option key={c.key} value={c.key}>{c.name} · {c.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards}</option>)}
           </select>
         </label>
 

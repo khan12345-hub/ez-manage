@@ -68,7 +68,7 @@ export class CalendarService {
 
   async assertAdmin(userId: number) {
     const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { systemRole: true } });
-    if (u?.systemRole !== 'SUPER_ADMIN') throw new ForbiddenException('The calendar in CEO Tower is only for Administrators.');
+    if (u?.systemRole !== 'SUPER_ADMIN') throw new ForbiddenException('The calendar in Command Center is only for Administrators.');
   }
 
   // ---------- accounts ----------
@@ -194,7 +194,7 @@ export class CalendarService {
     const errors: { accountId: number; email: string; reconnect: boolean }[] = [];
     const lists = await Promise.all(accounts.map((a) => this.accountEvents(a, from, to).catch((e: any) => { errors.push({ accountId: a.id, email: a.email, reconnect: e?.message === 'reconnect' }); return [] as CalEvent[]; })));
     const ez: CalEvent[] = meetings.map((m) => ({
-      id: `ez${m.id}`, source: 'ezmanage', accountId: null, accountEmail: null, color: '#b08d57', calendarName: 'CEO Tower meetings',
+      id: `ez${m.id}`, source: 'ezmanage', accountId: null, accountEmail: null, color: '#b08d57', calendarName: 'Command Center meetings',
       title: m.title, start: m.scheduledAt.toISOString(), end: new Date(+m.scheduledAt + 60 * 60_000).toISOString(), allDay: false,
       location: null, meetLink: m.meetingLink, htmlLink: null, attendees: m._count.attendees, status: 'confirmed',
     }));

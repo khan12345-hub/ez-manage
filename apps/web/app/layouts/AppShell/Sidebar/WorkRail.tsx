@@ -9,7 +9,7 @@
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import {
-  BarChart3, Clapperboard, ClipboardList, Clock, FileText, Goal, Grid3x3, Hash, Home, Inbox, KeyRound, LayoutGrid,
+  BarChart3, CalendarRange, Clapperboard, ClipboardList, Clock, FileText, Goal, Grid3x3, Hash, Home, Inbox, KeyRound, LayoutGrid,
   ListChecks, PenTool, Plus, Search, Sparkles, UsersRound, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,17 +17,19 @@ import { useQuery } from "@tanstack/react-query";
 import { workApi, workKeys } from "@/services/work.api";
 import { useAuth } from "@/providers/AuthProvider";
 import { useProductAccess } from "@/hooks/useProductAccess";
-import { useCeoAccess } from "@/services/ceo-tower.api";
 import { useCommandPalette } from "@/store/command-palette";
 import { useWorkCreate } from "@/store/work-create";
 import { useInboxCounts } from "@/app/(dashboard)/work/[workspaceId]/inbox/useInboxCounts";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AppSwitcherMenu } from "@/components/AppSwitcher";
 
 const INBOX_PATHS = ["inbox", "replies", "assigned-comments", "chat/posts", "chat/search"];
 const MAIN = [
   { path: "", label: "Home", icon: Home },
+  { path: "planner", label: "Planner", icon: CalendarRange },
   { path: "inbox", label: "Inbox", icon: Inbox },
   { path: "teams", label: "Teams", icon: UsersRound },
+  { path: "dashboards", label: "Dashboards", icon: BarChart3 },
   { path: "docs", label: "Docs", icon: FileText },
   { path: "forms", label: "Forms", icon: ClipboardList },
   { path: "goals", label: "Goals", icon: Goal },
@@ -58,7 +60,6 @@ function RailItem({ href, label, icon: Icon, active, badge }: { href: string; la
 export function WorkRail() {
   const { user } = useAuth();
   const access = useProductAccess();
-  const ceo = useCeoAccess();
   const pathname = usePathname() ?? "";
   const { workspaceId } = useParams<{ workspaceId?: string }>();
   const setPaletteOpen = useCommandPalette((s) => s.setPaletteOpen);
@@ -69,12 +70,6 @@ export function WorkRail() {
   const base = workspaceId ? `/work/${workspaceId}` : access.workHref ?? "/work";
   const initials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase() || "?";
   const isOn = (p: string) => (p === "" ? pathname === base : p === "inbox" ? INBOX_PATHS.some((x) => pathname === `${base}/${x}`) : pathname.startsWith(`${base}/${p}`));
-  const products = [
-    access.hasBoards && { href: access.boardsHref ?? "/home", label: "Boards", icon: LayoutGrid, color: "#4f46e5" },
-    { href: base, label: "Work", icon: ListChecks, color: "#047857", on: true },
-    ceo.allowed && { href: "/ceo", label: "CEO Tower", icon: BarChart3, color: "#b45309" },
-    { href: "/vault", label: "EZ Vault", icon: KeyRound, color: "#0f766e" },
-  ].filter(Boolean) as { href: string; label: string; icon: typeof Inbox; color: string; on?: boolean }[];
 
   return (
     <nav aria-label="Work" className="relative z-40 hidden w-[72px] shrink-0 flex-col items-center bg-forest py-3 md:flex dark:bg-[#0a1f17]">
@@ -83,15 +78,8 @@ export function WorkRail() {
         <PopoverTrigger asChild>
           <button type="button" aria-label="Switch product" title="Switch product" className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 font-serif text-[16px] font-semibold text-brass-soft ring-1 ring-brass/40 transition hover:bg-white/15">EZ</button>
         </PopoverTrigger>
-        <PopoverContent side="right" align="start" className="w-56 p-1.5">
-          <p className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Switch to</p>
-          {products.map((p) => (
-            <Link key={p.label} href={p.href} className={cn("flex items-center gap-2.5 rounded-lg px-2 py-2 text-[13.5px] font-medium hover:bg-accent", p.on && "bg-accent")}>
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg text-white" style={{ background: p.color }}><p.icon className="h-4 w-4" /></span>
-              {p.label}{p.on && <span className="ml-auto text-[11px] text-muted-foreground">here</span>}
-            </Link>
-          ))}
-          <Link href="/home" className="mt-1 flex items-center gap-2.5 rounded-lg border-t border-border px-2 py-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground"><Home className="h-4 w-4" /> EZ Manage home</Link>
+        <PopoverContent side="right" align="start" className="w-auto rounded-2xl p-0">
+          <AppSwitcherMenu active="work" hrefs={{ work: base }} />
         </PopoverContent>
       </Popover>
 

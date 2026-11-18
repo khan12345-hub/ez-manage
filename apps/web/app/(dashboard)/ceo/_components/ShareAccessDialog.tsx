@@ -12,7 +12,7 @@ import { PeoplePicker } from "./PeoplePicker";
 const msg = (e: any, fallback: string) => e?.response?.data?.message?.toString?.() ?? fallback;
 
 /**
- * CEO Tower → Access: an owner shares CEO Tower with people in their companies.
+ * Command Center → Access: an owner shares Command Center with people in their companies.
  * They see the owner's companies (nothing else) and can't share it further.
  */
 export function ShareAccessDialog({ onClose }: { onClose: () => void }) {
@@ -30,7 +30,7 @@ export function ShareAccessDialog({ onClose }: { onClose: () => void }) {
     onSuccess: ({ done, failed }) => {
       refresh();
       setPick([]);
-      if (done) toast.success(`CEO Tower shared with ${done} ${done === 1 ? "person" : "people"}`);
+      if (done) toast.success(`Command Center shared with ${done} ${done === 1 ? "person" : "people"}`);
       if (failed.length) toast.error([...new Set(failed)].join(" "));
     },
   });
@@ -43,9 +43,9 @@ export function ShareAccessDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[600px]">
-        <DialogTitle className="flex items-center gap-2 font-serif text-[22px] font-normal"><KeyRound className="h-5 w-5 text-[#b08d57]" /> Share CEO Tower</DialogTitle>
+        <DialogTitle className="flex items-center gap-2 font-serif text-[22px] font-normal"><KeyRound className="h-5 w-5 text-[#b08d57]" /> Share Command Center</DialogTitle>
         <DialogDescription>
-          People you add see CEO Tower for <strong>your companies only</strong> and can message, assign and schedule within them. They can&apos;t share it with anyone else. You can take access back at any time.
+          People you add see Command Center for <strong>your companies only</strong> and can message, assign and schedule within them. They can&apos;t share it with anyone else. You can take access back at any time.
         </DialogDescription>
 
         <section aria-label="People with access" className="rounded-xl border border-border">
@@ -73,7 +73,7 @@ export function ShareAccessDialog({ onClose }: { onClose: () => void }) {
 
         <div className="grid gap-2">
           <PeoplePicker value={pick} onChange={setPick} label="Add people" />
-          <p className="text-[11.5px] text-muted-foreground">Only Administrators can open CEO Tower, so you can share it only with Administrators.</p>
+          <p className="text-[11.5px] text-muted-foreground">Only Administrators can open Command Center, so you can share it only with Administrators.</p>
           <div className="flex justify-end">
             <button type="button" disabled={!pick.length || share.isPending} onClick={() => share.mutate()}
               className="h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">

@@ -11,13 +11,14 @@ import { Avatar } from "../../work/_components/primitives";
 import { AssignTaskDialog } from "./AssignTaskDialog";
 import { MessageDialog } from "./MessageDialog";
 import { SourceBadge, fmtDate } from "./bits";
+import { PRODUCT_NAME } from "@/lib/products";
 
 export type PanelTab = { tab: "tasks"; state: CeoTaskState } | { tab: "people" };
 const STATES: { id: CeoTaskState; label: string }[] = [{ id: "open", label: "Open" }, { id: "overdue", label: "Overdue" }, { id: "in_progress", label: "Working on" }, { id: "unassigned", label: "Unassigned" }, { id: "done_week", label: "Done · 7d" }, { id: "all", label: "All" }];
 const fullName = (p: CeoPerson) => `${p.firstName} ${p.lastName}`.trim();
 
 /**
- * A company's tasks and people right inside CEO Tower, with actions: message a person,
+ * A company's tasks and people right inside Command Center, with actions: message a person,
  * assign them a task, share a task with someone, or open it in its product.
  */
 export function CompanyPanel({ company, start, workCompanies, place = null, onClose }: { company: CeoCompany; start: PanelTab; workCompanies: CeoCompany[]; place?: CeoPlace | null; onClose: () => void }) {
@@ -44,7 +45,7 @@ export function CompanyPanel({ company, start, workCompanies, place = null, onCl
               <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold", tab === id ? "bg-forest text-forest-foreground dark:bg-primary dark:text-primary-foreground" : "text-muted-foreground hover:bg-accent")}><I className="h-3.5 w-3.5" /> {l}</button>
             ))}
             <span className="flex-1" />
-            <Link href={company.source === "work" ? `/work/${company.uid}` : `/workspace/${company.uid}`} className="flex items-center gap-1 self-center text-[12.5px] font-semibold text-primary hover:underline">Open in {company.source === "work" ? "Work" : "Boards"} <ArrowUpRight className="h-3.5 w-3.5" /></Link>
+            <Link href={company.source === "work" ? `/work/${company.uid}` : `/workspace/${company.uid}`} className="flex items-center gap-1 self-center text-[12.5px] font-semibold text-primary hover:underline">Open in {company.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards} <ArrowUpRight className="h-3.5 w-3.5" /></Link>
           </div>
         </div>
 

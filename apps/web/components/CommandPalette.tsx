@@ -117,30 +117,30 @@ export function CommandPalette() {
         <CommandGroup heading="Products">
           {products.hasBoards && (
             <CommandItem
-              value="product boards"
+              value="product boards accounts invoices"
               disabled={!boardsHome}
               onSelect={() => run(() => router.push(`/workspace/${boardsHome}`))}
             >
               <Dot className="bg-product-boards" />
-              Boards
+              Accounts &amp; Invoices
               <CommandShortcut>Workspaces</CommandShortcut>
             </CommandItem>
           )}
           {products.hasWork && products.workHref && (
             <CommandItem
-              value="product work spaces lists tasks"
+              value="product work company spaces lists tasks"
               onSelect={() => run(() => router.push(products.workHref!))}
             >
               <Dot className="bg-product-work" />
-              Work
+              Company Work
               <CommandShortcut>Spaces & lists</CommandShortcut>
             </CommandItem>
           )}
           {products.hasCeo && (
-            <CommandItem value="product ceo control tower" onSelect={() => run(() => router.push("/ceo"))}>
+            <CommandItem value="product ceo command center control tower" onSelect={() => run(() => router.push("/ceo"))}>
               <Dot className="bg-product-ceo" />
-              CEO Tower
-              <CommandShortcut>Portfolio</CommandShortcut>
+              Command Center
+              <CommandShortcut>Companies</CommandShortcut>
             </CommandItem>
           )}
         </CommandGroup>

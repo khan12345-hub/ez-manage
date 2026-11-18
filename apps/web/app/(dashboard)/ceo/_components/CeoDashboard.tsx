@@ -1,7 +1,7 @@
 "use client";
 
 /*
- * CEO Tower → Dashboard: the portfolio at a glance, animated.
+ * Command Center → Dashboard: the portfolio at a glance, animated.
  * Colours (validated, light / dark): open #047857 / #059669 · done #2563eb / #3b82f6 · overdue #dc2626 / #ef4444.
  * Overdue is a status colour: always shown with its label, never used for anything else.
  */
@@ -196,7 +196,7 @@ export function CeoDashboard({ data, source, company, onFocus, onOpen, onView }:
           </div>
           {/* portfolio health: one segmented bar, labels + icons (status colours never alone) */}
           <div className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/60">Portfolio health</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/60">Company health</p>
             <div className="mt-3 flex h-3 gap-[2px] overflow-hidden rounded-full">
               {(["healthy", "attention", "critical"] as const).map((h, i) => health[h] > 0 && (
                 <motion.span key={h} className={cn("h-full first:rounded-l-full last:rounded-r-full", HEALTH[h].bg)} initial={{ width: 0 }} animate={{ width: `${(health[h] / total) * 100}%` }} transition={{ duration: 0.9, delay: 0.3 + i * 0.12, ease: [0.22, 1, 0.36, 1] }} title={`${HEALTH[h].label}: ${health[h]}`} />
@@ -237,7 +237,7 @@ export function CeoDashboard({ data, source, company, onFocus, onOpen, onView }:
       </motion.div>
 
       <motion.div variants={stagger} className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-        <Card title="Companies" sub="Most late first · click to focus the tower on one" action={<button type="button" onClick={() => onView("portfolio")} className="text-[12.5px] font-semibold text-primary hover:underline">Portfolio</button>}>
+        <Card title="Companies" sub="Most late first · click to focus the tower on one" action={<button type="button" onClick={() => onView("portfolio")} className="text-[12.5px] font-semibold text-primary hover:underline">All companies</button>}>
           <ul className="divide-y divide-border/70">
             {companies.map((c, i) => { const H = HEALTH[c.health]; return (
               <motion.li key={c.key} initial={reduced ? false : { opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 + i * 0.05 }}>

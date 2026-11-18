@@ -7,9 +7,10 @@ import { SendHorizontal } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ceoApi, type CeoPerson } from "@/services/ceo-tower.api";
 import { Avatar } from "../../work/_components/primitives";
+import { PRODUCT_NAME } from "@/lib/products";
 
 /**
- * Message a person from CEO Tower, sent as the CEO through the product's own chat:
+ * Message a person from Command Center, sent as the CEO through the product's own chat:
  * Work chat when you share a Work company, otherwise their Boards chat (people only in Boards).
  * Same notifications, same conversation they already have with you. Also used to share a task.
  */
@@ -18,15 +19,15 @@ export function MessageDialog({ person, defaultText = "", heading, onClose }: { 
   const [ws, setWs] = useState<string>("");
   const [text, setText] = useState(defaultText);
   const places = [
-    ...(detail?.reach ?? []).map((r) => ({ key: r.key, label: `${r.name} · Work chat` })),
-    ...(detail?.boardsReach ?? []).map((r) => ({ key: r.key, label: `${r.name} · Boards chat` })),
+    ...(detail?.reach ?? []).map((r) => ({ key: r.key, label: `${r.name} · ${PRODUCT_NAME.work} chat` })),
+    ...(detail?.boardsReach ?? []).map((r) => ({ key: r.key, label: `${r.name} · ${PRODUCT_NAME.boards} chat` })),
   ];
   useEffect(() => { if (places[0] && !ws) setWs(places[0].key); }, [places, ws]);
   const name = `${person.firstName} ${person.lastName}`.trim();
   const send = useMutation({
     mutationFn: () => ceoApi.message(person.id, text.trim(), ws),
     onSuccess: (r) => {
-      toast.success(`Message sent to ${name} in ${r.product === "work" ? "Work" : "Boards"} chat`, { action: { label: "Open chat", onClick: () => window.location.assign(r.href) } });
+      toast.success(`Message sent to ${name} in ${r.product === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards} chat`, { action: { label: "Open chat", onClick: () => window.location.assign(r.href) } });
       onClose();
     },
     onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't send the message."),

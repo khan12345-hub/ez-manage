@@ -5,12 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Download } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { ceoApi, useCeoAccess } from "@/services/ceo-tower.api";
+import { PRODUCT_NAME } from "@/lib/products";
 
 const fmt = (d: string | null) => (d ? new Date(`${d.slice(0, 10)}T00:00:00`).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : "—");
 const HEALTH: Record<string, string> = { healthy: "Healthy", attention: "Needs attention", critical: "Critical" };
 
 /**
- * CEO Tower → Report: one printable page (Download PDF = the browser's "Save as PDF") with the
+ * Command Center → Report: one printable page (Download PDF = the browser's "Save as PDF") with the
  * brief, the numbers, every company, managers and their teams, the weekly trend, what is most
  * overdue and the CEO's own tasks.
  */
@@ -25,17 +26,17 @@ export default function CeoReportPage() {
   const { data: mine } = useQuery({ queryKey: ["ceo-tower", "tasks", "report-mine"], queryFn: () => ceoApi.tasks({ source: "all", state: "open", mine: true }), enabled: on });
   const ready = o && m && tr && mine;
 
-  if (!access.loading && !on) return <p className="p-10 text-center text-[13px] text-muted-foreground">CEO Tower is only for Administrators.</p>;
+  if (!access.loading && !on) return <p className="p-10 text-center text-[13px] text-muted-foreground">Command Center is only for Administrators.</p>;
   return (
     <div className="min-h-full bg-[#f6f8f6] py-6 print:bg-white print:py-0 dark:bg-background">
       <div className="mx-auto max-w-[900px] px-4 print:max-w-none print:px-0">
         <div className="mb-4 flex items-center justify-between print:hidden">
-          <Link href="/ceo" className="flex items-center gap-1.5 text-[13px] font-semibold text-primary hover:underline"><ArrowLeft className="h-4 w-4" /> Back to CEO Tower</Link>
+          <Link href="/ceo" className="flex items-center gap-1.5 text-[13px] font-semibold text-primary hover:underline"><ArrowLeft className="h-4 w-4" /> Back to Command Center</Link>
           <button type="button" onClick={() => window.print()} disabled={!ready} className="flex h-9 items-center gap-1.5 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground"><Download className="h-4 w-4" /> Download PDF</button>
         </div>
         <article className="rounded-2xl border border-border bg-card p-8 text-[13px] text-foreground print:rounded-none print:border-0 print:p-0 print:text-black">
           <header className="flex items-end justify-between border-b-2 border-[#b08d57] pb-3">
-            <div><p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-muted-foreground">EZ Manage · CEO Tower</p><h1 className="font-serif text-[28px] leading-tight">Executive report</h1></div>
+            <div><p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-muted-foreground">EZ Manage · Command Center</p><h1 className="font-serif text-[28px] leading-tight">Executive report</h1></div>
             <p className="text-right text-[12px] text-muted-foreground">{new Date().toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" })}<br />Prepared for {user?.firstName} {user?.lastName}</p>
           </header>
           {!ready ? <p className="py-16 text-center text-muted-foreground">Preparing the report…</p> : (
@@ -54,7 +55,7 @@ export default function CeoReportPage() {
 
               <Section title="Companies">
                 <Table head={["Company", "Product", "Health", "Open", "Overdue", "In progress", "People", "Progress"]}
-                  rows={o.companies.map((c) => [c.name, c.source === "work" ? "Work" : "Boards", HEALTH[c.health] ?? c.health, c.stats.open, c.stats.overdue, c.stats.inProgress, c.people, `${c.stats.progress}%`])} />
+                  rows={o.companies.map((c) => [c.name, c.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards, HEALTH[c.health] ?? c.health, c.stats.open, c.stats.overdue, c.stats.inProgress, c.people, `${c.stats.progress}%`])} />
               </Section>
 
               <Section title="Management and teams">

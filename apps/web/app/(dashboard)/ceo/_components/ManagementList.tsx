@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ceoApi, type CeoManagement, type CeoMgmtPerson, type CeoPerson, type CeoSource } from "@/services/ceo-tower.api";
 import { Avatar } from "../../work/_components/primitives";
+import { PRODUCT_NAME } from "@/lib/products";
 
 const ROLE: Record<string, string> = { OWNER: "Owner", ADMIN: "Admin", MEMBER: "Member", VIEWER: "Viewer", GUEST: "Guest", LIMITED_MEMBER: "Limited member" };
 const errMsg = (e: any, fallback: string) => e?.response?.data?.message?.toString?.() ?? fallback;
@@ -36,7 +37,7 @@ export function ManagementList({ source, company, meId, onMessage, onAssign }: {
   const [showOthers, setShowOthers] = useState(false);
 
   const setManager = useMutation({
-    // Work keeps "reports to" itself; for Boards, CEO Tower keeps it
+    // Work keeps "reports to" itself; for Boards, Command Center keeps it
     mutationFn: ({ company, userId, managerId }: { company: { key: string; uid: string; source: "boards" | "work" }; userId: number; managerId: number | null }) => company.source === "work"
       ? api.patch(`/work/workspaces/${company.uid}/profiles/${userId}`, { managerId })
       : api.put(`/ceo-tower/report-lines/boards/${company.key.split(":")[1]}/${userId}`, { managerId }),
@@ -60,8 +61,8 @@ export function ManagementList({ source, company, meId, onMessage, onAssign }: {
     return (
       <span className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-muted-foreground">
         {rows.map(({ w, current, options }) => (
-          <label key={w.company.key} className="flex items-center gap-1">Reports to{rows.length > 1 ? ` (${w.company.name} · ${w.company.source === "work" ? "Work" : "Boards"})` : ""}:
-            <select aria-label={`${p.user.firstName} ${p.user.lastName} reports to${rows.length > 1 ? ` in ${w.company.source === "work" ? "Work" : "Boards"}` : ""}`} value={current ?? ""} disabled={setManager.isPending}
+          <label key={w.company.key} className="flex items-center gap-1">Reports to{rows.length > 1 ? ` (${w.company.name} · ${w.company.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards})` : ""}:
+            <select aria-label={`${p.user.firstName} ${p.user.lastName} reports to${rows.length > 1 ? ` in ${w.company.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards}` : ""}`} value={current ?? ""} disabled={setManager.isPending}
               onChange={(e) => setManager.mutate({ company: w.company, userId: p.user.id, managerId: e.target.value ? Number(e.target.value) : null })}
               className="h-6 max-w-[150px] rounded border border-border bg-background px-1 text-[11.5px] text-foreground">
               <option value="">Nobody</option>

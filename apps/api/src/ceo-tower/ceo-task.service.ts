@@ -61,7 +61,7 @@ export class CeoTaskService {
 
   private async scope(userId: number) {
     const own = await this.tower.owned(userId);
-    if (!own.boards.length && !own.work.length) throw new ForbiddenException('CEO Tower is for company owners and the people they share it with.');
+    if (!own.boards.length && !own.work.length) throw new ForbiddenException('Command Center is for company owners and the people they share it with.');
     return own;
   }
 

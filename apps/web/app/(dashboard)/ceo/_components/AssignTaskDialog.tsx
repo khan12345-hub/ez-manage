@@ -12,13 +12,14 @@ import { getBoardDetail, getBoardMembers } from "@/services/boards.api";
 import { ceoApi, type CeoCompany } from "@/services/ceo-tower.api";
 import { Avatar } from "../../work/_components/primitives";
 import { SourceBadge } from "./bits";
+import { PRODUCT_NAME } from "@/lib/products";
 
 const PRIORITIES: { v: WorkPriority | ""; label: string }[] = [{ v: "", label: "No priority" }, { v: "URGENT", label: "Urgent" }, { v: "HIGH", label: "High" }, { v: "NORMAL", label: "Normal" }, { v: "LOW", label: "Low" }];
 type Person = { id: number; firstName: string; lastName: string; avatarUrl?: string | null };
 const SELECT = "mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground";
 
 /**
- * "Assign task" from CEO Tower, for Work and Boards companies. The task is made through each
+ * "Assign task" from Command Center, for Work and Boards companies. The task is made through each
  * product's own API (its permissions, notifications and automations apply as if made there):
  * Work → a task in a list; Boards → a task in a board group, with its Person / Date cells set.
  */
@@ -98,7 +99,7 @@ export function AssignTaskDialog({ companies, defaultCompany, defaultAssignee, d
           <div className="grid grid-cols-2 gap-3">
             <label className="text-[12px] font-medium text-muted-foreground">Company
               <select aria-label="Company" value={key} onChange={(e) => { setKey(e.target.value); setListId(null); setBoardId(null); setGroupId(null); setAssignees([]); }} className={SELECT}>
-                {companies.map((c) => <option key={c.key} value={c.key}>{c.name} ({c.source === "work" ? "Work" : "Boards"})</option>)}
+                {companies.map((c) => <option key={c.key} value={c.key}>{c.name} ({c.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards})</option>)}
               </select>
             </label>
             {isWork ? (

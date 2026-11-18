@@ -7,7 +7,7 @@ import { Activity, CreditCard, ExternalLink, Eye, EyeOff, FileText, Globe, IdCar
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
-import { BrandMark } from "@/app/layouts/AppShell/Sidebar/ProductNav";
+import { AppSwitcher } from "@/components/AppSwitcher";
 import { errMsg, typeLabel, updateItem, useVault, vaultApi, type Item, type ItemType } from "../_lib/session";
 import { ago, CopyButton, ItemIcon, strengthMeta, TotpCode } from "./bits";
 import { ItemEditor } from "./ItemEditor";
@@ -57,8 +57,7 @@ export function VaultMain() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex items-center gap-3 border-b border-border bg-card px-4 py-2.5">
-        <Link href="/home" className="flex items-center gap-2.5" aria-label="EZ Manage home"><BrandMark size={30} /></Link>
-        <span className="hidden font-serif text-[20px] sm:block">EZ Vault</span>
+        <div className="w-[230px] shrink-0 max-sm:w-auto"><AppSwitcher active="vault" subtitle="Password manager" className="max-sm:[&>span:nth-child(2)]:hidden" /></div>
         <label className="mx-auto flex h-9 w-full max-w-md items-center gap-2 rounded-lg border border-border bg-background px-3">
           <Search className="h-4 w-4 text-muted-foreground" />
           <input value={q} onChange={(e) => { setQ(e.target.value); if (!listMode) go({ kind: "all" }); }} placeholder="Search EZ Vault" aria-label="Search EZ Vault" className="w-full bg-transparent text-[13.5px] outline-none" />

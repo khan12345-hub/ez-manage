@@ -8,7 +8,7 @@ import { KeyRound, Lock, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
-import { BrandMark } from "@/app/layouts/AppShell/Sidebar/ProductNav";
+import { AppSwitcher } from "@/components/AppSwitcher";
 import { errMsg, lockMinutes, useVault, vaultApi } from "./_lib/session";
 import { VaultMain } from "./_components/VaultMain";
 import { StrengthBar } from "./_components/bits";
@@ -42,9 +42,8 @@ export default function VaultPage() {
 function Centered({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full flex-col">
-      <header className="flex items-center gap-2.5 border-b border-border bg-card px-5 py-3">
-        <Link href="/home" className="flex items-center gap-2.5" aria-label="EZ Manage home"><BrandMark size={30} /></Link>
-        <span className="font-serif text-[20px]">EZ Vault</span>
+      <header className="flex items-center gap-2.5 border-b border-border bg-card px-4 py-2.5">
+        <div className="w-[240px] max-w-full"><AppSwitcher active="vault" subtitle="Password manager" /></div>
       </header>
       <div className="flex flex-1 items-center justify-center p-6">{children}</div>
     </div>

@@ -8,7 +8,6 @@ import { AlertTriangle, ArrowRight, AtSign, CalendarClock, CalendarDays, Mail, B
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
-import { BrandMark } from "@/app/layouts/AppShell/Sidebar/ProductNav";
 import { ceoApi, useCeoAccess, type CeoPerson, type CeoCompany, type CeoForYouItem, type CeoForYouKind, type CeoHealth, type CeoOverview, type CeoSource } from "@/services/ceo-tower.api";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,17 +30,19 @@ import { SettingsDialog } from "./_components/SettingsDialog";
 import { TaskPopup, useTaskPopup } from "./_components/TaskPopup";
 import { BriefCard } from "./_components/BriefCard";
 import { CeoDashboard } from "./_components/CeoDashboard";
+import { AppSwitcher } from "@/components/AppSwitcher";
 import { CalendarView } from "./_components/CalendarView";
+import { PRODUCT_NAME } from "@/lib/products";
 
 type View = "dashboard" | "portfolio" | "management" | "tasks" | "team" | "boards" | "work" | "calendar" | "meetings" | "email" | "ai";
 const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, ready: true },
-  { id: "portfolio", label: "Companies & Portfolio", icon: Building2, ready: true },
+  { id: "portfolio", label: "Companies", icon: Building2, ready: true },
   { id: "management", label: "Management & Teams", icon: Crown, ready: true },
   { id: "tasks", label: "Tasks", icon: ListChecks, ready: true },
   { id: "team", label: "Team", icon: Users, ready: true },
-  { id: "boards", label: "Boards", icon: LayoutGrid, ready: true },
-  { id: "work", label: "Work", icon: CheckCircle2, ready: true },
+  { id: "boards", label: PRODUCT_NAME.boards, icon: LayoutGrid, ready: true },
+  { id: "work", label: PRODUCT_NAME.work, icon: CheckCircle2, ready: true },
   { id: "calendar", label: "Calendar", icon: CalendarDays, ready: true },
   { id: "meetings", label: "Meetings", icon: CalendarClock, ready: true },
   { id: "email", label: "Email", icon: Mail, ready: true },
@@ -119,8 +120,8 @@ export default function CeoTowerPage() {
     return (
       <div className="flex h-full flex-col items-center justify-center p-10 text-center">
         <Crown className="h-8 w-8 text-[#b08d57]" />
-        <h1 className="mt-3 font-serif text-[26px]">CEO Tower</h1>
-        <p className="mt-1 max-w-[420px] text-[13.5px] text-muted-foreground">CEO Tower is only for Administrators. Ask an Administrator if you need it.</p>
+        <h1 className="mt-3 font-serif text-[26px]">Command Center</h1>
+        <p className="mt-1 max-w-[420px] text-[13.5px] text-muted-foreground">Command Center is only for Administrators. Ask an Administrator if you need it.</p>
         <Link href="/home" className="mt-4 text-[13px] font-semibold text-primary hover:underline">Back to home</Link>
       </div>
     );
@@ -138,12 +139,25 @@ export default function CeoTowerPage() {
       </div>
 
       {/* glass sidebar */}
-      <aside aria-label="CEO Tower menu" className="sticky top-0 z-30 hidden h-screen w-[260px] shrink-0 p-3 lg:block">
-        <div className="flex h-full flex-col overflow-y-auto rounded-[28px] border border-white/70 bg-white/55 p-3 shadow-[0_20px_60px_-24px_rgba(11,42,31,0.35)] ring-1 ring-black/[0.03] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10 dark:bg-white/[0.04]">
-          <Link href="/home" className="flex items-center gap-2.5 rounded-2xl px-2 py-2" aria-label="EZ Manage home">
-            <BrandMark size={38} />
-            <span><span className="block font-serif text-[18px] leading-none">CEO Tower</span><span className="mt-1 block text-[11px] text-muted-foreground">EZ Manage · Executive</span></span>
-          </Link>
+      <aside aria-label="Command Center menu" className="sticky top-0 z-30 hidden h-screen w-[296px] shrink-0 p-3 lg:block">
+        <div className="flex h-full flex-col overflow-y-auto rounded-[28px] border border-white/70 bg-white/60 p-3.5 shadow-[0_20px_60px_-24px_rgba(11,42,31,0.35)] ring-1 ring-black/[0.03] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10 dark:bg-white/[0.04]">
+          {/* switch app (same place in every product) */}
+          <AppSwitcher active="ceo" subtitle="EZ Manage · Executive" />
+
+          {/* companies: which product, then one company or all */}
+          <p className="mb-1.5 mt-5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Companies</p>
+          <div role="group" aria-label="Product" className="grid grid-cols-3 gap-1 rounded-2xl bg-white/60 p-1 ring-1 ring-black/[0.04] dark:bg-white/5">
+            {(["all", "boards", "work"] as const).map((s) => (
+              <button key={s} type="button" aria-pressed={source === s} onClick={() => { setSource(s); setCompany(null); }} className={cn("rounded-xl py-1.5 text-[12px] font-semibold transition", source === s ? "bg-white text-foreground shadow-sm dark:bg-white/15" : "text-muted-foreground hover:text-foreground")}>{s === "all" ? "All" : s === "boards" ? "Accounts" : "Work"}</button>
+            ))}
+          </div>
+          <label className="mt-2 flex h-10 items-center gap-2 rounded-2xl bg-white/60 px-3 ring-1 ring-black/[0.04] dark:bg-white/5">
+            <Building2 className="h-4 w-4 shrink-0 text-[#b08d57]" />
+            <select aria-label="Focus on one company" value={company?.key ?? ""} onChange={(e) => setCompany(companies.find((c) => c.key === e.target.value) ?? null)} className="min-w-0 flex-1 cursor-pointer truncate bg-transparent text-[13px] font-medium outline-none">
+              <option value="">All companies ({companies.length})</option>
+              {companies.map((c) => <option key={c.key} value={c.key}>{c.name} · {c.source === "work" ? "Work" : "Accounts"}</option>)}
+            </select>
+          </label>
 
           <button type="button" onClick={() => setAttention(true)} disabled={!attentionCount} className={cn("mt-4 flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left text-[13px] font-semibold transition", attentionCount ? "bg-gradient-to-br from-[#fee2e2] to-[#fecaca]/70 text-[#b91c1c] shadow-[0_8px_20px_-12px_rgba(185,28,28,0.6)] hover:brightness-[1.02] dark:from-destructive/20 dark:to-destructive/10 dark:text-[#fca5a5]" : "bg-white/50 text-muted-foreground dark:bg-white/5")}>
             <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl", attentionCount ? "bg-white/70 dark:bg-white/10" : "bg-white/60")}><AlertTriangle className="h-4 w-4" /></span>
@@ -151,24 +165,17 @@ export default function CeoTowerPage() {
             <span className="rounded-full bg-white/80 px-2 py-0.5 font-mono text-[12px] dark:bg-white/10">{attentionCount}</span>
           </button>
 
-          <p className="mb-1.5 mt-5 px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Views</p>
-          <nav role="tablist" aria-label="CEO Tower views" className="space-y-0.5">
+          <p className="mb-1.5 mt-5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Views</p>
+          <nav role="tablist" aria-label="Command Center views" className="space-y-0.5">
             {VIEWS.map((v) => (
               <button key={v.id} type="button" role="tab" aria-selected={view === v.id} onClick={() => setView(v.id)}
-                className={cn("group flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-[13.5px] font-medium transition-all",
+                className={cn("group flex w-full items-center gap-3 rounded-2xl px-2.5 py-[7px] text-left text-[13.5px] font-medium transition-all",
                   view === v.id ? "bg-forest text-white shadow-[0_10px_24px_-12px_rgba(11,42,31,0.8)] dark:bg-primary dark:text-primary-foreground" : "text-foreground/75 hover:bg-white/70 hover:text-foreground dark:hover:bg-white/5")}>
-                <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition", view === v.id ? "bg-white/10 text-brass-soft" : "bg-white/60 text-muted-foreground group-hover:text-foreground dark:bg-white/5")}><v.icon className="h-4 w-4" /></span>
-                {v.label}
+                <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition", view === v.id ? "bg-white/10 text-brass-soft" : "bg-white/60 text-muted-foreground group-hover:text-foreground dark:bg-white/5")}><v.icon className="h-4 w-4" /></span>
+                <span className="min-w-0 truncate">{v.label}</span>
               </button>
             ))}
           </nav>
-
-          <p className="mb-1.5 mt-5 px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Companies</p>
-          <div role="group" aria-label="Product" className="grid grid-cols-3 gap-1 rounded-2xl bg-white/50 p-1 ring-1 ring-black/[0.04] dark:bg-white/5">
-            {(["all", "boards", "work"] as const).map((s) => (
-              <button key={s} type="button" aria-pressed={source === s} onClick={() => { setSource(s); setCompany(null); }} className={cn("rounded-xl py-1.5 text-[12px] font-semibold transition", source === s ? "bg-white text-foreground shadow-sm dark:bg-white/15" : "text-muted-foreground hover:text-foreground")}>{s === "all" ? "All" : s === "boards" ? "Boards" : "Work"}</button>
-            ))}
-          </div>
 
           <div className="mt-auto space-y-0.5 pt-5">
             <Link href="/ceo/report" className="flex items-center gap-3 rounded-2xl px-3 py-2 text-[13px] font-medium text-foreground/75 hover:bg-white/70 hover:text-foreground dark:hover:bg-white/5"><FileDown className="h-4 w-4 text-[#b08d57]" /> Executive report</Link>
@@ -186,9 +193,9 @@ export default function CeoTowerPage() {
       {/* top bar: title + scope (and the menu on small screens) */}
       <header className="z-20 px-5 pb-1 pt-5 sm:sticky sm:top-0">
         <div className="flex flex-wrap items-center gap-3 rounded-[22px] border border-white/70 bg-white/55 px-4 py-3 shadow-[0_12px_40px_-24px_rgba(11,42,31,0.35)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04]">
-          <Link href="/home" className="lg:hidden" aria-label="EZ Manage home"><BrandMark size={32} /></Link>
+          <div className="w-full lg:hidden"><AppSwitcher active="ceo" subtitle="EZ Manage · Executive" /></div>
           <span className="min-w-0">
-            <span className="block text-[11px] font-medium text-muted-foreground">CEO Tower</span>
+            <span className="block text-[11px] font-medium text-muted-foreground">Command Center</span>
             <h1 className="font-serif text-[22px] leading-tight">{VIEWS.find((v) => v.id === view)?.label}</h1>
           </span>
           {company && (
@@ -203,13 +210,13 @@ export default function CeoTowerPage() {
           <div className="flex w-full gap-1 overflow-x-auto lg:hidden">
             <button type="button" onClick={() => setAttention(true)} className="shrink-0 rounded-full bg-destructive/10 px-3 py-1 text-[12px] font-semibold text-destructive">Attention {attentionCount}</button>
             {VIEWS.map((v) => <button key={v.id} type="button" onClick={() => setView(v.id)} className={cn("shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold", view === v.id ? "bg-forest text-white dark:bg-primary" : "bg-white/70 text-muted-foreground dark:bg-white/5")}>{v.label}</button>)}
-            {(["all", "boards", "work"] as const).map((s) => <button key={s} type="button" onClick={() => { setSource(s); setCompany(null); }} className={cn("shrink-0 rounded-full px-3 py-1 text-[12px]", source === s ? "bg-white font-semibold shadow-sm dark:bg-white/15" : "text-muted-foreground")}>{s === "all" ? "All" : s === "boards" ? "Boards" : "Work"}</button>)}
+            {(["all", "boards", "work"] as const).map((s) => <button key={s} type="button" onClick={() => { setSource(s); setCompany(null); }} className={cn("shrink-0 rounded-full px-3 py-1 text-[12px]", source === s ? "bg-white font-semibold shadow-sm dark:bg-white/15" : "text-muted-foreground")}>{s === "all" ? "All" : s === "boards" ? "Accounts" : "Work"}</button>)}
           </div>
         </div>
       </header>
       {!access.canShare && access.sharedBy.length > 0 && (
         <p className="border-b border-border bg-[#b08d57]/8 px-5 py-1.5 text-[12px] text-muted-foreground">
-          <KeyRound className="mr-1 inline h-3 w-3 text-[#b08d57]" /> {access.sharedBy.map((o) => o.name).join(", ")} shared CEO Tower with you — you see their companies.
+          <KeyRound className="mr-1 inline h-3 w-3 text-[#b08d57]" /> {access.sharedBy.map((o) => o.name).join(", ")} shared Command Center with you — you see their companies.
         </p>
       )}
       {sharing && <ShareAccessDialog onClose={() => setSharing(false)} />}
@@ -217,14 +224,14 @@ export default function CeoTowerPage() {
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {managing && <ManagePeopleDialog companies={companies} defaultKey={company?.key ?? null} onClose={() => setManaging(false)} />}
 
-      {isError ? <p className="p-10 text-center text-[13px] text-muted-foreground">Couldn&apos;t load CEO Tower.</p> : !data || isLoading ? (
+      {isError ? <p className="p-10 text-center text-[13px] text-muted-foreground">Couldn&apos;t load Command Center.</p> : !data || isLoading ? (
         <div className="grid gap-4 p-5 lg:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="h-[520px] animate-pulse rounded-2xl bg-muted" />)}</div>
       ) : (
         <div className="space-y-4 p-5">
           {/* KPIs (the Dashboard has its own animated ones) */}
           {view === "portfolio" && <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8" role="list" aria-label="Key numbers">
             {([
-              ["Companies", data.kpis.companies, `${data.owned.boards} Boards · ${data.owned.work} Work`, ""],
+              ["Companies", data.kpis.companies, `${data.owned.boards} Accounts · ${data.owned.work} Work`, ""],
               ["People", data.kpis.people, "across your companies", ""],
               ["Open tasks", data.kpis.open, `${data.kpis.total} in total`, ""],
               ["In progress", data.kpis.inProgress, "being worked on", ""],
@@ -284,7 +291,7 @@ export default function CeoTowerPage() {
           </div>
           ) : (
           <>
-          <section aria-label="Companies & Portfolio" className="rounded-[24px] border border-white/70 bg-white/55 p-4 shadow-[0_16px_48px_-28px_rgba(11,42,31,0.4)] backdrop-blur-xl sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
+          <section aria-label="Companies" className="rounded-[24px] border border-white/70 bg-white/55 p-4 shadow-[0_16px_48px_-28px_rgba(11,42,31,0.4)] backdrop-blur-xl sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
             <header className="mb-4 flex flex-wrap items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest text-brass-soft"><Building2 className="h-4.5 w-4.5" /></span>
               <span className="min-w-0 flex-1"><span className="block text-[17px] font-semibold leading-tight">{access.canShare ? "Every company you own" : "Every company shared with you"}</span><span className="block text-[12px] text-muted-foreground">Click a company to focus the whole tower on it · {company ? <>Scope: <strong>{company.name}</strong> <button type="button" onClick={() => setCompany(null)} className="font-semibold text-primary hover:underline">Reset</button></> : `${companies.length} active`}</span></span>
@@ -309,7 +316,7 @@ export default function CeoTowerPage() {
                           ))}
                         </span>
                         <span className="mt-2 flex items-center gap-2"><span className="flex-1"><Bar value={c.stats.progress} /></span><span className="font-mono text-[11px] text-muted-foreground">{c.stats.progress}%</span></span>
-                        <Link href={companyHref(c)} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">Open in {c.source === "work" ? "Work" : "Boards"} <ArrowRight className="h-3 w-3" /></Link>
+                        <Link href={companyHref(c)} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">Open in {c.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards} <ArrowRight className="h-3 w-3" /></Link>
                       </div>
                     </li>
                   );

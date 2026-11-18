@@ -107,7 +107,7 @@ export class CeoTowerService {
 
   private async requireOwner(ownerId: number) {
     const mine = await this.ownOnly(ownerId);
-    if (!mine.boards.length && !mine.work.length) throw new ForbiddenException('Only Administrators who own a company can share CEO Tower.');
+    if (!mine.boards.length && !mine.work.length) throw new ForbiddenException('Only Administrators who own a company can share Command Center.');
     return mine;
   }
 
@@ -124,8 +124,8 @@ export class CeoTowerService {
   async grantAccess(ownerId: number, userId: number) {
     const mine = await this.requireOwner(ownerId);
     if (!Number.isInteger(userId) || userId <= 0) throw new BadRequestException('Pick a person.');
-    if (userId === ownerId) throw new BadRequestException('You already have CEO Tower.');
-    if (!(await this.isAdmin(userId))) throw new BadRequestException('CEO Tower is only for Administrators. Make this person an Administrator first.');
+    if (userId === ownerId) throw new BadRequestException('You already have Command Center.');
+    if (!(await this.isAdmin(userId))) throw new BadRequestException('Command Center is only for Administrators. Make this person an Administrator first.');
     const [b, w] = await Promise.all([
       this.prisma.workspaceMember.findFirst({ where: { userId, deletedAt: null, workspaceId: { in: mine.boards.map((x) => x.id) } }, select: { id: true } }),
       this.prisma.workMember.findFirst({ where: { userId, workspaceId: { in: mine.work.map((x) => x.id) } }, select: { userId: true } }),
@@ -137,8 +137,8 @@ export class CeoTowerService {
 
     const owner = await this.prisma.user.findUnique({ where: { id: ownerId }, select: { firstName: true, lastName: true } });
     const who = owner ? `${owner.firstName} ${owner.lastName}`.trim() : 'An owner';
-    const title = `${who} shared CEO Tower with you`;
-    const message = 'You can now see their companies in CEO Tower. Open it from the CEO tile.';
+    const title = `${who} shared Command Center with you`;
+    const message = 'You can now see their companies in Command Center. Open it from the Command Center tile.';
     if (b) await this.notifications?.notify({ recipientId: userId, type: NotificationType.CEO_TASK_REMINDER, title, message, metadata: { url: '/ceo' } }).catch(() => {});
     if (w) await this.workNotify?.send({ recipientId: userId, type: 'CEO_ACCESS', title, message, metadata: { event: 'ceo_access', url: '/ceo' } }).catch(() => {});
     return { ok: true };
@@ -154,7 +154,7 @@ export class CeoTowerService {
 
   private async require(userId: number) {
     const o = await this.owned(userId);
-    if (!o.boards.length && !o.work.length) throw new ForbiddenException('CEO Tower is only for Administrators.');
+    if (!o.boards.length && !o.work.length) throw new ForbiddenException('Command Center is only for Administrators.');
     return o;
   }
 
