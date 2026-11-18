@@ -23,7 +23,7 @@ const STATES: { id: CeoTaskState; label: string; tone?: "bad" | "good" | "warn" 
 ];
 const PRIORITY: Record<string, string> = { URGENT: "#c0392b", HIGH: "#b08d57", NORMAL: "#3b6fd8", LOW: "#8a8f98" };
 
-/** Command Center → Tasks: every task across your companies, filtered */
+/** Executive Hub → Tasks: every task across your companies, filtered */
 export function TasksView({ source, company, overview, initialMine = false }: { source: CeoSource; company: string | null; overview: CeoOverview | undefined; initialMine?: boolean }) {
   const [state, setState] = useState<CeoTaskState>("open");
   // "CEO tasks": only what you gave out

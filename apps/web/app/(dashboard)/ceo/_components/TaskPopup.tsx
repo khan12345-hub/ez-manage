@@ -13,7 +13,7 @@ import { Avatar } from "../../work/_components/primitives";
 import { SourceBadge, fmtDate } from "./bits";
 import { PRODUCT_NAME } from "@/lib/products";
 
-/** open any task (Boards or Work) in the Command Center popup from anywhere on the page */
+/** open any task (Boards or Work) in the Executive Hub popup from anywhere on the page */
 export const useTaskPopup = create<{ open: { source: "boards" | "work"; id: number } | null; show: (source: "boards" | "work", id: number) => void; close: () => void }>((set) => ({
   open: null,
   show: (source, id) => set({ open: { source, id } }),
@@ -27,7 +27,7 @@ const fileUrl = (u: string) => (u.startsWith("/") ? `${process.env.NEXT_PUBLIC_B
 const when = (d: string) => new Date(d).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 /**
- * Command Center → task popup: details, the comment thread, "Send instruction" (a comment as you),
+ * Executive Hub → task popup: details, the comment thread, "Send instruction" (a comment as you),
  * change status / "Mark completed". Everything goes through Boards / Work themselves, so the
  * right people are notified and it shows in the product's own task view.
  */

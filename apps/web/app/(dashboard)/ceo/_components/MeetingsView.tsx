@@ -14,7 +14,7 @@ const when = (iso: string) => new Date(iso).toLocaleString([], { weekday: "short
 const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 const err = (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Something went wrong.");
 
-/** Command Center → Meetings: schedule, invite, edit, cancel; everyone is reminded before it starts */
+/** Executive Hub → Meetings: schedule, invite, edit, cancel; everyone is reminded before it starts */
 export function MeetingsView() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");

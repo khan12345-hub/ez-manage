@@ -53,7 +53,7 @@ export class CeoDigestService {
 
   async settings(userId: number) {
     const a = await this.tower.access(userId);
-    if (!a.allowed) throw new ForbiddenException('Command Center is for company owners and the people they share it with.');
+    if (!a.allowed) throw new ForbiddenException('Executive Hub is for company owners and the people they share it with.');
     const s = await this.load(userId);
     return { briefOn: s.briefOn, briefEmail: s.briefEmail, briefHour: s.briefHour, timezone: s.timezone, alertsOn: s.alertsOn, lastBriefOn: s.lastBriefOn };
   }
@@ -129,8 +129,8 @@ export class CeoDigestService {
       const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, firstName: true } });
       if (me?.email) {
         try {
-          const html = `<p>Good morning ${esc(me.firstName ?? '')},</p><p>Here is what happened across your companies in the last 24 hours:</p><ul>${brief.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul><p>Open Command Center for details.</p>`;
-          const info = await this.mail.sendMail({ to: me.email, subject: `Command Center · morning brief ${day}`, html, text: `${title}\n\n${message}` } as any);
+          const html = `<p>Good morning ${esc(me.firstName ?? '')},</p><p>Here is what happened across your companies in the last 24 hours:</p><ul>${brief.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul><p>Open Executive Hub for details.</p>`;
+          const info = await this.mail.sendMail({ to: me.email, subject: `Executive Hub · morning brief ${day}`, html, text: `${title}\n\n${message}` } as any);
           emailed = info ? 'sent' : 'not_sent';
         } catch (e) {
           emailed = 'failed';

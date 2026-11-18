@@ -1,7 +1,7 @@
 "use client";
 
 /*
- * Command Center → Calendar: several Google accounts (read-only) plus Command Center meetings in one place.
+ * Executive Hub → Calendar: several Google accounts (read-only) plus Executive Hub meetings in one place.
  * Month / Week / Agenda. Phones always get the agenda.
  */
 
@@ -91,7 +91,7 @@ export function CalendarView() {
         {!configured ? (
           <div className="mt-4 rounded-2xl border border-[#b08d57]/40 bg-[#b08d57]/[0.07] p-3.5 text-[12.5px]">
             <p className="flex items-center gap-1.5 font-semibold text-[#8a6a35] dark:text-[#d9bd8c]"><Settings2 className="h-3.5 w-3.5" /> Setup needed</p>
-            <p className="mt-1 text-muted-foreground">Administrator: add <code className="rounded bg-muted px-1">GOOGLE_CLIENT_ID</code> and <code className="rounded bg-muted px-1">GOOGLE_CLIENT_SECRET</code> to the API <code className="rounded bg-muted px-1">.env</code>, then restart the API. Command Center meetings still show here.</p>
+            <p className="mt-1 text-muted-foreground">Administrator: add <code className="rounded bg-muted px-1">GOOGLE_CLIENT_ID</code> and <code className="rounded bg-muted px-1">GOOGLE_CLIENT_SECRET</code> to the API <code className="rounded bg-muted px-1">.env</code>, then restart the API. Executive Hub meetings still show here.</p>
           </div>
         ) : null}
         <ul className="mt-4 space-y-1">
@@ -113,8 +113,8 @@ export function CalendarView() {
           })}
           <li className="flex items-center gap-2 rounded-xl px-2 py-1.5">
             <span className="h-4 w-4 shrink-0 rounded-full bg-[#b08d57]" />
-            <span className={cn("min-w-0 flex-1 truncate text-[13px] font-medium", !showEz && "opacity-50")}>Command Center meetings</span>
-            <button type="button" aria-label={showEz ? "Hide Command Center meetings" : "Show Command Center meetings"} onClick={() => setShowEz((v) => !v)} className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground">{showEz ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}</button>
+            <span className={cn("min-w-0 flex-1 truncate text-[13px] font-medium", !showEz && "opacity-50")}>Executive Hub meetings</span>
+            <button type="button" aria-label={showEz ? "Hide Executive Hub meetings" : "Show Executive Hub meetings"} onClick={() => setShowEz((v) => !v)} className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground">{showEz ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}</button>
           </li>
         </ul>
         <button type="button" disabled={!configured || connect.isPending} onClick={() => connect.mutate()} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-forest text-[13px] font-semibold text-white transition hover:brightness-110 disabled:opacity-45 dark:bg-primary dark:text-primary-foreground">

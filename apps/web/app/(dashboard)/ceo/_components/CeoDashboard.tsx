@@ -1,7 +1,7 @@
 "use client";
 
 /*
- * Command Center → Dashboard: the portfolio at a glance, animated.
+ * Executive Hub → Dashboard: the portfolio at a glance, animated.
  * Colours (validated, light / dark): open #047857 / #059669 · done #2563eb / #3b82f6 · overdue #dc2626 / #ef4444.
  * Overdue is a status colour: always shown with its label, never used for anything else.
  */

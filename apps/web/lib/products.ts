@@ -5,7 +5,7 @@
 export const PRODUCT_NAME = {
   boards: "Accounts & Invoices",
   work: "Company Work",
-  ceo: "Command Center",
+  ceo: "Executive Hub",
   vault: "EZ Vault",
 } as const;
 
@@ -13,7 +13,7 @@ export const PRODUCT_NAME = {
 export const PRODUCT_SHORT = {
   boards: "Accounts",
   work: "Work",
-  ceo: "Command",
+  ceo: "Executive",
   vault: "Vault",
 } as const;
 

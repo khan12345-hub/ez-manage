@@ -15,7 +15,7 @@ const fmtDay = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString([], {
 /**
  * Portfolio → Trends: is it getting better or worse?
  *  - weekly tasks created vs completed (last 8 weeks, from the tasks themselves)
- *  - daily open vs overdue (from Command Center's daily snapshots — it fills in from the first day)
+ *  - daily open vs overdue (from Executive Hub's daily snapshots — it fills in from the first day)
  */
 export function TrendsCard({ source, company }: { source: CeoSource; company: string | null }) {
   const { data, isLoading } = useQuery({ queryKey: ["ceo-tower", "trends", source, company], queryFn: () => ceoApi.trends(source, company), refetchInterval: 10 * 60_000 });
@@ -116,7 +116,7 @@ function DailyLines({ days }: { days: { day: string; open: number; overdue: numb
       <figure className="min-w-0">
         <figcaption className="mb-1.5 flex flex-wrap items-center justify-between gap-2"><span className="text-[12.5px] font-semibold">Open vs overdue · daily</span><Legend items={[{ label: "Open", color: C.a }, { label: "Overdue", color: C.b, dashed: true }]} /></figcaption>
         <div className="flex h-[150px] flex-col items-center justify-center rounded-xl border border-dashed border-border text-center text-[12.5px] text-muted-foreground">
-          {days[0] ? <><strong className="text-foreground">Today: {days[0].open} open · {days[0].overdue} overdue</strong><span className="mt-1">Command Center records these every day — the line fills in from tomorrow.</span></> : "Command Center starts recording these today."}
+          {days[0] ? <><strong className="text-foreground">Today: {days[0].open} open · {days[0].overdue} overdue</strong><span className="mt-1">Executive Hub records these every day — the line fills in from tomorrow.</span></> : "Executive Hub starts recording these today."}
         </div>
       </figure>
     );

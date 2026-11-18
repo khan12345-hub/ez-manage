@@ -17,7 +17,7 @@ type Sort = "attention" | "open" | "progress" | "name" | "active";
 const ago = (iso: string | null) => { if (!iso) return "—"; const h = Math.round((Date.now() - +new Date(iso)) / 3_600_000); return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; };
 const fullName = (p: CeoPerson) => `${p.firstName} ${p.lastName}`.trim();
 
-/** Command Center → Team: everyone across your companies, their load and progress */
+/** Executive Hub → Team: everyone across your companies, their load and progress */
 export function TeamView({ source, company, companies }: { source: CeoSource; company: string | null; companies: CeoCompany[] }) {
   const [managing, setManaging] = useState(false);
   const { data = [], isLoading } = useQuery({ queryKey: ["ceo-tower", "team", source, company], queryFn: () => ceoApi.team(source, company), refetchInterval: 60_000 });

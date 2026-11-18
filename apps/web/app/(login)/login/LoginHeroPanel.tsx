@@ -7,7 +7,7 @@
 const PRODUCTS = [
   { no: "01", name: "Accounts & Invoices", line: "Accounts, invoices and tables for every team" },
   { no: "02", name: "Company Work", line: "Spaces, lists, goals and AI for every company" },
-  { no: "03", name: "Command Center", line: "Approvals, risks and every company at a glance" },
+  { no: "03", name: "Executive Hub", line: "Approvals, risks and every company at a glance" },
 ];
 
 export function LoginHeroPanel() {

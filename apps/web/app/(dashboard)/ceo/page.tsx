@@ -120,8 +120,8 @@ export default function CeoTowerPage() {
     return (
       <div className="flex h-full flex-col items-center justify-center p-10 text-center">
         <Crown className="h-8 w-8 text-[#b08d57]" />
-        <h1 className="mt-3 font-serif text-[26px]">Command Center</h1>
-        <p className="mt-1 max-w-[420px] text-[13.5px] text-muted-foreground">Command Center is only for Administrators. Ask an Administrator if you need it.</p>
+        <h1 className="mt-3 font-serif text-[26px]">Executive Hub</h1>
+        <p className="mt-1 max-w-[420px] text-[13.5px] text-muted-foreground">Executive Hub is only for Administrators. Ask an Administrator if you need it.</p>
         <Link href="/home" className="mt-4 text-[13px] font-semibold text-primary hover:underline">Back to home</Link>
       </div>
     );
@@ -139,7 +139,7 @@ export default function CeoTowerPage() {
       </div>
 
       {/* glass sidebar */}
-      <aside aria-label="Command Center menu" className="sticky top-0 z-30 hidden h-screen w-[296px] shrink-0 p-3 lg:block">
+      <aside aria-label="Executive Hub menu" className="sticky top-0 z-30 hidden h-screen w-[296px] shrink-0 p-3 lg:block">
         <div className="flex h-full flex-col overflow-y-auto rounded-[28px] border border-white/70 bg-white/60 p-3.5 shadow-[0_20px_60px_-24px_rgba(11,42,31,0.35)] ring-1 ring-black/[0.03] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10 dark:bg-white/[0.04]">
           {/* switch app (same place in every product) */}
           <AppSwitcher active="ceo" subtitle="EZ Manage · Executive" />
@@ -166,7 +166,7 @@ export default function CeoTowerPage() {
           </button>
 
           <p className="mb-1.5 mt-5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Views</p>
-          <nav role="tablist" aria-label="Command Center views" className="space-y-0.5">
+          <nav role="tablist" aria-label="Executive Hub views" className="space-y-0.5">
             {VIEWS.map((v) => (
               <button key={v.id} type="button" role="tab" aria-selected={view === v.id} onClick={() => setView(v.id)}
                 className={cn("group flex w-full items-center gap-3 rounded-2xl px-2.5 py-[7px] text-left text-[13.5px] font-medium transition-all",
@@ -195,7 +195,7 @@ export default function CeoTowerPage() {
         <div className="flex flex-wrap items-center gap-3 rounded-[22px] border border-white/70 bg-white/55 px-4 py-3 shadow-[0_12px_40px_-24px_rgba(11,42,31,0.35)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04]">
           <div className="w-full lg:hidden"><AppSwitcher active="ceo" subtitle="EZ Manage · Executive" /></div>
           <span className="min-w-0">
-            <span className="block text-[11px] font-medium text-muted-foreground">Command Center</span>
+            <span className="block text-[11px] font-medium text-muted-foreground">Executive Hub</span>
             <h1 className="font-serif text-[22px] leading-tight">{VIEWS.find((v) => v.id === view)?.label}</h1>
           </span>
           {company && (
@@ -216,7 +216,7 @@ export default function CeoTowerPage() {
       </header>
       {!access.canShare && access.sharedBy.length > 0 && (
         <p className="border-b border-border bg-[#b08d57]/8 px-5 py-1.5 text-[12px] text-muted-foreground">
-          <KeyRound className="mr-1 inline h-3 w-3 text-[#b08d57]" /> {access.sharedBy.map((o) => o.name).join(", ")} shared Command Center with you — you see their companies.
+          <KeyRound className="mr-1 inline h-3 w-3 text-[#b08d57]" /> {access.sharedBy.map((o) => o.name).join(", ")} shared Executive Hub with you — you see their companies.
         </p>
       )}
       {sharing && <ShareAccessDialog onClose={() => setSharing(false)} />}
@@ -224,7 +224,7 @@ export default function CeoTowerPage() {
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {managing && <ManagePeopleDialog companies={companies} defaultKey={company?.key ?? null} onClose={() => setManaging(false)} />}
 
-      {isError ? <p className="p-10 text-center text-[13px] text-muted-foreground">Couldn&apos;t load Command Center.</p> : !data || isLoading ? (
+      {isError ? <p className="p-10 text-center text-[13px] text-muted-foreground">Couldn&apos;t load Executive Hub.</p> : !data || isLoading ? (
         <div className="grid gap-4 p-5 lg:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="h-[520px] animate-pulse rounded-2xl bg-muted" />)}</div>
       ) : (
         <div className="space-y-4 p-5">

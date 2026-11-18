@@ -19,7 +19,7 @@ function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (v: 
   );
 }
 
-/** Command Center → Settings: the morning brief (when, where) and "company turned red" alerts */
+/** Executive Hub → Settings: the morning brief (when, where) and "company turned red" alerts */
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const { data: s } = useQuery({ queryKey: ["ceo-tower", "settings"], queryFn: ceoApi.settings });
@@ -39,7 +39,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[560px]">
-        <DialogTitle className="flex items-center gap-2 font-serif text-[22px] font-normal"><Settings2 className="h-5 w-5 text-[#b08d57]" /> Command Center settings</DialogTitle>
+        <DialogTitle className="flex items-center gap-2 font-serif text-[22px] font-normal"><Settings2 className="h-5 w-5 text-[#b08d57]" /> Executive Hub settings</DialogTitle>
         <DialogDescription>Just for you. Nothing here changes Boards or Work.</DialogDescription>
         {!s ? <div className="h-48 animate-pulse rounded-xl bg-muted" /> : (
           <div className="space-y-3">

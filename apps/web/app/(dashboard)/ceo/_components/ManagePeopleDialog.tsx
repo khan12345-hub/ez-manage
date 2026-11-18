@@ -16,7 +16,7 @@ const errMsg = (e: any, fallback: string) => e?.response?.data?.message?.toStrin
 const ROLE_LABEL: Record<string, string> = { OWNER: "Owner", ADMIN: "Admin", MEMBER: "Member", VIEWER: "Viewer", GUEST: "Guest", LIMITED_MEMBER: "Limited member" };
 
 /**
- * Command Center → Manage people: invite someone to a company, change their role, remove them.
+ * Executive Hub → Manage people: invite someone to a company, change their role, remove them.
  * Every change goes through Boards' / Work's own people routes as you, so their rules apply
  * (only owners / admins can change people; the owner can't be removed; invites are emailed).
  */

@@ -17,7 +17,7 @@ const STATUS: Record<string, { label: string; cls: string; icon: typeof Mail }> 
   pending: { label: "Sending", cls: "text-muted-foreground", icon: Mail },
 };
 
-/** Command Center → Email: write to management, a team, a company or one person; see what went out */
+/** Executive Hub → Email: write to management, a team, a company or one person; see what went out */
 export function EmailView() {
   const [composing, setComposing] = useState(false);
   const { data = [], isLoading } = useQuery({ queryKey: ["ceo-tower", "email-history"], queryFn: ceoApi.emailHistory });
@@ -29,7 +29,7 @@ export function EmailView() {
         <button type="button" onClick={() => setComposing(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-forest px-3.5 text-[13px] font-semibold text-forest-foreground hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground"><MailPlus className="h-4 w-4" /> Write email</button>
       </header>
       {isLoading ? <div className="h-32 animate-pulse rounded-b-2xl bg-muted" /> : !data.length ? (
-        <p className="px-5 py-14 text-center text-[13px] text-muted-foreground">Emails you send from Command Center show up here.</p>
+        <p className="px-5 py-14 text-center text-[13px] text-muted-foreground">Emails you send from Executive Hub show up here.</p>
       ) : (
         <ul aria-label="Sent emails" className="divide-y divide-border">
           {data.map((e) => {

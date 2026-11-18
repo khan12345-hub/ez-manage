@@ -37,7 +37,7 @@ export function ManagementList({ source, company, meId, onMessage, onAssign }: {
   const [showOthers, setShowOthers] = useState(false);
 
   const setManager = useMutation({
-    // Work keeps "reports to" itself; for Boards, Command Center keeps it
+    // Work keeps "reports to" itself; for Boards, Executive Hub keeps it
     mutationFn: ({ company, userId, managerId }: { company: { key: string; uid: string; source: "boards" | "work" }; userId: number; managerId: number | null }) => company.source === "work"
       ? api.patch(`/work/workspaces/${company.uid}/profiles/${userId}`, { managerId })
       : api.put(`/ceo-tower/report-lines/boards/${company.key.split(":")[1]}/${userId}`, { managerId }),

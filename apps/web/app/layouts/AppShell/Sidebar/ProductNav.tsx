@@ -26,7 +26,7 @@ export type ProductKey = "boards" | "work" | "ceo" | "vault";
 const PRODUCT_META = {
   boards: { label: "Accounts", icon: LayoutGrid, tint: "bg-product-boards", text: "text-product-boards dark:text-[#a5b4fc]", ring: "ring-product-boards/40" },
   work: { label: "Work", icon: ListChecks, tint: "bg-product-work", text: "text-product-work dark:text-[#6ee7b7]", ring: "ring-product-work/40" },
-  ceo: { label: "Command", icon: BarChart3, tint: "bg-product-ceo", text: "text-product-ceo", ring: "ring-product-ceo/40" },
+  ceo: { label: "Executive", icon: BarChart3, tint: "bg-product-ceo", text: "text-product-ceo", ring: "ring-product-ceo/40" },
   vault: { label: "Vault", icon: KeyRound, tint: "bg-product-vault", text: "text-product-vault", ring: "ring-product-vault/40" },
 } as const;
 

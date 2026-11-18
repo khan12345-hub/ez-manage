@@ -10,7 +10,7 @@ import { Avatar } from "../../work/_components/primitives";
 import { PRODUCT_NAME } from "@/lib/products";
 
 /**
- * Message a person from Command Center, sent as the CEO through the product's own chat:
+ * Message a person from Executive Hub, sent as the CEO through the product's own chat:
  * Work chat when you share a Work company, otherwise their Boards chat (people only in Boards).
  * Same notifications, same conversation they already have with you. Also used to share a task.
  */

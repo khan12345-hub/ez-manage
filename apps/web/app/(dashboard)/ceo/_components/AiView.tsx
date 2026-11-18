@@ -39,7 +39,7 @@ const CONV_KEY = "ez:ceo:ai:conversation";
 
 type Line = { role: "user" | "assistant"; text: string; used?: string[] };
 
-/** Command Center → Executive AI: ask anything; actions the AI prepares wait for your Confirm */
+/** Executive Hub → Executive AI: ask anything; actions the AI prepares wait for your Confirm */
 export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; onAsked?: () => void }) {
   // "Turn this into a CEO task": the question becomes the task, the answer its description
   const [toTask, setToTask] = useState<{ name: string; description: string } | null>(null);
@@ -125,7 +125,7 @@ export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; on
 
         {status && !status.configured && (
           <p role="alert" className="mx-5 mt-4 rounded-xl border border-[#b08d57]/40 bg-[#b08d57]/8 px-4 py-3 text-[13px]">
-            <strong>Executive AI isn&apos;t switched on yet.</strong> Add <code className="rounded bg-muted px-1 font-mono text-[12px]">ANTHROPIC_API_KEY</code> (or <code className="rounded bg-muted px-1 font-mono text-[12px]">GROQ_API_KEY</code> for the free engine) to the API server&apos;s settings (<code className="font-mono text-[12px]">apps/api/.env</code>) and restart it. Everything else in Command Center works without it.
+            <strong>Executive AI isn&apos;t switched on yet.</strong> Add <code className="rounded bg-muted px-1 font-mono text-[12px]">ANTHROPIC_API_KEY</code> (or <code className="rounded bg-muted px-1 font-mono text-[12px]">GROQ_API_KEY</code> for the free engine) to the API server&apos;s settings (<code className="font-mono text-[12px]">apps/api/.env</code>) and restart it. Everything else in Executive Hub works without it.
           </p>
         )}
 

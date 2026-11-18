@@ -18,7 +18,7 @@ const STATES: { id: CeoTaskState; label: string }[] = [{ id: "open", label: "Ope
 const fullName = (p: CeoPerson) => `${p.firstName} ${p.lastName}`.trim();
 
 /**
- * A company's tasks and people right inside Command Center, with actions: message a person,
+ * A company's tasks and people right inside Executive Hub, with actions: message a person,
  * assign them a task, share a task with someone, or open it in its product.
  */
 export function CompanyPanel({ company, start, workCompanies, place = null, onClose }: { company: CeoCompany; start: PanelTab; workCompanies: CeoCompany[]; place?: CeoPlace | null; onClose: () => void }) {

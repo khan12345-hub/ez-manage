@@ -137,9 +137,9 @@ export function CommandPalette() {
             </CommandItem>
           )}
           {products.hasCeo && (
-            <CommandItem value="product ceo command center control tower" onSelect={() => run(() => router.push("/ceo"))}>
+            <CommandItem value="product ceo executive hub command center control tower" onSelect={() => run(() => router.push("/ceo"))}>
               <Dot className="bg-product-ceo" />
-              Command Center
+              Executive Hub
               <CommandShortcut>Companies</CommandShortcut>
             </CommandItem>
           )}

@@ -21,7 +21,7 @@ function Stats({ s, people }: { s: CeoStats; people?: number }) {
   );
 }
 
-/** Command Center → Boards / Work: each company's boards, or spaces → folders → lists, with progress */
+/** Executive Hub → Boards / Work: each company's boards, or spaces → folders → lists, with progress */
 export function ProductView({ product, company, companies }: { product: "boards" | "work"; company: string | null; companies: CeoCompany[] }) {
   const { data = [], isLoading } = useQuery({ queryKey: ["ceo-tower", "structure", product, company], queryFn: () => ceoApi.structure(product, company), refetchInterval: 60_000 });
   const [panel, setPanel] = useState<{ company: CeoCompany; place: CeoPlace } | null>(null);

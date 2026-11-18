@@ -1,7 +1,7 @@
 "use client";
 
 /*
- * One app switcher for every product (Accounts & Invoices, Company Work, Command Center, EZ Vault).
+ * One app switcher for every product (Accounts & Invoices, Company Work, Executive Hub, EZ Vault).
  * It sits in the same place everywhere: the top of the product's sidebar. Only products this
  * person can open are listed.
  */
