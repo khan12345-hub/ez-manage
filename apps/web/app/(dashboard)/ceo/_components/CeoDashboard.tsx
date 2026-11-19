@@ -233,7 +233,7 @@ export function CeoDashboard({ data, source, company, onFocus, onOpen, onView, o
       </motion.div>
 
       {/* tasks the CEO gave out, and how many got done */}
-      <motion.div variants={fade}><AssignedSummary onOpen={onAssigned} /></motion.div>
+      <motion.div variants={fade}><AssignedSummary onOpen={onAssigned} source={source} scope={company} /></motion.div>
 
       <motion.div variants={stagger} className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
         <Card title="Open vs overdue" sub="Last 30 days, all your companies"><TrendChart days={days} /></Card>

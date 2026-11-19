@@ -262,8 +262,9 @@ export class CeoTowerController {
   assigned(@Query() q: Record<string, string>, @CurrentUser() u: SessionUser) {
     return this.tower.assignedByMe(u.id, {
       person: /^\d+$/.test(q.person ?? '') ? Number(q.person) : undefined,
-      company: /^work:\d+$/.test(q.company ?? '') ? q.company : undefined,
+      company: /^(work|boards):\d+$/.test(q.company ?? '') ? q.company : undefined,
       state: ['open', 'done', 'overdue', 'all'].includes(q.state) ? q.state : 'all',
+      source: q.source === 'work' || q.source === 'boards' ? q.source : undefined,
     });
   }
 

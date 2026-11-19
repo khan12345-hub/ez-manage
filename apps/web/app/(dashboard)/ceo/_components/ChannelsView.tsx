@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { ceoApi, type CeoAssignedTask, type CeoCompany, type CeoMini } from "@/services/ceo-tower.api";
+import type { CeoSource } from "@/services/ceo-tower.api";
 import { workApi, workKeys } from "@/services/work.api";
 import { Avatar } from "../../work/_components/primitives";
 import { ChannelView } from "../../work/_components/chat/ChannelView";
@@ -47,8 +48,9 @@ function Ring({ pct, size = 54 }: { pct: number; size?: number }) {
 }
 
 /** "You assigned N · M done · K overdue" — also the Dashboard card */
-export function AssignedSummary({ onOpen, compact = false }: { onOpen?: () => void; compact?: boolean }) {
-  const { data } = useQuery({ queryKey: ["ceo-tower", "assigned", "summary"], queryFn: () => ceoApi.assigned(), staleTime: 30_000, refetchInterval: 60_000 });
+export function AssignedSummary({ onOpen, compact = false, source = "all", scope = null }: { onOpen?: () => void; compact?: boolean; source?: CeoSource; scope?: string | null }) {
+  const src = source === "all" ? undefined : source;
+  const { data } = useQuery({ queryKey: ["ceo-tower", "assigned", "summary", src ?? "all", scope], queryFn: () => ceoApi.assigned({ source: src, company: scope ?? undefined }), staleTime: 30_000, refetchInterval: 60_000 });
   const s = data?.summary;
   const pct = s && s.total ? Math.round((s.done / s.total) * 100) : 0;
   return (
@@ -66,12 +68,14 @@ export function AssignedSummary({ onOpen, compact = false }: { onOpen?: () => vo
   );
 }
 
-function AssignedTable() {
+function AssignedTable({ source = "all", scope = null }: { source?: CeoSource; scope?: string | null }) {
   const showTask = useTaskPopup((s) => s.show);
   const [person, setPerson] = useState<number | "">("");
-  const [company, setCompany] = useState("");
+  const [picked, setCompany] = useState("");
+  const company = scope ?? picked;
+  const src = source === "all" ? undefined : source;
   const [state, setState] = useState<"all" | "open" | "done" | "overdue">("all");
-  const { data, isLoading } = useQuery({ queryKey: ["ceo-tower", "assigned", person, company, state], queryFn: () => ceoApi.assigned({ person: person || undefined, company: company || undefined, state }), refetchInterval: 60_000 });
+  const { data, isLoading } = useQuery({ queryKey: ["ceo-tower", "assigned", person, company, state, src ?? "all"], queryFn: () => ceoApi.assigned({ person: person || undefined, company: company || undefined, state, source: src }), refetchInterval: 60_000 });
   const tasks = data?.tasks ?? [];
   return (
     <div className="space-y-3">
@@ -133,12 +137,12 @@ function AssignedTable() {
   );
 }
 
-function NewChannelDialog({ companies, onClose, onCreated }: { companies: CeoCompany[]; onClose: () => void; onCreated: (sel: Sel) => void }) {
+function NewChannelDialog({ companies, scope = null, onClose, onCreated }: { companies: CeoCompany[]; scope?: string | null; onClose: () => void; onCreated: (sel: Sel) => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const work = companies.filter((c) => c.source === "work");
   const acc = companies.filter((c) => c.source === "boards");
-  const [company, setCompany] = useState(work[0]?.uid ?? acc[0]?.uid ?? "");
+  const [company, setCompany] = useState(companies.find((c) => c.key === scope)?.uid ?? work[0]?.uid ?? acc[0]?.uid ?? "");
   const picked = companies.find((c) => c.uid === company);
   const isAcc = picked?.source === "boards";
   const [chName, setChName] = useState("");
@@ -232,9 +236,11 @@ function NewChannelDialog({ companies, onClose, onCreated }: { companies: CeoCom
 
 type Sel = { uid: string; company: string; source: "work" | "boards"; wsId?: number };
 
-export function ChannelsView({ companies, tab, onTab }: { companies: CeoCompany[]; tab: "chat" | "assigned"; onTab: (t: "chat" | "assigned") => void }) {
+export function ChannelsView({ companies, tab, onTab, source = "all", scope = null }: { companies: CeoCompany[]; tab: "chat" | "assigned"; onTab: (t: "chat" | "assigned") => void; source?: CeoSource; scope?: string | null }) {
   const showTask = useTaskPopup((s) => s.show);
-  const { data: groups = [], isLoading } = useQuery({ queryKey: ["ceo-tower", "channels"], queryFn: ceoApi.channels, refetchInterval: 30_000 });
+  const { data: allGroups = [], isLoading } = useQuery({ queryKey: ["ceo-tower", "channels"], queryFn: ceoApi.channels, refetchInterval: 30_000 });
+  // only the product and company picked in the tower's sidebar
+  const groups = useMemo(() => allGroups.filter((g) => (source === "all" || (g.company.source ?? "work") === source) && (!scope || g.company.key === scope)), [allGroups, source, scope]);
   const [sel, setSel] = useState<Sel | null>(null);
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
@@ -247,6 +253,7 @@ export function ChannelsView({ companies, tab, onTab }: { companies: CeoCompany[
     const pick = all.find((c) => c.uid === last) ?? all[0]!;
     setSel({ uid: pick.uid, company: pick.company.uid, source: pick.company.source ?? "work", wsId: pick.company.id });
   }, [all, sel]);
+  useEffect(() => { if (sel && !all.some((c) => c.uid === sel.uid && (c.company.source ?? "work") === sel.source)) setSel(null); }, [all, sel]);
   const open = (next: Sel) => { setSel(next); onTab("chat"); try { window.localStorage.setItem(LAST_KEY, next.uid); } catch {} };
   const selRow = sel ? all.find((c) => c.uid === sel.uid && (c.company.source ?? "work") === sel.source) : undefined;
   const title = (c: (typeof all)[number]) => (c.kind === "channel" ? c.name ?? "channel" : c.people.map((p) => p.firstName).join(", ") || "Just you");
@@ -255,7 +262,7 @@ export function ChannelsView({ companies, tab, onTab }: { companies: CeoCompany[
   return (
     <div className="grid gap-4 xl:grid-cols-[300px_1fr]">
       <aside aria-label="Channels" className="flex flex-col gap-3">
-        <AssignedSummary onOpen={() => onTab("assigned")} compact />
+        <AssignedSummary onOpen={() => onTab("assigned")} compact source={source} scope={scope} />
         <section className="flex min-h-0 flex-col rounded-[24px] border border-white/70 bg-white/65 p-3 shadow-[0_16px_48px_-28px_rgba(11,42,31,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04] xl:max-h-[calc(100vh-260px)]">
           <header className="mb-2 flex items-center gap-2 px-1">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-forest text-brass-soft"><MessagesSquare className="h-4 w-4" /></span>
@@ -302,7 +309,7 @@ export function ChannelsView({ companies, tab, onTab }: { companies: CeoCompany[
             <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => onTab(id)} className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3.5 py-1.5 text-[13px] font-semibold transition sm:flex-none", tab === id ? "bg-white text-foreground shadow-sm dark:bg-white/15" : "text-muted-foreground hover:text-foreground")}><Icon className="h-4 w-4" /> {label}</button>
           ))}
         </div>
-        {tab === "assigned" ? <AssignedTable /> : sel ? (
+        {tab === "assigned" ? <AssignedTable source={source} scope={scope} /> : sel ? (
           <div className="h-[calc(100vh-210px)] min-h-[560px] overflow-hidden rounded-[24px] border border-white/70 bg-card shadow-[0_16px_48px_-28px_rgba(11,42,31,0.4)] dark:border-white/10">
             {sel.source === "boards" && sel.wsId ? (
               <BoardsChannelEmbed key={`b-${sel.uid}`} ws={sel.wsId} ch={Number(sel.uid)} isDm={selRow?.kind === "dm"}
@@ -322,7 +329,7 @@ export function ChannelsView({ companies, tab, onTab }: { companies: CeoCompany[
           </div>
         )}
       </section>
-      {creating && <NewChannelDialog companies={companies} onClose={() => setCreating(false)} onCreated={(next) => { setCreating(false); open(next); }} />}
+      {creating && <NewChannelDialog scope={scope} companies={companies} onClose={() => setCreating(false)} onCreated={(next) => { setCreating(false); open(next); }} />}
     </div>
   );
 }
