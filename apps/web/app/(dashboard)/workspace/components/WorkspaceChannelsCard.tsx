@@ -8,6 +8,7 @@ import { useChatStore } from "@/store/chat-store";
 import { useAuth } from "@/providers/AuthProvider";
 import { getChannels, getDMs } from "@/services/chat.api";
 import type { ChatChannel } from "@/services/chat.api";
+import { chatWorkPreview } from "@/services/chat-work.api";
 
 import { resolveUrl } from "@/lib/resolveUrl";
 const av = (url?: string | null) => resolveUrl(url) || undefined;
@@ -130,7 +131,7 @@ export function WorkspaceChannelsCard({ workspaceId }: Props) {
           )}
           {visibleChannels.map((ch) => {
             const unread = unreadCounts[ch.id] ?? 0;
-            const last = ch.messages?.[0]?.content ?? null;
+            const last = chatWorkPreview(ch.messages?.[0]?.content) ?? ch.messages?.[0]?.content ?? null;
             return (
               <button
                 key={ch.id}
@@ -182,7 +183,7 @@ export function WorkspaceChannelsCard({ workspaceId }: Props) {
               const unread = unreadCounts[dm.id] ?? 0;
               const { url, initials } = dmAvatar(dm);
               const name = dmDisplayName(dm);
-              const last = dm.messages?.[0]?.content ?? null;
+              const last = chatWorkPreview(dm.messages?.[0]?.content) ?? dm.messages?.[0]?.content ?? null;
               return (
                 <button
                   key={dm.id}

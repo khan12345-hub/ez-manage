@@ -1,7 +1,7 @@
 "use client";
 
 /*
- * Executive Hub → Channels: the Administrator's Work chats across every company, with the same
+ * Executive Hub → Channels: the Administrator's Company Work and Accounts & Invoices chats across every company, with the same
  * Message / Post / Task / Many tasks composer and the Tasks & Mentions panel as Company Work,
  * plus "Assigned by me" — every task they gave out and whether it got done.
  */
@@ -21,6 +21,10 @@ import { ChannelView } from "../../work/_components/chat/ChannelView";
 import { WorkWsContext } from "../../work/_components/chat/useChat";
 import { PeoplePick } from "../../work/_components/chat/ChatTasks";
 import { useTaskPopup } from "./TaskPopup";
+import { BoardsChannelEmbed } from "./BoardsChannelEmbed";
+import { createChannel as createBoardsChannel, getAllChatUsers } from "@/services/chat.api";
+import { getBoards, getBoardGroups } from "@/services/boards.api";
+import { boardsChatApi } from "@/services/chat-work.api";
 
 const mini = (u: CeoMini) => ({ ...u, email: "" }) as any;
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—");
@@ -112,10 +116,10 @@ function AssignedTable() {
           <tbody>
             {isLoading && [0, 1, 2, 3].map((i) => <tr key={i}><td colSpan={6} className="px-4 py-2"><div className="h-8 animate-pulse rounded-lg bg-muted" /></td></tr>)}
             {tasks.map((t: CeoAssignedTask) => (
-              <tr key={t.id} className="border-b border-border/50 last:border-0 hover:bg-white/60 dark:hover:bg-white/[0.03]">
-                <td className="max-w-[320px] px-4 py-2.5"><button type="button" onClick={() => showTask("work", t.id)} className={cn("block max-w-full truncate text-left font-medium hover:text-primary hover:underline", t.completedAt && "text-muted-foreground line-through")}>{t.name}</button><span className="block truncate text-[11.5px] text-muted-foreground">{t.where}</span></td>
+              <tr key={`${t.source ?? "work"}-${t.id}`} className="border-b border-border/50 last:border-0 hover:bg-white/60 dark:hover:bg-white/[0.03]">
+                <td className="max-w-[320px] px-4 py-2.5"><button type="button" onClick={() => showTask(t.source ?? "work", t.id)} className={cn("block max-w-full truncate text-left font-medium hover:text-primary hover:underline", t.completedAt && "text-muted-foreground line-through")}>{t.name}</button><span className="block truncate text-[11.5px] text-muted-foreground">{t.where}</span></td>
                 <td className="px-3 py-2.5"><span className="flex items-center gap-1.5"><span className="flex -space-x-1.5">{t.assignees.slice(0, 3).map((u) => <Avatar key={u.id} user={mini(u)} size={22} className="ring-2 ring-card" />)}</span><span className="max-w-[120px] truncate text-[12.5px]">{t.assignees.length === 1 ? name(t.assignees[0]!) : `${t.assignees.length} people`}</span></span></td>
-                <td className="px-3 py-2.5 text-[12.5px]"><span className="block truncate font-medium">{t.company.name}</span><span className="block truncate text-[11.5px] text-muted-foreground">{t.channel ? t.channel.name : "Task list"}</span></td>
+                <td className="px-3 py-2.5 text-[12.5px]"><span className="block truncate font-medium">{t.company.name}</span><span className="block truncate text-[11.5px] text-muted-foreground">{t.channel ? t.channel.name : t.source === "boards" ? "Board" : "Task list"}</span></td>
                 <td className="px-3 py-2.5">{t.status && <span className="ez-tint whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold uppercase" style={{ ["--c" as string]: t.status.color }}>{t.status.name}</span>}</td>
                 <td className={cn("whitespace-nowrap px-3 py-2.5 text-[12.5px] tabular-nums", t.overdue ? "font-semibold text-[#dc2626] dark:text-[#f87171]" : "text-muted-foreground")}>{t.overdue && <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />}{fmt(t.dueDate)}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-[12.5px]">{t.completedAt ? <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-[#2563eb] dark:text-[#60a5fa]" />{fmt(t.completedAt)}{t.completedBy && <span className="truncate text-muted-foreground">· {t.completedBy.firstName}</span>}</span> : <span className="text-muted-foreground">—</span>}</td>
@@ -129,26 +133,41 @@ function AssignedTable() {
   );
 }
 
-function NewChannelDialog({ companies, onClose, onCreated }: { companies: CeoCompany[]; onClose: () => void; onCreated: (uid: string, companyUid: string) => void }) {
+function NewChannelDialog({ companies, onClose, onCreated }: { companies: CeoCompany[]; onClose: () => void; onCreated: (sel: Sel) => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const work = companies.filter((c) => c.source === "work");
-  const [company, setCompany] = useState(work[0]?.uid ?? "");
+  const acc = companies.filter((c) => c.source === "boards");
+  const [company, setCompany] = useState(work[0]?.uid ?? acc[0]?.uid ?? "");
+  const picked = companies.find((c) => c.uid === company);
+  const isAcc = picked?.source === "boards";
   const [chName, setChName] = useState("");
   const [isPrivate, setPrivate] = useState(true);
   const [memberIds, setMemberIds] = useState<number[]>([]);
   const [listId, setListId] = useState<number | null>(null);
-  const { data: dir } = useQuery({ queryKey: ["work", "directory", company], queryFn: () => workApi.directory(company), enabled: !!company });
-  const { data: tree } = useQuery({ queryKey: workKeys.tree(company), queryFn: () => workApi.tree(company), enabled: !!company });
-  const people = (dir?.people ?? []).map((p) => p.user).filter((u) => u.id !== user?.id);
-  useEffect(() => { setMemberIds([]); setListId(null); }, [company]);
+  const { data: dir } = useQuery({ queryKey: ["work", "directory", company], queryFn: () => workApi.directory(company), enabled: !!company && !isAcc });
+  const { data: tree } = useQuery({ queryKey: workKeys.tree(company), queryFn: () => workApi.tree(company), enabled: !!company && !isAcc });
+  // Accounts & Invoices: its members, and a board + group for the tasks
+  const { data: accUsers } = useQuery({ queryKey: ["boards", "chat-users", picked?.id], queryFn: () => getAllChatUsers(picked!.id), enabled: !!isAcc && !!picked });
+  const { data: accBoards } = useQuery({ queryKey: ["boards", "list", picked?.id], queryFn: () => getBoards(picked!.id) as Promise<{ id: number; name: string }[]>, enabled: !!isAcc && !!picked });
+  const [boardId, setBoardId] = useState<number | null>(null);
+  const [groupId, setGroupId] = useState<number | null>(null);
+  const { data: accGroups } = useQuery({ queryKey: ["boards", "groups", boardId], queryFn: () => getBoardGroups(boardId!), enabled: !!boardId });
+  const people = (isAcc ? (accUsers ?? []).map((u) => ({ ...u.user, email: u.user.email ?? "" })) : (dir?.people ?? []).map((p) => p.user)).filter((u) => u.id !== user?.id) as any[];
+  useEffect(() => { setMemberIds([]); setListId(null); setBoardId(null); setGroupId(null); }, [company]);
+  useEffect(() => { setGroupId(accGroups?.[0]?.id ?? null); }, [accGroups]);
   const create = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<Sel & { name: string }> => {
+      if (isAcc) {
+        const ch = await createBoardsChannel(picked!.id, chName.trim(), undefined, memberIds);
+        if (boardId && groupId) await boardsChatApi.setDefault(picked!.id, ch.id, boardId, groupId).catch(() => null);
+        return { uid: String(ch.id), company: company, source: "boards", wsId: picked!.id, name: ch.name ?? chName.trim() };
+      }
       const ch = await workApi.createChannel(company, { name: chName.trim(), isPrivate, memberIds });
       if (listId) await workApi.chatDefaultList(ch.uid, listId).catch(() => null);
-      return ch;
+      return { uid: ch.uid, company, source: "work", name: ch.name ?? chName.trim() };
     },
-    onSuccess: (ch) => { qc.invalidateQueries({ queryKey: ["ceo-tower", "channels"] }); toast.success(`#${ch.name} created — only the people you added can see it`); onCreated(ch.uid, company); },
+    onSuccess: (ch) => { qc.invalidateQueries({ queryKey: ["ceo-tower", "channels"] }); toast.success(`#${ch.name} created — only the people you added can see it`); onCreated(ch); },
     onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't create the channel."),
   });
   const lists = (tree?.spaces ?? []).flatMap((s) => [...s.lists.map((l) => ({ id: l.id, label: `${s.name} / ${l.name}` })), ...s.folders.flatMap((f) => f.lists.map((l) => ({ id: l.id, label: `${s.name} / ${f.name} / ${l.name}` })))]);
@@ -156,12 +175,12 @@ function NewChannelDialog({ companies, onClose, onCreated }: { companies: CeoCom
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogTitle className="flex items-center gap-2"><MessagesSquare className="h-5 w-5 text-[#b08d57]" /> New channel</DialogTitle>
-        <DialogDescription>It is created inside the company you pick. Only the people you add see it — in their own Company Work chat.</DialogDescription>
+        <DialogDescription>It is created inside the company you pick. Only the people you add see it — in their own {isAcc ? "Accounts & Invoices" : "Company Work"} chat.</DialogDescription>
         <div className="space-y-3 text-[13px]">
           <label className="block"><span className="text-[12px] font-medium text-muted-foreground">Company</span>
             <select value={company} onChange={(e) => setCompany(e.target.value)} className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3">
-              {work.map((c) => <option key={c.uid} value={c.uid}>{c.name} · Work</option>)}
-              {companies.filter((c) => c.source === "boards").map((c) => <option key={c.uid} disabled value="">{c.name} · Accounts (coming next)</option>)}
+              {work.length > 0 && <optgroup label="Company Work">{work.map((c) => <option key={c.uid} value={c.uid}>{c.name} · Work</option>)}</optgroup>}
+              {acc.length > 0 && <optgroup label="Accounts & Invoices">{acc.map((c) => <option key={c.uid} value={c.uid}>{c.name} · Accounts</option>)}</optgroup>}
             </select>
           </label>
           <label className="block"><span className="text-[12px] font-medium text-muted-foreground">Channel name</span>
@@ -173,13 +192,34 @@ function NewChannelDialog({ companies, onClose, onCreated }: { companies: CeoCom
               <span className="text-[12px] text-muted-foreground">{memberIds.length ? `${memberIds.length} + you` : "Just you so far"}</span>
             </div>
           </div>
-          <label className="block"><span className="text-[12px] font-medium text-muted-foreground">Tasks from this chat go to</span>
-            <select value={listId ?? ""} onChange={(e) => setListId(e.target.value ? Number(e.target.value) : null)} className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3">
-              <option value="">Pick later</option>
-              {lists.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
-            </select>
-          </label>
-          <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={isPrivate} onChange={(e) => setPrivate(e.target.checked)} className="accent-[var(--primary)]" /> <Lock className="h-3.5 w-3.5" /> Private — only the people added can see it</label>
+          {isAcc ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="block"><span className="text-[12px] font-medium text-muted-foreground">Tasks from this chat go to board</span>
+                <select value={boardId ?? ""} onChange={(e) => setBoardId(e.target.value ? Number(e.target.value) : null)} className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3">
+                  <option value="">Pick later</option>
+                  {(accBoards ?? []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </label>
+              <label className="block"><span className="text-[12px] font-medium text-muted-foreground">Group</span>
+                <select value={groupId ?? ""} disabled={!boardId} onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : null)} className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3 disabled:opacity-50">
+                  {!boardId && <option value="">—</option>}
+                  {(accGroups ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </label>
+            </div>
+          ) : (
+            <label className="block"><span className="text-[12px] font-medium text-muted-foreground">Tasks from this chat go to</span>
+              <select value={listId ?? ""} onChange={(e) => setListId(e.target.value ? Number(e.target.value) : null)} className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3">
+                <option value="">Pick later</option>
+                {lists.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+              </select>
+            </label>
+          )}
+          {isAcc ? (
+            <p className="flex items-center gap-2 text-[12.5px] text-muted-foreground"><Lock className="h-3.5 w-3.5" /> Private — only the people added see it in their chat list.</p>
+          ) : (
+            <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={isPrivate} onChange={(e) => setPrivate(e.target.checked)} className="accent-[var(--primary)]" /> <Lock className="h-3.5 w-3.5" /> Private — only the people added can see it</label>
+          )}
         </div>
         <div className="mt-2 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="h-9 rounded-xl px-3 text-[13px] text-muted-foreground hover:bg-accent">Cancel</button>
@@ -190,10 +230,12 @@ function NewChannelDialog({ companies, onClose, onCreated }: { companies: CeoCom
   );
 }
 
+type Sel = { uid: string; company: string; source: "work" | "boards"; wsId?: number };
+
 export function ChannelsView({ companies, tab, onTab }: { companies: CeoCompany[]; tab: "chat" | "assigned"; onTab: (t: "chat" | "assigned") => void }) {
   const showTask = useTaskPopup((s) => s.show);
   const { data: groups = [], isLoading } = useQuery({ queryKey: ["ceo-tower", "channels"], queryFn: ceoApi.channels, refetchInterval: 30_000 });
-  const [sel, setSel] = useState<{ uid: string; company: string } | null>(null);
+  const [sel, setSel] = useState<Sel | null>(null);
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const all = useMemo(() => groups.flatMap((g) => g.channels.map((c) => ({ ...c, company: g.company }))), [groups]);
@@ -203,9 +245,10 @@ export function ChannelsView({ companies, tab, onTab }: { companies: CeoCompany[
     let last: string | null = null;
     try { last = window.localStorage.getItem(LAST_KEY); } catch {}
     const pick = all.find((c) => c.uid === last) ?? all[0]!;
-    setSel({ uid: pick.uid, company: pick.company.uid });
+    setSel({ uid: pick.uid, company: pick.company.uid, source: pick.company.source ?? "work", wsId: pick.company.id });
   }, [all, sel]);
-  const open = (uid: string, company: string) => { setSel({ uid, company }); onTab("chat"); try { window.localStorage.setItem(LAST_KEY, uid); } catch {} };
+  const open = (next: Sel) => { setSel(next); onTab("chat"); try { window.localStorage.setItem(LAST_KEY, next.uid); } catch {} };
+  const selRow = sel ? all.find((c) => c.uid === sel.uid && (c.company.source ?? "work") === sel.source) : undefined;
   const title = (c: (typeof all)[number]) => (c.kind === "channel" ? c.name ?? "channel" : c.people.map((p) => p.firstName).join(", ") || "Just you");
   const term = q.trim().toLowerCase();
 
@@ -227,13 +270,13 @@ export function ChannelsView({ companies, tab, onTab }: { companies: CeoCompany[
               if (!list.length && term) return null;
               return (
                 <div key={g.company.key} className="mb-3">
-                  <p className="mb-1 flex items-center gap-1.5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"><span className="truncate">{g.company.name}</span><span className="rounded bg-product-work/12 px-1 py-px text-[9px] text-product-work">work</span></p>
+                  <p className="mb-1 flex items-center gap-1.5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"><span className="truncate">{g.company.name}</span>{g.company.source === "boards" ? <span className="rounded bg-product-boards/12 px-1 py-px text-[9px] text-product-boards dark:text-[#a5b4fc]">accounts</span> : <span className="rounded bg-product-work/12 px-1 py-px text-[9px] text-product-work">work</span>}</p>
                   <ul className="space-y-0.5">
                     {list.map((c) => {
-                      const on = sel?.uid === c.uid;
+                      const on = sel?.uid === c.uid && sel.source === (g.company.source ?? "work");
                       return (
-                        <li key={c.uid}>
-                          <button type="button" onClick={() => open(c.uid, g.company.uid)} aria-current={on ? "page" : undefined}
+                        <li key={`${g.company.key}-${c.uid}`}>
+                          <button type="button" onClick={() => open({ uid: c.uid, company: g.company.uid, source: g.company.source ?? "work", wsId: g.company.id })} aria-current={on ? "page" : undefined}
                             className={cn("flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[13px] transition", on ? "bg-forest text-white shadow-[0_8px_20px_-12px_rgba(11,42,31,0.8)] dark:bg-primary dark:text-primary-foreground" : "text-foreground/80 hover:bg-white/70 dark:hover:bg-white/5")}>
                             {c.kind === "channel" ? (c.isPrivate ? <Lock className="h-3.5 w-3.5 shrink-0 opacity-70" /> : <Hash className="h-3.5 w-3.5 shrink-0 opacity-70" />) : c.people[0] ? <Avatar user={mini(c.people[0])} size={18} /> : <Users className="h-3.5 w-3.5 shrink-0" />}
                             <span className={cn("min-w-0 flex-1 truncate", c.unread && !on && "font-semibold text-foreground")}>{title({ ...c, company: g.company })}</span>
@@ -248,7 +291,7 @@ export function ChannelsView({ companies, tab, onTab }: { companies: CeoCompany[
                 </div>
               );
             })}
-            {!isLoading && !groups.length && <p className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">You don&apos;t own a Company Work workspace yet.</p>}
+            {!isLoading && !groups.length && <p className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">You don&apos;t own a company workspace yet.</p>}
           </div>
         </section>
       </aside>
@@ -261,20 +304,25 @@ export function ChannelsView({ companies, tab, onTab }: { companies: CeoCompany[
         </div>
         {tab === "assigned" ? <AssignedTable /> : sel ? (
           <div className="h-[calc(100vh-210px)] min-h-[560px] overflow-hidden rounded-[24px] border border-white/70 bg-card shadow-[0_16px_48px_-28px_rgba(11,42,31,0.4)] dark:border-white/10">
-            <WorkWsContext.Provider value={sel.company}>
-              <ChannelView key={sel.uid} uid={sel.uid} hideHeaderExtras onOpenTask={(t) => showTask("work", t.id)} />
-            </WorkWsContext.Provider>
+            {sel.source === "boards" && sel.wsId ? (
+              <BoardsChannelEmbed key={`b-${sel.uid}`} ws={sel.wsId} ch={Number(sel.uid)} isDm={selRow?.kind === "dm"}
+                title={selRow ? title(selRow) : "Chat"} onOpenTask={(t) => showTask("boards", t.id)} />
+            ) : (
+              <WorkWsContext.Provider value={sel.company}>
+                <ChannelView key={sel.uid} uid={sel.uid} hideHeaderExtras onOpenTask={(t) => showTask("work", t.id)} />
+              </WorkWsContext.Provider>
+            )}
           </div>
         ) : (
           <div className="flex h-[420px] flex-col items-center justify-center rounded-[24px] border border-dashed border-border bg-white/40 text-center dark:bg-white/[0.02]">
             <MessagesSquare className="h-8 w-8 text-[#b08d57]" />
             <p className="mt-2 text-[15px] font-semibold">Start a channel with your team</p>
-            <p className="mt-1 max-w-sm text-[13px] text-muted-foreground">Create it here, pick the people — they see it in their Company Work chat. Give tasks right from the chat and watch them get done.</p>
+            <p className="mt-1 max-w-sm text-[13px] text-muted-foreground">Create it here, pick the people — they see it in their own chat (Company Work or Accounts &amp; Invoices). Give tasks right from the chat and watch them get done.</p>
             <button type="button" onClick={() => setCreating(true)} className="mt-3 flex h-9 items-center gap-1.5 rounded-xl bg-forest px-3.5 text-[13px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground"><Plus className="h-4 w-4" /> New channel</button>
           </div>
         )}
       </section>
-      {creating && <NewChannelDialog companies={companies} onClose={() => setCreating(false)} onCreated={(uid, company) => { setCreating(false); open(uid, company); }} />}
+      {creating && <NewChannelDialog companies={companies} onClose={() => setCreating(false)} onCreated={(next) => { setCreating(false); open(next); }} />}
     </div>
   );
 }

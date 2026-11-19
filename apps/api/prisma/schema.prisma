@@ -373,6 +373,8 @@ model Board {
   guestToken  String? @unique
   budgetHours Float?  @map("budget_hours")
 
+  chatDefaultFor ChatChannel[] @relation("ChatChannelDefaultBoard")
+
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@map("boards")
@@ -446,6 +448,7 @@ model Group {
 
   automationTargets AutomationRule[]         @relation("AutomationTargetGroup")
   memberGroupAccess BoardMemberGroupAccess[]
+  chatDefaultFor    ChatChannel[]            @relation("ChatChannelDefaultGroup")
 
   @@index([boardId])
   @@index([boardId, order])
@@ -587,6 +590,11 @@ model Task {
   // Form submission tracking
   isFormSubmission Boolean @default(false)
 
+  /// made from a team chat (Task / Many tasks composer)
+  sourceChatChannelId Int?
+  sourceChatChannel   ChatChannel? @relation("TaskSourceChatChannel", fields: [sourceChatChannelId], references: [id], onDelete: SetNull)
+
+  @@index([sourceChatChannelId])
   @@index([groupId])
   @@index([groupId, order])
   @@index([groupId, parentId])
@@ -1220,6 +1228,13 @@ model ChatChannel {
   messages          ChatMessage[]
   scheduledMessages ScheduledMessage[]
 
+  /// chat → tasks: where new items go (Accounts & Invoices board + group), and items made here
+  defaultBoardId Int?
+  defaultGroupId Int?
+  defaultBoard   Board? @relation("ChatChannelDefaultBoard", fields: [defaultBoardId], references: [id], onDelete: SetNull)
+  defaultGroup   Group? @relation("ChatChannelDefaultGroup", fields: [defaultGroupId], references: [id], onDelete: SetNull)
+  sourceTasks    Task[] @relation("TaskSourceChatChannel")
+
   @@index([workspaceId])
   @@map("chat_channels")
 }
@@ -1266,11 +1281,24 @@ model ChatMessage {
   createdAt DateTime  @default(now())
   editedAt  DateTime?
 
-  reactions ChatReaction[]
+  reactions   ChatReaction[]
+  mentionDone ChatMentionDone[]
 
   @@index([channelId, createdAt])
   @@index([parentId])
   @@map("chat_messages")
+}
+
+/// a person marked a chat @mention / assigned message as handled (the Chat work panel)
+model ChatMentionDone {
+  messageId Int
+  userId    Int
+  doneAt    DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@map("chat_mention_done")
 }
 
 model ChatReaction {

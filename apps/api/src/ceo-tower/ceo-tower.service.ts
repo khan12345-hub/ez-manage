@@ -480,7 +480,7 @@ export class CeoTowerService {
         select: { id: true, type: true, title: true, message: true, metadata: true, createdAt: true, taskId: true },
       }),
       this.prisma.notification.findMany({
-        where: { recipientId: userId, product: 'boards', isRead: false, clearedAt: null, createdAt: { gte: since }, type: { in: ['TASK_ASSIGNED', 'COMMENT_MENTION', 'COMMENT_REPLY', 'COMMENT_CREATED', 'FILE_COMMENT'] } },
+        where: { recipientId: userId, product: 'boards', isRead: false, clearedAt: null, createdAt: { gte: since }, type: { in: ['TASK_ASSIGNED', 'COMMENT_MENTION', 'COMMENT_REPLY', 'COMMENT_CREATED', 'FILE_COMMENT', 'TASK_STATUS_CHANGED'] } },
         orderBy: { createdAt: 'desc' }, take: 80,
         select: { id: true, type: true, title: true, message: true, entityType: true, entityId: true, metadata: true, createdAt: true },
       }),
@@ -502,6 +502,9 @@ export class CeoTowerService {
     const commentIds = boards.filter((n) => n.entityType === 'COMMENT' && n.entityId).map((n) => n.entityId!);
     const commentTask = new Map((commentIds.length ? await this.prisma.taskComment.findMany({ where: { id: { in: commentIds } }, select: { id: true, taskId: true } }) : []).map((c) => [c.id, c.taskId]));
     const num = (v: unknown) => (Number.isInteger(Number(v)) && Number(v) > 0 ? Number(v) : null);
+    // Boards status notices: "completed" when the new status is a done one (from the column's status options)
+    const statusCols = [...new Set(boards.filter((n) => n.type === 'TASK_STATUS_CHANGED').map((n) => num((n.metadata as any)?.columnId)).filter((x): x is number => !!x))];
+    const doneLabels = new Set((statusCols.length ? await this.prisma.statusOption.findMany({ where: { columnId: { in: statusCols }, category: 'DONE' }, select: { columnId: true, label: true } }) : []).map((o) => `${o.columnId}:${o.label}`));
     const items = [
       ...work.map((n) => {
         const m = (n.metadata ?? {}) as Record<string, any>;
@@ -512,7 +515,7 @@ export class CeoTowerService {
       }),
       ...boards.map((n) => {
         const m = (n.metadata ?? {}) as Record<string, any>;
-        const kind = kindOf(n.type, m.event);
+        const kind = kindOf(n.type, m.event, n.type === 'TASK_STATUS_CHANGED' && typeof m.newStatus === 'string' && doneLabels.has(`${m.columnId}:${m.newStatus}`));
         const b = boardById.get(Number(m.boardId ?? (n.entityType === 'BOARD' ? n.entityId : NaN)));
         const taskId = Number(m.taskId ?? (n.entityType === 'TASK' ? n.entityId : NaN));
         const href = b ? `/workspace/${b.workspace.uid}/board/${b.uid}${Number.isInteger(taskId) ? `?taskId=${taskId}` : ''}` : null;
@@ -535,8 +538,8 @@ export class CeoTowerService {
   async assignedByMe(userId: number, o: { person?: number; company?: string; state?: string } = {}) {
     const own = await this.require(userId);
     const wsIds = own.work.map((w) => w.id).filter((id) => !o.company || `work:${id}` === o.company);
-    if (!wsIds.length) return { summary: { total: 0, open: 0, done: 0, overdue: 0, doneWeek: 0 }, people: [], tasks: [] };
-    const rows = await this.prisma.workTask.findMany({
+    const boardsWs = own.boards.filter((w) => !o.company || `boards:${w.id}` === o.company);
+    const rows = !wsIds.length ? [] : await this.prisma.workTask.findMany({
       where: { createdById: userId, archivedAt: null, assignees: { some: { userId: { not: userId } } }, list: { archivedAt: null, space: { archivedAt: null, workspaceId: { in: wsIds } } } },
       orderBy: { createdAt: 'desc' },
       take: 1000,
@@ -555,11 +558,11 @@ export class CeoTowerService {
     for (const a of acts) if (!finisher.has(a.taskId)) finisher.set(a.taskId, a.user);
     const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
     const weekAgo = Date.now() - 7 * DAY;
-    const all = rows.map((t) => {
+    const workRows = rows.map((t) => {
       const assignees = t.assignees.map((a) => a.user).filter((u) => u.id !== userId);
       const overdue = !t.completedAt && !!t.dueDate && t.dueDate < startOfToday;
       return {
-        id: t.id, uid: t.uid, name: t.name, priority: t.priority, dueDate: t.dueDate, completedAt: t.completedAt, createdAt: t.createdAt, status: t.status, overdue,
+        source: 'work' as const, id: t.id, uid: t.uid, name: t.name, priority: t.priority, dueDate: t.dueDate, completedAt: t.completedAt, createdAt: t.createdAt, status: t.status, overdue,
         company: { key: `work:${t.list.space.workspace.id}`, uid: t.list.space.workspace.uid, name: t.list.space.workspace.name },
         where: `${t.list.space.name} / ${t.list.name}`, listUid: t.list.uid,
         channel: t.sourceChannel ? { uid: t.sourceChannel.uid, name: t.sourceChannel.kind === 'channel' ? `#${t.sourceChannel.name}` : 'Direct message' } : null,
@@ -567,6 +570,7 @@ export class CeoTowerService {
         hoursToDone: t.completedAt ? Math.max(0, Math.round((+t.completedAt - +t.createdAt) / 3_600_000)) : null,
       };
     });
+    const all = [...workRows, ...(await this.assignedBoards(userId, boardsWs))].sort((a, b) => +b.createdAt - +a.createdAt);
     // per person (a task with two people counts for both)
     const per = new Map<number, { user: (typeof all)[number]['assignees'][number]; assigned: number; open: number; done: number; overdue: number; hours: number[] }>();
     for (const t of all) for (const u of t.assignees) {
@@ -582,14 +586,51 @@ export class CeoTowerService {
     };
     const state = o.state ?? 'all';
     const tasks = all.filter((t) => (!o.person || t.assignees.some((u) => u.id === o.person)) && (state === 'all' || (state === 'open' ? !t.completedAt : state === 'done' ? !!t.completedAt : t.overdue)));
-    return { summary, people, tasks: tasks.slice(0, 500), companies: own.work.map((w) => ({ key: `work:${w.id}`, name: w.name })) };
+    return { summary, people, tasks: tasks.slice(0, 500), companies: [...own.work.map((w) => ({ key: `work:${w.id}`, name: w.name })), ...own.boards.map((w) => ({ key: `boards:${w.id}`, name: w.name }))] };
+  }
+
+  /** Accounts & Invoices items the Administrator created and gave to someone else (rows shaped like the Work ones) */
+  private async assignedBoards(userId: number, ws: { id: number; uid: string; name: string; timezone: string | null }[]) {
+    if (!ws.length) return [];
+    const facts = (await this.boardsFacts(ws)).filter((f) => f.createdById === userId && f.assignees.some((a) => a !== userId));
+    if (!facts.length) return [];
+    const ids = facts.map((f) => f.id);
+    const [tasks, people, acts, cols] = await Promise.all([
+      this.prisma.task.findMany({ where: { id: { in: ids } }, select: { id: true, group: { select: { name: true, board: { select: { name: true } } } }, sourceChatChannel: { select: { id: true, name: true, type: true } } } }),
+      this.prisma.user.findMany({ where: { id: { in: [...new Set(facts.flatMap((f) => f.assignees))] } }, select: { id: true, firstName: true, lastName: true, avatarUrl: true } }),
+      // who finished it: the latest status change on a done item (Boards keeps it in the activity log)
+      this.prisma.activityLog.findMany({ where: { taskId: { in: facts.filter((f) => f.done).map((f) => f.id) }, entityType: 'TASK_CELL', action: 'UPDATED' }, orderBy: { createdAt: 'desc' }, take: 5000, select: { taskId: true, createdAt: true, metadata: true, user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } }),
+      this.prisma.statusOption.findMany({ where: { column: { board: { workspaceId: { in: ws.map((w) => w.id) } } } }, select: { label: true, category: true, column: { select: { boardId: true } } } }),
+    ]);
+    const byTask = new Map(tasks.map((t) => [t.id, t]));
+    const byUser = new Map(people.map((u) => [u.id, u]));
+    const finished = new Map<number, { at: Date; by: (typeof acts)[number]['user'] }>();
+    for (const a of acts) if (a.taskId && !finished.has(a.taskId) && (a.metadata as any)?.columnType === 'STATUS') finished.set(a.taskId, { at: a.createdAt, by: a.user });
+    const catOf = new Map(cols.map((c) => [`${c.column.boardId}:${c.label}`, c.category]));
+    return facts.map((f) => {
+      const t = byTask.get(f.id);
+      const fin = f.done ? finished.get(f.id) : undefined;
+      const completedAt = f.done ? fin?.at ?? f.doneAt : null;
+      const ch = t?.sourceChatChannel;
+      return {
+        source: 'boards' as const, id: f.id, uid: String(f.id), name: f.name, priority: null, createdAt: f.createdAt,
+        dueDate: f.due ? new Date(`${f.due}T12:00:00Z`) : null, completedAt,
+        status: f.status ? { name: f.status.label, color: f.status.color, category: catOf.get(`${f.place.id}:${f.status.label}`) ?? (f.done ? 'DONE' : 'ACTIVE') } : null,
+        overdue: !f.done && !!f.due && f.due < ymd(new Date(), f._tz ?? 'UTC'),
+        company: { key: f.companyKey, uid: ws.find((w) => `boards:${w.id}` === f.companyKey)?.uid ?? '', name: ws.find((w) => `boards:${w.id}` === f.companyKey)?.name ?? '' },
+        where: t ? `${t.group.board.name} / ${t.group.name}` : f.where, listUid: '',
+        channel: ch ? { uid: String(ch.id), name: ch.type === 'DIRECT' ? 'Direct message' : `#${ch.name ?? 'channel'}` } : null,
+        assignees: f.assignees.filter((a) => a !== userId).map((a) => byUser.get(a)).filter(Boolean) as { id: number; firstName: string | null; lastName: string | null; avatarUrl: string | null }[],
+        completedBy: fin?.by ?? null,
+        hoursToDone: completedAt ? Math.max(0, Math.round((+completedAt - +f.createdAt) / 3_600_000)) : null,
+      };
+    });
   }
 
   /** Work chats (channels, group and direct messages) the Administrator is in, across their Work companies */
   async execChannels(userId: number) {
     const own = await this.require(userId);
-    if (!own.work.length) return [];
-    const rows = await this.prisma.workChannel.findMany({
+    const rows = !own.work.length ? [] : await this.prisma.workChannel.findMany({
       where: { workspaceId: { in: own.work.map((w) => w.id) }, archivedAt: null, members: { some: { userId } } },
       orderBy: [{ lastMessageAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
       take: 300,
@@ -599,14 +640,48 @@ export class CeoTowerService {
         _count: { select: { sourceTasks: { where: { completedAt: null, archivedAt: null } } } },
       },
     });
-    return own.work.map((w) => ({
-      company: { key: `work:${w.id}`, uid: w.uid, name: w.name },
+    const boardsGroups = await this.execBoardsChannels(userId, own.boards);
+    return [...own.work.map((w) => ({
+      company: { key: `work:${w.id}`, uid: w.uid, name: w.name, id: w.id, source: 'work' as const },
       channels: rows.filter((c) => c.workspaceId === w.id).map((c) => {
         const me = c.members.find((m) => m.userId === userId);
         return {
           uid: c.uid, name: c.name, kind: c.kind, isPrivate: c.isPrivate, lastMessageAt: c.lastMessageAt, memberCount: c.members.length,
           people: c.kind === 'channel' ? [] : c.members.filter((m) => m.userId !== userId).map((m) => m.user),
           unread: !!c.lastMessageAt && (!me?.lastReadAt || c.lastMessageAt > me.lastReadAt), openTasks: c._count.sourceTasks,
+        };
+      }),
+    })), ...boardsGroups];
+  }
+
+  /** Accounts & Invoices team chats (channels and direct messages) the Administrator is in */
+  private async execBoardsChannels(userId: number, ws: { id: number; uid: string; name: string; timezone: string | null }[]) {
+    if (!ws.length) return [];
+    const rows = await this.prisma.chatChannel.findMany({
+      where: { workspaceId: { in: ws.map((w) => w.id) }, members: { some: { userId } } },
+      orderBy: { updatedAt: 'desc' },
+      take: 300,
+      select: {
+        id: true, name: true, type: true, workspaceId: true, updatedAt: true,
+        members: { select: { userId: true, lastReadAt: true, user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
+        messages: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } },
+      },
+    });
+    // open items made from each chat (done = the board's status says so)
+    const made = await this.prisma.task.findMany({ where: { sourceChatChannelId: { in: rows.map((r) => r.id) } }, select: { id: true, sourceChatChannelId: true } });
+    const doneIds = new Set((await this.boardsFacts(ws)).filter((f) => f.done).map((f) => f.id));
+    const openBy = new Map<number, number>();
+    for (const t of made) if (!doneIds.has(t.id)) openBy.set(t.sourceChatChannelId!, (openBy.get(t.sourceChatChannelId!) ?? 0) + 1);
+    return ws.map((w) => ({
+      company: { key: `boards:${w.id}`, uid: w.uid, name: w.name, id: w.id, source: 'boards' as const },
+      channels: rows.filter((c) => c.workspaceId === w.id).map((c) => {
+        const me = c.members.find((m) => m.userId === userId);
+        const last = c.messages[0]?.createdAt ?? null;
+        const dm = c.type === 'DIRECT';
+        return {
+          uid: String(c.id), id: c.id, name: c.name, kind: dm ? 'dm' : 'channel', isPrivate: true, lastMessageAt: last, memberCount: c.members.length,
+          people: dm ? c.members.filter((m) => m.userId !== userId).map((m) => m.user) : [],
+          unread: !!last && (!me?.lastReadAt || last > me.lastReadAt), openTasks: openBy.get(c.id) ?? 0,
         };
       }),
     }));

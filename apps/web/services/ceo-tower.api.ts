@@ -62,6 +62,8 @@ export interface CeoTasks { state: CeoTaskState; counts: Record<CeoTaskState, nu
 export type CeoForYouKind = "assigned" | "mention" | "reply" | "comment" | "message" | "completed";
 export interface CeoMini { id: number; firstName: string | null; lastName: string | null; avatarUrl: string | null }
 export interface CeoAssignedTask {
+  /** which product it lives in (Accounts & Invoices items are "boards") */
+  source?: "work" | "boards";
   id: number; uid: string; name: string; priority: string | null; dueDate: string | null; completedAt: string | null; createdAt: string; overdue: boolean;
   status: { name: string; color: string; category: string } | null; company: { key: string; uid: string; name: string }; where: string; listUid: string;
   channel: { uid: string; name: string } | null; assignees: CeoMini[]; completedBy: CeoMini | null; hoursToDone: number | null;
@@ -72,8 +74,8 @@ export interface CeoAssigned {
   tasks: CeoAssignedTask[]; companies?: { key: string; name: string }[];
 }
 export interface CeoChannelGroup {
-  company: { key: string; uid: string; name: string };
-  channels: { uid: string; name: string | null; kind: "channel" | "dm" | "group"; isPrivate: boolean; lastMessageAt: string | null; memberCount: number; people: CeoMini[]; unread: boolean; openTasks: number }[];
+  company: { key: string; uid: string; name: string; id?: number; source?: "work" | "boards" };
+  channels: { uid: string; id?: number; name: string | null; kind: "channel" | "dm" | "group"; isPrivate: boolean; lastMessageAt: string | null; memberCount: number; people: CeoMini[]; unread: boolean; openTasks: number }[];
 }
 export interface CeoForYouItem { source: "boards" | "work"; id: string; kind: CeoForYouKind; title: string; message: string; at: string; href: string | null; actor: string | null; approval?: boolean;
   /** answer in place: the task's thread, or a message back to the sender */

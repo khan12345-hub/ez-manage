@@ -46,6 +46,9 @@ import { useTaskDetailsStore } from "@/store/task-details-store";
 import { ForwardMessageModal } from "./ForwardMessageModal";
 import { CreateTaskFromChatModal } from "./CreateTaskFromChatModal";
 import { UserProfilePanel } from "@/components/UserProfilePanel";
+import { BoardsChatWorkPanel, BoardsTaskCard, BoardsTaskComposer, ComposeTabs, ResolvedLine, useBoardsChatTasks } from "./BoardsChatWork";
+import { usePanelPref } from "@/app/(dashboard)/work/_components/chat/ChatTasks";
+import { parseChatWork } from "@/services/chat-work.api";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -246,6 +249,19 @@ function formatFileSize(bytes: number) {
 const av = (url?: string | null) => resolveUrl(url) || undefined;
 
 
+/** header button: shows / hides the Chat work panel, with the number of open tasks from this chat */
+function ChatWorkToggle({ workspaceId, channelId, open, onClick }: { workspaceId: number; channelId: number; open: boolean; onClick: () => void }) {
+  const { data } = useBoardsChatTasks(workspaceId, channelId);
+  const n = (data?.tasks ?? []).filter((t) => !t.done).length;
+  return (
+    <button onClick={onClick} aria-pressed={open} aria-label={n ? `Tasks (${n} open)` : "Tasks"} title={open ? "Hide tasks & mentions" : "Show tasks & mentions"}
+      className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${open ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
+      <ListTodo className="h-3.5 w-3.5" /> <span className="hidden 2xl:inline">Tasks</span>
+      {n > 0 && <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-4 text-primary-foreground">{n}</span>}
+    </button>
+  );
+}
+
 export default function ChatPage() {
   const params = useParams();
   const workspaceUid = Array.isArray(params.workspaceId) ? params.workspaceId[0] : params.workspaceId as string;
@@ -310,6 +326,10 @@ export default function ChatPage() {
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   // Thread panel
   const [threadMsg, setThreadMsg] = useState<ChatMessage | null>(null);
+  // chat → tasks: composer mode and the "Chat work" panel (open on desktop by default, a sheet on phones)
+  const [composeMode, setComposeMode] = useState<"message" | "task" | "bulk">("message");
+  const [workOpen, setWorkOpen] = usePanelPref("ez.boardsChatWorkPanel");
+  const [workSheet, setWorkSheet] = useState(false);
   const [replies, setReplies] = useState<ChatMessage[]>([]);
   const [replyInput, setReplyInput] = useState("");
   const [replyUploading, setReplyUploading] = useState(false);
@@ -1294,7 +1314,7 @@ export default function ChatPage() {
                     <Hash className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-semibold text-foreground">{displayName}</p>
+                        <p className="max-w-[220px] truncate text-sm font-semibold text-foreground" title={displayName}>{displayName}</p>
                         <button
                           onClick={() => { setEditChannelName(displayName); setEditChannelDesc(activeChannel.description ?? ""); setEditingChannel(true); }}
                           className="opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-opacity"
@@ -1449,6 +1469,9 @@ export default function ChatPage() {
                     </div>
                   )}
                 </div>
+                {/* Chat work panel (tasks + mentions) */}
+                <ChatWorkToggle workspaceId={workspaceId} channelId={activeChannelId!} open={workOpen}
+                  onClick={() => { if (typeof window !== "undefined" && window.innerWidth < 1024) setWorkSheet(true); else setWorkOpen(!workOpen); }} />
                 {/* Search messages */}
                 <button
                   onClick={() => { setShowMsgSearch((v) => !v); setMsgSearch(""); setMsgSearchResults(null); }}
@@ -1787,7 +1810,12 @@ export default function ChatPage() {
                               </div>
                             ) : (
                               <div className="flex-1 break-words">
-                                {msg.content?.startsWith("__TASK__:") ? (() => {
+                                {parseChatWork(msg.content) ? (() => {
+                                  const w = parseChatWork(msg.content)!;
+                                  return w.kind === "tasks"
+                                    ? <BoardsTaskCard ws={workspaceId} ch={msg.channelId} ids={w.taskIds} onOpen={(t) => openTaskDrawer({ taskId: t.id, boardId: t.board.id, groupId: t.groupId })} />
+                                    : <ResolvedLine who={msg.userId === user?.id ? "You" : msg.user.firstName} name={w.name} done={w.done} />;
+                                })() : msg.content?.startsWith("__TASK__:") ? (() => {
                                   try {
                                     const t = JSON.parse(msg.content!.slice("__TASK__:".length));
                                     return (
@@ -2046,6 +2074,12 @@ export default function ChatPage() {
 
             {/* Message Input */}
             <div className="border-t border-border px-6 py-4 pr-20">
+              <ComposeTabs mode={composeMode} onMode={setComposeMode} />
+              {composeMode !== "message" ? (
+                <div className="rounded-xl border border-border bg-card">
+                  <BoardsTaskComposer key={`${activeChannelId}-${composeMode}`} ws={workspaceId} ch={activeChannelId!} mode={composeMode} me={user?.id} onCreated={() => setComposeMode("message")} />
+                </div>
+              ) : (<>
               {/* @mention autocomplete */}
               {mentionQuery !== null && (
                 <div className="mb-2 overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
@@ -2237,8 +2271,22 @@ export default function ChatPage() {
                 <kbd className="ml-1 rounded border border-border px-1 font-mono">Shift+Enter</kbd> newline ·
                 <strong className="font-semibold">B</strong> bold · <em>I</em> italic · <code className="rounded bg-muted px-0.5 font-mono">code</code>
               </p>
+              </>)}
             </div>
           </div>
+
+          {/* ── CHAT WORK PANEL (tasks from this chat + mentions) ── */}
+          {workOpen && activeChannelId && !threadMsg && !showMembersPanel && (
+            <BoardsChatWorkPanel ws={workspaceId} ch={activeChannelId} me={user?.id} onClose={() => setWorkOpen(false)} className="hidden lg:flex"
+              onOpen={(t) => openTaskDrawer({ taskId: t.id, boardId: t.board.id, groupId: t.groupId })} />
+          )}
+          {workSheet && activeChannelId && (
+            <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-label="Chat work">
+              <button type="button" aria-label="Close" onClick={() => setWorkSheet(false)} className="absolute inset-0 bg-black/40" />
+              <BoardsChatWorkPanel ws={workspaceId} ch={activeChannelId} me={user?.id} onClose={() => setWorkSheet(false)} className="absolute inset-y-0 right-0 w-[min(100vw,380px)] shadow-2xl"
+                onOpen={(t) => { setWorkSheet(false); openTaskDrawer({ taskId: t.id, boardId: t.board.id, groupId: t.groupId }); }} />
+            </div>
+          )}
 
           {/* ── THREAD PANEL ──────────────────────────────────── */}
           {threadMsg && (

@@ -140,7 +140,7 @@ export function PeoplePick({ people, value, onChange, label = "Assign", compact 
   );
 }
 
-function PriorityPick({ value, onChange, compact = false }: { value: WorkPriority | null; onChange: (p: WorkPriority | null) => void; compact?: boolean }) {
+export function PriorityPick({ value, onChange, compact = false }: { value: WorkPriority | null; onChange: (p: WorkPriority | null) => void; compact?: boolean }) {
   return (
     <label className={cn("relative flex h-8 items-center gap-1 rounded-lg border border-border bg-background pl-2 pr-1 text-[12.5px]", compact && "h-7 border-transparent bg-transparent pl-1")}>
       <Flag className="h-3.5 w-3.5" style={{ color: value ? PRIORITY_META[value].color : undefined, fill: value ? PRIORITY_META[value].color : "none" }} />
