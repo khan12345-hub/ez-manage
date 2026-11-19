@@ -8,19 +8,20 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BarChart3, Check, ChevronsUpDown, Home, KeyRound, LayoutGrid, ListChecks } from "lucide-react";
+import { BarChart3, Check, ChevronsUpDown, Home, Timer, KeyRound, LayoutGrid, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRODUCT_NAME } from "@/lib/products";
 import { useProductAccess } from "@/hooks/useProductAccess";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export type AppKey = "boards" | "work" | "ceo" | "vault";
+export type AppKey = "boards" | "work" | "ceo" | "vault" | "tracker";
 
 export const APPS: Record<AppKey, { name: string; line: string; icon: typeof Home; color: string }> = {
   boards: { name: PRODUCT_NAME.boards, line: "Accounts, invoices and team tables", icon: LayoutGrid, color: "#4f46e5" },
   work: { name: PRODUCT_NAME.work, line: "Spaces, lists and tasks per company", icon: ListChecks, color: "#047857" },
   ceo: { name: PRODUCT_NAME.ceo, line: "Every company, risks and decisions", icon: BarChart3, color: "#b45309" },
   vault: { name: PRODUCT_NAME.vault, line: "Every password in one locked place", icon: KeyRound, color: "#0f766e" },
+  tracker: { name: PRODUCT_NAME.tracker, line: "Time, screenshots and activity", icon: Timer, color: "#0369a1" },
 };
 
 function useApps(hrefs?: Partial<Record<AppKey, string>>) {
@@ -29,6 +30,7 @@ function useApps(hrefs?: Partial<Record<AppKey, string>>) {
   if (access.hasBoards) list.push({ key: "boards", href: hrefs?.boards ?? access.boardsHref ?? "/home" });
   if (access.hasWork) list.push({ key: "work", href: hrefs?.work ?? access.workHref ?? "/work" });
   if (access.hasCeo) list.push({ key: "ceo", href: "/ceo" });
+  if (access.hasTracker) list.push({ key: "tracker", href: hrefs?.tracker ?? access.trackerHref ?? "/tracker" });
   list.push({ key: "vault", href: "/vault" });
   return list;
 }

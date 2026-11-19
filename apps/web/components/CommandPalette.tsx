@@ -136,6 +136,13 @@ export function CommandPalette() {
               <CommandShortcut>Spaces & lists</CommandShortcut>
             </CommandItem>
           )}
+          {products.hasTracker && (
+            <CommandItem value="product tracker ez tracker time screenshots activity attendance timesheet" onSelect={() => run(() => router.push(products.trackerHref))}>
+              <Dot className="bg-[#0369a1]" />
+              EZ Tracker
+              <CommandShortcut>Time & activity</CommandShortcut>
+            </CommandItem>
+          )}
           {products.hasCeo && (
             <CommandItem value="product ceo executive hub command center control tower" onSelect={() => run(() => router.push("/ceo"))}>
               <Dot className="bg-product-ceo" />
