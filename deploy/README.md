@@ -27,4 +27,5 @@ Server: one VPS, PM2 + Nginx, PostgreSQL 16, Redis (localhost).
 - `BUNNY_*` → a separate storage zone or folder if possible
 
 `apps/web/.env.local` (read at build time)
-- `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_BACKEND_BASE_URL` → `https://staging-apimanage.ezify.pk`
+- `NEXT_PUBLIC_API_URL=https://staging-apimanage.ezify.pk/api`
+- `NEXT_PUBLIC_BACKEND_BASE_URL=https://staging-apimanage.ezify.pk`
