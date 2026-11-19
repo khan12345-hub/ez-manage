@@ -38,6 +38,9 @@ export class NotificationsProcessor implements OnModuleInit, OnModuleDestroy {
         connection: {
           host: process.env.REDIS_HOST || 'localhost',
           port: Number(process.env.REDIS_PORT || 6379),
+          // staging and live can share one Redis: give each its own DB number
+          db: Number(process.env.REDIS_DB || 0),
+          password: process.env.REDIS_PASSWORD || undefined,
         },
         concurrency: 5,
       },

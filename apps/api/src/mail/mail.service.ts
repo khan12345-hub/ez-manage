@@ -35,11 +35,29 @@ export class MailService {
       this.logger.warn('Mail not configured — skipping email send');
       return null;
     }
+    // Staging safety (both empty on live):
+    //  MAIL_REDIRECT_TO=qa@company.com → every email goes to that one inbox instead of the real person
+    //  MAIL_ALLOW_ONLY=company.com,example.test → only these domains / addresses get email, others are skipped
+    let to = options.to;
+    let subject = options.subject;
+    const redirect = process.env.MAIL_REDIRECT_TO?.trim();
+    const allow = (process.env.MAIL_ALLOW_ONLY ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+    if (redirect) {
+      subject = `[to ${options.to}] ${options.subject}`;
+      to = redirect;
+    } else if (allow.length) {
+      const ok = String(options.to).split(',').map((a) => a.trim().toLowerCase()).filter((a) => allow.some((x) => a === x || a.endsWith(`@${x}`)));
+      if (!ok.length) {
+        this.logger.warn(`Mail skipped (MAIL_ALLOW_ONLY): ${String(options.to).replace(/(.).*@/, '$1***@')}`);
+        return null;
+      }
+      to = ok.join(', ');
+    }
     try {
       const info = await this.transporter.sendMail({
         from: process.env.MAIL_FROM || process.env.MAIL_USER,
-        to: options.to,
-        subject: options.subject,
+        to,
+        subject,
         text: options.text,
         html: options.html,
       });
