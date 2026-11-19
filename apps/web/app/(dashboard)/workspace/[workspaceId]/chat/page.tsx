@@ -46,7 +46,7 @@ import { useTaskDetailsStore } from "@/store/task-details-store";
 import { ForwardMessageModal } from "./ForwardMessageModal";
 import { CreateTaskFromChatModal } from "./CreateTaskFromChatModal";
 import { UserProfilePanel } from "@/components/UserProfilePanel";
-import { BoardsChatWorkPanel, BoardsTaskCard, BoardsTaskComposer, ComposeTabs, ResolvedLine, useBoardsChatTasks } from "./BoardsChatWork";
+import { BoardsChatWorkPanel, BoardsTaskCard, BoardsTaskComposer, ComposeTabs, ManageChannels, NoteLine, ResolvedLine, useBoardsChatTasks } from "./BoardsChatWork";
 import { usePanelPref } from "@/app/(dashboard)/work/_components/chat/ChatTasks";
 import { parseChatWork } from "@/services/chat-work.api";
 
@@ -1026,6 +1026,8 @@ export default function ChatPage() {
               <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Channels
               </span>
+              <span className="flex-1" />
+              <ManageChannels ws={workspaceId} members={allUsers.map((m: any) => m.user).filter(Boolean)} onJoined={(id) => { getChannels(workspaceId).then(setChannels).catch(() => {}); setActiveChannel(id); }} />
               <button
                 onClick={() => { setShowNewChannel(true); setShowDMPicker(false); }}
                 className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -1814,6 +1816,8 @@ export default function ChatPage() {
                                   const w = parseChatWork(msg.content)!;
                                   return w.kind === "tasks"
                                     ? <BoardsTaskCard ws={workspaceId} ch={msg.channelId} ids={w.taskIds} onOpen={(t) => openTaskDrawer({ taskId: t.id, boardId: t.board.id, groupId: t.groupId })} />
+                                    : w.kind === "note"
+                                    ? <NoteLine who={msg.userId === user?.id ? "You" : `${msg.user.firstName} ${msg.user.lastName ?? ""}`.trim()} text={w.text} />
                                     : <ResolvedLine who={msg.userId === user?.id ? "You" : msg.user.firstName} name={w.name} done={w.done} />;
                                 })() : msg.content?.startsWith("__TASK__:") ? (() => {
                                   try {

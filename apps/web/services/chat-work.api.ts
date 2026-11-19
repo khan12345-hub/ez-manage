@@ -38,6 +38,10 @@ export const boardsChatApi = {
   setStatus: async (ws: number, ch: number, taskId: number, statusId: number) => (await api.post(`${base(ws, ch)}/chat-tasks/${taskId}/status`, { statusId })).data,
   mentions: async (ws: number, ch: number) => (await api.get<BMention[]>(`${base(ws, ch)}/mentions`)).data,
   mentionDone: async (ws: number, messageId: number, done: boolean) => (await api.post(`/workspaces/${ws}/chat/messages/${messageId}/mention-done`, { done })).data,
+  /** owners / admins: every channel's name and people (never its messages) */
+  manageChannels: async (ws: number) => (await api.get<{ id: number; name: string | null; description: string | null; isDefault: boolean; updatedAt: string; memberCount: number; joined: boolean }[]>(`/workspaces/${ws}/chat/manage-channels`)).data,
+  join: async (ws: number, ch: number) => (await api.post(`${base(ws, ch)}/join`)).data,
+  addMember: async (ws: number, ch: number, userId: number) => (await api.post(`${base(ws, ch)}/members`, { userId })).data,
   aiSplit: async (ws: number, ch: number, text: string, tz?: string) =>
     (await api.post<{ tasks: { name: string; description: string | null; assigneeIds: number[]; dueDate: string | null; priority: WorkPriority }[] }>(`${base(ws, ch)}/ai-split`, { text, tz })).data,
 };
@@ -46,10 +50,12 @@ export const boardsChatApi = {
 export function parseChatWork(content: string | null | undefined):
   | { kind: "tasks"; boardId: number; taskIds: number[] }
   | { kind: "resolved"; taskId: number; name: string; done: boolean }
+  | { kind: "note"; text: string }
   | null {
   if (!content) return null;
   try {
     if (content.startsWith("__TASKS__:")) { const j = JSON.parse(content.slice(10)); return { kind: "tasks", boardId: Number(j.boardId), taskIds: (j.taskIds ?? []).map(Number) }; }
+    if (content.startsWith("__NOTE__:")) { const j = JSON.parse(content.slice(9)); return { kind: "note", text: String(j.text ?? "") }; }
     if (content.startsWith("__RESOLVED__:")) { const j = JSON.parse(content.slice(13)); return { kind: "resolved", taskId: Number(j.taskId), name: String(j.name ?? ""), done: j.done !== false }; }
   } catch { /* not ours */ }
   return null;
@@ -59,5 +65,6 @@ export function parseChatWork(content: string | null | undefined):
 export function chatWorkPreview(content: string | null | undefined): string | null {
   const p = parseChatWork(content);
   if (!p) return null;
+  if (p.kind === "note") return p.text;
   return p.kind === "tasks" ? `📋 ${p.taskIds.length === 1 ? "created a task" : `created ${p.taskIds.length} tasks`}` : `${p.done ? "✅ resolved" : "↺ reopened"} “${p.name}”`;
 }

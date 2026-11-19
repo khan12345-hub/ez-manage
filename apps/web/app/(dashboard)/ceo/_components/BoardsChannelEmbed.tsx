@@ -16,7 +16,7 @@ import { getSocket, sendChatMessage } from "@/components/Chat/ChatProvider";
 import { boardsChatKeys, parseChatWork, type BChatTask } from "@/services/chat-work.api";
 import { Avatar } from "../../work/_components/primitives";
 import { usePanelPref } from "../../work/_components/chat/ChatTasks";
-import { BoardsChatWorkPanel, BoardsTaskCard, BoardsTaskComposer, ComposeTabs, ResolvedLine, useBoardsChatTasks } from "../../workspace/[workspaceId]/chat/BoardsChatWork";
+import { BoardsChatWorkPanel, BoardsTaskCard, BoardsTaskComposer, ComposeTabs, NoteLine, ResolvedLine, useBoardsChatTasks } from "../../workspace/[workspaceId]/chat/BoardsChatWork";
 
 const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 /** chat HTML → plain text with line breaks (shown as text, nothing from it runs) */
@@ -87,7 +87,7 @@ export function BoardsChannelEmbed({ ws, ch, title, isDm, onOpenTask }: { ws: nu
             return (
               <div key={m.id}>
                 {newDay && <div className="my-3 flex items-center gap-3 text-[11px] text-muted-foreground"><span className="h-px flex-1 bg-border" />{day(m.createdAt)}<span className="h-px flex-1 bg-border" /></div>}
-                {w?.kind === "resolved" ? <ResolvedLine who={who} name={w.name} done={w.done} at={m.createdAt} /> : (
+                {w?.kind === "note" ? <NoteLine who={who} text={w.text} /> : w?.kind === "resolved" ? <ResolvedLine who={who} name={w.name} done={w.done} at={m.createdAt} /> : (
                   <div className="flex gap-3 py-1.5">
                     <Avatar user={{ ...m.user, email: "" } as any} size={32} />
                     <div className="min-w-0 flex-1">

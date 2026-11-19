@@ -122,7 +122,14 @@ export function ChannelView({ uid, embedded = false, onOpenTask, hideHeaderExtra
     setHasMore(r.hasMore);
   };
 
-  if (isError) return <div className="flex h-full items-center justify-center p-10 text-[13.5px] text-muted-foreground">This channel doesn&apos;t exist, was archived, or you don&apos;t have access.</div>;
+  if (isError) return (
+    <div className="flex h-full flex-col items-center justify-center p-10 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted"><Lock className="h-5 w-5 text-muted-foreground" /></span>
+      <h2 className="mt-3 text-[16px] font-semibold">You&apos;re not in this channel</h2>
+      <p className="mt-1 max-w-sm text-[13px] text-muted-foreground">Conversations are only for the people in them. Ask someone in the channel to add you — or it may have been archived.</p>
+      <Link href={`/work/${ws}/chat/channels`} className="mt-4 h-9 rounded-lg border border-border px-3 text-[13px] font-medium leading-9 hover:bg-accent">Back to channels</Link>
+    </div>
+  );
   if (!ch) return <div className="p-8"><div className="h-24 animate-pulse rounded-xl bg-muted" /></div>;
 
   const isDm = ch.kind !== "channel";
@@ -164,7 +171,7 @@ export function ChannelView({ uid, embedded = false, onOpenTask, hideHeaderExtra
               </nav>
             )}
             <Hash className="h-4 w-4 shrink-0 text-muted-foreground" /> <span className="truncate">{ch.name}</span>
-            {ch.isPrivate && <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-label="Private" />}
+            {ch.isDefault && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Everyone</span>}
           </h1>
         )}
         <button type="button" aria-label={ch.starred ? "Remove from favourites" : "Add to favourites"} onClick={() => ch.joined && prefs.mutate({ starred: !ch.starred })} className="rounded p-1 text-muted-foreground hover:bg-accent"><Star className={cn("h-4 w-4", ch.starred && "fill-[#b08d57] text-[#b08d57]")} /></button>
@@ -172,7 +179,7 @@ export function ChannelView({ uid, embedded = false, onOpenTask, hideHeaderExtra
         <span className="flex-1" />
         {!isDm && (
           <button type="button" onClick={() => openShare(uid)} className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-2.5 py-1 text-[12.5px] hover:bg-accent">
-            {ch.isPrivate ? <Lock className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />} Share · {ch.members.length}
+            {ch.isDefault ? <Users className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />} People · {ch.members.length}
           </button>
         )}
         {isDm && others.length === 1 && <button type="button" onClick={() => openProfile(others[0]!.id)} className="rounded-md border border-border px-2.5 py-1 text-[12.5px] hover:bg-accent">Show profile</button>}
@@ -227,7 +234,7 @@ export function ChannelView({ uid, embedded = false, onOpenTask, hideHeaderExtra
           />
           <div className="h-5 px-6 text-[12px] text-muted-foreground" aria-live="polite">{typers.length ? `${typers.join(", ")} ${typers.length === 1 ? "is" : "are"} typing…` : ""}</div>
           {ch.joined || ch.kind === "channel" ? (
-            !ch.joined && !ch.isPrivate ? (
+            !ch.joined && ch.isDefault ? (
               <div className="mx-4 mb-4 flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
                 <span className="text-[13px]">You&apos;re viewing <strong>#{ch.name}</strong>. Join to send messages and get notifications.</span>
                 <button type="button" onClick={() => join.mutate()} className="h-8 rounded-lg bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground">Join channel</button>
@@ -238,7 +245,7 @@ export function ChannelView({ uid, embedded = false, onOpenTask, hideHeaderExtra
               <>
               <ScheduledBanner channelUid={uid} />
               <ChatComposer channelUid={uid} members={members} placeholder={`Write to ${isDm ? title : `#${ch.name}`}`} initialDraft={draft} allowPost={!isDm && ["full", "edit"].includes(ch.myPermission ?? "edit")}
-                tasks={ch.canCreateTasks ? { people: isDm || ch.isPrivate ? ch.members.map((m) => m.user) : members.length ? members : ch.members.map((m) => m.user), me: user?.id } : null} />
+                tasks={ch.canCreateTasks ? { people: isDm ? ch.members.map((m) => m.user) : members.length ? members : ch.members.map((m) => m.user), me: user?.id } : null} />
               </>
             )
           ) : null}

@@ -407,3 +407,84 @@ export function ComposeTabs({ mode, onMode }: { mode: "message" | "task" | "bulk
     </div>
   );
 }
+
+/* ───────────── members-only channels ───────────── */
+
+/** a one-line note in the chat: "added Ali — a task was assigned to them", "joined the channel" */
+export function NoteLine({ who, text }: { who: string; text: string }) {
+  return (
+    <div className="my-1 flex justify-center">
+      <span className="rounded-full bg-muted px-3 py-1 text-[12px] text-muted-foreground"><strong className="font-semibold text-foreground/80">{who}</strong> {text}</span>
+    </div>
+  );
+}
+
+/** owners / admins: every channel's name and people (never its messages); join (everyone sees it) or add people */
+export function ManageChannels({ ws, members, onJoined }: { ws: number; members: BMini[]; onJoined: (channelId: number) => void }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [joining, setJoining] = useState<number | null>(null);
+  const [adding, setAdding] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number[]>([]);
+  const { data, isError } = useQuery({ queryKey: ["boards", "manage-channels", ws], queryFn: () => boardsChatApi.manageChannels(ws), retry: false, staleTime: 30_000 });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["boards", "manage-channels", ws] });
+  const join = useMutation({
+    mutationFn: (ch: number) => boardsChatApi.join(ws, ch),
+    onSuccess: (_r, ch) => { refresh(); setJoining(null); setOpen(false); onJoined(ch); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't join."),
+  });
+  const add = useMutation({
+    mutationFn: async (ch: number) => { for (const u of picked) await boardsChatApi.addMember(ws, ch, u); },
+    onSuccess: () => { toast.success("People added"); setAdding(null); setPicked([]); refresh(); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't add."),
+  });
+  if (isError || !data) return null; // not an owner / admin
+  const others = data.filter((c) => !c.joined);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} title="Manage channels (owners & admins)" className="rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground">Manage</button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-label="Manage channels" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-[460px] rounded-2xl border border-border bg-card p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2"><h2 className="flex-1 text-[16px] font-semibold">Manage channels</h2><button type="button" aria-label="Close" onClick={() => setOpen(false)} className="rounded p-1 text-muted-foreground hover:bg-accent"><X className="h-4 w-4" /></button></div>
+            <p className="mt-1 text-[12.5px] text-muted-foreground">Channels you are not in. You see their names and how many people are in them — not their messages. Joining shows everyone that you joined.</p>
+            <ul className="mt-3 max-h-[50vh] divide-y divide-border/60 overflow-y-auto rounded-xl border border-border">
+              {others.map((c) => (
+                <li key={c.id} className="px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1"><span className="block truncate text-[13.5px] font-semibold"># {c.name}</span><span className="block text-[11.5px] text-muted-foreground">{c.memberCount} {c.memberCount === 1 ? "person" : "people"}</span></span>
+                    <button type="button" onClick={() => { setAdding(adding === c.id ? null : c.id); setPicked([]); }} className="h-7 rounded-md border border-border px-2 text-[12px] hover:bg-accent">Add people</button>
+                    <button type="button" onClick={() => setJoining(c.id)} className="h-7 rounded-md bg-primary px-2.5 text-[12px] font-semibold text-primary-foreground">Join</button>
+                  </div>
+                  {joining === c.id && (
+                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-muted/60 px-2.5 py-2 text-[12px]">
+                      <span className="flex-1">Members will see that you joined.</span>
+                      <button type="button" onClick={() => setJoining(null)} className="rounded px-2 py-1 text-muted-foreground hover:bg-accent">Cancel</button>
+                      <button type="button" disabled={join.isPending} onClick={() => join.mutate(c.id)} className="rounded bg-primary px-2.5 py-1 font-semibold text-primary-foreground disabled:opacity-50">Join #{c.name}</button>
+                    </div>
+                  )}
+                  {adding === c.id && (
+                    <div className="mt-2 rounded-lg border border-border p-1">
+                      <ul className="max-h-40 overflow-y-auto">
+                        {members.map((m) => {
+                          const on = picked.includes(m.id);
+                          return (
+                            <li key={m.id}><button type="button" role="menuitemcheckbox" aria-checked={on} onClick={() => setPicked(on ? picked.filter((x) => x !== m.id) : [...picked, m.id])} className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12.5px] hover:bg-accent">
+                              <Avatar user={m as any} size={18} /><span className="flex-1 truncate">{m.firstName} {m.lastName}</span>{on && <Check className="h-3.5 w-3.5 text-primary" />}
+                            </button></li>
+                          );
+                        })}
+                      </ul>
+                      <div className="flex justify-end p-1"><button type="button" disabled={!picked.length || add.isPending} onClick={() => add.mutate(c.id)} className="rounded bg-primary px-2.5 py-1 text-[12px] font-semibold text-primary-foreground disabled:opacity-50">Add {picked.length || ""}</button></div>
+                    </div>
+                  )}
+                </li>
+              ))}
+              {!others.length && <li className="px-3 py-6 text-center text-[12.5px] text-muted-foreground">You&apos;re in every channel.</li>}
+            </ul>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

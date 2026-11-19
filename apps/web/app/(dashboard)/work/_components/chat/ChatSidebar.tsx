@@ -164,7 +164,7 @@ export function ChatSidebarSections({ onNavigate }: { onNavigate?: () => void })
             <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-muted"><Users className="h-3 w-3" /></span>
           )}
           <span className="min-w-0 flex-1 truncate">{label(c)}</span>
-          {c.isPrivate && c.kind === "channel" && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+          {c.isDefault && c.kind === "channel" && <Users className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Everyone in the workspace" />}
           {c.muted && <BellOff className="h-3 w-3 shrink-0 text-muted-foreground" />}
         </Link>
         {badge(c)}
@@ -379,7 +379,7 @@ function RenameChannelDialog({ uid, name, onClose }: { uid: string; name: string
   );
 }
 
-/** ClickUp "Create Channel": name, make private (+ who), add a list */
+/** Create Channel: name, who is in it (only they see it), add a list; admins can open one to everyone */
 export function CreateChannelDialog({ onClose, initialLocation = null, suggestedName = "" }: { onClose: () => void; initialLocation?: PickedLocation | null; suggestedName?: string }) {
   const ws = useWs();
   const qc = useQueryClient();
@@ -387,13 +387,15 @@ export function CreateChannelDialog({ onClose, initialLocation = null, suggested
   const { user } = useAuth();
   const { data: dir } = useDirectory();
   const [name, setName] = useState(suggestedName);
-  const [isPrivate, setPrivate] = useState(false);
+  const [everyone, setEveryone] = useState(false);
+  const [q, setQ] = useState("");
   const [ids, setIds] = useState<number[]>([]);
   const [withList, setWithList] = useState(!!initialLocation);
   const [loc, setLoc] = useState<PickedLocation | null>(initialLocation);
-  const people = (dir?.people ?? []).filter((p) => p.user.id !== user?.id);
+  const isAdmin = ["OWNER", "ADMIN"].includes((dir?.people ?? []).find((p) => p.user.id === user?.id)?.role ?? "");
+  const people = (dir?.people ?? []).filter((p) => p.user.id !== user?.id && (!q.trim() || userName(p.user).toLowerCase().includes(q.trim().toLowerCase())));
   const create = useMutation({
-    mutationFn: () => workApi.createChannel(ws, { name, isPrivate, ...(isPrivate && ids.length ? { memberIds: ids } : {}), ...(withList && loc ? { locationType: loc.type, locationId: loc.id } : {}) }),
+    mutationFn: () => workApi.createChannel(ws, { name, ...(everyone ? { isDefault: true } : ids.length ? { memberIds: ids } : {}), ...(withList && loc ? { locationType: loc.type, locationId: loc.id } : {}) }),
     onSuccess: (c) => { qc.invalidateQueries({ queryKey: chatSidebarKey(ws) }); qc.invalidateQueries({ queryKey: ["work", "loc-channels"] }); toast.success(`#${c.name} created`); onClose(); router.push(`/work/${ws}/chat/${c.uid}`); },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't create the channel."),
   });
@@ -405,12 +407,18 @@ export function CreateChannelDialog({ onClose, initialLocation = null, suggested
           <DialogDescription className="mt-1 text-[13px]">Chat Channels are where conversations happen. Use a name that is easy to find and understand.</DialogDescription>
           <label className="mt-5 block text-[13px] font-medium">Name<span className="text-destructive">*</span></label>
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && name.trim() && create.mutate()} placeholder="e.g. Ideas" aria-label="Channel name" maxLength={80} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-[14px] outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10" />
-          <div className="mt-5 flex items-center gap-3">
-            <span className="flex-1"><span className="block text-[13.5px] font-medium">Make Private</span><span className="block text-[12.5px] text-muted-foreground">Only you and invited members have access</span></span>
-            <Switch checked={isPrivate} onCheckedChange={setPrivate} aria-label="Make Private" />
-          </div>
-          {isPrivate && (
-            <ul aria-label="Invite people" className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-border p-1">
+          <p className="mt-5 flex items-start gap-2 rounded-lg bg-primary/[0.06] px-3 py-2 text-[12.5px] text-foreground/80"><Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /> Only the people you add see this channel. Anyone you @mention or give a task here is added too.</p>
+          {isAdmin && (
+            <div className="mt-3 flex items-center gap-3">
+              <span className="flex-1"><span className="block text-[13.5px] font-medium">Everyone in the workspace</span><span className="block text-[12.5px] text-muted-foreground">An all-hands channel every member can read (guests only if added)</span></span>
+              <Switch checked={everyone} onCheckedChange={setEveryone} aria-label="Everyone in the workspace" />
+            </div>
+          )}
+          {!everyone && (
+            <>
+            <label className="mt-4 block text-[13px] font-medium">People</label>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find people" aria-label="Find people" className="mt-1.5 h-9 w-full rounded-lg border border-border bg-background px-3 text-[13px] outline-none focus:border-primary/50" />
+            <ul aria-label="People in this channel" className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-border p-1">
               {people.map((p) => {
                 const on = ids.includes(p.user.id);
                 return (
@@ -421,7 +429,10 @@ export function CreateChannelDialog({ onClose, initialLocation = null, suggested
                   </li>
                 );
               })}
+              {!people.length && <li className="px-2 py-3 text-center text-[12.5px] text-muted-foreground">No one matches.</li>}
             </ul>
+            <p className="mt-1.5 text-[11.5px] text-muted-foreground">{ids.length ? `${ids.length + 1} people, including you` : "Just you so far"}</p>
+            </>
           )}
           <div className="mt-4 flex items-center gap-3">
             <span className="flex-1"><span className="block text-[13.5px] font-medium">Add a List</span><span className="block text-[12.5px] text-muted-foreground">Attach a List to manage tasks and work</span></span>

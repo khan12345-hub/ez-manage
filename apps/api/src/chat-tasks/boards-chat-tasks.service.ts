@@ -5,6 +5,7 @@ import { BoardAccessService } from 'src/boards/board-access.service';
 import { TaskCreateService } from 'src/tasks/task-create.service';
 import { CellsService } from 'src/cells/cells.service';
 import { ChatGateway } from 'src/chat/chat.gateway';
+import { ChatService } from 'src/chat/chat.service';
 import { WorkAiService } from 'src/work/work-ai.service';
 import { resolveStatusCategory } from 'src/common/status-category';
 
@@ -45,6 +46,7 @@ export class BoardsChatTasksService {
     private readonly cells: CellsService,
     private readonly gateway: ChatGateway,
     private readonly ai: WorkAiService,
+    private readonly chat: ChatService,
   ) {}
 
   // ── helpers ──
@@ -192,7 +194,10 @@ export class BoardsChatTasksService {
         assignees, canResolve, canEdit: v.edit || canResolve,
       };
     });
-    return { tasks, people, canCreate: true };
+    // who can be given work: in a channel, anyone in the workspace (they are added when assigned); in a DM, its people
+    const pick = ch.type !== 'CHANNEL' ? people
+      : (await this.prisma.workspaceMember.findMany({ where: { workspaceId, deletedAt: null, user: { deletedAt: null } }, select: { user: { select: USER } } })).map((m) => m.user as Mini);
+    return { tasks, people: pick, canCreate: true };
   }
 
   // ── create ──
@@ -211,9 +216,24 @@ export class BoardsChatTasksService {
     await this.access.requirePermission(boardId, userId, BoardPermission.CREATE_TASK);
     const allowed = await this.access.getAllowedGroupIds(boardId, userId);
     if (allowed && !allowed.includes(groupId)) throw new ForbiddenException("You can't add items to that group.");
-    // only people in this conversation (and still in the workspace) can be given the work
+    // who can be given the work: in a DM, its people; in a channel, anyone in the workspace who can see
+    // the board — people not in the channel yet are added to it (everyone sees a line)
     const inChat = new Map(people.map((p) => [p.id, p]));
-    const wsMembers = new Set((await this.prisma.workspaceMember.findMany({ where: { workspaceId, deletedAt: null, userId: { in: [...inChat.keys()] } }, select: { userId: true } })).map((m) => m.userId));
+    const wanted = [...new Set(items.flatMap((i) => (i.assigneeIds ?? []).map(Number)))];
+    const wsMembers = new Set((await this.prisma.workspaceMember.findMany({ where: { workspaceId, deletedAt: null, userId: { in: wanted } }, select: { userId: true } })).map((m) => m.userId));
+    const outside = wanted.filter((id) => !inChat.has(id));
+    if (outside.length) {
+      if (ch.type !== 'CHANNEL') throw new BadRequestException('Tasks can only go to people in this chat.');
+      if (outside.some((id) => !wsMembers.has(id))) throw new BadRequestException('Tasks can only go to people in this workspace.');
+      for (const id of outside) {
+        if (!(await this.can(boardId, id, BoardPermission.VIEW))) {
+          const u = await this.prisma.user.findUnique({ where: { id }, select: { firstName: true, lastName: true } });
+          throw new BadRequestException(`${`${u?.firstName ?? ''} ${u?.lastName ?? ''}`.trim() || 'Someone'} can't see that board — pick another board or share it with them first.`);
+        }
+      }
+      const extra = await this.prisma.user.findMany({ where: { id: { in: outside } }, select: USER });
+      for (const u of extra) inChat.set(u.id, u as Mini);
+    }
     for (const i of items) {
       const ids = [...new Set((i.assigneeIds ?? []).map(Number))];
       if (ids.some((id) => !inChat.has(id) || !wsMembers.has(id))) throw new BadRequestException('Tasks can only go to people in this chat.');
@@ -240,6 +260,11 @@ export class BoardsChatTasksService {
         const opt = cols.priority.statusOptions.find((o) => o.label.toUpperCase() === want) ?? cols.priority.statusOptions.find((o) => PRIORITY_WORDS[want]?.test(o.label));
         if (opt) await this.setCell(t.id, cols.priority.id, { label: opt.label, color: opt.color }, userId, boardId);
       }
+    }
+    if (outside.length) {
+      const { added, note } = await this.chat.addPeople(channelId, userId, outside, outside.length === 1 ? 'a task was assigned to them' : 'tasks were assigned to them');
+      for (const u of added) this.gateway.addSocketToChannel(u, channelId);
+      if (note) try { this.gateway.server.to(`channel:${channelId}`).emit('message:new', note); } catch { /* socket server not up */ }
     }
     const message = await this.post(channelId, userId, `__TASKS__:${JSON.stringify({ boardId, taskIds: ids })}`);
     return { message, taskIds: ids, missing };

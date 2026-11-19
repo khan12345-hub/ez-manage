@@ -363,6 +363,12 @@ export class WorkController {
     return this.chat.sidebar(await this.work.resolveWorkspaceId(ws), u.id);
   }
 
+  /** owners / admins: every channel in the workspace (names and people only) */
+  @Get('workspaces/:workspaceId/chat/manage-channels')
+  async manageChannels(@Param('workspaceId') ws: string, @CurrentUser() u: SessionUser) {
+    return this.chat.manageChannels(await this.work.resolveWorkspaceId(ws), u.id);
+  }
+
   @Post('workspaces/:workspaceId/chat/channels')
   async createChannel(@Param('workspaceId') ws: string, @Body() dto: CreateChannelDto, @CurrentUser() u: SessionUser) {
     return this.chat.create(await this.work.resolveWorkspaceId(ws), u.id, dto);

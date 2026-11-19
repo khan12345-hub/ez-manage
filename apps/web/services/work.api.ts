@@ -426,14 +426,16 @@ export interface ChannelViewTab {
   list: { id: number; uid: string; name: string } | null; locked: boolean;
   content?: string; updatedAt: string; updatedBy: WorkUser | null;
 }
+/** owners / admins: every channel in the workspace (names and people, not messages) */
+export interface ManagedChannel { uid: string; name: string | null; description: string | null; isDefault: boolean; locationType: string | null; lastMessageAt: string | null; createdAt: string; memberCount: number; joined: boolean }
 export interface ChatChannelRow {
-  id: number; uid: string; kind: "channel" | "dm" | "group"; name: string | null; description: string | null; topic: string | null; isPrivate: boolean;
+  id: number; uid: string; kind: "channel" | "dm" | "group"; name: string | null; description: string | null; topic: string | null; isPrivate: boolean; isDefault?: boolean;
   locationType: string | null; locationId: number | null; lastMessageAt: string | null; joined: boolean; muted: boolean; starred: boolean;
   notify: ChatNotify; permission: ChatPermission | null; sectionId: number | null;
   unread: number; mentions: number; memberCount: number; people: WorkUser[];
 }
 export interface ChatChannelDetail {
-  id: number; uid: string; kind: "channel" | "dm" | "group"; name: string | null; description: string | null; topic: string | null; isPrivate: boolean;
+  id: number; uid: string; kind: "channel" | "dm" | "group"; name: string | null; description: string | null; topic: string | null; isPrivate: boolean; isDefault?: boolean; canMakeDefault?: boolean;
   locationType: string | null; locationId: number | null; createdAt: string; joined: boolean; muted: boolean; starred: boolean; myRole: string | null;
   canManage: boolean; canPost: boolean; notify: ChatNotify; myPermission: ChatPermission | null;
   members: { role: string; permission: ChatPermission; workRole: WorkRole | null; joinedAt: string; user: WorkUser }[]; pinned: ChatMessage[];
@@ -454,7 +456,8 @@ export interface ChatMentionRow {
 
 export const workApi = {
   chatSidebar: (ws: string) => get<ChatChannelRow[]>(`/work/workspaces/${ws}/chat`),
-  createChannel: (ws: string, body: { name: string; description?: string; isPrivate?: boolean; memberIds?: number[]; locationType?: ChatLocationType; locationId?: number }) => post<{ uid: string; name: string }>(`/work/workspaces/${ws}/chat/channels`, body),
+  manageChannels: (ws: string) => get<ManagedChannel[]>(`/work/workspaces/${ws}/chat/manage-channels`),
+  createChannel: (ws: string, body: { name: string; description?: string; isPrivate?: boolean; isDefault?: boolean; memberIds?: number[]; locationType?: ChatLocationType; locationId?: number }) => post<{ uid: string; name: string }>(`/work/workspaces/${ws}/chat/channels`, body),
   openDm: (ws: string, userIds: number[]) => post<{ uid: string; created: boolean }>(`/work/workspaces/${ws}/chat/dm`, { userIds }),
   chatDrafts: (ws: string) => get<{ content: string; parentId: number; updatedAt: string; channel: { uid: string; name: string | null; kind: string } }[]>(`/work/workspaces/${ws}/chat/drafts`),
   chatSent: (ws: string) => get<ChatMessage[]>(`/work/workspaces/${ws}/chat/sent`),
@@ -475,7 +478,7 @@ export const workApi = {
   chatDefaultList: (uid: string, listId: number | null) => put<{ defaultList: ChatDefaultList | null }>(`/work/chat/channels/${uid}/default-list`, { listId }),
   chatMentions: (uid: string) => get<ChatMentionRow[]>(`/work/chat/channels/${uid}/mentions`),
   chatMentionDone: (id: number, done: boolean) => post<ChatMessage>(`/work/chat/messages/${id}/mention-done`, { done }),
-  updateChannel: (uid: string, body: { name?: string; description?: string | null; topic?: string | null; isPrivate?: boolean; locationType?: ChatLocationType | null; locationId?: number | null }) => patch(`/work/chat/channels/${uid}`, body),
+  updateChannel: (uid: string, body: { name?: string; description?: string | null; topic?: string | null; isPrivate?: boolean; isDefault?: boolean; locationType?: ChatLocationType | null; locationId?: number | null }) => patch(`/work/chat/channels/${uid}`, body),
   archiveChannel: (uid: string) => del(`/work/chat/channels/${uid}`),
   joinChannel: (uid: string) => post(`/work/chat/channels/${uid}/join`),
   leaveChannel: (uid: string) => post(`/work/chat/channels/${uid}/leave`),

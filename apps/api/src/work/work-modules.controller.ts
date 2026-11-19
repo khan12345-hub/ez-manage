@@ -201,8 +201,8 @@ export class WorkModulesController {
   @Throttle({ auth: { ttl: 60_000, limit: 10 } })
   async aiSplitTasks(@Param('uid') uid: string, @Body() b: { text?: string; tz?: string }, @CurrentUser() u: SessionUser) {
     const { ch } = await this.chat.channel(uid, u.id, 'post');
-    // who can get these tasks: the conversation's people (private / DM), or the workspace's people (public channel)
-    const ids = ch.kind === 'channel' && !ch.isPrivate
+    // who can get these tasks: anyone in the workspace for a channel (they are added to it), the people in a DM
+    const ids = ch.kind === 'channel'
       ? (await this.prisma.workMember.findMany({ where: { workspaceId: ch.workspaceId }, select: { userId: true } })).map((m) => m.userId)
       : ch.members.map((m) => m.userId);
     const users = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true } });
