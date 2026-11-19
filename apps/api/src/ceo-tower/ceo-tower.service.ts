@@ -535,10 +535,11 @@ export class CeoTowerService {
    * Work companies (chat-created ones say which channel), with who finished it and when, plus totals
    * and a per-person breakdown.
    */
-  async assignedByMe(userId: number, o: { person?: number; company?: string; state?: string } = {}) {
+  async assignedByMe(userId: number, o: { person?: number; company?: string; state?: string; source?: 'work' | 'boards' } = {}) {
     const own = await this.require(userId);
-    const wsIds = own.work.map((w) => w.id).filter((id) => !o.company || `work:${id}` === o.company);
-    const boardsWs = own.boards.filter((w) => !o.company || `boards:${w.id}` === o.company);
+    // the tower's product switch (All / Accounts / Work) and company scope apply here too
+    const wsIds = o.source === 'boards' ? [] : own.work.map((w) => w.id).filter((id) => !o.company || `work:${id}` === o.company);
+    const boardsWs = o.source === 'work' ? [] : own.boards.filter((w) => !o.company || `boards:${w.id}` === o.company);
     const rows = !wsIds.length ? [] : await this.prisma.workTask.findMany({
       where: { createdById: userId, archivedAt: null, assignees: { some: { userId: { not: userId } } }, list: { archivedAt: null, space: { archivedAt: null, workspaceId: { in: wsIds } } } },
       orderBy: { createdAt: 'desc' },
@@ -586,7 +587,7 @@ export class CeoTowerService {
     };
     const state = o.state ?? 'all';
     const tasks = all.filter((t) => (!o.person || t.assignees.some((u) => u.id === o.person)) && (state === 'all' || (state === 'open' ? !t.completedAt : state === 'done' ? !!t.completedAt : t.overdue)));
-    return { summary, people, tasks: tasks.slice(0, 500), companies: [...own.work.map((w) => ({ key: `work:${w.id}`, name: w.name })), ...own.boards.map((w) => ({ key: `boards:${w.id}`, name: w.name }))] };
+    return { summary, people, tasks: tasks.slice(0, 500), companies: [...(o.source === 'boards' ? [] : own.work.map((w) => ({ key: `work:${w.id}`, name: w.name }))), ...(o.source === 'work' ? [] : own.boards.map((w) => ({ key: `boards:${w.id}`, name: w.name })))] };
   }
 
   /** Accounts & Invoices items the Administrator created and gave to someone else (rows shaped like the Work ones) */

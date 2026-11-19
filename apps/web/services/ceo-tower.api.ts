@@ -121,7 +121,7 @@ export interface CeoEmailRow { id: number; subject: string; body: string; delive
 export interface CeoEmailResult { sent: number; failed: number; notSent: number; results: { id: number; name: string; status: "sent" | "failed" | "not_sent"; error?: string }[] }
 
 export const ceoApi = {
-  assigned: async (q: { person?: number; company?: string; state?: string } = {}) => (await api.get<CeoAssigned>(`/ceo-tower/assigned?${new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)]))}`)).data,
+  assigned: async (q: { person?: number; company?: string; state?: string; source?: CeoSource } = {}) => (await api.get<CeoAssigned>(`/ceo-tower/assigned?${new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)]))}`)).data,
   channels: async () => (await api.get<CeoChannelGroup[]>(`/ceo-tower/channels`)).data,
   audiences: async () => (await api.get<CeoAudiences>("/ceo-tower/audiences")).data,
   meetings: async (when: "upcoming" | "past") => (await api.get<CeoMeeting[]>(`/ceo-tower/meetings?when=${when}`)).data,

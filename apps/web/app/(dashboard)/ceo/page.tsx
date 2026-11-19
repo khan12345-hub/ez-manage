@@ -94,6 +94,9 @@ export default function CeoTowerPage() {
   };
   const [source, setSource] = useState<CeoSource>("all");
   const [company, setCompany] = useState<CeoCompany | null>(null);
+  // Work picked → no Accounts & Invoices page (and the other way round)
+  const shownViews = VIEWS.filter((v) => !((v.id === "boards" && source === "work") || (v.id === "work" && source === "boards")));
+  useEffect(() => { if (!shownViews.some((v) => v.id === view)) setView("dashboard"); }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
   const [q, setQ] = useState("");
   const [attention, setAttention] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -170,7 +173,7 @@ export default function CeoTowerPage() {
 
           <p className="mb-1.5 mt-5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Views</p>
           <nav role="tablist" aria-label="Executive Hub views" className="space-y-0.5">
-            {VIEWS.map((v) => (
+            {shownViews.map((v) => (
               <button key={v.id} type="button" role="tab" aria-selected={view === v.id} onClick={() => setView(v.id)}
                 className={cn("group flex w-full items-center gap-3 rounded-2xl px-2.5 py-[7px] text-left text-[13.5px] font-medium transition-all",
                   view === v.id ? "bg-forest text-white shadow-[0_10px_24px_-12px_rgba(11,42,31,0.8)] dark:bg-primary dark:text-primary-foreground" : "text-foreground/75 hover:bg-white/70 hover:text-foreground dark:hover:bg-white/5")}>
@@ -212,7 +215,7 @@ export default function CeoTowerPage() {
           {/* small screens: the menu as chips */}
           <div className="flex w-full gap-1 overflow-x-auto lg:hidden">
             <button type="button" onClick={() => setAttention(true)} className="shrink-0 rounded-full bg-destructive/10 px-3 py-1 text-[12px] font-semibold text-destructive">Attention {attentionCount}</button>
-            {VIEWS.map((v) => <button key={v.id} type="button" onClick={() => setView(v.id)} className={cn("shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold", view === v.id ? "bg-forest text-white dark:bg-primary" : "bg-white/70 text-muted-foreground dark:bg-white/5")}>{v.label}</button>)}
+            {shownViews.map((v) => <button key={v.id} type="button" onClick={() => setView(v.id)} className={cn("shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold", view === v.id ? "bg-forest text-white dark:bg-primary" : "bg-white/70 text-muted-foreground dark:bg-white/5")}>{v.label}</button>)}
             {(["all", "boards", "work"] as const).map((s) => <button key={s} type="button" onClick={() => { setSource(s); setCompany(null); }} className={cn("shrink-0 rounded-full px-3 py-1 text-[12px]", source === s ? "bg-white font-semibold shadow-sm dark:bg-white/15" : "text-muted-foreground")}>{s === "all" ? "All" : s === "boards" ? "Accounts" : "Work"}</button>)}
           </div>
         </div>
@@ -252,7 +255,7 @@ export default function CeoTowerPage() {
           </div>}
 
           {view === "dashboard" ? <CeoDashboard data={data} source={source} company={company?.key ?? null} onFocus={(c) => setCompany(company?.key === c.key ? null : c)} onOpen={(c) => setPanel({ company: c, start: { tab: "tasks", state: "open" } })} onView={(v) => setView(v)} onAssigned={() => { setChTab("assigned"); setView("channels"); }} />
-            : view === "channels" ? <ChannelsView companies={companies} tab={chTab} onTab={setChTab} />
+            : view === "channels" ? <ChannelsView companies={companies} tab={chTab} onTab={setChTab} source={source} scope={company?.key ?? null} />
             : view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} />
             : view === "calendar" ? <CalendarView />
             : view === "meetings" ? <MeetingsView />
