@@ -29,6 +29,7 @@ function useApps(hrefs?: Partial<Record<AppKey, string>>) {
   const list: { key: AppKey; href: string }[] = [];
   if (access.hasBoards) list.push({ key: "boards", href: hrefs?.boards ?? access.boardsHref ?? "/home" });
   if (access.hasWork) list.push({ key: "work", href: hrefs?.work ?? access.workHref ?? "/work" });
+  else if (access.canCreateWork) list.push({ key: "work", href: "/work/create" }); // no workspace yet: start one
   if (access.hasCeo) list.push({ key: "ceo", href: "/ceo" });
   if (access.hasTracker) list.push({ key: "tracker", href: hrefs?.tracker ?? access.trackerHref ?? "/tracker" });
   list.push({ key: "vault", href: "/vault" });
