@@ -636,11 +636,11 @@ export default function HomePage() {
             </motion.div>
             )}
 
-            {access.hasWork && (
+            {(access.hasWork || access.canCreateWork) && (
             <motion.div variants={fadeUp}>
               <ProductCard
                 tone="work"
-                href={access.workHref}
+                href={access.hasWork ? access.workHref : "/work/create"}
                 icon={ListChecks}
                 kicker="Projects"
                 title={PRODUCT_NAME.work}
@@ -654,7 +654,7 @@ export default function HomePage() {
                       </span>
                     ))}
                     <span className="ml-auto inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
-                      Open {PRODUCT_NAME.work}
+                      {access.hasWork ? `Open ${PRODUCT_NAME.work}` : `Start ${PRODUCT_NAME.work}`}
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
                     </span>
                   </div>
