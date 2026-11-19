@@ -277,6 +277,17 @@ export class UsersService {
 
     if (dto.firstName !== undefined) data.firstName = dto.firstName.trim();
     if (dto.lastName !== undefined) data.lastName = dto.lastName.trim();
+    // multipart sends line breaks as \r\n: keep plain \n
+    const clean = (v: string | null | undefined) => (v === undefined ? undefined : v === null ? null : v.replace(/\r\n?/g, '\n').trim() || null);
+    if (dto.phone !== undefined) data.phone = clean(dto.phone);
+    if (dto.jobTitle !== undefined) data.jobTitle = clean(dto.jobTitle);
+    if (dto.bio !== undefined) data.bio = clean(dto.bio);
+    if (dto.emailSignature !== undefined) data.emailSignature = clean(dto.emailSignature);
+    if (dto.timezone !== undefined) {
+      const tz = clean(dto.timezone);
+      if (tz) { try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); } catch { throw new BadRequestException('Unknown time zone.'); } }
+      data.timezone = tz;
+    }
 
     if (profilePicture) {
       const uploadedFile = await this.storageService.upload(profilePicture, 'profile-pictures');
@@ -295,7 +306,7 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id: userId },
       data,
-      select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true },
+      select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true, phone: true, jobTitle: true, timezone: true, bio: true, emailSignature: true },
     });
   }
 

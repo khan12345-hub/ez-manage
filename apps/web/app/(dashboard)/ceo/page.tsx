@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { UserRound } from "lucide-react";
 import { AlertTriangle, ArrowRight, AtSign, CalendarClock, CalendarDays, Mail, BarChart3, Bot, Building2, CheckCircle2, Crown, LayoutDashboard, FileDown, Inbox, KeyRound, LayoutGrid, Settings2, ThumbsDown, ListChecks, MessageSquare, MessagesSquare, MessageSquareReply, Search, Sparkles, UserPlus, Users, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -30,12 +31,13 @@ import { SettingsDialog } from "./_components/SettingsDialog";
 import { TaskPopup, useTaskPopup } from "./_components/TaskPopup";
 import { BriefCard } from "./_components/BriefCard";
 import { CeoDashboard } from "./_components/CeoDashboard";
+import { ProfileView } from "./_components/ProfileView";
 import { AppSwitcher } from "@/components/AppSwitcher";
 import { CalendarView } from "./_components/CalendarView";
 import { ChannelsView } from "./_components/ChannelsView";
 import { PRODUCT_NAME } from "@/lib/products";
 
-type View = "dashboard" | "channels" | "portfolio" | "management" | "tasks" | "team" | "boards" | "work" | "calendar" | "meetings" | "email" | "ai";
+type View = "dashboard" | "channels" | "portfolio" | "management" | "tasks" | "team" | "boards" | "work" | "calendar" | "meetings" | "email" | "ai" | "profile";
 const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, ready: true },
   { id: "channels", label: "Channels", icon: MessagesSquare, ready: true },
@@ -49,6 +51,7 @@ const VIEWS: { id: View; label: string; icon: typeof LayoutGrid; ready: boolean 
   { id: "meetings", label: "Meetings", icon: CalendarClock, ready: true },
   { id: "email", label: "Email", icon: Mail, ready: true },
   { id: "ai", label: "Executive AI", icon: Sparkles, ready: true },
+  { id: "profile", label: "My profile", icon: UserRound, ready: true },
 ];
 const HEALTH: Record<CeoHealth, { label: string; cls: string; dot: string }> = {
   healthy: { label: "Healthy", cls: "bg-primary/10 text-primary ring-primary/20", dot: "bg-primary" },
@@ -187,10 +190,10 @@ export default function CeoTowerPage() {
             <Link href="/ceo/report" className="flex items-center gap-3 rounded-2xl px-3 py-2 text-[13px] font-medium text-foreground/75 hover:bg-white/70 hover:text-foreground dark:hover:bg-white/5"><FileDown className="h-4 w-4 text-[#b08d57]" /> Executive report</Link>
             <button type="button" onClick={() => setSettingsOpen(true)} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-[13px] font-medium text-foreground/75 hover:bg-white/70 hover:text-foreground dark:hover:bg-white/5"><Settings2 className="h-4 w-4 text-[#b08d57]" /> Brief &amp; alerts</button>
             {access.canShare && <button type="button" onClick={() => setSharing(true)} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-[13px] font-medium text-foreground/75 hover:bg-white/70 hover:text-foreground dark:hover:bg-white/5"><KeyRound className="h-4 w-4 text-[#b08d57]" /> Share access</button>}
-            <div className="mt-2 flex items-center gap-2.5 rounded-2xl bg-white/60 p-2.5 ring-1 ring-black/[0.04] dark:bg-white/5">
+            <button type="button" onClick={() => setView("profile")} aria-label="My profile" title="My profile" className={cn("mt-2 flex w-full items-center gap-2.5 rounded-2xl bg-white/60 p-2.5 text-left ring-1 ring-black/[0.04] transition hover:bg-white/90 dark:bg-white/5 dark:hover:bg-white/10", view === "profile" && "ring-2 ring-[#b08d57]/50")}>
               {user && <Avatar user={{ id: user.id, firstName: user.firstName, lastName: user.lastName, avatarUrl: (user as any).avatarUrl ?? null, email: user.email } as any} size={34} />}
               <span className="min-w-0"><span className="block truncate text-[13px] font-semibold leading-tight">{user?.firstName} {user?.lastName}</span><span className="block truncate text-[11px] text-muted-foreground">{access.canShare ? "Owner" : "Shared"} · {data ? `${data.owned.boards + data.owned.work} companies` : "…"}</span></span>
-            </div>
+            </button>
           </div>
         </div>
       </aside>
@@ -256,6 +259,7 @@ export default function CeoTowerPage() {
 
           {view === "dashboard" ? <CeoDashboard data={data} source={source} company={company?.key ?? null} onFocus={(c) => setCompany(company?.key === c.key ? null : c)} onOpen={(c) => setPanel({ company: c, start: { tab: "tasks", state: "open" } })} onView={(v) => setView(v)} onAssigned={() => { setChTab("assigned"); setView("channels"); }} />
             : view === "channels" ? <ChannelsView companies={companies} tab={chTab} onTab={setChTab} source={source} scope={company?.key ?? null} />
+            : view === "profile" ? <ProfileView data={data} onView={(v) => setView(v)} onBrief={() => setSettingsOpen(true)} />
             : view === "ai" ? <AiView initialAsk={aiAsk} onAsked={() => setAiAsk(null)} />
             : view === "calendar" ? <CalendarView />
             : view === "meetings" ? <MeetingsView />

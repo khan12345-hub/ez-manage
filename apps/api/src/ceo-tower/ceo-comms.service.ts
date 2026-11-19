@@ -11,6 +11,12 @@ const escapeHtml = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;')
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
+/** Executive Hub email body: the text, the sender's signature (plain text, escaped) and the footer */
+export function emailHtml(text: string, from: string, signature?: string | null) {
+  const sig = signature?.trim() ? `<div style="margin-top:18px;color:#374151">${esc(signature.trim()).replace(/\n/g, '<br>')}</div>` : '';
+  return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#1f2933">${esc(text).replace(/\n/g, '<br>')}${sig}<p style="margin-top:24px;color:#6b7280;font-size:12px">— ${esc(from)}, via EZ Manage Executive Hub</p></div>`;
+}
+
 /**
  * CEO Tower → Meetings and Email. Everyone invited or emailed must be in the CEO's companies.
  * Meetings reuse CeoMeetingService (invites + reminders 24h / 1h / 15m before, in Boards and Work).
@@ -80,14 +86,14 @@ export class CeoCommsService {
     if (!subject || subject.length > 200) throw new BadRequestException('Add a subject (up to 200 characters).');
     if (!body || body.length > 20000) throw new BadRequestException('Write the email (up to 20,000 characters).');
     const [sender, people] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { firstName: true, lastName: true } }),
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { firstName: true, lastName: true, emailSignature: true } }),
       this.prisma.user.findMany({ where: { id: { in: ids }, deletedAt: null }, select: { id: true, firstName: true, lastName: true, email: true } }),
     ]);
     const from = `${sender.firstName} ${sender.lastName}`.trim();
     const results: { id: number; name: string; status: 'sent' | 'failed' | 'not_sent'; error?: string }[] = [];
     for (const p of people) {
       const text = body.replace(/\{first_name\}/gi, p.firstName);
-      const html = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#1f2933">${esc(text).replace(/\n/g, '<br>')}<p style="margin-top:24px;color:#6b7280;font-size:12px">— ${esc(from)}, via EZ Manage Executive Hub</p></div>`;
+      const html = emailHtml(text, from, sender.emailSignature);
       let status: 'sent' | 'failed' | 'not_sent' = 'sent';
       let error: string | undefined;
       try {

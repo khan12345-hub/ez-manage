@@ -50,6 +50,10 @@ model User {
   chatStatusText     String?   @map("chat_status_text") @db.VarChar(100)
   chatStatusClearsAt DateTime? @map("chat_status_clears_at") @db.Timestamptz(6)
   /// profile (Executive Hub → My profile)
+  jobTitle           String?   @map("job_title") @db.VarChar(80)
+  timezone           String?   @db.VarChar(64)
+  bio                String?   @db.VarChar(500)
+  emailSignature     String?   @map("email_signature") @db.VarChar(2000)
 
   passwordResetToken     String?   @map("password_reset_token") @db.VarChar(128)
   passwordResetExpiresAt DateTime? @map("password_reset_expires_at") @db.Timestamptz(6)
