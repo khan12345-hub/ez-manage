@@ -38,6 +38,10 @@ export class AuthRepository {
         chatStatusEmoji: true,
         chatStatusText: true,
         chatStatusClearsAt: true,
+        jobTitle: true,
+        timezone: true,
+        bio: true,
+        emailSignature: true,
         workspaceMemberships: {
           select: {
             role: true,
