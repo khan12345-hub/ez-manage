@@ -17,7 +17,9 @@ export type QueuedShot = { kind: 'shot'; clientId: string; slotClientId: string;
 const dir = () => app.getPath('userData');
 const qdir = () => { const d = join(dir(), 'queue'); mkdirSync(d, { recursive: true }); return d; };
 const cfgFile = () => join(dir(), 'config.json');
-export const DEFAULT_API = process.env.EZ_TRACKER_API ?? 'http://localhost:3010/api';
+// server address baked in at build time (scripts/copy-static.mjs writes dist/build-config.json from EZT_DEFAULT_API)
+const baked = (() => { try { return JSON.parse(readFileSync(join(__dirname, 'build-config.json'), 'utf8')).apiBase as string | undefined; } catch { return undefined; } })();
+export const DEFAULT_API = process.env.EZ_TRACKER_API ?? baked ?? 'http://localhost:3010/api';
 
 export function loadConfig(): Config {
   try { return { apiBase: DEFAULT_API, ...JSON.parse(readFileSync(cfgFile(), 'utf8')) }; } catch { return { apiBase: DEFAULT_API }; }

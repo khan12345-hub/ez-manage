@@ -137,6 +137,7 @@ export class CreateChannelDto {
   @IsString() @IsNotEmpty() @MaxLength(80) name!: string;
   @IsOptional() @IsString() @MaxLength(500) description?: string;
   @IsOptional() @IsBoolean() isPrivate?: boolean;
+  @IsOptional() @IsBoolean() isDefault?: boolean;
   @IsOptional() @IsArray() @ArrayMaxSize(500) @IsInt({ each: true }) memberIds?: number[];
   @IsOptional() @IsIn(['space', 'folder', 'list']) locationType?: string;
   @IsOptional() @IsInt() locationId?: number;
@@ -146,6 +147,7 @@ export class UpdateChannelDto {
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(500) description?: string | null;
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(250) topic?: string | null;
   @IsOptional() @IsBoolean() isPrivate?: boolean;
+  @IsOptional() @IsBoolean() isDefault?: boolean;
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsIn(['space', 'folder', 'list']) locationType?: string | null;
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() locationId?: number | null;
 }

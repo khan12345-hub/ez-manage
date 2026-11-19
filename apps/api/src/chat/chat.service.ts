@@ -111,7 +111,7 @@ export class ChatService {
   async channelInfo(channelId: number) {
     return this.prisma.chatChannel.findUnique({
       where: { id: channelId },
-      select: { id: true, workspaceId: true, type: true },
+      select: { id: true, workspaceId: true, type: true, isDefault: true },
     });
   }
 
@@ -123,6 +123,53 @@ export class ChatService {
       select: { id: true },
     });
     return !!msg;
+  }
+
+  /** owners and admins of the workspace can see every channel's name and people, and join (everyone sees that) */
+  async isWorkspaceAdmin(workspaceId: number, userId: number) {
+    const m = await this.prisma.workspaceMember.findFirst({ where: { workspaceId, userId, deletedAt: null }, select: { role: true } });
+    return m?.role === 'OWNER' || m?.role === 'ADMIN';
+  }
+
+  /** caller is in the channel, or is an owner / admin of its workspace */
+  async assertMemberOrAdmin(channelId: number, userId: number) {
+    if (await this.isChannelMember(channelId, userId)) return;
+    const ch = await this.prisma.chatChannel.findUnique({ where: { id: channelId }, select: { workspaceId: true } });
+    if (!ch?.workspaceId || !(await this.isWorkspaceAdmin(ch.workspaceId, userId))) throw new ForbiddenException('You are not a member of this channel');
+  }
+
+  /** every channel in the workspace for owners / admins: names and people, never messages */
+  async manageChannels(workspaceId: number, userId: number) {
+    if (!(await this.isWorkspaceAdmin(workspaceId, userId))) throw new ForbiddenException('Only workspace owners and admins can see every channel');
+    const rows = await this.prisma.chatChannel.findMany({
+      where: { workspaceId, type: ChatChannelType.CHANNEL },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      select: { id: true, name: true, description: true, isDefault: true, updatedAt: true, members: { select: { userId: true } } },
+    });
+    return rows.map(({ members, ...c }) => ({ ...c, memberCount: members.length, joined: members.some((m) => m.userId === userId) }));
+  }
+
+  /** a one-line note in the chat ("added Ali — a task was assigned to them", "joined the channel") */
+  async postNote(channelId: number, userId: number, text: string) {
+    const msg = await this.prisma.chatMessage.create({
+      data: { channelId, userId, content: `__NOTE__:${JSON.stringify({ text })}` },
+      include: this.msgInclude,
+    });
+    await this.prisma.chatChannel.update({ where: { id: channelId }, data: { updatedAt: new Date() } });
+    return msg;
+  }
+
+  /** add workspace members to a channel because they were given work there; returns who was added and the note */
+  async addPeople(channelId: number, byUserId: number, ids: number[], why: string) {
+    const ch = await this.prisma.chatChannel.findUnique({ where: { id: channelId }, select: { type: true, workspaceId: true, members: { select: { userId: true } } } });
+    if (!ch || ch.type !== ChatChannelType.CHANNEL || !ch.workspaceId) return { added: [] as number[], note: null };
+    const want = await this.onlyWorkspaceMembers(ch.workspaceId, ids);
+    const added = want.filter((u) => u !== byUserId && !ch.members.some((m) => m.userId === u));
+    if (!added.length) return { added, note: null };
+    await this.prisma.chatMember.createMany({ data: added.map((u) => ({ channelId, userId: u, lastReadAt: new Date() })), skipDuplicates: true });
+    const names = await this.prisma.user.findMany({ where: { id: { in: added } }, select: { firstName: true, lastName: true } });
+    const note = await this.postNote(channelId, byUserId, `added ${names.map((n) => `${n.firstName} ${n.lastName}`.trim()).join(', ')} — ${why}`);
+    return { added, note };
   }
 
   async assertNotGeneralChannel(channelId: number) {
@@ -421,7 +468,9 @@ export class ChatService {
     if (!target) throw new NotFoundException('Message not found');
     await this.assertChannelMember(target.channelId, assignerId);
     if (!(await this.isChannelMember(target.channelId, assigneeId))) {
-      throw new ForbiddenException('That person is not in this channel');
+      // in a channel, the person is added (everyone sees a line); a DM stays between its two people
+      const { added } = await this.addPeople(target.channelId, assignerId, [assigneeId], 'a message was assigned to them');
+      if (!added.length) throw new ForbiddenException('That person is not in this channel');
     }
     const msg = await this.prisma.chatMessage.update({
       where: { id: messageId },

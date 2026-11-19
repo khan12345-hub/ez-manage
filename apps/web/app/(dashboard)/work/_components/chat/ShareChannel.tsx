@@ -64,7 +64,7 @@ export function ShareChannelDialog() {
   const err = (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't change sharing.");
   const setPerm = useMutation({ mutationFn: ({ id, p }: { id: number; p: ChatPermission }) => workApi.setChannelPermission(uid!, id, p), onSuccess: refresh, onError: err });
   const setAll = useMutation({ mutationFn: (p: ChatPermission) => workApi.setAllChannelPermissions(uid!, p), onSuccess: () => { refresh(); toast.success("Updated everyone's access"); }, onError: err });
-  const privacy = useMutation({ mutationFn: (isPrivate: boolean) => workApi.updateChannel(uid!, { isPrivate }), onSuccess: refresh, onError: err });
+  const everyone = useMutation({ mutationFn: (isDefault: boolean) => workApi.updateChannel(uid!, { isDefault }), onSuccess: refresh, onError: err });
   const invite = useMutation({ mutationFn: (id: number) => workApi.addChannelMembers(uid!, [id]), onSuccess: () => { setQ(""); refresh(); toast.success("Added to the channel"); }, onError: err });
   const remove = useMutation({ mutationFn: (id: number) => workApi.removeChannelMember(uid!, id), onSuccess: refresh, onError: err });
   if (!uid) return null;
@@ -101,14 +101,16 @@ export function ShareChannelDialog() {
           <p className="mb-2 text-[12px] font-medium text-muted-foreground">Share with</p>
           <div className="flex items-center gap-2">
             <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="flex flex-1 items-center gap-1.5 text-left text-[13.5px] font-medium">
-              {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />} {ch?.isPrivate ? <Lock className="h-3.5 w-3.5" /> : <Hash className="h-3.5 w-3.5" />} {ch?.name}
+              {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />} {ch?.isDefault ? <Hash className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />} {ch?.name}
             </button>
             {ch && <AvatarStack users={ch.members.map((m) => m.user)} size={22} max={4} />}
-            <span title={ch?.isPrivate ? "Private: only the people below" : "Everyone in the workspace can find and join"}>
-              <Switch checked={!ch?.isPrivate} disabled={!ch?.canManage} onCheckedChange={(v) => privacy.mutate(!v)} aria-label="Everyone in the workspace can join" />
-            </span>
+            {ch?.canMakeDefault && (
+              <span title="All-hands: every member of the workspace can read it (guests only if added)">
+                <Switch checked={!!ch?.isDefault} onCheckedChange={(v) => everyone.mutate(v)} aria-label="Everyone in the workspace" />
+              </span>
+            )}
           </div>
-          <p className="mt-1 pl-5 text-[11.5px] text-muted-foreground">{ch?.isPrivate ? "Private — only the people below can see it." : "Public — everyone in the workspace can find and join it."}</p>
+          <p className="mt-1 pl-5 text-[11.5px] text-muted-foreground">{ch?.isDefault ? "Everyone in the workspace can read this channel." : "Only the people below see this channel. Anyone you @mention or give a task here is added."}</p>
         </div>
         {expanded && ch && (
           <div className="max-h-[360px] overflow-y-auto border-t border-border bg-muted/30 px-6 py-3">

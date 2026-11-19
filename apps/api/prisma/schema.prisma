@@ -49,6 +49,7 @@ model User {
   chatStatusEmoji    String?   @map("chat_status_emoji") @db.VarChar(10)
   chatStatusText     String?   @map("chat_status_text") @db.VarChar(100)
   chatStatusClearsAt DateTime? @map("chat_status_clears_at") @db.Timestamptz(6)
+  /// profile (Executive Hub → My profile)
 
   passwordResetToken     String?   @map("password_reset_token") @db.VarChar(128)
   passwordResetExpiresAt DateTime? @map("password_reset_expires_at") @db.Timestamptz(6)
@@ -1219,6 +1220,8 @@ model ChatChannel {
   name        String?
   description String?
   type        ChatChannelType @default(CHANNEL)
+  /// #general: every workspace member is in it; every other channel is members-only
+  isDefault   Boolean         @default(false)
   createdById Int
   createdBy   User            @relation("ChatChannelCreator", fields: [createdById], references: [id])
   createdAt   DateTime        @default(now())
@@ -2210,6 +2213,8 @@ model WorkChannel {
   description   String?
   topic         String?
   isPrivate     Boolean   @default(false)
+  /// the workspace's all-hands channel: every full member can read it; every other channel is members-only
+  isDefault     Boolean   @default(false)
   /// a channel can live on a space / folder / list (ClickUp "location")
   locationType  String?
   locationId    Int?

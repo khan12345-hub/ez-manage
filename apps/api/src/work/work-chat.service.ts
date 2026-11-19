@@ -52,8 +52,8 @@ export class WorkChatService {
     if (!ch) throw new NotFoundException('Channel not found.');
     const ws = await this.access.forWorkspace(ch.workspaceId, userId);
     const me = ch.members.find((m) => m.userId === userId);
-    // public channels are open to everyone with full Work access; private channels and DMs only to members
-    const open = ch.kind === 'channel' && !ch.isPrivate && ws.canView && ws.scope === 'all';
+    // a conversation is only for the people in it; the workspace's all-hands channel is open to every full member
+    const open = this.isOpen(ch, ws);
     if (!ws.canView || (!me && !open)) throw new NotFoundException('Channel not found.');
     if (level === 'post' && !(me || open) ) throw new ForbiddenException('Join the channel first.');
     if (level === 'post' && ws.role === 'GUEST' && !me) throw new ForbiddenException('Guests can only post in channels they were added to.');
@@ -63,12 +63,21 @@ export class WorkChatService {
     return { ch, me, ws };
   }
 
+  /** the all-hands channel (isDefault) is the only one people outside it can read; guests only if added */
+  private isOpen(ch: { kind: string; isDefault: boolean }, ws: { canView: boolean; scope?: string | null; role?: string | null }) {
+    return ch.kind === 'channel' && ch.isDefault && ws.canView && ws.scope === 'all' && ws.role !== 'GUEST';
+  }
+  /** channels this person can see: the ones they are in, plus the all-hands channel */
+  private visibleWhere(userId: number, ws: { scope?: string | null; role?: string | null }): Prisma.WorkChannelWhereInput {
+    return { OR: [{ members: { some: { userId } } }, ...(ws.scope === 'all' && ws.role !== 'GUEST' ? [{ kind: 'channel', isDefault: true }] : [])] };
+  }
+
   /** push a live event to everyone in the channel (or a given list) */
   push(userIds: number[], type: string, data: Record<string, unknown>) {
     for (const u of new Set(userIds)) this.stream.emitRaw(u, 'work_chat', { type, ...data });
   }
-  private async audience(ch: { id: number; kind: string; isPrivate: boolean; workspaceId: number }) {
-    if (ch.kind === 'channel' && !ch.isPrivate) {
+  private async audience(ch: { id: number; kind: string; isDefault: boolean; workspaceId: number }) {
+    if (ch.kind === 'channel' && ch.isDefault) {
       return (await this.prisma.workMember.findMany({ where: { workspaceId: ch.workspaceId, role: { in: ['OWNER', 'ADMIN', 'MEMBER'] } }, select: { userId: true } })).map((m) => m.userId)
         .concat((await this.prisma.workChannelMember.findMany({ where: { channelId: ch.id }, select: { userId: true } })).map((m) => m.userId));
     }
@@ -81,12 +90,11 @@ export class WorkChatService {
     const ws = await this.access.requireWorkspace(workspaceId, userId, 'view');
     const rows = await this.prisma.workChannel.findMany({
       where: {
-        workspaceId, archivedAt: null,
-        OR: [{ members: { some: { userId } } }, ...(ws.scope === 'all' ? [{ kind: 'channel', isPrivate: false }] : [])],
+        workspaceId, archivedAt: null, ...this.visibleWhere(userId, ws),
       },
       orderBy: [{ lastMessageAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'asc' }],
       select: {
-        id: true, uid: true, kind: true, name: true, description: true, topic: true, isPrivate: true, locationType: true, locationId: true, lastMessageAt: true, createdAt: true,
+        id: true, uid: true, kind: true, name: true, description: true, topic: true, isPrivate: true, isDefault: true, locationType: true, locationId: true, lastMessageAt: true, createdAt: true,
         members: { select: { userId: true, lastReadAt: true, muted: true, starred: true, notify: true, permission: true, hiddenAt: true, sectionId: true, user: { select: USER_MINI } } },
       },
     });
@@ -102,7 +110,7 @@ export class WorkChatService {
         ? await this.prisma.workChatMessage.count({ where: { channelId: c.id, deletedAt: null, mentionIds: { has: userId }, ...(me.lastReadAt ? { createdAt: { gt: me.lastReadAt } } : {}) } })
         : 0;
       out.push({
-        id: c.id, uid: c.uid, kind: c.kind, name: c.name, description: c.description, topic: c.topic, isPrivate: c.isPrivate, locationType: c.locationType, locationId: c.locationId,
+        id: c.id, uid: c.uid, kind: c.kind, name: c.name, description: c.description, topic: c.topic, isPrivate: c.isPrivate, isDefault: c.isDefault, locationType: c.locationType, locationId: c.locationId,
         lastMessageAt: c.lastMessageAt, joined: !!me, muted: !!me?.muted || me?.notify === 'none', starred: !!me?.starred, notify: me?.notify ?? 'all', permission: me?.permission ?? null, sectionId: me?.sectionId ?? null, unread, mentions,
         memberCount: c.members.length,
         // DMs show the other person / people
@@ -112,7 +120,7 @@ export class WorkChatService {
     return out;
   }
 
-  async create(workspaceId: number, userId: number, dto: { name: string; description?: string; isPrivate?: boolean; memberIds?: number[]; locationType?: string; locationId?: number }) {
+  async create(workspaceId: number, userId: number, dto: { name: string; description?: string; isPrivate?: boolean; isDefault?: boolean; memberIds?: number[]; locationType?: string; locationId?: number }) {
     const ws = await this.access.requireWorkspace(workspaceId, userId, 'edit');
     const name = name2key(dto.name ?? '');
     if (!name || name.length > 80) throw new BadRequestException('Name the channel (up to 80 characters).');
@@ -128,7 +136,8 @@ export class WorkChatService {
     }
     const ch = await this.prisma.workChannel.create({
       data: {
-        uid: uid(), workspaceId, kind: 'channel', name, description: dto.description?.trim() || null, isPrivate: !!dto.isPrivate, createdById: userId,
+        // every channel is members-only; only an admin can make the workspace's all-hands channel
+        uid: uid(), workspaceId, kind: 'channel', name, description: dto.description?.trim() || null, isPrivate: !(dto.isDefault && ws.canManage), isDefault: !!(dto.isDefault && ws.canManage), createdById: userId,
         locationType: dto.locationType ?? null, locationId: dto.locationId ?? null,
         members: { create: [{ userId, role: 'owner', permission: 'full' }, ...others.map((u) => ({ userId: u }))] },
       },
@@ -167,17 +176,18 @@ export class WorkChatService {
     const members = rows.map((r) => ({ ...r, workRole: wsRoles.get(r.user.id) ?? null, permission: ['OWNER', 'ADMIN'].includes(wsRoles.get(r.user.id) ?? '') ? 'full' : r.permission }));
     const pinned = await this.prisma.workChatMessage.findMany({ where: { channelId: ch.id, pinnedAt: { not: null }, deletedAt: null }, orderBy: { pinnedAt: 'desc' }, select: MSG_SELECT });
     return {
-      id: ch.id, uid: ch.uid, kind: ch.kind, name: ch.name, description: ch.description, topic: ch.topic, isPrivate: ch.isPrivate, locationType: ch.locationType, locationId: ch.locationId,
+      id: ch.id, uid: ch.uid, kind: ch.kind, name: ch.name, description: ch.description, topic: ch.topic, isPrivate: ch.isPrivate, isDefault: ch.isDefault, locationType: ch.locationType, locationId: ch.locationId,
       createdAt: ch.createdAt, joined: !!me, muted: !!me?.muted, starred: !!me?.starred, myRole: me?.role ?? null, notify: me?.notify ?? 'all',
-      myPermission: ws.canManage ? 'full' : me?.permission ?? (ch.kind === 'channel' && !ch.isPrivate ? 'edit' : null),
-      canManage: me?.role === 'owner' || me?.permission === 'full' || ws.canManage, canPost: ws.canManage || !me || me.permission !== 'view', members, pinned,
+      myPermission: ws.canManage ? 'full' : me?.permission ?? (this.isOpen(ch, ws) ? 'edit' : null),
+      canManage: me?.role === 'owner' || me?.permission === 'full' || ws.canManage, canMakeDefault: ws.canManage, canPost: ws.canManage || !me || me.permission !== 'view', members, pinned,
       defaultList: await this.defaultListOf(ch.defaultListId), canCreateTasks: this.canCreateTasks(ch, me, ws),
       location: ch.locationType && ch.locationId ? await this.locationSummary(ch.workspaceId, userId, ch.locationType, ch.locationId) : null,
     };
   }
 
-  async update(channelUid: string, userId: number, dto: { name?: string; description?: string | null; topic?: string | null; isPrivate?: boolean; locationType?: string | null; locationId?: number | null }) {
-    const { ch } = await this.channel(channelUid, userId, 'manage');
+  async update(channelUid: string, userId: number, dto: { name?: string; description?: string | null; topic?: string | null; isPrivate?: boolean; isDefault?: boolean; locationType?: string | null; locationId?: number | null }) {
+    const { ch, ws } = await this.channel(channelUid, userId, 'manage');
+    if (dto.isDefault !== undefined && !ws.canManage) throw new ForbiddenException('Only workspace owners and admins can open a channel to everyone.');
     if (ch.kind !== 'channel') throw new BadRequestException('Direct messages have no settings.');
     if (dto.locationType !== undefined) {
       if (dto.locationType === null) await this.prisma.workChannel.update({ where: { id: ch.id }, data: { locationType: null, locationId: null } });
@@ -195,7 +205,7 @@ export class WorkChatService {
     }
     const up = await this.prisma.workChannel.update({
       where: { id: ch.id },
-      data: { ...(name && { name }), ...(dto.description !== undefined && { description: dto.description?.trim() || null }), ...(dto.topic !== undefined && { topic: dto.topic?.trim() || null }), ...(dto.isPrivate !== undefined && { isPrivate: dto.isPrivate }) },
+      data: { ...(name && { name }), ...(dto.description !== undefined && { description: dto.description?.trim() || null }), ...(dto.topic !== undefined && { topic: dto.topic?.trim() || null }), ...(dto.isDefault !== undefined && { isDefault: dto.isDefault, isPrivate: !dto.isDefault }) },
     });
     if (name && name !== ch.name) await this.system(ch.id, userId, `renamed the channel to #${name}`);
     this.push(await this.audience(up), 'channel', { channelUid: ch.uid });
@@ -210,9 +220,31 @@ export class WorkChatService {
     return { archived: true };
   }
 
+  /** a workspace owner / admin may manage a channel they are not in (names and people only — reading needs joining) */
+  private async forAdmin(channelUid: string, userId: number) {
+    const ch = await this.prisma.workChannel.findFirst({ where: { uid: channelUid, archivedAt: null }, include: { members: { select: { userId: true, role: true, permission: true } } } });
+    if (!ch) throw new NotFoundException('Channel not found.');
+    const ws = await this.access.forWorkspace(ch.workspaceId, userId);
+    const me = ch.members.find((m) => m.userId === userId);
+    if (!ws.canView || (!me && !ws.canManage && !this.isOpen(ch, ws))) throw new NotFoundException('Channel not found.');
+    return { ch, me, ws };
+  }
+
+  /** every channel in the workspace, for owners / admins: name and people, not messages */
+  async manageChannels(workspaceId: number, userId: number) {
+    await this.access.requireWorkspace(workspaceId, userId, 'manage');
+    const rows = await this.prisma.workChannel.findMany({
+      where: { workspaceId, kind: 'channel', archivedAt: null },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      select: { uid: true, name: true, description: true, isDefault: true, locationType: true, lastMessageAt: true, createdAt: true, members: { select: { userId: true } } },
+    });
+    return rows.map(({ members, ...c }) => ({ ...c, memberCount: members.length, joined: members.some((m) => m.userId === userId) }));
+  }
+
   async join(channelUid: string, userId: number) {
-    const { ch, me } = await this.channel(channelUid, userId);
+    const { ch, me, ws } = await this.forAdmin(channelUid, userId);
     if (ch.kind !== 'channel') throw new BadRequestException('You can only join channels.');
+    if (!me && !ws.canManage && !this.isOpen(ch, ws)) throw new ForbiddenException('Ask someone in the channel to add you.');
     if (!me) {
       await this.prisma.workChannelMember.create({ data: { channelId: ch.id, userId, lastReadAt: new Date() } });
       await this.system(ch.id, userId, 'joined the channel');
@@ -232,7 +264,7 @@ export class WorkChatService {
   }
 
   async addMembers(channelUid: string, userId: number, ids: number[]) {
-    const { ch, me, ws } = await this.channel(channelUid, userId);
+    const { ch, me, ws } = await this.forAdmin(channelUid, userId);
     if (!me && !ws.canManage) throw new ForbiddenException('Join the channel first.');
     if (ch.kind === 'dm') throw new BadRequestException('Start a group message to add people.');
     const add = [...new Set(ids)].filter((u) => !ch.members.some((m) => m.userId === u));
@@ -246,7 +278,8 @@ export class WorkChatService {
   }
 
   async removeMember(channelUid: string, userId: number, target: number) {
-    const { ch } = await this.channel(channelUid, userId, 'manage');
+    const { ch, me, ws } = await this.forAdmin(channelUid, userId);
+    if (!(ws.canManage || me?.role === 'owner' || me?.permission === 'full')) throw new ForbiddenException('Only people with Full edit can do this.');
     if (ch.kind === 'dm') throw new BadRequestException("People can't be removed from a direct message.");
     await this.prisma.workChannelMember.deleteMany({ where: { channelId: ch.id, userId: target } });
     this.push([target], 'channel', { channelUid: ch.uid, removed: true });
@@ -472,7 +505,7 @@ export class WorkChatService {
       : await this.prisma.workList.findFirst({ where: { uid: locUid, space: { workspaceId } }, select: { id: true } });
     if (!row || !(await this.location(workspaceId, userId, type, row.id))) throw new NotFoundException('Not found.');
     const chans = await this.prisma.workChannel.findMany({
-      where: { workspaceId, kind: 'channel', archivedAt: null, locationType: type, locationId: row.id, OR: [{ members: { some: { userId } } }, ...(ws.scope === 'all' ? [{ isPrivate: false }] : [])] },
+      where: { workspaceId, kind: 'channel', archivedAt: null, locationType: type, locationId: row.id, ...this.visibleWhere(userId, ws) },
       orderBy: { createdAt: 'asc' },
       select: { uid: true, name: true, isPrivate: true, members: { where: { userId }, select: { userId: true } }, _count: { select: { members: true } } },
     });
@@ -847,7 +880,7 @@ export class WorkChatService {
     const filtered = !!(o.from || o.in || o.after || o.before || o.has || o.mentions || o.kind);
     if (q.length < 2 && !filtered) return { items: [], channels: [], hasMore: false, nextCursor: null };
     const visible = await this.prisma.workChannel.findMany({
-      where: { workspaceId, archivedAt: null, OR: [{ members: { some: { userId } } }, ...(ws.scope === 'all' ? [{ kind: 'channel', isPrivate: false }] : [])] },
+      where: { workspaceId, archivedAt: null, ...this.visibleWhere(userId, ws) },
       select: { id: true, uid: true, kind: true, name: true, isPrivate: true, members: { select: { userId: true, hiddenAt: true, user: { select: USER_MINI } } } },
     });
     const byId = new Map(visible.map((c) => [c.id, c]));
@@ -918,8 +951,10 @@ export class WorkChatService {
     }
     const mentions = [...new Set(dto.mentionIds ?? [])].filter((u) => u !== userId);
     const valid = mentions.length ? (await this.prisma.workMember.findMany({ where: { workspaceId: ch.workspaceId, userId: { in: mentions } }, select: { userId: true } })).map((m) => m.userId) : [];
-    // posting in an open channel you haven't joined joins you (like ClickUp)
+    // posting in the all-hands channel you haven't joined joins you
     if (!me && ch.kind === 'channel') await this.prisma.workChannelMember.create({ data: { channelId: ch.id, userId, lastReadAt: new Date() } });
+    // a channel is only for the people in it: someone @mentioned here is added so they can read and answer
+    if (ch.kind === 'channel' && !ch.isDefault) await this.addPeople(ch, userId, valid, 'they were mentioned here');
     const now = new Date();
     const msg = await this.prisma.workChatMessage.create({
       data: {
@@ -978,7 +1013,7 @@ export class WorkChatService {
   private async full(messageId: number) {
     return this.prisma.workChatMessage.findUniqueOrThrow({ where: { id: messageId }, select: { id: true, parentId: true, kind: true, title: true, content: true, taskId: true, assigneeId: true, userId: true, createdAt: true, user: { select: USER_MINI } } });
   }
-  private async updated(ch: { id: number; uid: string; kind: string; isPrivate: boolean; workspaceId: number }, messageId: number, userId: number) {
+  private async updated(ch: { id: number; uid: string; kind: string; isDefault: boolean; workspaceId: number }, messageId: number, userId: number) {
     const up = await this.prisma.workChatMessage.findUniqueOrThrow({ where: { id: messageId }, select: MSG_SELECT });
     const shaped = this.shape(up, userId);
     this.push(await this.audience(ch), 'message_updated', { channelUid: ch.uid, message: shaped });
@@ -988,11 +1023,24 @@ export class WorkChatService {
   /* ── tasks from chat: Task / Bulk composer, task cards, the side panel ── */
 
   /** guests and view / comment-only members can read the panel but not create tasks */
-  private canCreateTasks(ch: { kind: string; isPrivate: boolean }, me: { permission: string } | undefined, ws: { canManage: boolean; role?: string | null }) {
+  private canCreateTasks(ch: { kind: string; isDefault: boolean }, me: { permission: string } | undefined, ws: { canManage: boolean; role?: string | null }) {
     if (ws.canManage) return true;
     if (ws.role === 'GUEST') return false;
     if (me) return ['full', 'edit'].includes(me.permission);
-    return ch.kind === 'channel' && !ch.isPrivate;
+    return ch.kind === 'channel' && ch.isDefault;
+  }
+
+  /** add people to a channel (with one line everyone sees) — used when someone is mentioned or given work here */
+  private async addPeople(ch: { id: number; uid: string; kind: string; isDefault: boolean; workspaceId: number; members: { userId: number }[] }, byUserId: number, ids: number[], why: string) {
+    if (ch.kind !== 'channel') return [];
+    const add = [...new Set(ids)].filter((u) => u !== byUserId && !ch.members.some((m) => m.userId === u));
+    if (!add.length) return [];
+    await this.prisma.workChannelMember.createMany({ data: add.map((u) => ({ channelId: ch.id, userId: u })), skipDuplicates: true });
+    ch.members.push(...add.map((u) => ({ userId: u })));
+    const names = await this.prisma.user.findMany({ where: { id: { in: add } }, select: { firstName: true, lastName: true } });
+    await this.system(ch.id, byUserId, `added ${names.map((n) => `${n.firstName} ${n.lastName}`.trim()).join(', ')} — ${why}`);
+    this.push(add, 'channel', { channelUid: ch.uid });
+    return add;
   }
 
   private async defaultListOf(listId: number | null) {
@@ -1027,11 +1075,19 @@ export class WorkChatService {
     const list = await this.prisma.workList.findFirst({ where: { id: listId, archivedAt: null }, select: { space: { select: { workspaceId: true } } } });
     if (!list || list.space.workspaceId !== ch.workspaceId) throw new BadRequestException('Pick a list in this workspace.');
     await this.access.requireList(listId, userId, 'edit');
-    // assignees: Work members; in private channels and DMs, people in this conversation
+    // assignees: Work members who can see the list; in DMs, only the people in the conversation.
+    // In a channel, anyone given a task who isn't in it yet is added (with a line everyone sees).
     const people = [...new Set(items.flatMap((i) => i.assigneeIds ?? []))];
     if (people.length) {
       if (!(await this.access.areMembers(ch.workspaceId, people))) throw new BadRequestException('Tasks can only be assigned to Work members.');
-      if ((ch.kind !== 'channel' || ch.isPrivate) && people.some((p) => !ch.members.some((m) => m.userId === p))) throw new BadRequestException('Assign tasks to people in this conversation.');
+      if (ch.kind !== 'channel' && people.some((p) => !ch.members.some((m) => m.userId === p))) throw new BadRequestException('Assign tasks to people in this conversation.');
+      for (const p of people) {
+        const sees = await this.access.requireList(listId, p, 'view').then(() => true, () => false);
+        if (!sees) {
+          const u = await this.prisma.user.findUnique({ where: { id: p }, select: { firstName: true, lastName: true } });
+          throw new BadRequestException(`${`${u?.firstName ?? ''} ${u?.lastName ?? ''}`.trim() || 'Someone'} can't see that list — pick another list or give them access first.`);
+        }
+      }
     }
     for (const i of items) if (i.dueDate && isNaN(+new Date(i.dueDate))) throw new BadRequestException(`"${i.name}": that due date is not valid.`);
     const ids: number[] = [];
@@ -1041,6 +1097,8 @@ export class WorkChatService {
       ids.push(t.id);
     }
     if (!me && ch.kind === 'channel') await this.prisma.workChannelMember.create({ data: { channelId: ch.id, userId, lastReadAt: new Date() } });
+    if (!me && ch.kind === 'channel') ch.members.push({ userId } as any);
+    await this.addPeople(ch, userId, people, people.length === 1 ? 'a task was assigned to them' : 'tasks were assigned to them');
     const now = new Date();
     const msg = await this.prisma.workChatMessage.create({
       data: { channelId: ch.id, userId, kind: 'task', taskIds: ids, content: ids.length === 1 ? `created a task: ${items[0]!.name}` : `created ${ids.length} tasks` },
@@ -1182,6 +1240,7 @@ export class WorkChatService {
     if (!ws.canManage && (!me || me.permission === 'view')) throw new ForbiddenException('You can only view this channel.');
     if (assigneeId !== null && !(await this.access.areMembers(ch.workspaceId, [assigneeId]))) throw new BadRequestException('Messages can only be assigned to Work members.');
     if (assigneeId !== null && ch.kind !== 'channel' && !ch.members.some((x) => x.userId === assigneeId)) throw new BadRequestException('Assign to someone in this conversation.');
+    if (assigneeId !== null && !ch.isDefault) await this.addPeople(ch, userId, [assigneeId], 'a message was assigned to them');
     await this.prisma.workChatMessage.update({ where: { id: messageId }, data: { assigneeId, assignedById: assigneeId ? userId : null, resolvedAt: null } });
     if (assigneeId && assigneeId !== userId) {
       const f = await this.full(messageId);
@@ -1358,7 +1417,7 @@ export class WorkChatService {
     const rows = await this.prisma.workChatMessage.findMany({
       where: {
         kind: 'post', deletedAt: null, parentId: null, ...(type && POST_TYPES.includes(type) ? { postType: type } : {}),
-        channel: { workspaceId, archivedAt: null, kind: 'channel', OR: [{ members: { some: { userId } } }, ...(ws.scope === 'all' ? [{ isPrivate: false }] : [])] },
+        channel: { workspaceId, archivedAt: null, kind: 'channel', ...this.visibleWhere(userId, ws) },
       },
       orderBy: { createdAt: 'desc' }, take: 100,
       select: { ...MSG_SELECT, channel: { select: { uid: true, name: true, kind: true } } },

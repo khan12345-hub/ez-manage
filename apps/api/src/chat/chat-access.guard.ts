@@ -36,7 +36,11 @@ export class ChatAccessGuard implements CanActivate {
     req.chatWorkspaceId = workspaceId;
 
     if (req.params.channelId != null) {
-      await this.checkChannel(Number(req.params.channelId), workspaceId, userId, false);
+      // outside a channel you can only ask to join it (allowed for #general, or an owner / admin)
+      // or, as an owner / admin, manage its people — the controller checks those rules
+      const path = String(req.route?.path ?? '');
+      const outsiderRoute = /\/join$/.test(path) || /\/members(\/:userId)?$/.test(path);
+      await this.checkChannel(Number(req.params.channelId), workspaceId, userId, !outsiderRoute);
     }
     if (req.params.messageId != null) {
       const msg = await this.prisma.chatMessage.findUnique({
@@ -49,7 +53,7 @@ export class ChatAccessGuard implements CanActivate {
     return true;
   }
 
-  /** Channels are open to the workspace (they can be joined); DMs and messages need membership. */
+  /** Conversations are only for the people in them: channels, DMs and messages need membership. */
   private async checkChannel(channelId: number, workspaceId: number, userId: number, mustBeMember: boolean) {
     const channel = await this.prisma.chatChannel.findUnique({
       where: { id: channelId || 0 },

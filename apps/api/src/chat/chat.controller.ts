@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Body,
   Controller,
   Delete,
@@ -137,12 +138,31 @@ export class ChatController {
     return this.chatService.updateChannel(channelId, body.name, body.description);
   }
 
+  /** owners / admins: every channel's name and people (not its messages) */
+  @Get('manage-channels')
+  async manageChannels(@Param('workspaceId') workspaceId: string, @CurrentUser() user: SessionUser) {
+    const id = await this.workspaceService.resolveId(workspaceId);
+    return this.chatService.manageChannels(id, user.id);
+  }
+
+  /** members: no-op; #general: anyone in the workspace; other channels: only an owner / admin, and everyone sees it */
   @Post('channels/:channelId/join')
-  joinChannel(
+  async joinChannel(
     @Param('channelId', ParseIntPipe) channelId: number,
     @CurrentUser() user: SessionUser,
   ) {
-    return this.chatService.joinChannel(channelId, user.id);
+    if (await this.chatService.isChannelMember(channelId, user.id)) return { joined: true };
+    const ch = await this.chatService.channelInfo(channelId);
+    if (!ch || ch.type !== 'CHANNEL' || !ch.workspaceId) throw new ForbiddenException('You are not a member of this channel');
+    const admin = await this.chatService.isWorkspaceAdmin(ch.workspaceId, user.id);
+    if (!ch.isDefault && !admin) throw new ForbiddenException('Ask someone in the channel to add you');
+    await this.chatService.joinChannel(channelId, user.id);
+    this.chatGateway.addSocketToChannel(user.id, channelId);
+    if (!ch.isDefault) {
+      const note = await this.chatService.postNote(channelId, user.id, 'joined the channel');
+      try { this.chatGateway.server.to(`channel:${channelId}`).emit('message:new', note); } catch { /* socket server not up */ }
+    }
+    return { joined: true };
   }
 
   @Post('channels/:channelId/leave')
@@ -156,7 +176,8 @@ export class ChatController {
   }
 
   @Get('channels/:channelId/members')
-  getChannelMembers(@Param('channelId', ParseIntPipe) channelId: number) {
+  async getChannelMembers(@Param('channelId', ParseIntPipe) channelId: number, @CurrentUser() caller: SessionUser) {
+    await this.chatService.assertMemberOrAdmin(channelId, caller.id);
     return this.chatService.getChannelMembersFull(channelId);
   }
 
@@ -167,7 +188,7 @@ export class ChatController {
     @Body() body: { userId: number },
     @CurrentUser() caller: SessionUser,
   ) {
-    await this.chatService.assertChannelMember(channelId, caller.id);
+    await this.chatService.assertMemberOrAdmin(channelId, caller.id);
     const id = await this.workspaceService.resolveId(workspaceId);
     const channel = await this.chatService.channelInfo(channelId);
     if (channel?.type !== 'CHANNEL') throw new BadRequestException('People can only be added to channels');
@@ -185,7 +206,7 @@ export class ChatController {
     @Param('userId', ParseIntPipe) userId: number,
     @CurrentUser() caller: SessionUser,
   ) {
-    await this.chatService.assertChannelMember(channelId, caller.id);
+    await this.chatService.assertMemberOrAdmin(channelId, caller.id);
     await this.chatService.assertNotGeneralChannel(channelId);
     const result = await this.chatService.removeChannelMember(channelId, userId);
     this.chatGateway.removeSocketFromChannel(userId, channelId);
@@ -363,12 +384,15 @@ export class ChatController {
   }
 
   @Post('messages/:messageId/assign')
-  assignMessage(
+  async assignMessage(
     @Param('messageId', ParseIntPipe) messageId: number,
     @CurrentUser() user: SessionUser,
     @Body() body: { assigneeId: number },
   ) {
-    return this.chatService.assignMessage(messageId, Number(body?.assigneeId), user.id);
+    const msg = await this.chatService.assignMessage(messageId, Number(body?.assigneeId), user.id);
+    // the assignee may have just been added to the channel: let their open sockets receive it
+    this.chatGateway.addSocketToChannel(Number(body?.assigneeId), msg.channelId);
+    return msg;
   }
 
   // ── Message Search ────────────────────────────────────────────────────────
