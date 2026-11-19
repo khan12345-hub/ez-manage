@@ -28,7 +28,8 @@
     },
     "directories": {
       "output": "release"
-    }
+    },
+    "npmRebuild": false
   },
   "devDependencies": {
     "electron": "33",
