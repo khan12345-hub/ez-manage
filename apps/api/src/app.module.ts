@@ -44,6 +44,7 @@ import { CeoTowerModule } from './ceo-tower/ceo-tower.module';
 import { VaultModule } from './vault/vault.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { BoardsChatTasksModule } from './chat-tasks/boards-chat-tasks.module';
+import { TrackerModule } from './tracker/tracker.module';
 @Module({
   imports: [
     ThrottlerModule.forRoot({
@@ -100,6 +101,7 @@ import { BoardsChatTasksModule } from './chat-tasks/boards-chat-tasks.module';
     VaultModule,
     CalendarModule,
     BoardsChatTasksModule,
+    TrackerModule,
     ],
   controllers: [AppController],
   providers: [

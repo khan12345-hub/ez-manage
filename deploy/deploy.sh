@@ -38,7 +38,9 @@ if [ "$TARGET" = "live" ]; then
 fi
 
 # 3. install + database migrations
-pnpm install --frozen-lockfile
+# only what the server runs (api + web); the Windows desktop app (Electron) is never installed here
+export ELECTRON_SKIP_BINARY_DOWNLOAD=1
+pnpm install --frozen-lockfile --filter "api..." --filter "web..."
 ( cd apps/api && npx prisma migrate deploy && npx prisma generate )
 
 # 4. build

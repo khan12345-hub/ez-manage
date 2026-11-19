@@ -5,6 +5,7 @@ import { getAllWorkspaces } from "@/services/workspace.api";
 import { workApi } from "@/services/work.api";
 import { useAuth } from "@/providers/AuthProvider";
 import { useCeoAccess } from "@/services/ceo-tower.api";
+import { trackerApi } from "@/services/tracker.api";
 
 /**
  * Which products this person can open. Each product has its own access:
@@ -18,6 +19,9 @@ export function useProductAccess() {
   const boards = useQuery({ queryKey: ["workspaces"], queryFn: getAllWorkspaces, enabled: !!user, staleTime: 30_000 });
   const work = useQuery({ queryKey: ["work", "my-workspaces"], queryFn: workApi.myWorkspaces, enabled: !!user, staleTime: 30_000 });
   const ceo = useCeoAccess();
+  // EZ Tracker: any Company Work workspace you are a member of (not a guest)
+  const tracker = useQuery({ queryKey: ["tracker", "workspaces"], queryFn: trackerApi.workspaces, enabled: !!user, staleTime: 60_000 });
+  const trackerWorkspaces = tracker.data ?? [];
   const boardsWorkspaces = ((boards.data as any[] | undefined) ?? []);
   const workWorkspaces = work.data ?? [];
   const firstBoards = boardsWorkspaces[0];
@@ -34,6 +38,8 @@ export function useProductAccess() {
     hasBoards,
     hasWork,
     hasCeo: ceo.allowed,
+    hasTracker: trackerWorkspaces.length > 0,
+    trackerHref: trackerWorkspaces[0] ? `/tracker/${trackerWorkspaces[0].uid}` : "/tracker",
     boardsWorkspaces,
     workWorkspaces,
     boardsHref,

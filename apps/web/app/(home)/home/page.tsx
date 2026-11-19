@@ -22,6 +22,7 @@ import {
   LogOut,
   Sparkles,
   KeyRound,
+  Timer,
 } from "lucide-react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 
@@ -158,6 +159,18 @@ function WorkGraphic() {
   );
 }
 
+/** EZ Tracker card: a day of 10-minute activity blocks under a running clock */
+function TrackerGraphic() {
+  const h = [10, 22, 30, 18, 34, 26, 12, 28, 32, 20];
+  return (
+    <svg width="124" height="72" viewBox="0 0 124 72" fill="none" aria-hidden>
+      <circle cx="104" cy="16" r="12" stroke="#0369a1" strokeOpacity="0.5" strokeWidth="2" />
+      <path d="M104 9 V16 L109 19" stroke="#0369a1" strokeWidth="2" strokeLinecap="round" />
+      {h.map((v, i) => <rect key={i} x={4 + i * 9} y={66 - v} width="6" height={v} rx="2" fill="#0369a1" fillOpacity={0.2 + (v / 34) * 0.5} />)}
+    </svg>
+  );
+}
+
 function CeoGraphic() {
   return (
     <svg viewBox="0 0 132 84" className="h-[84px] w-[132px]" fill="none" aria-hidden>
@@ -183,7 +196,7 @@ function CeoGraphic() {
 
 /* ─── product card ──────────────────────────────────────────────────────── */
 
-type Tone = "boards" | "work" | "ceo" | "vault";
+type Tone = "boards" | "work" | "ceo" | "vault" | "tracker";
 
 function ProductCard({
   tone,
@@ -254,6 +267,7 @@ function ProductCard({
             tone === "work" && "bg-primary/12 text-primary ring-1 ring-primary/25",
             tone === "ceo" && "bg-white/5 text-brass-soft ring-1 ring-brass/50",
             tone === "vault" && "bg-product-vault/12 text-product-vault ring-1 ring-product-vault/25",
+            tone === "tracker" && "bg-[#0369a1]/10 text-[#0369a1] ring-1 ring-[#0369a1]/25 dark:text-[#7dd3fc]",
           )}
         >
           <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
@@ -265,6 +279,7 @@ function ProductCard({
             tone === "work" && "text-primary",
             tone === "ceo" && "text-brass-soft",
             tone === "vault" && "text-product-vault",
+            tone === "tracker" && "text-[#0369a1] dark:text-[#7dd3fc]",
           )}
         >
           {kicker}
@@ -678,6 +693,25 @@ export default function HomePage() {
                   }
                 />
               </motion.div>
+            )}
+            {access.hasTracker && (
+            <motion.div variants={fadeUp}>
+              <ProductCard
+                tone="tracker"
+                href={access.trackerHref}
+                icon={Timer}
+                kicker="Time"
+                title={PRODUCT_NAME.tracker}
+                blurb="Work time, screenshots and activity from the desktop app, with your team live and every day on a timeline."
+                graphic={<TrackerGraphic />}
+                footer={
+                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#0369a1] dark:text-[#7dd3fc]">
+                    Open {PRODUCT_NAME.tracker}
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  </span>
+                }
+              />
+            </motion.div>
             )}
             <motion.div variants={fadeUp}>
               <ProductCard
