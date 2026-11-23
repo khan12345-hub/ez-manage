@@ -99,7 +99,7 @@ async function saveLogin({ url, username, password, title }, updateUid) {
     const it = s.items.find((i) => i.uid === updateUid);
     if (!it) throw new Error("Not found");
     const v = s.vaults.find((x) => x.uid === it.vaultUid);
-    if (!v || v.role === "viewer") throw new Error("You can only view that vault.");
+    if (!v || v.role === "viewer" || v.role === "use_only") throw new Error("You can only use that vault.");
     const { uid, vaultUid, keyVersion, updatedAt, ...data } = it;
     const next = { ...data, password, passwordUpdatedAt: new Date().toISOString() };
     await api(`/items/${uid}`, { method: "PATCH", body: JSON.stringify({ data: await encryptFor(vaultUid, next), keyVersion: v.keyVersion }) });
@@ -174,7 +174,9 @@ async function handle(msg, sender) {
       // the popup only (an extension page): full items to show / copy
       if (!fromPopup(sender)) throw new Error("Not allowed");
       if (!s.unlocked) throw new Error("LOCKED");
-      return { items: s.items, vaults: s.vaults };
+      // "use only" vaults: the popup never gets their secrets (filling happens here, in the background)
+      const useOnly = new Set(s.vaults.filter((v) => v.role === "use_only").map((v) => v.uid));
+      return { items: s.items.map((i) => (useOnly.has(i.vaultUid) ? { uid: i.uid, vaultUid: i.vaultUid, type: i.type, title: i.title, urls: i.urls, username: i.username, hasPassword: !!i.password, totp: i.totp ? true : undefined, useOnly: true } : i)), vaults: s.vaults };
     }
     case "logEvent": if (!fromPopup(sender)) throw new Error("Not allowed"); await event(msg.uid, msg.action); return {};
     case "totp": {

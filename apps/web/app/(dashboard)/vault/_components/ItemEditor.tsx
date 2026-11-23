@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
 import { createItem, errMsg, typeLabel, updateItem, useVault, type Item, type ItemData, type ItemType } from "../_lib/session";
+import { canWrite } from "../_lib/session";
 import { Generator, StrengthBar } from "./bits";
 
 const TYPES: { type: ItemType; icon: typeof Globe }[] = [{ type: "login", icon: Globe }, { type: "note", icon: FileText }, { type: "card", icon: CreditCard }, { type: "identity", icon: IdCard }];
@@ -18,7 +19,7 @@ function L({ label, children }: { label: string; children: React.ReactNode }) {
 
 export function ItemEditor({ item, defaultVault, defaultType, onClose, onSaved }: { item: Item | null; defaultVault?: string; defaultType?: ItemType; onClose: () => void; onSaved: (uid?: string) => void }) {
   const { vaults, items } = useVault();
-  const writable = vaults.filter((v) => v.role !== "viewer");
+  const writable = vaults.filter((v) => canWrite(v.role));
   const [type, setType] = useState<ItemType>(item?.data.type ?? defaultType ?? "login");
   const [vaultUid, setVaultUid] = useState(item?.vaultUid ?? (writable.find((v) => v.uid === defaultVault) ?? writable[0])?.uid ?? "");
   const [d, setD] = useState<ItemData>(item?.data ?? { type: "login", title: "", urls: [""], username: "", password: "", notes: "", tags: [] });

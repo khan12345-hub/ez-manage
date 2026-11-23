@@ -29,14 +29,40 @@ export class VaultController {
   @Delete('items/:uid') deleteItem(@Caller() c: VaultCaller, @Param('uid') uid: string, @Query('forever') forever: string) { return this.vault.deleteItem(c, uid, forever === '1'); }
   @Post('items/:uid/restore') restoreItem(@Caller() c: VaultCaller, @Param('uid') uid: string) { return this.vault.restoreItem(c, uid); }
 
-  @Get('people') people(@Caller() c: VaultCaller, @Query('q') q: string) { return this.vault.people(c, q); }
+  @Get('people') people(@Caller() c: VaultCaller, @Query('q') q: string, @Query('vault') vault: string) { return this.vault.people(c, q, vault || undefined); }
   @Get('vaults/:uid/members') members(@Caller() c: VaultCaller, @Param('uid') uid: string) { return this.vault.members(c, uid); }
   @Post('vaults/:uid/members') addMember(@Caller() c: VaultCaller, @Param('uid') uid: string, @Body() b: any) { return this.vault.addMember(c, uid, b); }
   @Patch('vaults/:uid/members/:userId') setRole(@Caller() c: VaultCaller, @Param('uid') uid: string, @Param('userId', ParseIntPipe) userId: number, @Body() b: any) { return this.vault.setRole(c, uid, userId, String(b?.role ?? '')); }
   @Post('vaults/:uid/members/:userId/remove') removeMember(@Caller() c: VaultCaller, @Param('uid') uid: string, @Param('userId', ParseIntPipe) userId: number, @Body() b: any) { return this.vault.removeMember(c, uid, userId, b); }
+  @Post('vaults/:uid/rekey') rekey(@Caller() c: VaultCaller, @Param('uid') uid: string, @Body() b: any) { return this.vault.rekey(c, uid, b); }
+  @Get('vaults/:uid/rotations') rotations(@Caller() c: VaultCaller, @Param('uid') uid: string) { return this.vault.rotations(c, uid); }
+  @Patch('rotations/:id') resolveRotation(@Caller() c: VaultCaller, @Param('id', ParseIntPipe) id: number, @Body() b: any) { return this.vault.resolveRotation(c, id, b); }
+
+  // admin recovery (option B)
+  @Post('recovery/wrap') saveRecoveryWrap(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.saveRecoveryWrap(c, b); }
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
+  @Post('recovery/request') requestRecovery(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.requestRecovery(c, b); }
+  @Get('recovery/request') myRecovery(@Caller() c: VaultCaller) { return this.vault.myRecovery(c); }
+  @Post('recovery/request/cancel') cancelRecovery(@Caller() c: VaultCaller) { return this.vault.cancelRecovery(c); }
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
+  @Post('recovery/complete') completeRecovery(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.completeRecovery(c, b); }
+
+  // Vault admin
+  @Get('admin/recovery-key') getRecoveryKey(@Caller() c: VaultCaller) { return this.vault.getRecoveryKey(c); }
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
+  @Post('admin/recovery-key') createRecoveryKey(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.createRecoveryKey(c, b); }
+  @Get('admin/recovery-requests') recoveryRequests(@Caller() c: VaultCaller) { return this.vault.recoveryRequests(c); }
+  @Post('admin/recovery-requests/:id/approve') approveRecovery(@Caller() c: VaultCaller, @Param('id', ParseIntPipe) id: number, @Body() b: any) { return this.vault.decideRecovery(c, id, true, b); }
+  @Post('admin/recovery-requests/:id/decline') declineRecovery(@Caller() c: VaultCaller, @Param('id', ParseIntPipe) id: number) { return this.vault.decideRecovery(c, id, false, {}); }
+  @Get('admin/companies') adminCompanies(@Caller() c: VaultCaller) { return this.vault.adminCompanies(c); }
+  @Patch('admin/companies') companySettings(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.companySettings(c, b); }
+  @Get('admin/companies/people') companyPeople(@Caller() c: VaultCaller, @Query() q: any) { return this.vault.companyPeople(c, q); }
+  @Post('admin/companies/admins') addVaultAdmin(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.setVaultAdmin(c, b, true); }
+  @Post('admin/companies/admins/remove') removeVaultAdmin(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.setVaultAdmin(c, b, false); }
+  @Post('admin/users/:id/remove-everywhere') removeEverywhere(@Caller() c: VaultCaller, @Param('id', ParseIntPipe) id: number) { return this.vault.adminRemoveEverywhere(c, id); }
 
   @Post('events') clientEvent(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.clientEvent(c, b); }
-  @Get('events') events(@Caller() c: VaultCaller, @Query('vault') vault: string) { return this.vault.events(c, vault || undefined); }
+  @Get('events') events(@Caller() c: VaultCaller, @Query('vault') vault: string, @Query('item') item: string) { return this.vault.events(c, vault || undefined, item || undefined); }
 
   @Get('tokens') tokens(@Caller() c: VaultCaller) { return this.vault.tokens(c); }
   @Post('tokens') createToken(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.createToken(c, b?.name); }

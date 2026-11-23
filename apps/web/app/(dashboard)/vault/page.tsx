@@ -13,6 +13,7 @@ import { errMsg, lockMinutes, useVault, vaultApi } from "./_lib/session";
 import { VaultMain } from "./_components/VaultMain";
 import { StrengthBar } from "./_components/bits";
 import { PasswordInput, ResetVault } from "./_components/Auth";
+import { RecoveryFlow } from "./_components/Recovery";
 
 /** EZ Vault: set up a master password, unlock, then the vault. */
 export default function VaultPage() {
@@ -35,7 +36,7 @@ export default function VaultPage() {
   if (isError) return <Centered><p className="text-[14px] text-muted-foreground">Couldn&apos;t open EZ Vault. Sign in again.</p></Centered>;
   if (isLoading || !me) return <Centered><div className="h-40 w-80 animate-pulse rounded-2xl bg-muted" /></Centered>;
   if (!me.setup) return <Setup onDone={() => refetch()} />;
-  if (!unlocked) return <Unlock name={me.user.firstName} />;
+  if (!unlocked) return <Unlock name={me.user.firstName} recovery={!!me.recovery?.covered} pending={!!me.recoveryRequest} />;
   return <VaultMain />;
 }
 
@@ -51,6 +52,7 @@ function Centered({ children }: { children: React.ReactNode }) {
 }
 
 function Setup({ onDone }: { onDone: () => void }) {
+  const me = useVault((s) => s.me);
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [ack, setAck] = useState(false);
@@ -64,7 +66,9 @@ function Setup({ onDone }: { onDone: () => void }) {
     try {
       const k = await C.createUserKeys(pw);
       const vk = await C.newVaultKey();
-      await api.post("/vault/setup", { ...k.stored, personal: { encName: await C.encryptText(vk, "Personal"), encVaultKey: await C.wrapVaultKey(vk, k.publicKey) } });
+      const rec = me?.recovery;
+      const recovery = rec?.enabled && rec.publicKey ? { ...(await C.wrapForRecovery(k.pkcs8, rec.publicKey)), version: rec.version } : undefined;
+      await api.post("/vault/setup", { ...k.stored, personal: { encName: await C.encryptText(vk, "Personal"), encVaultKey: await C.wrapVaultKey(vk, k.publicKey) }, ...(recovery ? { recovery } : {}) });
       useVault.getState().setMe({ ...(useVault.getState().me as any), setup: true, keys: k.stored });
       await useVault.getState().open(k.privateKey);
       toast.success("EZ Vault is ready");
@@ -85,7 +89,9 @@ function Setup({ onDone }: { onDone: () => void }) {
           <p className="text-[12px] text-muted-foreground">Use at least 10 characters. A few random words work well, e.g. <span className="font-mono">{example}</span></p>
           <label className="flex items-start gap-2 rounded-lg border border-[#b45309]/30 bg-[#b45309]/5 p-3 text-[12.5px]">
             <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5 accent-[var(--primary)]" />
-            <span>I understand: <strong>if I forget my master password, my saved passwords can&apos;t be recovered.</strong> I can only reset EZ Vault and start empty.</span>
+            {me?.recovery?.enabled
+              ? <span>I understand: <strong>my master password is never sent to EZ Manage.</strong> If I forget it, the Administrator can help me set a new one (they still can&apos;t read my passwords).</span>
+              : <span>I understand: <strong>if I forget my master password, my saved passwords can&apos;t be recovered.</strong> I can only reset EZ Vault and start empty.</span>}
           </label>
         </div>
         <button type="submit" disabled={!ok || busy} className="mt-5 h-11 w-full rounded-lg bg-forest text-[14px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">{busy ? "Setting up…" : "Create my vault"}</button>
@@ -94,11 +100,11 @@ function Setup({ onDone }: { onDone: () => void }) {
   );
 }
 
-function Unlock({ name }: { name: string }) {
+function Unlock({ name, recovery, pending }: { name: string; recovery: boolean; pending: boolean }) {
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [forgot, setForgot] = useState(false);
+  const [forgot, setForgot] = useState(pending);
   const submit = async () => {
     if (!pw || busy) return;
     setBusy(true); setErr("");
@@ -106,7 +112,7 @@ function Unlock({ name }: { name: string }) {
   };
   return (
     <Centered>
-      {forgot ? <ResetVault onBack={() => setForgot(false)} /> : (
+      {forgot ? (recovery || pending ? <RecoveryFlow onBack={() => setForgot(false)} /> : <ResetVault onBack={() => setForgot(false)} />) : (
         <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="w-full max-w-sm rounded-2xl border border-border bg-card p-7 text-center shadow-sm">
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-product-vault/12 text-product-vault ring-1 ring-product-vault/25"><Lock className="h-6 w-6" /></span>
           <h1 className="mt-4 font-serif text-[26px]">Welcome back, {name}</h1>

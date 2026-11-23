@@ -40,7 +40,7 @@ async function boot() {
 async function loadList() {
   const r = await send({ type: "list" });
   if (!r.ok) { state.unlocked = false; return boot(); }
-  items = r.items.filter((i) => i.type === "login" || (!i.type && i.password));
+  items = r.items.filter((i) => i.type === "login" || (!i.type && (i.password || i.hasPassword)));
   render();
   show("list");
   setTimeout(() => $("i-search").focus(), 0);
@@ -58,7 +58,8 @@ function row(it) {
   const forHere = pageUrl && (it.urls || []).some((x) => sameSite(x, pageUrl));
   if (forHere) btn("Fill", "Fill on this page", async () => { const r = await send({ type: "fillTab", uid: it.uid }); if (r.ok) window.close(); else toast(r.error || "Couldn't fill"); }, "fill");
   if (it.username) btn("User", "Copy username", () => copy(it.username, "Username"));
-  if (it.password) btn("Pass", "Copy password", () => copy(it.password, "Password", it.uid));
+  if (it.useOnly) { const tag = document.createElement("span"); tag.className = "u"; tag.textContent = "use only"; tag.title = "You can sign in with this, but not see or copy the password"; acts.append(tag); }
+  if (it.password && !it.useOnly) btn("Pass", "Copy password", () => copy(it.password, "Password", it.uid));
   if (it.totp) btn("Code", "Copy one-time code", async () => { const r = await send({ type: "totp", uid: it.uid }); if (r.totp) copy(r.totp.code, `Code (${r.totp.left}s left)`, it.uid); });
   li.append(fav, mid, acts);
   return li;

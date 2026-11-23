@@ -7,7 +7,7 @@ import { AlertTriangle, CheckCircle2, Clock, Copy, Download, KeyRound, Laptop, R
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
-import { errMsg, lockMinutes, setLockMinutes, typeLabel, useVault, type Item } from "../_lib/session";
+import { canReveal, canWrite, errMsg, lockMinutes, setLockMinutes, typeLabel, useVault, type Item } from "../_lib/session";
 import { ago, copySecret, ItemIcon, StrengthBar } from "./bits";
 import { ResetVault } from "./Auth";
 
@@ -107,6 +107,9 @@ const ACTION: Record<string, string> = {
   viewed: "opened", revealed: "showed a secret of", copied: "copied a secret of", filled: "filled in", exported: "exported",
   vault_created: "created a vault", vault_renamed: "renamed a vault", vault_deleted: "deleted a vault", member_added: "gave access to", member_removed: "removed", member_role: "changed the role of", left: "left a vault",
   master_changed: "changed their master password", reset: "reset EZ Vault", extension_connected: "connected a browser extension", extension_removed: "removed a browser extension",
+  shared_outside: "shared outside the company with", blocked: "was stopped from showing or copying", rekeyed: "gave a vault a new key", password_changed_marked: "marked as changed",
+  recovery_requested: "asked for vault recovery", recovery_approved: "approved vault recovery for", recovery_declined: "declined vault recovery for", recovery_completed: "recovered their vault with a new master password", recovery_cancelled: "cancelled their recovery request",
+  recovery_key_created: "set up admin recovery", company_setting: "changed a company vault setting", vault_admin_added: "made a Vault admin:", vault_admin_removed: "removed Vault admin",
 };
 
 export function ActivityView() {
@@ -118,7 +121,7 @@ export function ActivityView() {
     <Page title="Activity" hint="Who did what. Secrets are never logged.">
       <select value={vault} onChange={(e) => setVault(e.target.value)} aria-label="Whose activity" className="mb-4 h-9 rounded-lg border border-border bg-background px-2 text-[13px]">
         <option value="">My activity</option>
-        {vaults.map((v) => <option key={v.uid} value={v.uid}>Everyone in {v.name}</option>)}
+        {vaults.filter((v) => v.role === "owner" && v.kind === "shared").map((v) => <option key={v.uid} value={v.uid}>Everyone in {v.name}</option>)}
       </select>
       {isLoading ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : !data.length ? <p className="py-10 text-center text-[13px] text-muted-foreground">Nothing yet.</p> : (
         <ul className="divide-y divide-border rounded-xl border border-border bg-card">
@@ -129,6 +132,7 @@ export function ActivityView() {
                 {e.member && <> <strong className="font-semibold">{e.member.firstName} {e.member.lastName}</strong></>}
                 {e.itemUid && <> <span className="font-medium text-foreground">{title(e.itemUid) ?? "an item"}</span></>}
                 {e.meta?.field && <span className="text-muted-foreground"> ({e.meta.field})</span>}
+                {e.meta?.tried && <span className="text-muted-foreground"> (tried to {e.meta.tried === "revealed" ? "show" : e.meta.tried === "copied" ? "copy" : "export"})</span>}
                 {e.meta?.via === "extension" && <span className="ml-1.5 rounded bg-muted px-1.5 py-px text-[10.5px] text-muted-foreground">extension</span>}
               </span>
               <span className="shrink-0 text-[11.5px] text-muted-foreground">{ago(e.createdAt)}</span>
@@ -158,7 +162,7 @@ export function TrashView() {
       {!trash.length ? <p className="py-10 text-center text-[13px] text-muted-foreground">The trash is empty.</p> : (
         <ul className="divide-y divide-border rounded-xl border border-border bg-card">
           {trash.map((i) => {
-            const canEdit = vaults.find((v) => v.uid === i.vaultUid)?.role !== "viewer";
+            const canEdit = canWrite(vaults.find((v) => v.uid === i.vaultUid)?.role);
             return (
               <li key={i.uid} className="flex items-center gap-3 px-4 py-2.5">
                 <ItemIcon item={i} size={30} />
@@ -222,7 +226,8 @@ export function SettingsView() {
   const exportAll = async () => {
     if (!me?.keys) return;
     try { await C.unlockUserKeys(exportPw, me.keys); } catch { toast.error("That master password isn't right."); return; }
-    const rows = items.map((i) => ({ type: i.data.type, title: i.data.title, username: i.data.username ?? "", password: i.data.password ?? "", urls: (i.data.urls ?? []).join(" "), totp: i.data.totp ?? "", notes: i.data.notes ?? "", tags: (i.data.tags ?? []).join(","), card: i.data.card ?? null, identity: i.data.identity ?? null }));
+    const { vaults } = useVault.getState();
+    const rows = items.filter((i) => canReveal(vaults.find((v) => v.uid === i.vaultUid)?.role)).map((i) => ({ type: i.data.type, title: i.data.title, username: i.data.username ?? "", password: i.data.password ?? "", urls: (i.data.urls ?? []).join(" "), totp: i.data.totp ?? "", notes: i.data.notes ?? "", tags: (i.data.tags ?? []).join(","), card: i.data.card ?? null, identity: i.data.identity ?? null }));
     const blob = new Blob([JSON.stringify({ app: "EZ Vault", exportedAt: new Date().toISOString(), items: rows }, null, 2)], { type: "application/json" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `ez-vault-export-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(a.href);
     if (items[0]) void api.post("/vault/events", { itemUid: items[0].uid, action: "exported" }).catch(() => null);
