@@ -48,6 +48,7 @@ import { VaultModule } from './vault/vault.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { BoardsChatTasksModule } from './chat-tasks/boards-chat-tasks.module';
 import { TrackerModule } from './tracker/tracker.module';
+import { ExpensesModule } from './expenses/expenses.module';
 @Module({
   imports: [
     AccessCoreModule,
@@ -107,6 +108,7 @@ import { TrackerModule } from './tracker/tracker.module';
     CalendarModule,
     BoardsChatTasksModule,
     TrackerModule,
+    ExpensesModule,
     ],
   controllers: [AppController],
   providers: [

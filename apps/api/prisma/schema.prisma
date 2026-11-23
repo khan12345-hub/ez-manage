@@ -3241,3 +3241,82 @@ model AccessAudit {
   @@index([createdAt])
   @@map("access_audit")
 }
+
+// ───────────────────────── Reimbursements / Expenses (inside Accounts & Invoices) ─────────────────────────
+/// Expense/reimbursement categories per Accounts & Invoices company, with an optional soft monthly budget.
+model ExpenseCategory {
+  id            Int      @id @default(autoincrement())
+  workspaceId   Int
+  name          String   @db.VarChar(80)
+  monthlyBudget Decimal? @db.Decimal(12, 2)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@index([workspaceId])
+  @@map("expense_categories")
+}
+
+/// A reimbursement claim: claimant -> manager approval -> finance pays. Self-approval is blocked in the service.
+model ExpenseClaim {
+  id             Int       @id @default(autoincrement())
+  workspaceId    Int
+  claimantId     Int
+  title          String    @db.VarChar(160)
+  amount         Decimal   @db.Decimal(12, 2)
+  currency       String    @default("CAD") @db.VarChar(3)
+  categoryId     Int?
+  description    String?   @db.VarChar(2000)
+  incurredOn     DateTime? @db.Date
+  /// draft | submitted | manager_approved | approved_paid | rejected
+  status         String    @default("draft") @db.VarChar(20)
+  managerId      Int?
+  managerAt      DateTime?
+  financeId      Int?
+  financeAt      DateTime?
+  paidAt         DateTime?
+  rejectedById   Int?
+  rejectedReason String?   @db.VarChar(500)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  receipts ExpenseReceipt[]
+  events   ExpenseEvent[]
+
+  @@index([workspaceId, status])
+  @@index([claimantId])
+  @@map("expense_claims")
+}
+
+/// A receipt file on a claim (stored via the shared storage service / Bunny CDN).
+model ExpenseReceipt {
+  id           Int      @id @default(autoincrement())
+  claimId      Int
+  storageKey   String   @db.VarChar(500)
+  fileUrl      String   @db.VarChar(1000)
+  fileName     String   @db.VarChar(255)
+  mime         String   @db.VarChar(100)
+  size         Int
+  uploadedById Int
+  createdAt    DateTime @default(now())
+
+  claim ExpenseClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
+  @@map("expense_receipts")
+}
+
+/// Audit trail for a claim (created, submitted, manager approved, finance paid, rejected, edited).
+model ExpenseEvent {
+  id        Int      @id @default(autoincrement())
+  claimId   Int
+  actorId   Int?
+  /// created | submitted | manager_approved | finance_paid | rejected | edited
+  action    String   @db.VarChar(20)
+  note      String?  @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  claim ExpenseClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
+  @@map("expense_events")
+}

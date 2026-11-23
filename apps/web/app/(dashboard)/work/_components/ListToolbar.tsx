@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Check, CheckCircle2, ChevronDown, Columns3, Filter, Layers, ListTree, Plus, RotateCcw, Save, Search, User, X } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, Columns3, Download, Filter, Layers, ListTree, Plus, RotateCcw, Save, Search, User, X } from "lucide-react";
+import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -310,6 +311,9 @@ export function ListToolbar({
             <RotateCcw className="h-3.5 w-3.5" /> Reset
           </button>
         )}
+        <button type="button" onClick={() => exportTasks(tasks, list)} title="Export these tasks to Excel" className={chip()}>
+          <Download className="h-3.5 w-3.5" /> <span className="sr-only sm:not-sr-only">Export</span>
+        </button>
         {canSave && <button
           type="button"
           onClick={onSave}
@@ -333,4 +337,31 @@ function FilterSection({ title, children }: { title: string; children: React.Rea
       {children}
     </div>
   );
+}
+
+/** Export the currently shown tasks (after filtering/search) to an .xlsx file — built-in columns. */
+async function exportTasks(tasks: WorkTask[], list: WorkListDetail) {
+  if (!tasks.length) { toast.error("No tasks to export."); return; }
+  const statusName = new Map(list.statuses.map((s) => [s.id, s.name]));
+  const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-CA") : "");
+  const rows = tasks.map((t) => ({
+    Name: t.name,
+    Status: t.statusId != null ? statusName.get(t.statusId) ?? "" : "",
+    Assignees: t.assignees.map((a) => userName(a)).join(", "),
+    Priority: t.priority ? PRIORITY_META[t.priority]?.label ?? t.priority : "",
+    "Start date": fmt(t.startDate),
+    "Due date": fmt(t.dueDate),
+    Tags: t.tags.map((g) => g.name).join(", "),
+    Points: t.points ?? "",
+    "Time estimate (h)": t.timeEstimate != null ? (t.timeEstimate / 3600).toFixed(2) : "",
+    Subtasks: t.subtaskCount,
+    Comments: t.commentCount,
+    Completed: t.completedAt ? fmt(t.completedAt) : "",
+  }));
+  const XLSX = await import("xlsx");
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Tasks");
+  const safe = (list.name || "tasks").replace(/[^\w.-]+/g, "_").slice(0, 40);
+  XLSX.writeFile(wb, `${safe}-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
