@@ -12,7 +12,6 @@ import {
   Users,
   FolderKanban,
   BarChart3,
-  ShieldCheck,
 } from "lucide-react";
 
 import Link from "next/link";
@@ -200,14 +199,7 @@ export function SettingsSidebar() {
           </div>
         );
       })}
-      {/* Access Center has its own page (Administrators and Access Managers) */}
-      <Link href="/access" className="mt-1 flex w-full items-center gap-3 rounded-lg border-t px-3 py-3 text-left text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-forest text-brass-soft"><ShieldCheck className="h-4 w-4" /></div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground">Access Center</p>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">Who can use which product</p>
-        </div>
-      </Link>
+      {/* Access Center is the Administrator's own area (opened from Home / /access), not an Accounts setting */}
     </TabsList>
   );
 }
