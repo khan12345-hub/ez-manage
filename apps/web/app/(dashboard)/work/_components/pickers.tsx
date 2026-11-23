@@ -4,57 +4,133 @@ import { useAuth } from "@/providers/AuthProvider";
 import { OnlineDot, useDirectory } from "./people";
 
 import { useMemo, useState } from "react";
-import { Check, Search, UserPlus, X } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Check, Pencil, Plus, Search, Settings2, Trash2, UserPlus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { PRIORITY_META, userName, type WorkPriority, type WorkStatus, type WorkUser } from "@/services/work.api";
+import { PRIORITY_META, userName, workApi, type StatusCategory, type WorkPriority, type WorkStatus, type WorkUser } from "@/services/work.api";
 import { Avatar, AvatarStack, PriorityFlag, StatusGlyph, fromDateInput, toDateInput } from "./primitives";
 
 const CATEGORY_LABEL = { NOT_STARTED: "Not started", ACTIVE: "Active", DONE: "Done" } as const;
+const STATUS_COLORS = ["#6b7280", "#3b82f6", "#8b5cf6", "#ec4899", "#ef4444", "#f59e0b", "#eab308", "#22c55e", "#14b8a6", "#0ea5e9"];
 
-/** Status menu grouped by status group (ClickUp-style). */
+/** Status menu grouped by status group (ClickUp-style); optionally manage (add/rename/recolor/delete). */
 export function StatusPicker({
   statuses,
   value,
   onChange,
   disabled,
   children,
+  spaceId,
+  canManage,
+  onChanged,
 }: {
   statuses: WorkStatus[];
   value: number | null;
   onChange: (id: number) => void;
   disabled?: boolean;
   children: React.ReactNode;
+  spaceId?: number;
+  canManage?: boolean;
+  onChanged?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [managing, setManaging] = useState(false);
   const groups = (["NOT_STARTED", "ACTIVE", "DONE"] as const)
     .map((c) => ({ c, items: statuses.filter((s) => s.category === c) }))
     .filter((g) => g.items.length);
   if (disabled) return <>{children}</>;
+  const canEditStatuses = !!spaceId && !!canManage;
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setManaging(false); }}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-1.5">
+        {managing && canEditStatuses ? (
+          <ManageStatuses statuses={statuses} spaceId={spaceId!} onDone={() => setManaging(false)} onChanged={onChanged} />
+        ) : (
+          <>
+            {groups.map((g) => (
+              <div key={g.c} className="py-0.5">
+                <p className="px-2 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{CATEGORY_LABEL[g.c]}</p>
+                {g.items.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => { onChange(s.id); setOpen(false); }}
+                    className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent", value === s.id && "bg-accent/70 font-semibold")}
+                  >
+                    <StatusGlyph status={s} size={14} />
+                    <span className="flex-1 truncate uppercase tracking-[0.03em]" style={{ color: s.color }}>{s.name}</span>
+                    {value === s.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                  </button>
+                ))}
+              </div>
+            ))}
+            {canEditStatuses && (
+              <button type="button" onClick={() => setManaging(true)} className="mt-1 flex w-full items-center gap-2 rounded-md border-t border-border px-2 py-1.5 text-[12.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
+                <Settings2 className="h-3.5 w-3.5" /> Add / manage statuses
+              </button>
+            )}
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ManageStatuses({ statuses, spaceId, onDone, onChanged }: { statuses: WorkStatus[]; spaceId: number; onDone: () => void; onChanged?: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [color, setColor] = useState(STATUS_COLORS[1]!);
+  const [category, setCategory] = useState<StatusCategory>("ACTIVE");
+  const done = () => { qc.invalidateQueries({ queryKey: ["work"] }); onChanged?.(); };
+  const add = useMutation({ mutationFn: () => workApi.createStatus(spaceId, { name: name.trim(), color, category }), onSuccess: () => { setName(""); done(); }, onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't add the status.") });
+  const edit = useMutation({ mutationFn: (v: { id: number; body: Partial<{ name: string; color: string; category: StatusCategory }> }) => workApi.updateStatus(v.id, v.body), onSuccess: done, onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't update.") });
+  const del = useMutation({ mutationFn: (id: number) => workApi.deleteStatus(id), onSuccess: done, onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't delete.") });
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between px-1">
+        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Manage statuses</p>
+        <button type="button" onClick={onDone} className="text-[12px] text-primary hover:underline">Done</button>
+      </div>
+      <ul className="max-h-48 space-y-0.5 overflow-y-auto">
+        {statuses.map((s) => (
+          <li key={s.id} className="flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-accent/60">
+            <ColorDot value={s.color} onChange={(c) => edit.mutate({ id: s.id, body: { color: c } })} />
+            <input defaultValue={s.name} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== s.name) edit.mutate({ id: s.id, body: { name: v } }); }} aria-label={`Rename ${s.name}`} className="h-7 min-w-0 flex-1 rounded bg-transparent px-1 text-[12.5px] uppercase tracking-[0.03em] outline-none focus:bg-background" style={{ color: s.color }} />
+            <select value={s.category} onChange={(e) => edit.mutate({ id: s.id, body: { category: e.target.value as StatusCategory } })} aria-label="Category" className="h-7 rounded bg-transparent text-[11px] text-muted-foreground outline-none">
+              <option value="NOT_STARTED">To-do</option><option value="ACTIVE">Active</option><option value="DONE">Done</option>
+            </select>
+            <button type="button" aria-label={`Delete ${s.name}`} onClick={() => del.mutate(s.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center gap-1.5 border-t border-border pt-2">
+        <ColorDot value={color} onChange={setColor} />
+        <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) add.mutate(); }} placeholder="New status" aria-label="New status name" className="h-7 min-w-0 flex-1 rounded border border-border bg-background px-1.5 text-[12.5px] outline-none" />
+        <select value={category} onChange={(e) => setCategory(e.target.value as StatusCategory)} aria-label="New status category" className="h-7 rounded border border-border bg-background text-[11px]">
+          <option value="NOT_STARTED">To-do</option><option value="ACTIVE">Active</option><option value="DONE">Done</option>
+        </select>
+        <button type="button" disabled={!name.trim() || add.isPending} onClick={() => add.mutate()} aria-label="Add status" className="flex h-7 w-7 items-center justify-center rounded bg-forest text-forest-foreground disabled:opacity-40 dark:bg-primary dark:text-primary-foreground"><Plus className="h-4 w-4" /></button>
+      </div>
+    </div>
+  );
+}
+
+function ColorDot({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent align="start" className="w-56 p-1.5">
-        {groups.map((g) => (
-          <div key={g.c} className="py-0.5">
-            <p className="px-2 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{CATEGORY_LABEL[g.c]}</p>
-            {g.items.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => {
-                  onChange(s.id);
-                  setOpen(false);
-                }}
-                className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent", value === s.id && "bg-accent/70 font-semibold")}
-              >
-                <StatusGlyph status={s} size={14} />
-                <span className="flex-1 truncate uppercase tracking-[0.03em]" style={{ color: s.color }}>{s.name}</span>
-                {value === s.id && <Check className="h-3.5 w-3.5 text-primary" />}
-              </button>
-            ))}
-          </div>
-        ))}
+      <PopoverTrigger asChild>
+        <button type="button" aria-label="Pick colour" className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" style={{ background: value }} />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-1.5">
+        <div className="grid grid-cols-5 gap-1.5">
+          {STATUS_COLORS.map((c) => (
+            <button key={c} type="button" onClick={() => { onChange(c); setOpen(false); }} className={cn("h-5 w-5 rounded-full ring-1 ring-black/10", value === c && "ring-2 ring-foreground")} style={{ background: c }} aria-label={c} />
+          ))}
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -217,6 +293,10 @@ export function AssigneeCell({ users, editable }: { users: WorkUser[]; editable:
   );
 }
 
+/** value ISO -> local "HH:MM"; combine a date input + time input into an ISO (noon default when no time) */
+export const timeInput = (iso: string | null) => { if (!iso) return ""; const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+export const combineDateTime = (date: string, time: string) => (date ? new Date(`${date}T${time || "12:00"}:00`).toISOString() : null);
+
 export function DatePicker({
   value,
   onChange,
@@ -233,10 +313,12 @@ export function DatePicker({
   const [open, setOpen] = useState(false);
   if (disabled) return <>{children}</>;
   const quick: [string, number][] = [["Today", 0], ["Tomorrow", 1], ["Next week", 7]];
+  const dateVal = toDateInput(value);
+  const time = timeInput(value);
   const setOffset = (n: number) => {
     const d = new Date();
     d.setDate(d.getDate() + n);
-    onChange(fromDateInput(d.toLocaleDateString("en-CA")));
+    onChange(combineDateTime(d.toLocaleDateString("en-CA"), time));
     setOpen(false);
   };
   return (
@@ -249,13 +331,23 @@ export function DatePicker({
             <button key={t} type="button" onClick={() => setOffset(n)} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent">{t}</button>
           ))}
         </div>
-        <input
-          type="date"
-          value={toDateInput(value)}
-          onChange={(e) => onChange(fromDateInput(e.target.value))}
-          className="h-9 w-full rounded-md border border-border bg-background px-2 text-[13px]"
-          aria-label={label}
-        />
+        <div className="flex gap-1.5">
+          <input
+            type="date"
+            value={dateVal}
+            onChange={(e) => onChange(e.target.value ? combineDateTime(e.target.value, time) : null)}
+            className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-[13px]"
+            aria-label={label}
+          />
+          <input
+            type="time"
+            value={time}
+            disabled={!dateVal}
+            onChange={(e) => dateVal && onChange(combineDateTime(dateVal, e.target.value))}
+            className="h-9 w-[92px] rounded-md border border-border bg-background px-2 text-[13px] disabled:opacity-50"
+            aria-label={`${label} time`}
+          />
+        </div>
         {value && (
           <button type="button" onClick={() => { onChange(null); setOpen(false); }} className="text-xs text-muted-foreground hover:text-foreground">
             Clear date

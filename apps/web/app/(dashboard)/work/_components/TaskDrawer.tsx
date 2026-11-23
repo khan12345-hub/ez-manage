@@ -346,7 +346,7 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                 <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-1 border-b border-border px-6 py-4 sm:grid-cols-2", layout === "full" && !panelOpen && "xl:grid-cols-3")}>
                   <Prop icon={CircleDot} label="Status">
                     <span className="flex items-center gap-1">
-                      <StatusPicker statuses={task.statuses} value={task.statusId} disabled={!canEdit} onChange={(id) => update({ statusId: id })}>
+                      <StatusPicker statuses={task.statuses} value={task.statusId} disabled={!canEdit} onChange={(id) => update({ statusId: id })} spaceId={task.list.spaceId} canManage={task.access.canManage}>
                         <button type="button" className="rounded-md px-1 py-0.5 hover:bg-accent"><StatusPill status={status} /></button>
                       </StatusPicker>
                       {canEdit && (() => {
@@ -390,7 +390,7 @@ export function TaskDrawer({ taskUid, onClose, onOpenTask }: { taskUid: string |
                     </span>
                   </Prop>
                   <Prop icon={Repeat} label="Repeat">
-                    <RepeatField value={task.recurrence ?? null} disabled={!canEdit} hasDue={!!task.dueDate} onChange={(r) => update({ recurrence: r })} />
+                    <RepeatField value={task.recurrence ?? null} disabled={!canEdit} due={task.dueDate} onDue={(iso) => update({ dueDate: iso })} onChange={(r) => update({ recurrence: r })} />
                   </Prop>
                   <Prop icon={Flag} label="Priority">
                     <PriorityPicker value={task.priority} disabled={!canEdit} onChange={(p) => update({ priority: p })}>

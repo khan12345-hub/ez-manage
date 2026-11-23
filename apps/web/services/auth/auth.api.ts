@@ -15,7 +15,7 @@ export async function logout() {
 }
 
 export async function setUpAccount(data: SetupAccountDto) {
-  await api.post(`/auth/setup-account`, data);
+  return (await api.post(`/auth/setup-account`, data)).data as { alreadyExists?: boolean; email?: string; message?: string };
 }
 
 export async function forgotPassword(data: { email: string }) {

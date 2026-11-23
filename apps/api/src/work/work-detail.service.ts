@@ -8,6 +8,7 @@ import {
   CreateLinkDto,
   CreateTagDto,
   ManualTimeDto,
+  EditTimeDto,
   UpdateChecklistDto,
   UpdateChecklistItemDto,
 } from './dto/work.dto';
@@ -238,6 +239,23 @@ export class WorkDetailService {
         billable: dto.billable ?? false,
       },
     });
+  }
+
+  /** Edit a finished time entry's start / end (ClickUp-style); recomputes the duration. */
+  async editTime(entryId: number, userId: number, dto: EditTimeDto) {
+    const e = await this.prisma.workTimeEntry.findUnique({ where: { id: entryId }, select: { id: true, userId: true, taskId: true, startedAt: true, endedAt: true } });
+    if (!e) throw new NotFoundException('Time entry not found.');
+    if (!e.endedAt) throw new BadRequestException('Stop the running timer before editing this entry.');
+    const { access } = await this.access.requireTask(e.taskId, userId, 'view');
+    if (e.userId !== userId && !access.canEdit) throw new ForbiddenException('You can only edit your own time entries.');
+    const startedAt = dto.startedAt ? new Date(dto.startedAt) : e.startedAt;
+    const endedAt = dto.endedAt ? new Date(dto.endedAt) : e.endedAt;
+    const soon = Date.now() + 60_000;
+    if (startedAt.getTime() > soon || endedAt.getTime() > soon) throw new BadRequestException('Time entries cannot be in the future.');
+    if (endedAt.getTime() <= startedAt.getTime()) throw new BadRequestException('The end time must be after the start time.');
+    const duration = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000);
+    if (duration > 48 * 3600) throw new BadRequestException('A single entry cannot be longer than 48 hours.');
+    return this.prisma.workTimeEntry.update({ where: { id: entryId }, data: { startedAt, endedAt, duration, ...(dto.note !== undefined && { note: dto.note || null }) } });
   }
 
   async deleteTime(entryId: number, userId: number) {

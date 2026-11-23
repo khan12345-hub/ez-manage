@@ -10,8 +10,11 @@ const FREQ: { id: WorkRecurrence["freq"]; label: string; unit: string }[] = [
   { id: "YEARLY", label: "Yearly", unit: "year" },
 ];
 
-/** Repeat: when the task is completed, the next one is created with its dates moved on (like ClickUp). */
-export function RepeatField({ value, disabled, hasDue, onChange }: { value: WorkRecurrence | null; disabled?: boolean; hasDue: boolean; onChange: (r: WorkRecurrence | null) => void }) {
+const toLocal = (iso: string | null) => { if (!iso) return ""; const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); };
+const fromLocal = (v: string) => (v ? new Date(v).toISOString() : null);
+
+/** Repeat: when the task is completed, the next one is created with its date (and time) moved on (like ClickUp). */
+export function RepeatField({ value, disabled, due, onDue, onChange }: { value: WorkRecurrence | null; disabled?: boolean; due: string | null; onDue?: (iso: string | null) => void; onChange: (r: WorkRecurrence | null) => void }) {
   const [every, setEvery] = useState(String(value?.interval ?? 1));
   const f = FREQ.find((x) => x.id === value?.freq);
   const set = (patch: Partial<WorkRecurrence>) => value && onChange({ ...value, ...patch });
@@ -30,10 +33,17 @@ export function RepeatField({ value, disabled, hasDue, onChange }: { value: Work
             onChange={(e) => setEvery(e.target.value)}
             onBlur={() => { const n = Math.min(365, Math.max(1, Number(every) || 1)); setEvery(String(n)); if (n !== value.interval) set({ interval: n }); }}
             className="h-7 w-12 rounded-md border border-border bg-background px-1.5 text-center" />
-          <span className="text-muted-foreground">{f.unit}{Number(every) === 1 ? "" : "s"} · until</span>
+          <span className="text-muted-foreground">{f.unit}{Number(every) === 1 ? "" : "s"}</span>
+          {/* next occurrence date + time (drives the repeat) */}
+          <span className="basis-full" />
+          <span className="text-muted-foreground">next</span>
+          <input aria-label="Next occurrence date and time" type="datetime-local" value={toLocal(due)} disabled={disabled || !onDue}
+            onChange={(e) => onDue?.(fromLocal(e.target.value))}
+            className="h-7 rounded-md border border-border bg-background px-1.5 text-[12.5px]" />
+          <span className="text-muted-foreground">· until</span>
           <input aria-label="Repeat until" type="date" value={value.until ?? ""} disabled={disabled} onChange={(e) => set({ until: e.target.value || null })}
             className="h-7 rounded-md border border-border bg-background px-1.5 text-[12.5px]" />
-          {!hasDue && <span className="basis-full text-[11.5px] text-muted-foreground">No due date: the next one is due {f.unit === "day" ? "the day" : `a ${f.unit}`} after it&apos;s completed.</span>}
+          {!due && <span className="basis-full text-[11.5px] text-muted-foreground">Set the next date &amp; time above, or the next one is due a {f.unit} after it&apos;s completed.</span>}
         </>
       )}
     </span>
