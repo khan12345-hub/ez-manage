@@ -22,6 +22,8 @@ export class CreateClaimDto {
   @IsOptional() @Type(() => Number) @IsInt() categoryId?: number;
   @IsOptional() @IsString() @MaxLength(2000) description?: string;
   @IsOptional() @IsDateString() incurredOn?: string;
+  @IsOptional() @IsDateString() paidOn?: string;
+  @IsOptional() custom?: Record<string, unknown>;
   /** when true, the claim is submitted immediately instead of saved as a draft */
   @IsOptional() @IsBoolean() submit?: boolean;
 }
@@ -33,10 +35,26 @@ export class EditClaimDto {
   @IsOptional() @Type(() => Number) @IsInt() categoryId?: number | null;
   @IsOptional() @IsString() @MaxLength(2000) description?: string;
   @IsOptional() @IsDateString() incurredOn?: string;
+  @IsOptional() @IsDateString() paidOn?: string;
+  @IsOptional() custom?: Record<string, unknown>;
 }
 
 export class RejectDto {
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}
+
+export class ReopenDto {
+  @IsString() @MaxLength(500) reason!: string;
+}
+
+export class FormDto {
+  @IsOptional() @IsString() @MaxLength(160) title?: string;
+  @IsOptional() @IsString() @MaxLength(1000) description?: string | null;
+  @IsOptional() @IsString() @MaxLength(1000) logoUrl?: string | null;
+  @IsOptional() @IsString() @MaxLength(1000) bannerUrl?: string | null;
+  @IsOptional() @IsBoolean() active?: boolean;
+  /** the full field list (replaces the current one) */
+  @IsOptional() fields?: { key?: string; label: string; type: string; required?: boolean; maps?: string | null; options?: string[] }[];
 }
 
 export class CategoryDto {

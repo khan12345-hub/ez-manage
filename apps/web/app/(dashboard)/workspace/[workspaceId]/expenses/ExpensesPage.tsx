@@ -6,12 +6,16 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  AlertTriangle, ArrowLeft, Check, CircleDollarSign, Clock, Download, FileText,
-  Image as ImageIcon, Plus, Receipt, Settings2, Trash2, Upload, X,
+  AlertTriangle, ArrowLeft, Check, CircleDollarSign, Clock, Copy, Download, FileText,
+  GripVertical, LayoutTemplate, Link2, Lock, Plus, Receipt, RotateCcw, Settings2, Trash2, Undo2, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveUrl } from "@/lib/resolveUrl";
-import { expensesApi, type ExpenseClaim, type ExpenseClaimDetail, type ExpenseStatus } from "@/services/expenses.api";
+import {
+  expensesApi, type ExpenseClaim, type ExpenseClaimDetail, type ExpenseStatus,
+  type ExpenseFormField, type ExpenseFieldType,
+} from "@/services/expenses.api";
+import { FormBranding, FieldInput, FormField as FormFieldRow, collect, emptyValues, type FieldValues } from "./ExpenseFormParts";
 
 const money = (n: number, c = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency: c || "CAD" }).format(n);
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "—");
@@ -45,6 +49,7 @@ export default function ExpensesPage({ workspaceId }: { workspaceId: string }) {
   const [tab, setTab] = useState<Tab>("mine");
   const [open, setOpen] = useState<number | "new" | null>(null);
   const [cats, setCats] = useState(false);
+  const [builder, setBuilder] = useState(false);
   const qc = useQueryClient();
 
   const { data: summary } = useQuery({ queryKey: ["expenses", "summary", workspaceId], queryFn: () => expensesApi.summary(workspaceId) });
@@ -81,6 +86,7 @@ export default function ExpensesPage({ workspaceId }: { workspaceId: string }) {
           <h1 className="text-[22px] font-semibold tracking-tight">Reimbursements</h1>
           <p className="text-[13px] text-muted-foreground">Claim an expense, a manager approves, finance pays.</p>
         </div>
+        {isMgr && <button type="button" onClick={() => setBuilder(true)} className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[13px] font-medium hover:bg-accent"><LayoutTemplate className="h-4 w-4" /> Form</button>}
         {isMgr && <button type="button" onClick={() => setCats(true)} className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[13px] font-medium hover:bg-accent"><Settings2 className="h-4 w-4" /> Categories</button>}
         {summary?.canSubmit && <button type="button" onClick={() => setOpen("new")} className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground hover:brightness-110"><Plus className="h-4 w-4" /> New claim</button>}
       </div>
@@ -123,6 +129,7 @@ export default function ExpensesPage({ workspaceId }: { workspaceId: string }) {
       {open === "new" && <ClaimDrawer workspaceId={workspaceId} onClose={() => setOpen(null)} onSaved={() => { qc.invalidateQueries({ queryKey: ["expenses"] }); }} />}
       {typeof open === "number" && <ClaimDetail claimId={open} onClose={() => setOpen(null)} onChanged={() => qc.invalidateQueries({ queryKey: ["expenses"] })} />}
       {cats && <CategoriesDialog workspaceId={workspaceId} onClose={() => { setCats(false); qc.invalidateQueries({ queryKey: ["expenses", "summary"] }); }} />}
+      {builder && <FormBuilderDrawer workspaceId={workspaceId} onClose={() => { setBuilder(false); qc.invalidateQueries({ queryKey: ["expenses", "form", workspaceId] }); }} />}
     </div>
   );
 }
@@ -160,29 +167,35 @@ function Row({ c, showClaimant, onOpen }: { c: ExpenseClaim; showClaimant: boole
   );
 }
 
-/* ───────── new claim drawer ───────── */
+/* ───────── new claim drawer (driven by the company's form) ───────── */
 function ClaimDrawer({ workspaceId, onClose, onSaved }: { workspaceId: string; onClose: () => void; onSaved: () => void }) {
+  const { data: form, isLoading } = useQuery({ queryKey: ["expenses", "form", workspaceId], queryFn: () => expensesApi.getForm(workspaceId) });
   const { data: categories = [] } = useQuery({ queryKey: ["expenses", "categories", workspaceId], queryFn: () => expensesApi.categories(workspaceId) });
-  const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
+  const [values, setValues] = useState<FieldValues>({});
   const [currency, setCurrency] = useState("CAD");
   const [categoryId, setCategoryId] = useState<number | "">("");
-  const [incurredOn, setIncurredOn] = useState("");
-  const [description, setDescription] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
   const qc = useQueryClient();
+  const fields = form?.fields ?? [];
+  const ready = !!form;
+  // seed value map once the form loads
+  const seeded = useMemo(() => (form ? emptyValues(form.fields) : {}), [form]);
+  const vals = Object.keys(values).length ? values : seeded;
+  const set = (key: string, v: unknown) => setValues({ ...vals, [key]: v });
 
   const save = useMutation({
     mutationFn: async (submit: boolean) => {
-      const amt = Number(amount);
-      if (!title.trim()) throw new Error("Add a title.");
-      if (!(amt > 0)) throw new Error("Enter an amount.");
-      if (submit && !files.length) throw new Error("Attach at least one receipt to submit.");
+      const c = collect(fields, vals);
+      if (!c.ok) throw new Error(c.error);
+      if (submit && !c.files.length) throw new Error("Attach at least one receipt to submit.");
       const claim = await expensesApi.create(workspaceId, {
-        title: title.trim(), amount: amt, currency, ...(categoryId ? { categoryId: Number(categoryId) } : {}),
-        ...(incurredOn ? { incurredOn } : {}), ...(description.trim() ? { description: description.trim() } : {}),
+        title: c.title, amount: c.amount, currency,
+        ...(categoryId ? { categoryId: Number(categoryId) } : {}),
+        ...(c.description ? { description: c.description } : {}),
+        ...(c.incurredOn ? { incurredOn: c.incurredOn } : {}),
+        ...(c.paidOn ? { paidOn: c.paidOn } : {}),
+        ...(Object.keys(c.custom).length ? { custom: c.custom } : {}),
       });
-      for (const f of files) await expensesApi.addReceipt(claim.id, f);
+      for (const f of c.files) await expensesApi.addReceipt(claim.id, f);
       if (submit) await expensesApi.submit(claim.id);
       return claim;
     },
@@ -192,59 +205,38 @@ function ClaimDrawer({ workspaceId, onClose, onSaved }: { workspaceId: string; o
 
   return (
     <DrawerShell title="New claim" onClose={onClose}>
-      <div className="space-y-3.5">
-        <Field label="What was it for?"><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Client lunch, office supplies" className="h-[38px] w-full rounded-lg border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50" autoFocus /></Field>
-        <div className="grid grid-cols-[1fr_90px] gap-2">
-          <Field label="Amount"><input value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" placeholder="0.00" className="h-[38px] w-full rounded-lg border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50" /></Field>
-          <Field label="Currency">
-            <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="h-[38px] w-full rounded-lg border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50">{["CAD", "USD", "EUR", "GBP", "PKR", "AED", "INR"].map((c) => <option key={c}>{c}</option>)}</select>
-          </Field>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Category">
-            <select value={categoryId} onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : "")} className="h-[38px] w-full rounded-lg border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50">
-              <option value="">None</option>
-              {categories.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Date"><input type="date" value={incurredOn} onChange={(e) => setIncurredOn(e.target.value)} className="h-[38px] w-full rounded-lg border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50" /></Field>
-        </div>
-        <Field label="Notes (optional)"><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="h-[38px] w-full rounded-lg border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50 h-auto resize-y py-2" placeholder="Anything the approver should know" /></Field>
-        <Field label="Receipts">
-          <ReceiptPicker files={files} onChange={setFiles} />
-        </Field>
-      </div>
-      <div className="mt-5 flex items-center justify-end gap-2">
-        <button type="button" onClick={() => save.mutate(false)} disabled={save.isPending} className="h-9 rounded-lg border border-border px-3.5 text-[13px] font-medium hover:bg-accent disabled:opacity-50">Save draft</button>
-        <button type="button" onClick={() => save.mutate(true)} disabled={save.isPending} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50">Submit</button>
-      </div>
-    </DrawerShell>
-  );
-}
-
-function ReceiptPicker({ files, onChange }: { files: File[]; onChange: (f: File[]) => void }) {
-  const [over, setOver] = useState(false);
-  const add = (list: FileList | null) => { if (!list) return; onChange([...files, ...Array.from(list)].slice(0, 10)); };
-  return (
-    <div>
-      <label onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); add(e.dataTransfer.files); }}
-        className={cn("flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-4 py-5 text-center transition-colors", over ? "border-primary bg-primary/5" : "border-border hover:bg-accent/40")}>
-        <Upload className="h-5 w-5 text-muted-foreground" />
-        <span className="text-[12.5px] text-muted-foreground">Drop receipts or <span className="font-medium text-primary">browse</span> · images or PDF, up to 10MB</span>
-        <input type="file" multiple accept="image/*,application/pdf" className="hidden" onChange={(e) => add(e.target.files)} />
-      </label>
-      {!!files.length && (
-        <ul className="mt-2 space-y-1">
-          {files.map((f, i) => (
-            <li key={i} className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[12.5px]">
-              {f.type.includes("pdf") ? <FileText className="h-4 w-4 text-muted-foreground" /> : <ImageIcon className="h-4 w-4 text-muted-foreground" />}
-              <span className="min-w-0 flex-1 truncate">{f.name}</span>
-              <button type="button" onClick={() => onChange(files.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
-            </li>
-          ))}
-        </ul>
+      {isLoading || !ready ? <div className="h-60 animate-pulse rounded-xl bg-muted" /> : (
+        <>
+          <FormBranding form={form} />
+          <div className="space-y-3.5">
+            {fields.map((f, i) => (
+              <div key={f.key} className={f.maps === "amount" ? "grid grid-cols-[1fr_92px] gap-2" : ""}>
+                <FormFieldRow field={f}><FieldInput field={f} value={vals[f.key]} onChange={(v) => set(f.key, v)} /></FormFieldRow>
+                {f.maps === "amount" && (
+                  <label className="block">
+                    <span className="mb-1 block text-[12px] font-medium text-muted-foreground">Currency</span>
+                    <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="h-[38px] w-full rounded-lg border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50">{["CAD", "USD", "EUR", "GBP", "PKR", "AED", "INR"].map((c) => <option key={c}>{c}</option>)}</select>
+                  </label>
+                )}
+              </div>
+            ))}
+            {!!categories.filter((c) => c.active).length && (
+              <label className="block">
+                <span className="mb-1 block text-[12px] font-medium text-muted-foreground">Category</span>
+                <select value={categoryId} onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : "")} className="h-[38px] w-full rounded-lg border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50">
+                  <option value="">None</option>
+                  {categories.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <button type="button" onClick={() => save.mutate(false)} disabled={save.isPending} className="h-9 rounded-lg border border-border px-3.5 text-[13px] font-medium hover:bg-accent disabled:opacity-50">Save draft</button>
+            <button type="button" onClick={() => save.mutate(true)} disabled={save.isPending} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50">Submit</button>
+          </div>
+        </>
       )}
-    </div>
+    </DrawerShell>
   );
 }
 
@@ -253,21 +245,32 @@ function ClaimDetail({ claimId, onClose, onChanged }: { claimId: number; onClose
   const { data: c, isLoading } = useQuery({ queryKey: ["expenses", "claim", claimId], queryFn: () => expensesApi.detail(claimId) });
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [reason, setReason] = useState("");
+  const [editing, setEditing] = useState(false);
   const qc = useQueryClient();
   const refresh = () => { qc.invalidateQueries({ queryKey: ["expenses", "claim", claimId] }); onChanged(); };
 
-  const act = useMutation<unknown, any, "submit" | "approve" | "pay" | "reject" | "delete">({
+  const act = useMutation<unknown, any, "submit" | "approve" | "pay" | "reject" | "delete" | "recall" | "reopen">({
     mutationFn: (kind) =>
       kind === "submit" ? expensesApi.submit(claimId) : kind === "approve" ? expensesApi.approve(claimId) :
-      kind === "pay" ? expensesApi.pay(claimId) : kind === "reject" ? expensesApi.reject(claimId, reason) : expensesApi.remove(claimId),
-    onSuccess: (_d, kind) => { toast.success(kind === "delete" ? "Deleted" : kind === "pay" ? "Marked paid" : kind === "approve" ? "Approved" : kind === "reject" ? "Declined" : "Submitted"); refresh(); if (kind === "delete") onClose(); setRejecting(false); setReason(""); },
+      kind === "pay" ? expensesApi.pay(claimId) : kind === "reject" ? expensesApi.reject(claimId, reason) :
+      kind === "recall" ? expensesApi.recall(claimId) : kind === "reopen" ? expensesApi.reopen(claimId, reason) :
+      expensesApi.remove(claimId),
+    onSuccess: (_d, kind) => {
+      toast.success(kind === "delete" ? "Deleted" : kind === "pay" ? "Marked paid" : kind === "approve" ? "Approved" : kind === "reject" ? "Declined" : kind === "recall" ? "Recalled to draft" : kind === "reopen" ? "Reopened" : "Submitted");
+      refresh(); if (kind === "delete") onClose(); setRejecting(false); setReopening(false); setReason("");
+    },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't do that."),
   });
 
+  const customEntries = c?.custom ? Object.entries(c.custom).filter(([, v]) => v != null && v !== "") : [];
+
   return (
     <DrawerShell title="Claim" onClose={onClose}>
-      {isLoading || !c ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : (
+      {isLoading || !c ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : editing ? (
+        <ClaimEditForm claim={c} onCancel={() => setEditing(false)} onSaved={() => { setEditing(false); refresh(); }} />
+      ) : (
         <div className="space-y-4">
           <div>
             <div className="flex items-start justify-between gap-3">
@@ -278,11 +281,28 @@ function ClaimDetail({ claimId, onClose, onChanged }: { claimId: number; onClose
               <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", STATUS[c.status].cls)}>{STATUS[c.status].label}</span>
               {c.category && <span className="rounded bg-muted px-1.5 py-px">{c.category.name}</span>}
               <span>{fmtDate(c.incurredOn ?? c.createdAt)}</span>
+              {c.paidOn && <span>· paid {fmtDate(c.paidOn)}</span>}
             </div>
             {c.claimant && <div className="mt-2 flex items-center gap-1.5 text-[12.5px] text-muted-foreground">By <Mini p={c.claimant} /></div>}
             {c.description && <p className="mt-2 rounded-lg bg-muted/50 px-3 py-2 text-[13px]">{c.description}</p>}
             {c.status === "rejected" && c.rejectedReason && <p className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-[13px] text-red-700 dark:text-red-400"><AlertTriangle className="mr-1 inline h-3.5 w-3.5" />{c.rejectedReason}</p>}
+            {c.locked && <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-muted/60 px-3 py-2 text-[12.5px] text-muted-foreground"><Lock className="h-3.5 w-3.5" /> This claim is {c.status === "approved_paid" ? "paid" : "approved"} and locked. An admin can reopen it to make changes.</p>}
           </div>
+
+          {/* custom fields */}
+          {!!customEntries.length && (
+            <div>
+              <p className="mb-1.5 text-[12px] font-medium text-muted-foreground">Details</p>
+              <dl className="grid grid-cols-1 gap-1.5 rounded-lg border border-border bg-card p-3 sm:grid-cols-2">
+                {customEntries.map(([k, v]) => (
+                  <div key={k} className="min-w-0">
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{prettyKey(k)}</dt>
+                    <dd className="truncate text-[13px]">{Array.isArray(v) ? (v as unknown[]).join(", ") : String(v)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
 
           {/* receipts */}
           {!!c.receipts.length && (
@@ -316,19 +336,22 @@ function ClaimDetail({ claimId, onClose, onChanged }: { claimId: number; onClose
           </div>
 
           {/* actions */}
-          {rejecting ? (
+          {rejecting || reopening ? (
             <div className="rounded-lg border border-border p-3">
-              <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (the claimant will see this)" className="h-9 w-full rounded-lg border border-border bg-background px-2.5 text-[13px] outline-none" autoFocus />
+              <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={reopening ? "Why are you reopening this? (required, logged & notified)" : "Reason (the claimant will see this)"} className="h-9 w-full rounded-lg border border-border bg-background px-2.5 text-[13px] outline-none" autoFocus />
               <div className="mt-2 flex justify-end gap-2">
-                <button type="button" onClick={() => setRejecting(false)} className="h-8 rounded-lg px-3 text-[12.5px] text-muted-foreground hover:text-foreground">Cancel</button>
-                <button type="button" onClick={() => act.mutate("reject")} disabled={act.isPending} className="h-8 rounded-lg bg-destructive px-3 text-[12.5px] font-semibold text-white disabled:opacity-50">Decline</button>
+                <button type="button" onClick={() => { setRejecting(false); setReopening(false); }} className="h-8 rounded-lg px-3 text-[12.5px] text-muted-foreground hover:text-foreground">Cancel</button>
+                <button type="button" onClick={() => act.mutate(reopening ? "reopen" : "reject")} disabled={act.isPending || (reopening && !reason.trim())} className={cn("h-8 rounded-lg px-3 text-[12.5px] font-semibold text-white disabled:opacity-50", reopening ? "bg-primary" : "bg-destructive")}>{reopening ? "Reopen" : "Decline"}</button>
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {c.canEdit && <button type="button" onClick={() => act.mutate("delete")} className="mr-auto flex h-9 items-center gap-1 rounded-lg px-2.5 text-[13px] text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /> Delete</button>}
-              {c.canEdit && <button type="button" onClick={() => act.mutate("submit")} disabled={act.isPending} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">Submit</button>}
-              {(c.canReview || c.canPay) && <button type="button" onClick={() => setRejecting(true)} className="h-9 rounded-lg border border-border px-3.5 text-[13px] font-medium hover:bg-accent">Decline</button>}
+              {(c.canEdit && c.status === "draft") && <button type="button" onClick={() => act.mutate("delete")} className="mr-auto flex h-9 items-center gap-1 rounded-lg px-2.5 text-[13px] text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /> Delete</button>}
+              {c.canEdit && <button type="button" onClick={() => setEditing(true)} className="h-9 rounded-lg border border-border px-3.5 text-[13px] font-medium hover:bg-accent">Edit</button>}
+              {c.canRecall && <button type="button" onClick={() => act.mutate("recall")} disabled={act.isPending} className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[13px] font-medium hover:bg-accent"><Undo2 className="h-4 w-4" /> Recall to draft</button>}
+              {(c.canEdit && c.status === "draft") && <button type="button" onClick={() => act.mutate("submit")} disabled={act.isPending} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">Submit</button>}
+              {c.canReopen && <button type="button" onClick={() => { setReopening(true); setReason(""); }} className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[13px] font-medium hover:bg-accent"><RotateCcw className="h-4 w-4" /> Reopen</button>}
+              {(c.canReview || c.canPay) && <button type="button" onClick={() => { setRejecting(true); setReason(""); }} className="h-9 rounded-lg border border-border px-3.5 text-[13px] font-medium hover:bg-accent">Decline</button>}
               {c.canReview && <button type="button" onClick={() => act.mutate("approve")} disabled={act.isPending} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">Approve</button>}
               {c.canPay && <button type="button" onClick={() => act.mutate("pay")} disabled={act.isPending} className="flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-[13px] font-semibold text-white hover:brightness-110 disabled:opacity-50"><Check className="h-4 w-4" /> Mark paid</button>}
             </div>
@@ -341,6 +364,61 @@ function ClaimDetail({ claimId, onClose, onChanged }: { claimId: number; onClose
         </div>
       )}
     </DrawerShell>
+  );
+}
+
+const prettyKey = (k: string) => k.replace(/_/g, " ").replace(/^\w/, (m) => m.toUpperCase());
+
+/* edit an existing claim — fields come from the company's form; receipts are edited only while a draft */
+function ClaimEditForm({ claim, onCancel, onSaved }: { claim: ExpenseClaimDetail; onCancel: () => void; onSaved: () => void }) {
+  const { data: form, isLoading } = useQuery({ queryKey: ["expenses", "form", claim.workspaceId], queryFn: () => expensesApi.getForm(claim.workspaceId) });
+  const fields = (form?.fields ?? []).filter((f) => f.type !== "file");
+  const seeded = useMemo(() => {
+    const v: FieldValues = {};
+    for (const f of form?.fields ?? []) {
+      if (f.type === "file") continue;
+      v[f.key] =
+        f.maps === "title" ? claim.title :
+        f.maps === "amount" ? String(claim.amount) :
+        f.maps === "description" ? (claim.description ?? "") :
+        f.maps === "expenseDate" ? (claim.incurredOn ? claim.incurredOn.slice(0, 10) : "") :
+        f.maps === "paymentDate" ? (claim.paidOn ? claim.paidOn.slice(0, 10) : "") :
+        (claim.custom?.[f.key] ?? (f.type === "multiselect" ? [] : ""));
+    }
+    return v;
+  }, [form, claim]);
+  const [values, setValues] = useState<FieldValues>({});
+  const vals = Object.keys(values).length ? values : seeded;
+  const set = (key: string, v: unknown) => setValues({ ...vals, [key]: v });
+  const qc = useQueryClient();
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const c = collect(form?.fields ?? [], vals, { skipFiles: true });
+      if (!c.ok) throw new Error(c.error);
+      return expensesApi.edit(claim.id, {
+        title: c.title, amount: c.amount,
+        description: c.description ?? "",
+        ...(c.incurredOn ? { incurredOn: c.incurredOn } : {}),
+        ...(c.paidOn ? { paidOn: c.paidOn } : {}),
+        custom: c.custom,
+      });
+    },
+    onSuccess: () => { toast.success("Saved"); qc.invalidateQueries({ queryKey: ["expenses"] }); onSaved(); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? e?.message ?? "Couldn't save."),
+  });
+
+  return isLoading || !form ? <div className="h-60 animate-pulse rounded-xl bg-muted" /> : (
+    <div>
+      <p className="mb-3 text-[12.5px] text-muted-foreground">Editing this claim {claim.status !== "draft" && <>— it is {STATUS[claim.status].label.toLowerCase()}; the change is logged. To change receipts, recall it to a draft first.</>}</p>
+      <div className="space-y-3.5">
+        {fields.map((f) => <FormFieldRow key={f.key} field={f}><FieldInput field={f} value={vals[f.key]} onChange={(v) => set(f.key, v)} /></FormFieldRow>)}
+      </div>
+      <div className="mt-5 flex items-center justify-end gap-2">
+        <button type="button" onClick={onCancel} className="h-9 rounded-lg px-3.5 text-[13px] font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+        <button type="button" onClick={() => save.mutate()} disabled={save.isPending} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50">Save changes</button>
+      </div>
+    </div>
   );
 }
 
@@ -391,12 +469,175 @@ function CategoriesDialog({ workspaceId, onClose }: { workspaceId: string; onClo
   );
 }
 
+/* ───────── form builder (admin) ───────── */
+const TYPE_LABEL: Record<ExpenseFieldType, string> = { text: "Text", textarea: "Paragraph", number: "Number", email: "Email", date: "Date", select: "Dropdown", multiselect: "Multi-select", file: "File / receipt" };
+const MAP_LABEL: Record<string, string> = { title: "Title", amount: "Amount", expenseDate: "Expense date", paymentDate: "Payment date", description: "Description" };
+const allowedMaps = (t: ExpenseFieldType): string[] =>
+  t === "text" ? ["title", "description"] : t === "textarea" ? ["description"] : t === "number" ? ["amount"] : t === "date" ? ["expenseDate", "paymentDate"] : [];
+
+type EditField = { key: string; label: string; type: ExpenseFieldType; required: boolean; maps: string | null; options: string[] };
+
+function FormBuilderDrawer({ workspaceId, onClose }: { workspaceId: string; onClose: () => void }) {
+  const { data: form, isLoading } = useQuery({ queryKey: ["expenses", "form", workspaceId], queryFn: () => expensesApi.getForm(workspaceId) });
+  const [init, setInit] = useState(false);
+  const [title, setTitle] = useState("Reimbursements");
+  const [description, setDescription] = useState("");
+  const [active, setActive] = useState(true);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [fields, setFields] = useState<EditField[]>([]);
+  const qc = useQueryClient();
+
+  if (form && !init) {
+    setInit(true);
+    setTitle(form.title); setDescription(form.description ?? ""); setActive(form.active);
+    setLogoUrl(form.logoUrl); setBannerUrl(form.bannerUrl);
+    setFields(form.fields.map((f) => ({ key: f.key, label: f.label, type: f.type, required: f.required, maps: f.maps, options: f.options ?? [] })));
+  }
+
+  const setField = (i: number, patch: Partial<EditField>) => setFields((fs) => fs.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+  const move = (i: number, dir: -1 | 1) => setFields((fs) => { const j = i + dir; if (j < 0 || j >= fs.length) return fs; return fs.map((f, k) => (k === i ? fs[j]! : k === j ? fs[i]! : f)); });
+  const addField = () => setFields((fs) => [...fs, { key: "", label: "New field", type: "text", required: false, maps: null, options: [] }]);
+
+  const upload = useMutation({
+    mutationFn: ({ kind, file }: { kind: "logo" | "banner"; file: File }) => expensesApi.uploadBranding(workspaceId, kind, file),
+    onSuccess: (r, v) => { if (v.kind === "logo") setLogoUrl(r.url); else setBannerUrl(r.url); toast.success(`${v.kind === "logo" ? "Logo" : "Banner"} uploaded`); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Upload failed."),
+  });
+
+  const save = useMutation({
+    mutationFn: () => expensesApi.updateForm(workspaceId, {
+      title: title.trim() || "Reimbursements", description: description.trim() || null, active, logoUrl, bannerUrl,
+      fields: fields.filter((f) => f.label.trim()).map((f) => ({ key: f.key || undefined, label: f.label.trim(), type: f.type, required: f.required, maps: f.maps, options: f.options })),
+    }),
+    onSuccess: () => { toast.success("Form saved"); qc.invalidateQueries({ queryKey: ["expenses", "form", workspaceId] }); onClose(); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't save the form."),
+  });
+
+  const shareLink = form ? `${typeof window !== "undefined" ? window.location.origin : ""}/form/expense/${form.shareToken}` : "";
+  const hasAmount = fields.some((f) => f.maps === "amount");
+  const previewFields: ExpenseFormField[] = fields.filter((f) => f.label.trim()).map((f) => ({ key: f.key || f.label, label: f.label, type: f.type, required: f.required, maps: (f.maps as any) ?? null, options: f.options.length ? f.options : null }));
+
+  return (
+    <DrawerShell title="Reimbursement form" onClose={onClose} wide>
+      {isLoading || !form ? <div className="h-60 animate-pulse rounded-xl bg-muted" /> : (
+        <div className="grid gap-5 lg:grid-cols-2">
+          {/* editor */}
+          <div className="space-y-4">
+            {/* share link */}
+            <div className="rounded-xl border border-border bg-card p-3">
+              <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground"><Link2 className="h-3.5 w-3.5" /> Shareable link <span className="ml-1 rounded bg-muted px-1.5 py-px text-[10.5px] font-normal">login required to submit</span></div>
+              <div className="mt-2 flex items-center gap-2">
+                <input readOnly value={shareLink} className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2.5 text-[12px] outline-none" />
+                <button type="button" onClick={() => { navigator.clipboard?.writeText(shareLink); toast.success("Link copied"); }} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-[12px] font-medium hover:bg-accent"><Copy className="h-3.5 w-3.5" /> Copy</button>
+              </div>
+              <label className="mt-2 flex items-center gap-2 text-[12.5px]">
+                <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-3.5 w-3.5 accent-[var(--primary)]" />
+                Form is open for submissions
+              </label>
+            </div>
+
+            {/* branding */}
+            <div className="space-y-3">
+              <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Branding</p>
+              <div className="flex gap-3">
+                <BrandUpload label="Logo" url={logoUrl} onPick={(file) => upload.mutate({ kind: "logo", file })} onClear={() => setLogoUrl(null)} busy={upload.isPending} square />
+                <BrandUpload label="Banner" url={bannerUrl} onPick={(file) => upload.mutate({ kind: "banner", file })} onClear={() => setBannerUrl(null)} busy={upload.isPending} />
+              </div>
+              <Field label="Title"><input value={title} onChange={(e) => setTitle(e.target.value)} className="h-[38px] w-full rounded-lg border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50" /></Field>
+              <Field label="Description"><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full resize-y rounded-lg border border-border bg-background px-2.5 py-2 text-[13.5px] outline-none focus:border-primary/50" placeholder="Shown at the top of the form" /></Field>
+            </div>
+
+            {/* fields */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Fields</p>
+                <button type="button" onClick={addField} className="flex h-7 items-center gap-1 rounded-lg border border-border px-2 text-[12px] font-medium hover:bg-accent"><Plus className="h-3.5 w-3.5" /> Add field</button>
+              </div>
+              {!hasAmount && <p className="rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[12px] text-amber-700 dark:text-amber-400"><AlertTriangle className="mr-1 inline h-3.5 w-3.5" />Add a Number field mapped to <b>Amount</b> — claims need an amount.</p>}
+              {fields.map((f, i) => {
+                const maps = allowedMaps(f.type);
+                return (
+                  <div key={i} className="rounded-xl border border-border bg-card p-2.5">
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <input value={f.label} onChange={(e) => setField(i, { label: e.target.value })} placeholder="Field label" className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-[13px] outline-none focus:border-primary/50" />
+                      <div className="flex shrink-0 items-center">
+                        <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="rounded px-1 text-muted-foreground hover:text-foreground disabled:opacity-30">↑</button>
+                        <button type="button" onClick={() => move(i, 1)} disabled={i === fields.length - 1} className="rounded px-1 text-muted-foreground hover:text-foreground disabled:opacity-30">↓</button>
+                        <button type="button" onClick={() => setFields((fs) => fs.filter((_, j) => j !== i))} className="rounded px-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <select value={f.type} onChange={(e) => { const type = e.target.value as ExpenseFieldType; const am = allowedMaps(type); setField(i, { type, maps: f.maps && am.includes(f.maps) ? f.maps : null }); }} className="h-8 rounded-lg border border-border bg-background px-2 text-[12.5px] outline-none">
+                        {(Object.keys(TYPE_LABEL) as ExpenseFieldType[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
+                      </select>
+                      {maps.length > 0 && (
+                        <select value={f.maps ?? ""} onChange={(e) => setField(i, { maps: e.target.value || null })} className="h-8 rounded-lg border border-border bg-background px-2 text-[12.5px] outline-none" title="Save this answer into a claim column">
+                          <option value="">Custom field</option>
+                          {maps.map((m) => <option key={m} value={m}>→ {MAP_LABEL[m]}</option>)}
+                        </select>
+                      )}
+                      <label className="flex items-center gap-1.5 text-[12.5px]">
+                        <input type="checkbox" checked={f.required} onChange={(e) => setField(i, { required: e.target.checked })} className="h-3.5 w-3.5 accent-[var(--primary)]" /> Required
+                      </label>
+                    </div>
+                    {(f.type === "select" || f.type === "multiselect") && (
+                      <input value={f.options.join(", ")} onChange={(e) => setField(i, { options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean) })} placeholder="Choices, comma-separated" className="mt-2 h-8 w-full rounded-lg border border-border bg-background px-2 text-[12.5px] outline-none focus:border-primary/50" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
+              <button type="button" onClick={onClose} className="h-9 rounded-lg px-3.5 text-[13px] font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+              <button type="button" onClick={() => save.mutate()} disabled={save.isPending} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50">Save form</button>
+            </div>
+          </div>
+
+          {/* live preview */}
+          <div className="lg:border-l lg:border-border lg:pl-5">
+            <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
+            <div className="rounded-xl border border-border bg-background p-4">
+              <FormBranding form={{ title, description: description || null, logoUrl, bannerUrl, company: form.company }} />
+              <div className="space-y-3">
+                {previewFields.map((f) => <FormFieldRow key={f.key} field={f}><FieldInput field={f} value={f.type === "multiselect" || f.type === "file" ? [] : ""} onChange={() => {}} disabled /></FormFieldRow>)}
+                {!previewFields.length && <p className="py-6 text-center text-[13px] text-muted-foreground">Add a field to see it here.</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </DrawerShell>
+  );
+}
+
+function BrandUpload({ label, url, onPick, onClear, busy, square }: { label: string; url: string | null; onPick: (f: File) => void; onClear: () => void; busy?: boolean; square?: boolean }) {
+  return (
+    <div className={square ? "w-24" : "flex-1"}>
+      <span className="mb-1 block text-[12px] font-medium text-muted-foreground">{label}</span>
+      {url ? (
+        <div className="group relative overflow-hidden rounded-lg border border-border">
+          <img src={resolveUrl(url)} alt="" className={cn("w-full object-cover", square ? "h-20" : "h-20")} />
+          <button type="button" onClick={onClear} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"><X className="h-3 w-3" /></button>
+        </div>
+      ) : (
+        <label className={cn("flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-border text-[11.5px] text-muted-foreground hover:bg-accent/40", square ? "h-20" : "h-20", busy && "opacity-50")}>
+          {busy ? "Uploading…" : "Upload"}
+          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = ""; }} />
+        </label>
+      )}
+    </div>
+  );
+}
+
 /* ───────── shells ───────── */
-function DrawerShell({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+function DrawerShell({ title, children, onClose, wide }: { title: string; children: React.ReactNode; onClose: () => void; wide?: boolean }) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-border bg-background shadow-xl">
+      <div className={cn("relative flex h-full w-full flex-col overflow-y-auto border-l border-border bg-background shadow-xl", wide ? "max-w-3xl" : "max-w-md")}>
         <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-background px-4 py-3">
           <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden"><ArrowLeft className="h-5 w-5" /></button>
           <h2 className="flex-1 text-[15px] font-semibold">{title}</h2>

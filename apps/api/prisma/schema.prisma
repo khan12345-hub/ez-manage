@@ -3267,6 +3267,10 @@ model ExpenseClaim {
   categoryId     Int?
   description    String?   @db.VarChar(2000)
   incurredOn     DateTime? @db.Date
+  /// payment date (when finance paid), separate from the paidAt timestamp
+  paidOn         DateTime? @db.Date
+  /// custom field values from the reimbursement form: { fieldKey: value }
+  custom         Json?
   /// draft | submitted | manager_approved | approved_paid | rejected
   status         String    @default("draft") @db.VarChar(20)
   managerId      Int?
@@ -3319,4 +3323,45 @@ model ExpenseEvent {
 
   @@index([claimId])
   @@map("expense_events")
+}
+
+/// The reimbursement form for an Accounts & Invoices company: branding + custom fields + a shareable link.
+model ExpenseForm {
+  id          Int      @id @default(autoincrement())
+  workspaceId Int      @unique
+  title       String   @default("Reimbursements") @db.VarChar(160)
+  description String?  @db.VarChar(1000)
+  logoUrl     String?  @db.VarChar(1000)
+  bannerUrl   String?  @db.VarChar(1000)
+  /// shareable link token; only logged-in users can submit through it
+  shareToken  String   @unique @db.VarChar(40)
+  active      Boolean  @default(true)
+  updatedById Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fields ExpenseFormField[]
+
+  @@map("expense_forms")
+}
+
+/// One field on a reimbursement form.
+model ExpenseFormField {
+  id       Int     @id @default(autoincrement())
+  formId   Int
+  key      String  @db.VarChar(40)
+  label    String  @db.VarChar(120)
+  /// text | textarea | number | email | date | select | multiselect | file
+  type     String  @db.VarChar(20)
+  /// choices for select / multiselect
+  options  Json?
+  required Boolean @default(false)
+  order    Int     @default(0)
+  /// maps the value to a built-in column: title | amount | expenseDate | paymentDate | description (else stored in claim.custom)
+  maps     String? @db.VarChar(20)
+
+  form ExpenseForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@map("expense_form_fields")
 }
