@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle, ArrowLeft, Check, CircleDollarSign, Clock, Copy, Download, FileText,
-  GripVertical, LayoutTemplate, Link2, Lock, Plus, Receipt, RotateCcw, Settings2, Trash2, Undo2, X,
+  GripVertical, Image as ImageIcon, LayoutTemplate, Link2, Lock, Plus, Receipt, RotateCcw, Settings2, Trash2, Undo2, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveUrl } from "@/lib/resolveUrl";
@@ -77,6 +77,9 @@ export default function ExpensesPage({ workspaceId }: { workspaceId: string }) {
     XLSX.writeFile(wb, `reimbursements-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  // the form builder is its own full page inside the app shell (keeps the sidebar + top bar)
+  if (builder) return <FormBuilderPage workspaceId={workspaceId} onClose={() => { setBuilder(false); qc.invalidateQueries({ queryKey: ["expenses", "form", workspaceId] }); }} />;
+
   return (
     <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
       {/* header */}
@@ -129,7 +132,6 @@ export default function ExpensesPage({ workspaceId }: { workspaceId: string }) {
       {open === "new" && <ClaimDrawer workspaceId={workspaceId} onClose={() => setOpen(null)} onSaved={() => { qc.invalidateQueries({ queryKey: ["expenses"] }); }} />}
       {typeof open === "number" && <ClaimDetail claimId={open} onClose={() => setOpen(null)} onChanged={() => qc.invalidateQueries({ queryKey: ["expenses"] })} />}
       {cats && <CategoriesDialog workspaceId={workspaceId} onClose={() => { setCats(false); qc.invalidateQueries({ queryKey: ["expenses", "summary"] }); }} />}
-      {builder && <FormBuilderDrawer workspaceId={workspaceId} onClose={() => { setBuilder(false); qc.invalidateQueries({ queryKey: ["expenses", "form", workspaceId] }); }} />}
     </div>
   );
 }
@@ -477,7 +479,7 @@ const allowedMaps = (t: ExpenseFieldType): string[] =>
 
 type EditField = { key: string; label: string; type: ExpenseFieldType; required: boolean; maps: string | null; options: string[] };
 
-function FormBuilderDrawer({ workspaceId, onClose }: { workspaceId: string; onClose: () => void }) {
+function FormBuilderPage({ workspaceId, onClose }: { workspaceId: string; onClose: () => void }) {
   const { data: form, isLoading } = useQuery({ queryKey: ["expenses", "form", workspaceId], queryFn: () => expensesApi.getForm(workspaceId) });
   const [init, setInit] = useState(false);
   const [title, setTitle] = useState("Reimbursements");
@@ -486,6 +488,7 @@ function FormBuilderDrawer({ workspaceId, onClose }: { workspaceId: string; onCl
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [fields, setFields] = useState<EditField[]>([]);
+  const [tab, setTab] = useState<"fields" | "branding" | "share">("fields");
   const qc = useQueryClient();
 
   if (form && !init) {
@@ -519,12 +522,41 @@ function FormBuilderDrawer({ workspaceId, onClose }: { workspaceId: string; onCl
   const previewFields: ExpenseFormField[] = fields.filter((f) => f.label.trim()).map((f) => ({ key: f.key || f.label, label: f.label, type: f.type, required: f.required, maps: (f.maps as any) ?? null, options: f.options.length ? f.options : null }));
 
   return (
-    <DrawerShell title="Reimbursement form" onClose={onClose} wide>
+    <div className="mx-auto w-full max-w-6xl p-4 sm:p-6">
+      {/* page header */}
+      <div className="sticky top-0 z-10 -mx-4 mb-5 flex items-center gap-3 border-b border-border bg-background/85 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+        <button type="button" onClick={onClose} aria-label="Back to Reimbursements" className="rounded-lg p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="h-5 w-5" /></button>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[18px] font-semibold tracking-tight">Reimbursement form</h1>
+          <p className="truncate text-[12.5px] text-muted-foreground">Build the claim form your team fills in · {form?.company ?? "this company"}</p>
+        </div>
+        <button type="button" onClick={onClose} className="h-9 rounded-lg px-3.5 text-[13px] font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+        <button type="button" onClick={() => save.mutate()} disabled={save.isPending || !form} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50">{save.isPending ? "Saving…" : "Save form"}</button>
+      </div>
+
       {isLoading || !form ? <div className="h-60 animate-pulse rounded-xl bg-muted" /> : (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
           {/* editor */}
           <div className="space-y-4">
-            {/* share link */}
+            {/* section tabs */}
+            <div className="flex items-center gap-1 rounded-xl border border-border bg-muted/40 p-1">
+              {([
+                { id: "fields", label: "Fields", icon: LayoutTemplate },
+                { id: "branding", label: "Branding", icon: ImageIcon },
+                { id: "share", label: "Share", icon: Link2 },
+              ] as const).map((t) => {
+                const TabIcon = t.icon;
+                return (
+                  <button key={t.id} type="button" onClick={() => setTab(t.id)}
+                    className={cn("flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-medium transition-colors", tab === t.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                    <TabIcon className="h-3.5 w-3.5" /> {t.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* share */}
+            {tab === "share" && (
             <div className="rounded-xl border border-border bg-card p-3">
               <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground"><Link2 className="h-3.5 w-3.5" /> Shareable link <span className="ml-1 rounded bg-muted px-1.5 py-px text-[10.5px] font-normal">login required to submit</span></div>
               <div className="mt-2 flex items-center gap-2">
@@ -536,10 +568,11 @@ function FormBuilderDrawer({ workspaceId, onClose }: { workspaceId: string; onCl
                 Form is open for submissions
               </label>
             </div>
+            )}
 
             {/* branding */}
-            <div className="space-y-3">
-              <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Branding</p>
+            {tab === "branding" && (
+            <div className="space-y-3 rounded-xl border border-border bg-card p-3.5">
               <div className="flex gap-3">
                 <BrandUpload label="Logo" url={logoUrl} onPick={(file) => upload.mutate({ kind: "logo", file })} onClear={() => setLogoUrl(null)} busy={upload.isPending} square />
                 <BrandUpload label="Banner" url={bannerUrl} onPick={(file) => upload.mutate({ kind: "banner", file })} onClear={() => setBannerUrl(null)} busy={upload.isPending} />
@@ -547,8 +580,10 @@ function FormBuilderDrawer({ workspaceId, onClose }: { workspaceId: string; onCl
               <Field label="Title"><input value={title} onChange={(e) => setTitle(e.target.value)} className="h-[38px] w-full rounded-lg border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50" /></Field>
               <Field label="Description"><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full resize-y rounded-lg border border-border bg-background px-2.5 py-2 text-[13.5px] outline-none focus:border-primary/50" placeholder="Shown at the top of the form" /></Field>
             </div>
+            )}
 
             {/* fields */}
+            {tab === "fields" && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Fields</p>
@@ -589,27 +624,25 @@ function FormBuilderDrawer({ workspaceId, onClose }: { workspaceId: string; onCl
                 );
               })}
             </div>
-
-            <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
-              <button type="button" onClick={onClose} className="h-9 rounded-lg px-3.5 text-[13px] font-medium text-muted-foreground hover:text-foreground">Cancel</button>
-              <button type="button" onClick={() => save.mutate()} disabled={save.isPending} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50">Save form</button>
-            </div>
+            )}
           </div>
 
           {/* live preview */}
-          <div className="lg:border-l lg:border-border lg:pl-5">
-            <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
-            <div className="rounded-xl border border-border bg-background p-4">
-              <FormBranding form={{ title, description: description || null, logoUrl, bannerUrl, company: form.company }} />
-              <div className="space-y-3">
-                {previewFields.map((f) => <FormFieldRow key={f.key} field={f}><FieldInput field={f} value={f.type === "multiselect" || f.type === "file" ? [] : ""} onChange={() => {}} disabled /></FormFieldRow>)}
-                {!previewFields.length && <p className="py-6 text-center text-[13px] text-muted-foreground">Add a field to see it here.</p>}
+          <div className="lg:border-l lg:border-border lg:pl-6">
+            <div className="lg:sticky lg:top-20">
+              <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
+              <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
+                <FormBranding form={{ title, description: description || null, logoUrl, bannerUrl, company: form.company }} />
+                <div className="space-y-3">
+                  {previewFields.map((f) => <FormFieldRow key={f.key} field={f}><FieldInput field={f} value={f.type === "multiselect" || f.type === "file" ? [] : ""} onChange={() => {}} disabled /></FormFieldRow>)}
+                  {!previewFields.length && <p className="py-6 text-center text-[13px] text-muted-foreground">Add a field to see it here.</p>}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
-    </DrawerShell>
+    </div>
   );
 }
 

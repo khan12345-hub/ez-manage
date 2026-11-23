@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { Check, Copy, Download, Laptop, Loader2, ShieldCheck, Trash2 } from "lucide-react";
+import { Activity, CalendarCheck, Check, Clock4, Copy, Download, Laptop, Loader2, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CONSENT_VERSION, trackerApi } from "@/services/tracker.api";
-import { useTrackerWs } from "../../_lib/tracker";
+import { useAuth } from "@/providers/AuthProvider";
+import { CONSENT_VERSION, hm, trackerApi } from "@/services/tracker.api";
+import { keyOf, todayKey, useTrackerWs, weekStart } from "../../_lib/tracker";
 import { glass } from "../../_components/bits";
+import { BarLegend, HoursBars, Ring, StatTile, fade, stagger } from "../../_components/charts";
 import { ConsentText } from "../../_components/ConsentText";
 
 const err = (e: any, m: string) => toast.error(e?.response?.data?.message?.toString?.() ?? m);
@@ -20,8 +23,62 @@ function Countdown({ until }: { until: string }) {
   return <>{s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "expired"}</>;
 }
 
+/** my own hours: ring + today/week/month + last-7-days bars (built from my timesheet) */
+function MyActivity({ ws }: { ws: string }) {
+  const { user } = useAuth();
+  const monthStart = useMemo(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1), []);
+  const to = useMemo(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); }, []);
+  const { data = [], isLoading } = useQuery({ queryKey: ["tracker", ws, "timesheet", "me", keyOf(monthStart)], queryFn: () => trackerApi.timesheet(ws, monthStart, to), enabled: !!ws });
+  const mine = useMemo(() => data.find((r) => r.user.id === user?.id) ?? (data.length === 1 ? data[0] : undefined), [data, user?.id]);
+
+  const stats = useMemo(() => {
+    const dayMap = mine?.days ?? {};
+    const tk = todayKey();
+    const wk = weekStart();
+    const inWeek = (k: string) => { const [y, m, d] = k.split("-").map(Number); const dt = new Date(y!, (m ?? 1) - 1, d ?? 1); return dt >= wk; };
+    const today = dayMap[tk] ?? { seconds: 0, active: 0, activity: 0 };
+    let weekTracked = 0, weekActive = 0;
+    for (const [k, v] of Object.entries(dayMap)) if (inWeek(k)) { weekTracked += v.seconds; weekActive += v.active; }
+    const bars = Array.from({ length: 7 }, (_, i) => { const d = new Date(wk.getFullYear(), wk.getMonth(), wk.getDate() + i); const c = dayMap[keyOf(d)]; return { key: keyOf(d), label: d.toLocaleDateString("en-US", { weekday: "short" }), sub: String(d.getDate()), tracked: c?.seconds ?? 0, active: c?.active ?? 0 }; });
+    return { today, weekTracked, weekActive, weekPct: weekTracked ? Math.round((weekActive / weekTracked) * 100) : 0, monthTracked: mine?.total ?? 0, monthActive: mine?.activeTotal ?? 0, bars };
+  }, [mine]);
+
+  if (isLoading) return <div className="h-52 animate-pulse rounded-[24px] bg-muted" />;
+  const nothing = !stats.monthTracked;
+
+  return (
+    <motion.section variants={fade} aria-label="Your activity" className={cn(glass, "p-5")}>
+      <header className="mb-4 flex items-center gap-2"><Sparkles className="h-4 w-4 text-[#b45309] dark:text-[#fbbf24]" /><h2 className="text-[16px] font-semibold">Your activity</h2><span className="text-[12.5px] text-muted-foreground">· this week</span></header>
+      {nothing ? (
+        <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-[13px] text-muted-foreground">No tracked time yet this month. Pair the desktop app below and press Start — your hours and activity show up here.</p>
+      ) : (
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
+          <div className="flex items-center justify-center gap-5 lg:w-[280px] lg:flex-col">
+            <Ring pct={stats.weekPct} label="Activity" />
+            <div className="space-y-1 text-[12.5px] text-muted-foreground lg:text-center">
+              <p>Keyboard & mouse,<br className="hidden lg:block" /> averaged across this week.</p>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1 space-y-4">
+            <motion.div variants={stagger} className="grid grid-cols-3 gap-2.5">
+              <StatTile icon={Clock4} label="Today" value={hm(stats.today.seconds)} sub={`${stats.today.activity}% active`} />
+              <StatTile icon={CalendarCheck} label="This week" value={hm(stats.weekTracked)} sub={`${hm(stats.weekActive)} active`} tone="#2563eb" />
+              <StatTile icon={Activity} label="This month" value={hm(stats.monthTracked)} sub={`${hm(stats.monthActive)} active`} tone="#b45309" />
+            </motion.div>
+            <div>
+              <div className="mb-2.5 flex items-center justify-between"><p className="text-[12px] font-medium text-muted-foreground">Hours this week</p><BarLegend /></div>
+              <HoursBars data={stats.bars} highlight={todayKey()} height={120} />
+            </div>
+          </div>
+        </div>
+      )}
+    </motion.section>
+  );
+}
+
 export default function TrackerMe() {
   const { ws, ov } = useTrackerWs();
+  const reduced = useReducedMotion();
   const qc = useQueryClient();
   const [code, setCode] = useState<{ code: string; expiresAt: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -44,8 +101,10 @@ export default function TrackerMe() {
   }
 
   return (
-    <div className="space-y-4">
-      <section aria-label="Consent" className={cn(glass, "p-5")}>
+    <motion.div initial={reduced ? false : "hidden"} animate="show" variants={stagger} className="space-y-4">
+      <MyActivity ws={ws} />
+
+      <motion.section variants={fade} aria-label="Consent" className={cn(glass, "p-5")}>
         <header className="mb-4 flex flex-wrap items-center gap-3">
           <span className={cn("flex h-10 w-10 items-center justify-center rounded-2xl", ov?.consent.acceptedAt ? "bg-[#047857]/10 text-[#047857] dark:text-[#34d399]" : "bg-[#b45309]/10 text-[#b45309] dark:text-[#fbbf24]")}><ShieldCheck className="h-5 w-5" /></span>
           <span className="min-w-0 flex-1">
@@ -55,9 +114,9 @@ export default function TrackerMe() {
           {ov && !ov.consent.acceptedAt && <button type="button" disabled={consent.isPending} onClick={() => consent.mutate()} className="flex h-10 items-center gap-1.5 rounded-xl bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">{consent.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} I agree</button>}
         </header>
         {s && <ConsentText shots={s.screenshotsPer10} blur={s.blur} apps={s.trackApps} urls={s.trackUrls} retention={s.retentionDays} />}
-      </section>
+      </motion.section>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <motion.div variants={fade} className="grid gap-4 xl:grid-cols-2">
         <section aria-label="Desktop app" className={cn(glass, "p-5")}>
           <h2 className="text-[16px] font-semibold">Desktop app</h2>
           <ol className="mt-3 space-y-3 text-[13px]">
@@ -98,7 +157,7 @@ export default function TrackerMe() {
             </ul>
           )}
         </section>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

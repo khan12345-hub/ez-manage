@@ -8,8 +8,11 @@ import { ChevronLeft, ChevronRight, Eye, EyeOff, ImageOff, Keyboard, ListChecks,
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { hm, trackerApi, userName, type TrackerShot, type TrackerSlot } from "@/services/tracker.api";
+import { motion, useReducedMotion } from "framer-motion";
 import { dayRange, fmtDay, keyOf, todayKey, useTrackerWs } from "../../_lib/tracker";
-import { ActivityBar, Avatar, DayPicker, InstallHint, PersonPicker, Stat, glass } from "../../_components/bits";
+import { ActivityBar, Avatar, DayPicker, InstallHint, PersonPicker, glass } from "../../_components/bits";
+import { StatTile, fade, stagger } from "../../_components/charts";
+import { Clock4, Gauge, ImagePlay } from "lucide-react";
 
 const err = (e: any, m: string) => toast.error(e?.response?.data?.message?.toString?.() ?? m);
 const hourLabel = (h: number) => new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: "numeric" });
@@ -90,6 +93,36 @@ function SlotCard({ s, onOpen }: { s: TrackerSlot; onOpen: (shot: TrackerShot) =
   );
 }
 
+/** a slim activity timeline across the day: one column per 10-min block, height = activity */
+function DayTimeline({ slots, onJump }: { slots: TrackerSlot[]; onJump: (s: TrackerSlot) => void }) {
+  if (!slots.length) return null;
+  const sorted = [...slots].sort((a, b) => +new Date(a.start) - +new Date(b.start));
+  const hours = [...new Set(sorted.map((s) => new Date(s.start).getHours()))];
+  return (
+    <motion.section variants={fade} aria-label="Activity through the day" className={cn(glass, "p-5")}>
+      <header className="mb-3 flex items-center gap-2"><Gauge className="h-4 w-4 text-[#047857] dark:text-[#34d399]" /><h2 className="text-[15px] font-semibold">Through the day</h2><span className="text-[12px] text-muted-foreground">· activity per 10 minutes</span></header>
+      <div className="flex h-24 items-end gap-[3px]">
+        {sorted.map((s) => {
+          const away = s.away, idle = s.idleDiscarded;
+          return (
+            <button key={s.id} type="button" onClick={() => onJump(s)} title={`${t(s.start)} · ${idle ? "idle — discarded" : away ? "away / not on seat" : `${s.activityPct}% activity`}`}
+              className={cn("group relative flex-1 rounded-t-sm transition-opacity hover:opacity-100", idle && "opacity-50")}
+              style={{ minWidth: 4 }}>
+              <span className={cn("block w-full rounded-t-sm", idle ? "bg-[repeating-linear-gradient(135deg,transparent_0_3px,rgba(120,120,120,0.35)_3px_6px)]" : away ? "bg-[#d97706]" : "bg-[#047857] dark:bg-[#059669]")}
+                style={{ height: Math.max(4, (idle ? 30 : s.activityPct) * 0.9) }} />
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-1.5 flex justify-between text-[10.5px] text-muted-foreground">
+        <span>{hourLabel(hours[0] ?? 0)}</span>
+        {hours.length > 2 && <span>{hourLabel(hours[Math.floor(hours.length / 2)]!)}</span>}
+        <span>{hourLabel(hours[hours.length - 1] ?? 0)}</span>
+      </div>
+    </motion.section>
+  );
+}
+
 function Screenshots() {
   const { ws, ov } = useTrackerWs();
   const qc = useQueryClient();
@@ -127,23 +160,25 @@ function Screenshots() {
     onError: (e) => err(e, "Couldn't change it."),
   });
 
+  const reduced = useReducedMotion();
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <motion.div initial={reduced ? false : "hidden"} animate="show" variants={stagger} className="space-y-4">
+      <motion.div variants={fade} className="flex flex-wrap items-center gap-2">
         {ov?.canSeeOthers && people.length > 0 && <PersonPicker people={people} value={userId ?? data?.user?.id ?? null} onChange={(id) => set("user", id ? String(id) : null)} />}
         <DayPicker day={day} onDay={(d) => set("day", d)} />
         <span className="flex-1" />
         {data?.user && <span className="flex items-center gap-2 text-[13px]"><Avatar user={data.user} size={26} /><b className="font-semibold">{userName(data.user)}</b></span>}
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="Tracked" value={hm(data?.totalSeconds ?? 0)} sub={fmtDay(day, { weekday: "long", month: "short", day: "numeric" })} />
-        <Stat label="Activity" value={`${avg}%`} sub="average this day" />
-        <Stat label="Screenshots" value={flat.length} sub={ov?.settings.blur ? "blurred for privacy" : `${kept.length} blocks of 10 min`} />
-      </div>
+      <motion.div variants={stagger} className="grid grid-cols-3 gap-3">
+        <StatTile icon={Clock4} label="Tracked" value={hm(data?.totalSeconds ?? 0)} sub={fmtDay(day, { weekday: "long", month: "short", day: "numeric" })} />
+        <StatTile icon={Gauge} label="Activity" value={`${avg}%`} sub="average this day" tone="#2563eb" />
+        <StatTile icon={ImagePlay} label="Screenshots" value={flat.length} sub={ov?.settings.blur ? "blurred for privacy" : `${kept.length} blocks of 10 min`} tone="#b45309" />
+      </motion.div>
 
       {isLoading ? <div className="h-80 animate-pulse rounded-[24px] bg-muted" /> : !data?.slots.length ? <InstallHint ws={ws} compact /> : (
         <div className="space-y-4">
+          <DayTimeline slots={data.slots} onJump={(s) => { const shot = s.shots[0]; if (shot) setOpen(flat.findIndex((f) => f.shot.id === shot.id)); }} />
           {byHour.map(([h, slots]) => (
             <section key={h} aria-label={hourLabel(h)} className={cn(glass, "p-4")}>
               <header className="mb-3 flex items-center gap-3">
@@ -162,7 +197,7 @@ function Screenshots() {
         <Lightbox items={flat} index={open} onIndex={setOpen} onClose={() => setOpen(null)} own={data.own} canHide={data.canHide}
           onDelete={(s) => del.mutate(s)} onHide={(s) => hide.mutate(s)} busy={del.isPending || hide.isPending} />
       )}
-    </div>
+    </motion.div>
   );
 }
 

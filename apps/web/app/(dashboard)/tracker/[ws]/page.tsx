@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
-import { EyeOff, ImageOff, ListChecks } from "lucide-react";
+import { Activity, Camera, Clock4, EyeOff, ImageOff, ListChecks, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SOURCE_LABEL, hm, trackerApi, userName, type TrackerCompanyLive, type TrackerLiveRow } from "@/services/tracker.api";
 import { todayKey, useTrackerWs } from "../_lib/tracker";
-import { ActivityBar, Avatar, InstallHint, Stat, StatusDot, glass } from "../_components/bits";
+import { ActivityBar, Avatar, InstallHint, glass } from "../_components/bits";
+import { StatTile, stagger } from "../_components/charts";
 
 function Since({ iso }: { iso: string }) {
   const [now, setNow] = useState(Date.now());
@@ -93,12 +94,12 @@ export default function TrackerLive() {
   return (
     <div className="space-y-4">
       {all.length > 1 && <AllCompanies rows={all} current={ov?.workspace?.key ?? ws} />}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label={team ? "Working now" : "Status"} value={team ? `${working.length}/${data.length}` : working.length ? "Working" : "Stopped"} sub={team ? "people tracking right now" : working[0]?.task?.name ?? "Start from the desktop app"} />
-        <Stat label={team ? "Team time today" : "Your time today"} value={hm(total)} sub={team ? `${tracked.length} ${tracked.length === 1 ? "person" : "people"} tracked today` : "kept time (idle discarded)"} />
-        <Stat label="Average activity" value={`${avg}%`} sub="keyboard & mouse, weighted by time" />
-        <Stat label="Screenshots" value={ov ? (ov.settings.screenshotsPer10 ? `${ov.settings.screenshotsPer10} / 10 min` : "Off") : "…"} sub={ov ? `kept ${ov.settings.retentionDays ? `${ov.settings.retentionDays} days` : "forever"}${ov.settings.blur ? " · blurred" : ""}` : ""} />
-      </div>
+      <motion.div initial={reduced ? false : "hidden"} animate="show" variants={stagger} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile icon={Users} label={team ? "Working now" : "Status"} value={team ? `${working.length}/${data.length}` : working.length ? "Working" : "Stopped"} sub={team ? "people tracking right now" : working[0]?.task?.name ?? "Start from the desktop app"} />
+        <StatTile icon={Clock4} label={team ? "Team time today" : "Your time today"} value={hm(total)} tone="#2563eb" sub={team ? `${tracked.length} ${tracked.length === 1 ? "person" : "people"} tracked today` : "kept time (idle discarded)"} />
+        <StatTile icon={Activity} label="Average activity" value={`${avg}%`} tone="#047857" sub="keyboard & mouse, weighted by time" />
+        <StatTile icon={Camera} label="Screenshots" value={ov ? (ov.settings.screenshotsPer10 ? `${ov.settings.screenshotsPer10} / 10 min` : "Off") : "…"} tone="#b45309" sub={ov ? `kept ${ov.settings.retentionDays ? `${ov.settings.retentionDays} days` : "forever"}${ov.settings.blur ? " · blurred" : ""}` : ""} />
+      </motion.div>
 
       {!total && !working.length ? <InstallHint ws={ws} /> : (
         <>
