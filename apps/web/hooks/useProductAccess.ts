@@ -39,6 +39,7 @@ export function useProductAccess() {
   const hrefs = [hasBoards && boardsHref, hasWork && workHref, ceo.allowed && "/ceo"].filter(Boolean) as string[];
   return {
     loading,
+    isSuperAdmin,
     hasBoards,
     hasWork,
     hasCeo: ceo.allowed,

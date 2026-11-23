@@ -22,6 +22,7 @@ import {
   LogOut,
   Sparkles,
   KeyRound,
+  ShieldCheck,
   Timer,
 } from "lucide-react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
@@ -196,7 +197,7 @@ function CeoGraphic() {
 
 /* ─── product card ──────────────────────────────────────────────────────── */
 
-type Tone = "boards" | "work" | "ceo" | "vault" | "tracker";
+type Tone = "boards" | "work" | "ceo" | "vault" | "tracker" | "access";
 
 function ProductCard({
   tone,
@@ -268,6 +269,7 @@ function ProductCard({
             tone === "ceo" && "bg-white/5 text-brass-soft ring-1 ring-brass/50",
             tone === "vault" && "bg-product-vault/12 text-product-vault ring-1 ring-product-vault/25",
             tone === "tracker" && "bg-[#0369a1]/10 text-[#0369a1] ring-1 ring-[#0369a1]/25 dark:text-[#7dd3fc]",
+            tone === "access" && "bg-[#475569]/12 text-[#475569] ring-1 ring-[#475569]/25 dark:text-[#cbd5e1]",
           )}
         >
           <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
@@ -280,6 +282,7 @@ function ProductCard({
             tone === "ceo" && "text-brass-soft",
             tone === "vault" && "text-product-vault",
             tone === "tracker" && "text-[#0369a1] dark:text-[#7dd3fc]",
+            tone === "access" && "text-[#475569] dark:text-[#cbd5e1]",
           )}
         >
           {kicker}
@@ -726,6 +729,25 @@ export default function HomePage() {
                 footer={
                   <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-product-vault">
                     Open EZ Vault
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  </span>
+                }
+              />
+            </motion.div>
+            )}
+            {access.isSuperAdmin && (
+            <motion.div variants={fadeUp}>
+              <ProductCard
+                tone="access"
+                href="/access"
+                icon={ShieldCheck}
+                kicker="Administration"
+                title="Access Center"
+                blurb="Decide who can use which product, invite people across products, and see every access change — Administrators only."
+                graphic={<ShieldCheck className="h-16 w-16 text-[#475569]/20" strokeWidth={1.2} aria-hidden />}
+                footer={
+                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#475569] dark:text-[#cbd5e1]">
+                    Open Access Center
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
                   </span>
                 }
