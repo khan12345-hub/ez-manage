@@ -28,6 +28,7 @@ import {
   WorkInviteDto,
   WorkRoleDto,
   ManualTimeDto,
+  EditTimeDto,
   UpdateChecklistDto,
   UpdateChecklistItemDto,
   CreateFolderDto,
@@ -285,6 +286,11 @@ export class WorkController {
   @Post('tasks/:id/time')
   addManualTime(@Param('id', ParseIntPipe) id: number, @Body() dto: ManualTimeDto, @CurrentUser() u: SessionUser) {
     return this.detail.addManualTime(id, u.id, dto);
+  }
+
+  @Patch('time/:id')
+  editTime(@Param('id', ParseIntPipe) id: number, @Body() dto: EditTimeDto, @CurrentUser() u: SessionUser) {
+    return this.detail.editTime(id, u.id, dto);
   }
 
   @Delete('time/:id')

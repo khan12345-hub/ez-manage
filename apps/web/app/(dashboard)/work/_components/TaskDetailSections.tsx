@@ -11,9 +11,11 @@ import {
   CheckCircle2,
   CircleDashed,
   Clock3,
+  Check,
   Link2,
   ListChecks,
   Pause,
+  Pencil,
   Play,
   Plus,
   RotateCcw,
@@ -24,6 +26,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
+  formatClock,
   formatDuration,
   formatMinutes,
   parseEstimate,
@@ -138,6 +141,12 @@ export function TimeTracker({ task }: { task: WorkTaskDetail }) {
     onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: ["work", "time", task.id] }); },
     onError: (e) => toast.error(errMsg(e)),
   });
+  const editEntry = useMutation({
+    mutationFn: (v: { id: number; startedAt: string; endedAt: string }) => workApi.editTime(v.id, { startedAt: v.startedAt, endedAt: v.endedAt }),
+    onSuccess: () => { setEditId(null); refresh(); qc.invalidateQueries({ queryKey: ["work", "time", task.id] }); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const [editId, setEditId] = useState<number | null>(null);
 
   return (
     <span className="flex items-center gap-2">
@@ -153,7 +162,7 @@ export function TimeTracker({ task }: { task: WorkTaskDetail }) {
           )}
         >
           {running ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-          {running ? <span className="font-mono tabular-nums">{formatDuration(live)}</span> : "Start"}
+          {running ? <span className="font-mono tabular-nums">{formatClock(live)}</span> : "Start"}
         </button>
       )}
       <Popover open={open} onOpenChange={setOpen}>
@@ -167,16 +176,22 @@ export function TimeTracker({ task }: { task: WorkTaskDetail }) {
           <p className="border-b border-border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Time tracked</p>
           <ul className="max-h-56 overflow-y-auto">
             {(log?.entries ?? []).map((e) => (
-              <li key={e.id} className="flex items-center gap-2 border-b border-border/60 px-3 py-2 text-[12.5px] last:border-b-0">
-                <Avatar user={e.user} size={20} />
-                <span className="min-w-0 flex-1 truncate">
-                  {new Date(e.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  {e.note ? <span className="text-muted-foreground"> · {e.note}</span> : null}
-                </span>
-                <span className={cn("font-mono tabular-nums", e.running && "text-destructive")}>{e.running ? "running" : formatDuration(e.seconds)}</span>
-                {!e.running && task.access.canEdit && (
-                  <button type="button" aria-label="Delete entry" onClick={() => delEntry.mutate(e.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
-                )}
+              <li key={e.id} className="border-b border-border/60 px-3 py-2 text-[12.5px] last:border-b-0">
+                <div className="flex items-center gap-2">
+                  <Avatar user={e.user} size={20} />
+                  <span className="min-w-0 flex-1 truncate">
+                    {new Date(e.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    {e.note ? <span className="text-muted-foreground"> · {e.note}</span> : null}
+                  </span>
+                  <span className={cn("font-mono tabular-nums", e.running && "text-destructive")}>{e.running ? formatClock(live) : formatDuration(e.seconds)}</span>
+                  {!e.running && task.access.canEdit && (
+                    <>
+                      <button type="button" aria-label="Edit entry" onClick={() => setEditId(editId === e.id ? null : e.id)} className={cn("text-muted-foreground hover:text-foreground", editId === e.id && "text-primary")}><Pencil className="h-3.5 w-3.5" /></button>
+                      <button type="button" aria-label="Delete entry" onClick={() => delEntry.mutate(e.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                    </>
+                  )}
+                </div>
+                {editId === e.id && e.endedAt && <TimeEntryEdit entry={e as { id: number; startedAt: string; endedAt: string }} saving={editEntry.isPending} onCancel={() => setEditId(null)} onSave={(s, en) => editEntry.mutate({ id: e.id, startedAt: s, endedAt: en })} />}
               </li>
             ))}
             {log && log.entries.length === 0 && <li className="px-3 py-3 text-xs text-muted-foreground">No time tracked yet.</li>}
@@ -202,6 +217,32 @@ export function TimeTracker({ task }: { task: WorkTaskDetail }) {
         </PopoverContent>
       </Popover>
     </span>
+  );
+}
+
+/** ISO <-> <input type="datetime-local"> value (local time, minute precision) */
+const toLocalInput = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); };
+const fromLocalInput = (v: string) => new Date(v).toISOString();
+
+function TimeEntryEdit({ entry, saving, onCancel, onSave }: { entry: { id: number; startedAt: string; endedAt: string }; saving: boolean; onCancel: () => void; onSave: (startedAt: string, endedAt: string) => void }) {
+  const [start, setStart] = useState(toLocalInput(entry.startedAt));
+  const [end, setEnd] = useState(toLocalInput(entry.endedAt));
+  const secs = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000);
+  const valid = !!start && !!end && secs > 0 && new Date(end).getTime() <= Date.now() + 60_000;
+  return (
+    <div className="mt-2 space-y-2 rounded-md border border-border bg-muted/30 p-2">
+      <label className="flex items-center gap-2"><span className="w-10 text-[11px] text-muted-foreground">Start</span>
+        <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} aria-label="Start time" className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-[12px]" /></label>
+      <label className="flex items-center gap-2"><span className="w-10 text-[11px] text-muted-foreground">End</span>
+        <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} aria-label="End time" className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-[12px]" /></label>
+      <div className="flex items-center justify-between">
+        <span className={cn("font-mono text-[12px]", valid ? "text-foreground" : "text-destructive")}>{valid ? formatDuration(secs) : "End must be after start"}</span>
+        <span className="flex gap-1.5">
+          <button type="button" onClick={onCancel} className="rounded-md px-2 py-1 text-[12px] text-muted-foreground hover:bg-accent">Cancel</button>
+          <button type="button" disabled={!valid || saving} onClick={() => onSave(fromLocalInput(start), fromLocalInput(end))} className="flex items-center gap-1 rounded-md bg-forest px-2.5 py-1 text-[12px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground"><Check className="h-3 w-3" /> Save</button>
+        </span>
+      </div>
+    </div>
   );
 }
 

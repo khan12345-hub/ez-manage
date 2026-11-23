@@ -400,3 +400,8 @@ export class ManualTimeDto {
   @IsOptional() @IsString() @MaxLength(500) note?: string;
   @IsOptional() @IsBoolean() billable?: boolean;
 }
+export class EditTimeDto {
+  @IsOptional() @IsDateString() startedAt?: string;
+  @IsOptional() @IsDateString() endedAt?: string;
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
+}

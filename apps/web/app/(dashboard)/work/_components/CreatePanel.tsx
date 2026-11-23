@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { getRecentLists, pushRecentList, useWorkCreate } from "@/store/work-create";
-import { userName, workApi, workKeys, type WorkPriority, type WorkTree, type WorkUser } from "@/services/work.api";
+import { userName, workApi, workKeys, type ViewLocation, type WorkPriority, type WorkTree, type WorkUser } from "@/services/work.api";
 import { AssigneePicker, DatePicker, PriorityPicker, StatusPicker } from "./pickers";
 import { ReminderForm } from "./ReminderForm";
 import { AvatarStack, DueLabel, PriorityFlag, StatusGlyph } from "./primitives";
@@ -43,12 +43,13 @@ const MODES: { id: Mode; label: string; hint: string }[] = [
 const MODE_KEY = "ez:work:createMode";
 
 const TABS = [
-  { id: "task", label: "Task", icon: ListChecks, ready: true },
-  { id: "doc", label: "Doc", icon: FileText, ready: false },
-  { id: "reminder", label: "Reminder", icon: Bell, ready: true },
-  { id: "whiteboard", label: "Whiteboard", icon: PenTool, ready: false },
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, ready: false },
+  { id: "task", label: "Task", icon: ListChecks },
+  { id: "doc", label: "Doc", icon: FileText },
+  { id: "reminder", label: "Reminder", icon: Bell },
+  { id: "whiteboard", label: "Whiteboard", icon: PenTool },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
 ] as const;
+type Tab = (typeof TABS)[number]["id"];
 
 type FlatList = { uid: string; id: number; name: string; path: string; color: string | null; spaceColor: string };
 
@@ -82,7 +83,7 @@ export function CreatePanel({ ws }: { ws: string }) {
   const [priority, setPriority] = useState<WorkPriority | null>(null);
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [mode, setMode] = useState<Mode>("open");
-  const [tab, setTab] = useState<"task" | "reminder">("task");
+  const [tab, setTab] = useState<Tab>("task");
 
   useEffect(() => {
     if (!open) return;
@@ -176,21 +177,20 @@ export function CreatePanel({ ws }: { ws: string }) {
               role="tab"
               type="button"
               aria-selected={t.id === tab}
-              disabled={!t.ready}
-              onClick={() => (t.id === "task" || t.id === "reminder") && setTab(t.id)}
-              title={t.ready ? undefined : "Coming soon"}
+              onClick={() => setTab(t.id)}
               className={cn(
                 "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] font-medium",
-                t.id === tab ? "border-primary text-primary" : t.ready ? "border-transparent text-muted-foreground hover:text-foreground" : "border-transparent text-muted-foreground/60",
+                t.id === tab ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
               <t.icon className="h-3.5 w-3.5" /> {t.label}
-              {!t.ready && <span className="rounded bg-muted px-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">soon</span>}
             </button>
           ))}
         </div>
 
         {tab === "reminder" && <ReminderForm ws={ws} onDone={() => setOpen(false)} />}
+        {(tab === "doc" || tab === "whiteboard") && <SimpleCreate kind={tab} ws={ws} onDone={() => setOpen(false)} />}
+        {tab === "dashboard" && <DashboardCreate ws={ws} tree={tree} onDone={() => setOpen(false)} />}
         <form
           hidden={tab !== "task"}
           className="px-5 pb-4 pt-4"
@@ -228,7 +228,7 @@ export function CreatePanel({ ws }: { ws: string }) {
 
           {/* field chips */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <StatusPicker statuses={list?.statuses ?? []} value={statusId ?? list?.statuses[0]?.id ?? null} disabled={!list} onChange={(id) => setStatusId(id)}>
+            <StatusPicker statuses={list?.statuses ?? []} value={statusId ?? list?.statuses[0]?.id ?? null} disabled={!list} onChange={(id) => setStatusId(id)} spaceId={list?.spaceId} canManage={list?.access.canManage}>
               <button type="button" className={chip(!!status)}>
                 {status ? <StatusGlyph status={status} size={13} /> : <CircleDot className="h-3.5 w-3.5" />}
                 {status?.name ?? list?.statuses[0]?.name ?? "Status"}
@@ -370,5 +370,85 @@ function ListPicker({ lists, ws, value, onChange }: { lists: FlatList[]; ws: str
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** Doc / Whiteboard: a title and Create (workspace-level), then open it. */
+function SimpleCreate({ kind, ws, onDone }: { kind: "doc" | "whiteboard"; ws: string; onDone: () => void }) {
+  const router = useRouter();
+  const [title, setTitle] = useState("");
+  const label = kind === "doc" ? "Doc" : "Whiteboard";
+  const create = useMutation({
+    mutationFn: () => (kind === "doc" ? workApi.createDoc(ws, title.trim() || "Untitled") : workApi.createWhiteboard(ws, title.trim() || "Untitled whiteboard")),
+    onSuccess: (r) => { onDone(); router.push(kind === "doc" ? `/work/${ws}/docs?doc=${r.uid}` : `/work/${ws}/whiteboards?board=${r.uid}`); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  return (
+    <form className="space-y-3 px-5 pb-4 pt-4" onSubmit={(e) => { e.preventDefault(); if (!create.isPending) create.mutate(); }}>
+      <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={`${label} title`} aria-label={`${label} title`} maxLength={200}
+        className="w-full bg-transparent font-serif text-[28px] leading-tight tracking-tight outline-none placeholder:text-muted-foreground/50" />
+      <p className="text-[12.5px] text-muted-foreground">{kind === "doc" ? "A new page in this workspace's Docs." : "A new whiteboard in this workspace."}</p>
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+        <span className="hidden text-[12px] text-muted-foreground sm:block">Enter to create · Esc to close</span>
+        <button type="submit" disabled={create.isPending} className="ml-auto h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">
+          {create.isPending ? "Creating…" : `Create ${label}`}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Dashboard: a name + a location (space / folder / list), then open it. */
+function DashboardCreate({ ws, tree, onDone }: { ws: string; tree: WorkTree | undefined; onDone: () => void }) {
+  const router = useRouter();
+  const qc = useQueryClient();
+  const options = useMemo(() => {
+    const out: { key: string; type: ViewLocation; uid: string; label: string; depth: number }[] = [];
+    for (const sp of tree?.spaces ?? []) {
+      out.push({ key: `space:${sp.uid}`, type: "space", uid: sp.uid, label: sp.name, depth: 0 });
+      for (const f of sp.folders) {
+        out.push({ key: `folder:${f.uid}`, type: "folder", uid: f.uid, label: f.name, depth: 1 });
+        for (const l of f.lists) out.push({ key: `list:${l.uid}`, type: "list", uid: l.uid, label: l.name, depth: 2 });
+      }
+      for (const l of sp.lists) out.push({ key: `list:${l.uid}`, type: "list", uid: l.uid, label: l.name, depth: 1 });
+    }
+    return out;
+  }, [tree]);
+  const [loc, setLoc] = useState("");
+  const [name, setName] = useState("Dashboard");
+  useEffect(() => { if (!loc && options[0]) setLoc(options[0].key); }, [options, loc]);
+  const create = useMutation({
+    mutationFn: async () => {
+      const o = options.find((x) => x.key === loc);
+      if (!o) throw new Error("Pick where the dashboard lives.");
+      const v = await workApi.createView({ type: o.type, ref: o.uid, kind: "dashboard", name: name.trim() || "Dashboard" });
+      return { o, v };
+    },
+    onSuccess: ({ o, v }) => {
+      qc.invalidateQueries({ queryKey: ["work", "dashboards", ws] });
+      qc.invalidateQueries({ queryKey: ["work", "views"] });
+      onDone();
+      router.push(`/work/${ws}/${o.type}/${o.uid}?v=${v.uid}`);
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  return (
+    <form className="space-y-3 px-5 pb-4 pt-4" onSubmit={(e) => { e.preventDefault(); if (!create.isPending && loc) create.mutate(); }}>
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Dashboard name" aria-label="Dashboard name" maxLength={120}
+        className="w-full bg-transparent font-serif text-[28px] leading-tight tracking-tight outline-none placeholder:text-muted-foreground/50" />
+      <label className="block">
+        <span className="text-[12px] font-medium text-muted-foreground">Where it lives · shows live numbers for everything in there</span>
+        <select value={loc} onChange={(e) => setLoc(e.target.value)} aria-label="Location" className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13.5px]">
+          {!options.length && <option value="">No spaces yet</option>}
+          {options.map((o) => <option key={o.key} value={o.key}>{" ".repeat(o.depth * 2)}{o.label}</option>)}
+        </select>
+      </label>
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+        <span className="hidden text-[12px] text-muted-foreground sm:block">Enter to create · Esc to close</span>
+        <button type="submit" disabled={create.isPending || !loc} className="ml-auto h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground hover:bg-forest/90 disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">
+          {create.isPending ? "Creating…" : "Create Dashboard"}
+        </button>
+      </div>
+    </form>
   );
 }

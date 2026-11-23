@@ -685,12 +685,15 @@ export const workApi = {
   stopTimer: () => post(`/work/time/stop`),
   runningTimer: () => get<{ id: number; startedAt: string; task: { id: number; uid: string; name: string; list: { uid: string; space: { workspaceId: number; workspace: { uid: string } } } } } | null>(`/work/time/running`),
   addTime: (taskId: number, body: { startedAt: string; duration: number; note?: string }) => post(`/work/tasks/${taskId}/time`, body),
+  editTime: (id: number, body: { startedAt?: string; endedAt?: string; note?: string | null }) => patch<WorkTimeEntry>(`/work/time/${id}`, body),
   deleteTime: (id: number) => del(`/work/time/${id}`),
   editComment: (id: number, content: string) => patch<WorkComment>(`/work/comments/${id}`, { content }),
   deleteComment: (id: number) => del(`/work/comments/${id}`),
   // saved views (shared per list / folder / space)
   views: (type: ViewLocation, ref: string) => get<{ canEdit: boolean; views: SavedView[] }>(`/work/views?type=${type}&ref=${encodeURIComponent(ref)}`),
   createView: (body: { type: ViewLocation; ref: string; kind: string; name?: string; settings?: Record<string, unknown> }) => post<SavedView>(`/work/views`, body),
+  createDoc: (ws: string, title: string) => post<{ uid: string }>(`/work/workspaces/${ws}/docs`, { title }),
+  createWhiteboard: (ws: string, title: string) => post<{ uid: string }>(`/work/workspaces/${ws}/whiteboards`, { title }),
   updateView: (uid: string, body: { name?: string; settings?: Record<string, unknown> | null; position?: number }) => patch<SavedView>(`/work/views/${uid}`, body),
   moveView: (uid: string, dir: "left" | "right") => post(`/work/views/${uid}/move`, { dir }),
   duplicateView: (uid: string) => post<SavedView>(`/work/views/${uid}/duplicate`),
@@ -749,6 +752,15 @@ export function formatDuration(totalSeconds: number) {
 
 /** minutes -> "1h 30m" */
 export const formatMinutes = (min: number) => formatDuration(min * 60);
+
+/** live stopwatch H:MM:SS (ticks every second for a running timer) */
+export function formatClock(totalSeconds: number) {
+  const s = Math.max(0, Math.round(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
 
 /** "1h 30m" | "90m" | "1.5h" | "90" (minutes) -> minutes, or null if unparseable */
 export function parseEstimate(input: string): number | null {

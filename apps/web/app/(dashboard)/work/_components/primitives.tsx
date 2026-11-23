@@ -130,10 +130,13 @@ export function dueText(iso: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Tomorrow";
-  if (diff === -1) return "Yesterday";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(d.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {}) });
+  // show a time only when one was set (not the default noon)
+  const raw = new Date(iso);
+  const t = raw.getHours() === 12 && raw.getMinutes() === 0 ? "" : ` · ${raw.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+  if (diff === 0) return `Today${t}`;
+  if (diff === 1) return `Tomorrow${t}`;
+  if (diff === -1) return `Yesterday${t}`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(d.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {}) }) + t;
 }
 
 export function DueLabel({ task, className }: { task: Pick<WorkTask, "dueDate" | "completedAt">; className?: string }) {

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Square, Timer } from "lucide-react";
 import { toast } from "sonner";
-import { formatDuration, workApi } from "@/services/work.api";
+import { formatClock, workApi } from "@/services/work.api";
 
 /** Work's running time tracker, shown in the top bar while a timer runs (any page). */
 export function RunningTimer() {
@@ -60,7 +60,7 @@ export function RunningTimer() {
         </span>
         <Timer className="hidden h-3.5 w-3.5 text-destructive sm:block" />
         <span className="hidden max-w-[140px] truncate font-medium text-foreground lg:inline">{data.task.name}</span>
-        <span className="font-mono font-semibold tabular-nums text-destructive">{formatDuration(secs)}</span>
+        <span className="font-mono font-semibold tabular-nums text-destructive">{formatClock(secs)}</span>
       </Link>
       <button
         type="button"
