@@ -519,9 +519,22 @@ function FormBuilderDrawer({ workspaceId, onClose }: { workspaceId: string; onCl
   const previewFields: ExpenseFormField[] = fields.filter((f) => f.label.trim()).map((f) => ({ key: f.key || f.label, label: f.label, type: f.type, required: f.required, maps: (f.maps as any) ?? null, options: f.options.length ? f.options : null }));
 
   return (
-    <DrawerShell title="Reimbursement form" onClose={onClose} wide>
+    <div className="fixed inset-0 z-50 flex flex-col bg-background" role="dialog" aria-modal="true" aria-label="Reimbursement form">
+      {/* top bar */}
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
+        <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="h-5 w-5" /></button>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-[15px] font-semibold">Reimbursement form</h2>
+          <p className="truncate text-[12px] text-muted-foreground">Build the claim form your team fills in · {form?.company ?? "this company"}</p>
+        </div>
+        <button type="button" onClick={onClose} className="h-9 rounded-lg px-3.5 text-[13px] font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+        <button type="button" onClick={() => save.mutate()} disabled={save.isPending || !form} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50">{save.isPending ? "Saving…" : "Save form"}</button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-6xl p-4 sm:p-6">
       {isLoading || !form ? <div className="h-60 animate-pulse rounded-xl bg-muted" /> : (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
           {/* editor */}
           <div className="space-y-4">
             {/* share link */}
@@ -589,27 +602,26 @@ function FormBuilderDrawer({ workspaceId, onClose }: { workspaceId: string; onCl
                 );
               })}
             </div>
-
-            <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
-              <button type="button" onClick={onClose} className="h-9 rounded-lg px-3.5 text-[13px] font-medium text-muted-foreground hover:text-foreground">Cancel</button>
-              <button type="button" onClick={() => save.mutate()} disabled={save.isPending} className="h-9 rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50">Save form</button>
-            </div>
           </div>
 
           {/* live preview */}
-          <div className="lg:border-l lg:border-border lg:pl-5">
-            <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
-            <div className="rounded-xl border border-border bg-background p-4">
-              <FormBranding form={{ title, description: description || null, logoUrl, bannerUrl, company: form.company }} />
-              <div className="space-y-3">
-                {previewFields.map((f) => <FormFieldRow key={f.key} field={f}><FieldInput field={f} value={f.type === "multiselect" || f.type === "file" ? [] : ""} onChange={() => {}} disabled /></FormFieldRow>)}
-                {!previewFields.length && <p className="py-6 text-center text-[13px] text-muted-foreground">Add a field to see it here.</p>}
+          <div className="lg:border-l lg:border-border lg:pl-6">
+            <div className="lg:sticky lg:top-5">
+              <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
+              <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
+                <FormBranding form={{ title, description: description || null, logoUrl, bannerUrl, company: form.company }} />
+                <div className="space-y-3">
+                  {previewFields.map((f) => <FormFieldRow key={f.key} field={f}><FieldInput field={f} value={f.type === "multiselect" || f.type === "file" ? [] : ""} onChange={() => {}} disabled /></FormFieldRow>)}
+                  {!previewFields.length && <p className="py-6 text-center text-[13px] text-muted-foreground">Add a field to see it here.</p>}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
-    </DrawerShell>
+        </div>
+      </div>
+    </div>
   );
 }
 
