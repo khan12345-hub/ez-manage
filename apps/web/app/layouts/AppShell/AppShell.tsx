@@ -253,7 +253,7 @@ export function AppShell({ children }: AppShellProps) {
   // NOTE: "/workspace/..." is Boards — match "/work" or "/work/..." only
   const isWorkPage = /^\/work(\/|$)/.test(pathname ?? "");
   // CEO Tower is its own full-screen product with its own header
-  const isCeoPage = /^\/(ceo|vault|tracker)(\/|$)/.test(pathname ?? "");
+  const isCeoPage = /^\/(ceo|vault|tracker|access)(\/|$)/.test(pathname ?? "");
 
   return (
     <div className={cn("relative flex h-screen w-screen overflow-hidden bg-background text-foreground antialiased font-sans", isWorkPage && "work-ui")}>

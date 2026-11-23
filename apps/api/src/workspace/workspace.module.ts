@@ -14,6 +14,7 @@ import { MailModule } from 'src/mail/mail.module';
   imports: [FileImportModule, MailModule],
   controllers: [WorkspaceController],
   providers: [WorkspaceService, BoardsService, WorkspaceAccessService, BoardAccessService, BoardSearchService, BoardImportService, ActivityLogsService],
+  exports: [WorkspaceService],
 
 })
 export class WorkspaceModule {}

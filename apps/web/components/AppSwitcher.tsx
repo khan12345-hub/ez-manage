@@ -8,7 +8,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BarChart3, Check, ChevronsUpDown, Home, Timer, KeyRound, LayoutGrid, ListChecks } from "lucide-react";
+import { BarChart3, Check, ChevronsUpDown, Home, Timer, KeyRound, LayoutGrid, ListChecks, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRODUCT_NAME } from "@/lib/products";
 import { useProductAccess } from "@/hooks/useProductAccess";
@@ -32,7 +32,7 @@ function useApps(hrefs?: Partial<Record<AppKey, string>>) {
   else if (access.canCreateWork) list.push({ key: "work", href: "/work/create" }); // no workspace yet: start one
   if (access.hasCeo) list.push({ key: "ceo", href: "/ceo" });
   if (access.hasTracker) list.push({ key: "tracker", href: hrefs?.tracker ?? access.trackerHref ?? "/tracker" });
-  list.push({ key: "vault", href: "/vault" });
+  if (access.hasVault) list.push({ key: "vault", href: "/vault" });
   return list;
 }
 
@@ -48,6 +48,7 @@ function Tile({ k, size = 32 }: { k: AppKey; size?: number }) {
 /** the list of apps (also used inside the Work rail's logo popover) */
 export function AppSwitcherMenu({ active, hrefs, onNavigate }: { active: AppKey; hrefs?: Partial<Record<AppKey, string>>; onNavigate?: () => void }) {
   const apps = useApps(hrefs);
+  const canManage = useProductAccess().canManageAccess;
   return (
     <div className="w-[268px] p-1.5">
       <p className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Switch app</p>
@@ -73,6 +74,11 @@ export function AppSwitcherMenu({ active, hrefs, onNavigate }: { active: AppKey;
       <Link href="/home" onClick={onNavigate} className="mt-1 flex items-center gap-2.5 rounded-xl border-t border-border px-2.5 py-2 text-[12.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
         <Home className="h-4 w-4" /> EZ Manage home
       </Link>
+      {canManage && (
+        <Link href="/access" onClick={onNavigate} className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[12.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
+          <ShieldCheck className="h-4 w-4" /> Access Center
+        </Link>
+      )}
     </div>
   );
 }

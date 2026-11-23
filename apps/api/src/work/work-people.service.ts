@@ -1,4 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { AccessAuditService } from 'src/access/access-audit.service';
+import { ProductAccessService } from 'src/access/product-access.service';
 import { randomUUID } from 'node:crypto';
 import { NotificationEntityType, NotificationType } from 'generated/prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
@@ -26,6 +28,8 @@ export class WorkPeopleService {
     private readonly mail: MailService,
     private readonly notifications: NotificationsService,
     private readonly workNotify: WorkNotifyService,
+    @Optional() private readonly audit?: AccessAuditService,
+    @Optional() private readonly productAccess?: ProductAccessService,
   ) {}
 
   /* ── Work workspaces (ClickUp-style; nothing to do with Boards workspaces) ── */
@@ -120,8 +124,9 @@ export class WorkPeopleService {
     return { me: { role: ws.role, canManage: ws.canManage }, members, invites: invites.map(({ role, ...i }) => ({ ...i, workRole: role })) };
   }
 
-  async invite(workspaceId: number, userId: number, emails: string[], role: WorkRoleName) {
-    await this.access.requireWorkspace(workspaceId, userId, 'manage');
+  /** opts (Access Center only): `authorized` — scope already checked there; `silent` — no email (one combined email is sent) */
+  async invite(workspaceId: number, userId: number, emails: string[], role: WorkRoleName, via: 'product' | 'access_center' = 'product', opts: { authorized?: boolean; silent?: boolean } = {}) {
+    if (!opts.authorized) await this.access.requireWorkspace(workspaceId, userId, 'manage');
     if (!INVITABLE.includes(role)) throw new BadRequestException('That role cannot be invited.');
     const list = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
     if (!list.length) throw new BadRequestException('Add at least one email.');
@@ -131,13 +136,19 @@ export class WorkPeopleService {
     const inviter = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
     const inviterName = `${inviter?.firstName ?? ''} ${inviter?.lastName ?? ''}`.trim() || 'Someone';
 
-    const results: { email: string; status: 'added' | 'invited' | 'already_member' | 'already_invited' }[] = [];
+    const results: { email: string; status: 'added' | 'invited' | 'already_member' | 'already_invited' | 'no_access' }[] = [];
     for (const email of list) {
       const user = await this.prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' }, deletedAt: null }, select: { id: true } });
       if (user) {
         const existing = await this.prisma.workMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId: user.id } } });
         if (existing) { results.push({ email, status: 'already_member' }); continue; }
+        // Access Center: refused when the Administrator switched Company Work off for this person; otherwise it is switched on
+        try { await this.productAccess?.allowInvite(user.id, 'work', userId); } catch {
+          this.audit?.record({ actorId: userId, targetUserId: user.id, product: 'work', workspaceId, action: 'refused', toRole: role, via });
+          results.push({ email, status: 'no_access' }); continue;
+        }
         await this.prisma.workMember.create({ data: { workspaceId, userId: user.id, role, invitedById: userId } });
+        this.audit?.record({ actorId: userId, targetUserId: user.id, product: 'work', workspaceId, action: 'added', toRole: role, via });
         await this.workNotify.send({
           recipientId: user.id,
           type: NotificationType.WORKSPACE_MEMBER_ADDED,
@@ -155,7 +166,7 @@ export class WorkPeopleService {
         data: { email, token, workspaceId, role, invitedById: userId, expiresAt: new Date(Date.now() + 7 * 86_400_000) },
       });
       const url = `${process.env.FRONTEND_URL}/setup-account?token=${token}`;
-      try {
+      if (!opts.silent) try {
         await this.mail.sendMail({
           to: email,
           subject: `${inviterName} invited you to Work in ${ws?.name ?? 'EZ Manage'}`,
@@ -166,22 +177,25 @@ export class WorkPeopleService {
         this.logger.warn(`work invite email failed: ${e?.message ?? e}`);
       }
       results.push({ email, status: 'invited' });
+      this.audit?.record({ actorId: userId, targetEmail: email, product: 'work', workspaceId, action: 'invited', toRole: role, via });
     }
     return { results };
   }
 
-  async changeRole(workspaceId: number, actorId: number, targetId: number, role: WorkRoleName) {
-    const me = await this.access.requireWorkspace(workspaceId, actorId, 'manage');
+  async changeRole(workspaceId: number, actorId: number, targetId: number, role: WorkRoleName, opts: { authorized?: boolean } = {}) {
+    const me = opts.authorized ? { role: 'OWNER' as WorkRoleName } : await this.access.requireWorkspace(workspaceId, actorId, 'manage');
     if (!INVITABLE.includes(role)) throw new BadRequestException('That role cannot be assigned.');
     const m = await this.prisma.workMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId: targetId } } });
     if (!m) throw new NotFoundException('Not a Work member.');
     if (m.role === 'OWNER') throw new ForbiddenException("The owner's role can't be changed.");
     if (targetId === actorId && me.role !== 'OWNER') throw new ForbiddenException("You can't change your own role.");
-    return this.prisma.workMember.update({ where: { workspaceId_userId: { workspaceId, userId: targetId } }, data: { role }, select: { role: true, user: { select: USER_MINI } } });
+    const updated = await this.prisma.workMember.update({ where: { workspaceId_userId: { workspaceId, userId: targetId } }, data: { role }, select: { role: true, user: { select: USER_MINI } } });
+    if (m.role !== role) this.audit?.record({ actorId, targetUserId: targetId, product: 'work', workspaceId, action: 'role_changed', fromRole: m.role, toRole: role });
+    return updated;
   }
 
-  async remove(workspaceId: number, actorId: number, targetId: number) {
-    await this.access.requireWorkspace(workspaceId, actorId, 'manage');
+  async remove(workspaceId: number, actorId: number, targetId: number, opts: { authorized?: boolean } = {}) {
+    if (!opts.authorized) await this.access.requireWorkspace(workspaceId, actorId, 'manage');
     const m = await this.prisma.workMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId: targetId } } });
     if (!m) throw new NotFoundException('Not a Work member.');
     if (m.role === 'OWNER') throw new ForbiddenException("The owner can't be removed.");
@@ -189,6 +203,7 @@ export class WorkPeopleService {
       this.prisma.spaceMember.deleteMany({ where: { userId: targetId, space: { workspaceId } } }),
       this.prisma.workMember.delete({ where: { workspaceId_userId: { workspaceId, userId: targetId } } }),
     ]);
+    this.audit?.record({ actorId, targetUserId: targetId, product: 'work', workspaceId, action: 'removed', fromRole: m.role });
     return { removed: true };
   }
 

@@ -4,8 +4,8 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+  NotFoundException, Optional } from '@nestjs/common';
+import { AccessAuditService } from 'src/access/access-audit.service';
 import { randomBytes } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
@@ -18,7 +18,10 @@ function generateUid(): string {
 
 @Injectable()
 export class WorkspaceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly audit?: AccessAuditService,
+  ) {}
 
   async create(createWorkspaceDto: CreateWorkspaceDto, userId: number) {
     const name = createWorkspaceDto.name.trim();
@@ -72,6 +75,8 @@ export class WorkspaceService {
     const memberships = await this.prisma.workspaceMember.findMany({
       where: {
         userId,
+        // a removed member (soft delete) no longer sees the workspace
+        deletedAt: null,
       },
       include: {
         workspace: true,
@@ -314,7 +319,7 @@ export class WorkspaceService {
       throw new ForbiddenException('Cannot assign the OWNER role.');
     }
 
-    return this.prisma.workspaceMember.update({
+    const updated = await this.prisma.workspaceMember.update({
       where: { id: memberId },
       data: { role },
       include: {
@@ -323,6 +328,8 @@ export class WorkspaceService {
         },
       },
     });
+    if (target.role !== role) this.audit?.record({ actorId: requesterId, targetUserId: target.userId, product: 'accounts', workspaceId, action: 'role_changed', fromRole: target.role, toRole: role });
+    return updated;
   }
 
   async removeMember(
@@ -414,6 +421,7 @@ export class WorkspaceService {
         }),
       ]);
     }
+    this.audit?.record({ actorId: requesterId, targetUserId: userId, product: 'accounts', workspaceId, action: 'removed', fromRole: target.role });
   }
 
   async getMemberTasks(workspaceId: number, userId: number) {
