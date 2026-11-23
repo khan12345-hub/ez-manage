@@ -3,6 +3,8 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 import { WorkAccessService } from './work-access.service';
 import { WorkService } from './work.service';
+import { WorkNotifyService } from './work-notify.service';
+import { NotificationType } from 'generated/prisma/client';
 
 const TYPES = ['text', 'textarea', 'email', 'number', 'date', 'select'] as const;
 const MAPS = ['name', 'description', 'dueDate', 'priority'] as const;
@@ -18,7 +20,7 @@ const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
  */
 @Injectable()
 export class WorkFormsService {
-  constructor(private readonly prisma: PrismaService, private readonly access: WorkAccessService, private readonly work: WorkService) {}
+  constructor(private readonly prisma: PrismaService, private readonly access: WorkAccessService, private readonly work: WorkService, private readonly notify: WorkNotifyService) {}
 
   private cleanFields(raw: unknown): Field[] {
     if (!Array.isArray(raw) || !raw.length) throw new BadRequestException('Add at least one question.');
@@ -115,11 +117,22 @@ export class WorkFormsService {
     const pick = (m: Field['maps']) => values.find((x) => x.field.maps === m)?.value || '';
     const name = (pick('name') || `${f.name} — ${new Date().toISOString().slice(0, 10)}`).slice(0, 500);
     const rest = values.filter((x) => x.value && x.field.maps !== 'name' && x.field.maps !== 'dueDate' && x.field.maps !== 'priority');
-    const description = `<p><em>Submitted through the form “${esc(f.name)}”.</em></p>` + rest.map((x) => `<p><strong>${esc(x.field.label)}</strong><br>${esc(x.value).replace(/\n/g, '<br>')}</p>`).join('');
+    // task descriptions in Work are plain text, so build a plain-text block (not HTML)
+    const description = `Submitted through the form “${f.name}”.\n\n` + rest.map((x) => `${x.field.label}\n${x.value}`).join('\n\n');
     const due = pick('dueDate');
     const priority = PRIORITY[pick('priority').toLowerCase()];
     const task: any = await this.work.createTask(f.listId, f.createdById, { name, description, ...(due ? { dueDate: new Date(`${due}T17:00:00Z`).toISOString() } : {}), ...(priority ? { priority } : {}) } as any);
     await this.prisma.workForm.update({ where: { id: f.id }, data: { submissions: { increment: 1 } } });
+    // tell the form owner a new submission came in (in-app + email)
+    if (task?.id) await this.notify.send({
+      recipientId: f.createdById,
+      type: NotificationType.FORM_SUBMITTED,
+      title: `New form response: ${f.name}`,
+      message: `${name}`,
+      taskId: task.id,
+      metadata: { event: 'form_submitted', formUid, taskUid: task.uid },
+      sendEmail: true,
+    }).catch(() => null);
     return { ok: true, task: task?.uid ?? null };
   }
 }
