@@ -21,6 +21,7 @@ import {
   CalendarDays,
   Users,
   Clock,
+  Receipt,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { cn } from "@/lib/utils";
@@ -561,6 +562,24 @@ export function SecondarySidebar({ isOpen, onToggle, isMobileOpen = false, onMob
                 >
                   <Clock className="h-4 w-4 shrink-0" />
                   My Timesheet
+                </Link>
+              )}
+
+              {/* Reimbursements — members and up (viewers see their own) */}
+              {!isGuest && (
+                <Link
+                  href={`/workspace/${workspaceId}/expenses`}
+                  onClick={() => onMobileClose?.()}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    pathname?.includes("/expenses")
+                      ? "font-semibold"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                  style={pathname?.includes("/expenses") ? NAV_ACTIVE_STYLE : undefined}
+                >
+                  <Receipt className="h-4 w-4 shrink-0" />
+                  Reimbursements
                 </Link>
               )}
 

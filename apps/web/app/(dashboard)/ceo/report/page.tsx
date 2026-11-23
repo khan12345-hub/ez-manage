@@ -5,7 +5,12 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Download } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { ceoApi, useCeoAccess } from "@/services/ceo-tower.api";
+import { expensesApi } from "@/services/expenses.api";
 import { PRODUCT_NAME } from "@/lib/products";
+import { toast } from "sonner";
+
+const monthStart = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); };
+const money = (n: number) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(n);
 
 const fmt = (d: string | null) => (d ? new Date(`${d.slice(0, 10)}T00:00:00`).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : "—");
 const HEALTH: Record<string, string> = { healthy: "Healthy", attention: "Needs attention", critical: "Critical" };
@@ -24,7 +29,34 @@ export default function CeoReportPage() {
   const { data: brief } = useQuery({ queryKey: ["ceo-tower", "brief"], queryFn: () => ceoApi.brief(), enabled: on, staleTime: 10 * 60_000 });
   const { data: tr } = useQuery({ queryKey: ["ceo-tower", "trends", "all", null], queryFn: () => ceoApi.trends("all"), enabled: on });
   const { data: mine } = useQuery({ queryKey: ["ceo-tower", "tasks", "report-mine"], queryFn: () => ceoApi.tasks({ source: "all", state: "open", mine: true }), enabled: on });
+  const accountsIds = (o?.companies ?? []).filter((c) => c.source === "boards").map((c) => c.id);
+  const { data: expenses } = useQuery({
+    queryKey: ["ceo-tower", "report-expenses", accountsIds.join(",")],
+    queryFn: () => expensesApi.consumption(accountsIds, monthStart()),
+    enabled: on && accountsIds.length > 0,
+  });
+  const expenseTotal = Object.values(expenses ?? {}).reduce((s, e) => s + e.total, 0);
   const ready = o && m && tr && mine;
+
+  const exportExcel = async () => {
+    if (!ready) return;
+    const XLSX = await import("xlsx");
+    const wb = XLSX.utils.book_new();
+    const add = (name: string, rows: any[]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), name);
+    add("At a glance", [{ Companies: o.kpis.companies, People: o.kpis.people, "Open tasks": o.kpis.open, "In progress": o.kpis.inProgress, Overdue: o.kpis.overdue, "Done 7 days": o.kpis.doneWeek, "Progress %": o.kpis.progress, Unassigned: o.kpis.unassigned, "Expenses paid this month": expenseTotal }]);
+    add("Companies", o.companies.map((c) => ({ Company: c.name, Product: c.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards, Health: HEALTH[c.health] ?? c.health, Open: c.stats.open, Overdue: c.stats.overdue, "In progress": c.stats.inProgress, People: c.people, "Progress %": c.stats.progress, "Expenses paid (month)": c.source === "boards" ? (expenses?.[c.id]?.total ?? 0) : "" })));
+    const mgmtRows: Record<string, string | number>[] = [];
+    for (const g of m.managers) {
+      const mgr = `${g.user.firstName} ${g.user.lastName}`;
+      if (g.reports.length) for (const r of g.reports) mgmtRows.push({ Manager: mgr, "Team member": `${r.user.firstName} ${r.user.lastName}`, Company: r.company.name, Open: r.stats.open, Overdue: r.stats.overdue, "In progress": r.stats.inProgress, "Done 7d": r.stats.doneWeek });
+      else mgmtRows.push({ Manager: mgr, "Team member": "—", Company: "", Open: g.stats.open, Overdue: g.stats.overdue, "In progress": 0, "Done 7d": 0 });
+    }
+    add("Management", mgmtRows);
+    add("Trend", tr.weeks.map((w) => ({ "Week of": fmt(w.start), Created: w.created, Completed: w.completed })));
+    add("Most overdue", o.attention.overdue.slice(0, 50).map((t) => ({ Task: t.task.name, Company: t.company ?? "", People: t.people.join(", ") || "unassigned", Due: fmt(t.due) })));
+    XLSX.writeFile(wb, `executive-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success("Excel downloaded");
+  };
 
   if (!access.loading && !on) return <p className="p-10 text-center text-[13px] text-muted-foreground">Executive Hub is only for Administrators.</p>;
   return (
@@ -32,7 +64,10 @@ export default function CeoReportPage() {
       <div className="mx-auto max-w-[900px] px-4 print:max-w-none print:px-0">
         <div className="mb-4 flex items-center justify-between print:hidden">
           <Link href="/ceo" className="flex items-center gap-1.5 text-[13px] font-semibold text-primary hover:underline"><ArrowLeft className="h-4 w-4" /> Back to Executive Hub</Link>
-          <button type="button" onClick={() => window.print()} disabled={!ready} className="flex h-9 items-center gap-1.5 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground"><Download className="h-4 w-4" /> Download PDF</button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={exportExcel} disabled={!ready} className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3.5 text-[13px] font-semibold hover:bg-accent disabled:opacity-50"><Download className="h-4 w-4" /> Excel</button>
+            <button type="button" onClick={() => window.print()} disabled={!ready} className="flex h-9 items-center gap-1.5 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground"><Download className="h-4 w-4" /> PDF</button>
+          </div>
         </div>
         <article className="rounded-2xl border border-border bg-card p-8 text-[13px] text-foreground print:rounded-none print:border-0 print:p-0 print:text-black">
           <header className="flex items-end justify-between border-b-2 border-[#b08d57] pb-3">
@@ -54,8 +89,9 @@ export default function CeoReportPage() {
               </Section>
 
               <Section title="Companies">
-                <Table head={["Company", "Product", "Health", "Open", "Overdue", "In progress", "People", "Progress"]}
-                  rows={o.companies.map((c) => [c.name, c.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards, HEALTH[c.health] ?? c.health, c.stats.open, c.stats.overdue, c.stats.inProgress, c.people, `${c.stats.progress}%`])} />
+                <Table head={["Company", "Product", "Health", "Open", "Overdue", "In progress", "People", "Progress", "Expenses (mo.)"]}
+                  rows={o.companies.map((c) => [c.name, c.source === "work" ? PRODUCT_NAME.work : PRODUCT_NAME.boards, HEALTH[c.health] ?? c.health, c.stats.open, c.stats.overdue, c.stats.inProgress, c.people, `${c.stats.progress}%`, c.source === "boards" ? money(expenses?.[c.id]?.total ?? 0) : "—"])} />
+                {expenseTotal > 0 && <p className="mt-2 text-[12px] text-muted-foreground">Reimbursements paid this month across all companies: <strong className="text-foreground">{money(expenseTotal)}</strong>.</p>}
               </Section>
 
               <Section title="Management and teams">
