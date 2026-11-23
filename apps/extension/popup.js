@@ -59,7 +59,7 @@ function row(it) {
   if (forHere) btn("Fill", "Fill on this page", async () => { const r = await send({ type: "fillTab", uid: it.uid }); if (r.ok) window.close(); else toast(r.error || "Couldn't fill"); }, "fill");
   if (it.username) btn("User", "Copy username", () => copy(it.username, "Username"));
   if (it.useOnly) { const tag = document.createElement("span"); tag.className = "u"; tag.textContent = "use only"; tag.title = "You can sign in with this, but not see or copy the password"; acts.append(tag); }
-  if (it.password && !it.useOnly) btn("Pass", "Copy password", () => copy(it.password, "Password", it.uid));
+  // Privacy: the extension fills the password into the page but never copies the raw password to the clipboard.
   if (it.totp) btn("Code", "Copy one-time code", async () => { const r = await send({ type: "totp", uid: it.uid }); if (r.totp) copy(r.totp.code, `Code (${r.totp.left}s left)`, it.uid); });
   li.append(fav, mid, acts);
   return li;
