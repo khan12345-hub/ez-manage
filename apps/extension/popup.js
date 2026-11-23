@@ -121,12 +121,21 @@ $("gen-copy").addEventListener("click", () => copy($("gen-out").textContent, "Pa
 $("gen-back").addEventListener("click", boot);
 
 // ── settings ──
+// the server / web addresses are hidden under "Advanced" — normal users never touch them
+// (they stay populated and saved as before, so dev on localhost keeps working)
+function setAdvanced(open) {
+  $("s-advanced").hidden = !open;
+  $("s-adv-toggle").setAttribute("aria-expanded", String(open));
+  $("s-adv-toggle").textContent = open ? "Hide advanced" : "Advanced…";
+}
+$("s-adv-toggle").addEventListener("click", () => setAdvanced($("s-advanced").hidden));
 $("btn-settings").addEventListener("click", async () => {
   state = await send({ type: "state" });
   $("s-api").value = state.api; $("s-web").value = state.web; $("s-lock").value = state.lockMinutes;
   $("s-who").textContent = state.connected ? `Signed in as ${state.user?.name || ""} ${state.user?.email ? `(${state.user.email})` : ""}` : "Not connected.";
   $("btn-signout").hidden = !state.connected;
   $("s-msg").textContent = "";
+  setAdvanced(false);
   show("settings");
 });
 $("f-settings").addEventListener("submit", async (e) => {
