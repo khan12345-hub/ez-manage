@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { trackerApi } from "@/services/tracker.api";
 
-/** the Company Work workspace in the URL + the caller's place in EZ Tracker */
+/** the company in the URL ("w-<uid>" Company Work, "b-<uid>" Accounts & Invoices) + the caller's place in EZ Tracker */
 export function useTrackerWs() {
   const { ws = "" } = useParams<{ ws: string }>();
   const q = useQuery({ queryKey: ["tracker", ws, "overview"], queryFn: () => trackerApi.overview(ws), enabled: !!ws, staleTime: 30_000, retry: false });

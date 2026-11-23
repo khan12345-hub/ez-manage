@@ -61,6 +61,7 @@ export async function createUserKeys(masterPassword) {
     stored: { salt, iterations: ITERATIONS, publicKey, encPrivateKey: await encryptBytes(mk, pkcs8), verifier: await encryptText(mk, VERIFIER) },
     privateKey: await importPrivateKey(pkcs8),
     publicKey,
+    pkcs8,
   };
 }
 
@@ -97,6 +98,71 @@ export async function wrapVaultKey(vaultKey, publicKeyB64) {
 export async function unwrapVaultKey(encB64, privateKey) {
   const raw = await subtle.decrypt(RSA, privateKey, fromB64(encB64));
   return subtle.importKey("raw", raw, { name: "AES-GCM" }, true, ["encrypt", "decrypt"]);
+}
+
+// ───────── admin recovery (option B) ─────────
+// Goal: someone who forgot their master password can get back in with the Administrator's help,
+// without the server ever being able to open anything.
+//   org recovery key pair  = RSA-OAEP-2048, made in the Administrator's browser. Private key encrypted
+//                            with PBKDF2(recovery passphrase from the Emergency Kit); only the
+//                            Administrator knows that passphrase. Server keeps public key + ciphertext.
+//   per person             = rk (random AES-256). recoveryPriv = AES-GCM(rk, their private key pkcs8);
+//                            recoveryKey = RSA-OAEP(org public key, rk). Added on setup / next unlock.
+//   forgot master password = 1) their browser makes a one-time RSA pair (private part stays in this
+//                               browser, non-extractable, in IndexedDB) and sends a request with the public part;
+//                            2) the Administrator approves: their browser opens the org private key with the
+//                               passphrase, unwraps rk and re-wraps it for the one-time public key (server only
+//                               ever sees wrapped keys);
+//                            3) the person's browser unwraps rk, decrypts their private key, locks it under a
+//                               NEW master password and makes a fresh rk; the request is closed. Nothing happens
+//                               without the person finishing it, and every step is logged and notified.
+// The Administrator's browser technically holds rk during step 2 (that is what makes recovery possible);
+// it never sees vault items unless it also fetched them, which the approve flow does not do.
+
+/** Administrator: a new organisation recovery key pair locked with a recovery passphrase */
+export async function createRecoveryKeys(passphrase) {
+  const salt = toB64(randomBytes(16));
+  const k = await deriveMasterKey(passphrase, salt, ITERATIONS);
+  const pair = await subtle.generateKey({ ...RSA, modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]) }, true, ["encrypt", "decrypt"]);
+  const publicKey = toB64(await subtle.exportKey("spki", pair.publicKey));
+  const pkcs8 = new Uint8Array(await subtle.exportKey("pkcs8", pair.privateKey));
+  return { publicKey, encPrivateKey: await encryptBytes(k, pkcs8), salt, iterations: ITERATIONS };
+}
+/** Administrator: open the organisation recovery private key; throws "WRONG_PASSWORD" */
+export async function unlockRecoveryKey(passphrase, stored) {
+  const k = await deriveMasterKey(passphrase, stored.salt, stored.iterations);
+  try { return await importPrivateKey(await decryptBytes(k, stored.encPrivateKey)); } catch { throw new Error("WRONG_PASSWORD"); }
+}
+/** a person's recovery wrap: their private key under a fresh rk, rk wrapped for the organisation */
+export async function wrapForRecovery(pkcs8, recoveryPublicKeyB64) {
+  const rk = await subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+  const raw = await subtle.exportKey("raw", rk);
+  return { recoveryPriv: await encryptBytes(rk, pkcs8), recoveryKey: toB64(await subtle.encrypt(RSA, await importPublicKey(recoveryPublicKeyB64), raw)) };
+}
+/** the one-time key pair for a recovery request (private part non-extractable: it can only sit in this browser) */
+export async function newRequestKeys() {
+  const pair = await subtle.generateKey({ ...RSA, modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]) }, false, ["encrypt", "decrypt"]);
+  return { privateKey: pair.privateKey, publicKey: toB64(await subtle.exportKey("spki", pair.publicKey)) };
+}
+/** Administrator: take rk out of the org wrap and wrap it for the request's one-time public key */
+export async function rewrapForRequest(recoveryKeyB64, orgPrivateKey, requestPublicKeyB64) {
+  const raw = await subtle.decrypt(RSA, orgPrivateKey, fromB64(recoveryKeyB64));
+  return toB64(await subtle.encrypt(RSA, await importPublicKey(requestPublicKeyB64), raw));
+}
+/**
+ * The person: open their private key with the approved request, lock it under a new master password,
+ * and make a fresh recovery wrap (so the rk the Administrator saw is no longer used).
+ */
+export async function completeRecovery({ wrappedKey, requestPrivateKey, recoveryPriv, newPassword, recoveryPublicKey }) {
+  const raw = await subtle.decrypt(RSA, requestPrivateKey, fromB64(wrappedKey));
+  const rk = await subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["decrypt"]);
+  const pkcs8 = await decryptBytes(rk, recoveryPriv);
+  const privateKey = await importPrivateKey(pkcs8);
+  const salt = toB64(randomBytes(16));
+  const mk = await deriveMasterKey(newPassword, salt, ITERATIONS);
+  const fields = { salt, iterations: ITERATIONS, encPrivateKey: await encryptBytes(mk, pkcs8), verifier: await encryptText(mk, VERIFIER) };
+  const wrap = recoveryPublicKey ? await wrapForRecovery(pkcs8, recoveryPublicKey) : null;
+  return { fields, wrap, privateKey };
 }
 
 // ───────── passwords ─────────

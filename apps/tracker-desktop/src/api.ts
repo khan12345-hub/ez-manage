@@ -4,12 +4,12 @@ export class ApiError extends Error { constructor(public status: number, message
 
 export type Me = {
   user: { id: number; firstName: string | null; lastName: string | null; email: string } | null;
-  workspace: { uid: string; name: string } | null; member: boolean;
+  workspace: { uid: string; name: string; source?: 'work' | 'boards'; key?: string } | null; member: boolean;
   settings: { screenshotsPer10: number; blur: boolean; trackApps: boolean; trackUrls: boolean; idleMinutes: number };
-  tracked: boolean; consent: { version: string; acceptedAt: string | null }; today: number;
+  tracked: boolean; consent: { version: string; acceptedAt: string | null }; today: number; webUrl?: string | null;
   openSession: { id: number; startedAt: string; taskId: number | null; projectLabel: string | null } | null;
 };
-export type Task = { id: number; uid: string; name: string; dueDate: string | null; where: string; color: string };
+export type Task = { id: number; uid: string | null; name: string; dueDate: string | null; where: string; color: string; source?: 'work' | 'boards' };
 
 export class Api {
   constructor(public base: string, public token: string | null) {}
@@ -29,7 +29,7 @@ export class Api {
   me() { return this.call<Me>('GET', '/tracker/desktop/me'); }
   consent(version: string) { return this.call<{ acceptedAt: string }>('POST', '/tracker/desktop/consent', { version }); }
   tasks(q: string) { return this.call<Task[]>('GET', `/tracker/desktop/tasks?q=${encodeURIComponent(q)}`); }
-  start(b: { clientId: string; taskId?: number | null; projectLabel?: string | null; startedAt: string }) { return this.call<{ id: number; startedAt: string }>('POST', '/tracker/desktop/sessions', b); }
+  start(b: { clientId: string; taskId?: number | null; projectLabel?: string | null; startedAt?: string }) { return this.call<{ id: number; startedAt: string }>('POST', '/tracker/desktop/sessions', b); }
   stop(id: number, endedAt: string) { return this.call<{ id: number }>('POST', `/tracker/desktop/sessions/${id}/stop`, { endedAt }); }
   heartbeat(id: number) { return this.call<{ ended: boolean }>('POST', `/tracker/desktop/sessions/${id}/heartbeat`); }
   slots(sessionId: number, slots: unknown[]) { return this.call<{ saved: number; skipped: number }>('POST', '/tracker/desktop/slots', { sessionId, slots }); }

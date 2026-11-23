@@ -1,0 +1,1 @@
+{ "extends": "./tsconfig.json", "include": ["src/tracker/**/*.ts", "src/types/**/*.d.ts"], "exclude": ["node_modules", "dist"] }

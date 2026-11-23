@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { AccessCoreModule } from './access/access-core.module';
+import { AccessModule } from './access/access.module';
+import { ProductAccessGuard } from './access/product-access.guard';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RemindersModule } from './reminders/reminders.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -47,6 +50,8 @@ import { BoardsChatTasksModule } from './chat-tasks/boards-chat-tasks.module';
 import { TrackerModule } from './tracker/tracker.module';
 @Module({
   imports: [
+    AccessCoreModule,
+    AccessModule,
     ThrottlerModule.forRoot({
       throttlers: [
         { name: 'default', ttl: 60_000, limit: 30_000 }, // 30k req/min — boards can burst 100+ concurrent on load
@@ -108,6 +113,8 @@ import { TrackerModule } from './tracker/tracker.module';
     AppService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: SessionAuthGuard },
+    // the Administrator's product switch (Access Center): runs after sign-in is checked
+    { provide: APP_GUARD, useClass: ProductAccessGuard },
   ],
   exports: [AppService],
 })

@@ -2728,40 +2728,132 @@ model WorkDescriptionVersion {
 
 /// a person's vault keys (set up once with their master password)
 model VaultUser {
-  userId        Int      @id
+  userId          Int      @id
   /// PBKDF2 salt (base64) and iterations for the master password
-  salt          String
-  iterations    Int
+  salt            String
+  iterations      Int
   /// RSA-OAEP public key (spki, base64)
-  publicKey     String   @db.Text
+  publicKey       String   @db.Text
   /// private key (pkcs8) encrypted with the master key: base64 iv + ciphertext
-  encPrivateKey String   @db.Text
+  encPrivateKey   String   @db.Text
   /// a known value encrypted with the master key, to tell a wrong master password
-  verifier      String   @db.Text
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  verifier        String   @db.Text
+  /// admin recovery (option B): the private key encrypted with a random recovery key (AES-GCM) …
+  recoveryPriv    String?  @db.Text
+  /// … and that recovery key wrapped with the organisation's recovery public key (RSA-OAEP)
+  recoveryKey     String?  @db.Text
+  /// which organisation recovery key it was wrapped for
+  recoveryVersion Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("vault_users")
 }
 
 model Vault {
-  id          Int       @id @default(autoincrement())
-  uid         String    @unique
+  id                 Int       @id @default(autoincrement())
+  uid                String    @unique
   /// personal | shared
-  kind        String
+  kind               String
   /// encrypted name (vault key), so even names are private
-  encName     String    @db.Text
-  keyVersion  Int       @default(1)
-  createdById Int
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  encName            String    @db.Text
+  keyVersion         Int       @default(1)
+  createdById        Int
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+  /// company vault: the company it belongs to (work = Company Work, boards = Accounts & Invoices)
+  companySource      String?
+  companyWorkspaceId Int?
+  /// someone was taken out without a new key (e.g. the user was disabled): the next manager to open it re-keys it
+  needsRekey         Boolean   @default(false)
 
   members VaultMember[]
   items   VaultItem[]
 
   @@index([createdById])
+  @@index([companySource, companyWorkspaceId])
   @@map("vaults")
+}
+
+/// Vault settings per company (Company Work or Accounts & Invoices workspace)
+model VaultCompany {
+  id                  Int      @id @default(autoincrement())
+  /// work | boards
+  source              String
+  workspaceId         Int
+  /// may people share this company's vaults with someone outside the company?
+  allowOutsideSharing Boolean  @default(true)
+  updatedById         Int?
+  updatedAt           DateTime @updatedAt
+
+  @@unique([source, workspaceId])
+  @@map("vault_companies")
+}
+
+/// People who may create and look after a company's vaults (besides the system Administrator)
+model VaultAdmin {
+  id          Int      @id @default(autoincrement())
+  source      String
+  workspaceId Int
+  userId      Int
+  grantedById Int
+  createdAt   DateTime @default(now())
+
+  @@unique([source, workspaceId, userId])
+  @@index([userId])
+  @@map("vault_admins")
+}
+
+/// Someone left / was removed from a vault: what they could open, to be changed ("Passwords to change")
+model VaultRotation {
+  id              Int      @id @default(autoincrement())
+  vaultId         Int
+  removedUserId   Int
+  removedById     Int?
+  removedAt       DateTime @default(now())
+  /// [{ itemId, seen: ["viewed","copied",…] }] — items they could open at that moment
+  items           Json
+  resolvedItemIds Int[]    @default([])
+
+  @@index([vaultId, removedAt])
+  @@map("vault_rotations")
+}
+
+/// The organisation's recovery key pair (one). The private key is encrypted under the recovery
+/// passphrase from the Emergency Kit, which only the Administrator keeps — the server can't open it.
+model VaultRecoveryKey {
+  id            Int      @id @default(autoincrement())
+  version       Int      @unique
+  publicKey     String   @db.Text
+  encPrivateKey String   @db.Text
+  salt          String
+  iterations    Int
+  createdById   Int
+  createdAt     DateTime @default(now())
+
+  @@map("vault_recovery_keys")
+}
+
+/// "Forgot master password" with the Administrator's help
+model VaultRecoveryRequest {
+  id                 Int       @id @default(autoincrement())
+  userId             Int
+  /// pending | approved | completed | declined | cancelled
+  status             String    @default("pending")
+  /// a one-time key pair made in the person's browser (private part never leaves it)
+  ephemeralPublicKey String    @db.Text
+  /// the person's recovery key, re-wrapped for the one-time key by the Administrator's browser
+  wrappedKey         String?   @db.Text
+  decidedById        Int?
+  decidedAt          DateTime?
+  completedAt        DateTime?
+  expiresAt          DateTime
+  createdAt          DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("vault_recovery_requests")
 }
 
 model VaultMember {
@@ -2880,16 +2972,22 @@ model CalendarAccount {
 /// tracker settings for one Company Work workspace
 model TrackerOrg {
   id          Int      @id @default(autoincrement())
-  workspaceId Int      @unique
+  /// which product the company lives in: work (Company Work) | boards (Accounts & Invoices)
+  source      String   @default("work")
+  /// the company's workspace id in that product (work_workspaces.id or workspaces.id)
+  workspaceId Int
   /// { screenshotsPer10, blur, trackApps, trackUrls, idleMinutes, retentionDays (0 = never), dayStart "09:00", trackAll, trackedUserIds }
   settings    Json     @default("{}")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  consents TrackerConsent[]
-  sessions TrackerSession[]
-  codes    TrackerPairCode[]
+  consents  TrackerConsent[]
+  sessions  TrackerSession[]
+  codes     TrackerPairCode[]
+  members   TrackerMember[]
+  reminders TrackerReminder[]
 
+  @@unique([source, workspaceId])
   @@map("tracker_orgs")
 }
 
@@ -2946,23 +3044,27 @@ model TrackerDevice {
 
 /// Start → Stop on the desktop app (optionally on a Company Work task)
 model TrackerSession {
-  id              Int       @id @default(autoincrement())
-  orgId           Int
-  userId          Int
-  deviceId        Int?
+  id                Int       @id @default(autoincrement())
+  orgId             Int
+  userId            Int
+  deviceId          Int?
   /// client id so a retried "start" never creates two sessions
-  clientId        String?
-  taskId          Int?
-  projectLabel    String?
-  note            String?
-  startedAt       DateTime
-  endedAt         DateTime?
-  lastBeatAt      DateTime?
+  clientId          String?
+  taskId            Int?
+  /// the product the task belongs to: work (Company Work task) | boards (Accounts & Invoices item)
+  taskSource        String?
+  projectLabel      String?
+  note              String?
+  startedAt         DateTime
+  endedAt           DateTime?
+  lastBeatAt        DateTime?
   /// desktop | manual
-  source          String    @default("desktop")
+  source            String    @default("desktop")
   /// the Company Work time entry this session writes its tracked time into (when on a task)
-  workTimeEntryId Int?
-  createdAt       DateTime  @default(now())
+  workTimeEntryId   Int?
+  /// the Accounts & Invoices time entry it writes into (when on a board item)
+  boardsTimeEntryId Int?
+  createdAt         DateTime  @default(now())
 
   org   TrackerOrg    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   slots TrackerSlot[]
@@ -3041,4 +3143,101 @@ model TrackerAppUsage {
   @@index([orgId, userId])
   @@index([slotId])
   @@map("tracker_app_usage")
+}
+
+/// EZ Tracker's own people per company (being in the Company Work / Accounts company is not enough):
+/// role member (own data only) | admin (the team, People, settings). The system Administrator manages every company.
+model TrackerMember {
+  id        Int      @id @default(autoincrement())
+  orgId     Int
+  userId    Int
+  /// member | admin
+  role      String   @default("member")
+  /// tracking on / off for this person (paused without removing them)
+  tracking  Boolean  @default(true)
+  addedById Int?
+  createdAt DateTime @default(now())
+
+  org TrackerOrg @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@map("tracker_members")
+}
+
+/// "install the app" reminders a manager sent (one per person per day)
+model TrackerReminder {
+  id       Int      @id @default(autoincrement())
+  orgId    Int
+  userId   Int
+  sentById Int
+  sentAt   DateTime @default(now())
+
+  org TrackerOrg @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, userId, sentAt])
+  @@map("tracker_reminders")
+}
+
+// ───────────────────────── Access Center (Administrator) ─────────────────────────
+/// The Administrator's switch for which products a person may use. No row = default
+/// (accounts / work / tracker on when they have a membership there, vault on for everyone,
+/// executive only for SUPER_ADMIN). enabled=false blocks the product everywhere while
+/// keeping the person's companies and roles, so turning it back on restores them.
+model UserProductAccess {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  /// accounts | work | tracker | vault | executive
+  product     String   @db.VarChar(20)
+  enabled     Boolean  @default(true)
+  changedById Int?
+  changedAt   DateTime @default(now()) @updatedAt
+
+  @@unique([userId, product])
+  @@map("user_product_access")
+}
+
+/// An Access Manager: someone the Administrator lets manage people in specific companies
+/// (invite, change roles up to Member — or Admin when mayGrantAdmin — and remove) from the
+/// Access Center. It gives no access to the company's content.
+model AccessManagerScope {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  /// accounts | work | tracker
+  product       String   @db.VarChar(20)
+  /// Boards workspace id (accounts / tracker on Accounts) or Work workspace id (work / tracker on Work)
+  workspaceId   Int
+  /// for tracker: which kind of company the workspaceId is (boards | work)
+  source        String?  @db.VarChar(10)
+  mayGrantAdmin Boolean  @default(false)
+  grantedById   Int?
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, product, workspaceId])
+  @@index([userId])
+  @@map("access_manager_scopes")
+}
+
+/// Who gave / changed / removed whose access, in which product and company (invites, joins,
+/// role changes, removals, product on/off, disable/enable).
+model AccessAudit {
+  id            Int      @id @default(autoincrement())
+  actorId       Int?
+  targetUserId  Int?
+  targetEmail   String?  @db.VarChar(255)
+  /// accounts | work | executive | tracker | vault | system
+  product       String   @db.VarChar(20)
+  workspaceId   Int?
+  workspaceName String?  @db.VarChar(255)
+  /// invited | added | joined | role_changed | removed | product_on | product_off | disabled | enabled | refused
+  action        String   @db.VarChar(30)
+  fromRole      String?  @db.VarChar(30)
+  toRole        String?  @db.VarChar(30)
+  /// product | access_center | invite_link | invite_accept | sign_up
+  via           String?  @db.VarChar(30)
+  createdAt     DateTime @default(now())
+
+  @@index([targetUserId, createdAt])
+  @@index([createdAt])
+  @@map("access_audit")
 }

@@ -713,6 +713,7 @@ export default function HomePage() {
               />
             </motion.div>
             )}
+            {access.hasVault && (
             <motion.div variants={fadeUp}>
               <ProductCard
                 tone="vault"
@@ -730,6 +731,7 @@ export default function HomePage() {
                 }
               />
             </motion.div>
+            )}
           </motion.div>
 
           {/* ── Attention + brief ─────────────────────────────────────── */}

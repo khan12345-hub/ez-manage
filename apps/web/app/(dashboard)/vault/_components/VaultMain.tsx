@@ -3,18 +3,20 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Activity, CreditCard, ExternalLink, Eye, EyeOff, FileText, Globe, IdCard, Layers, Lock, Pencil, Plus, Search, Settings, ShieldAlert, Star, Trash2, Users } from "lucide-react";
+import { Activity, Building2, CreditCard, ExternalLink, Eye, EyeOff, FileText, Globe, IdCard, KeyRound, Layers, Lock, Pencil, Plus, Search, Settings, ShieldAlert, ShieldCheck, Star, Trash2, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
 import { AppSwitcher } from "@/components/AppSwitcher";
-import { errMsg, typeLabel, updateItem, useVault, vaultApi, type Item, type ItemType } from "../_lib/session";
+import { canReveal, canWrite, errMsg, ROLE_LABEL, typeLabel, updateItem, useVault, vaultApi, type Item, type ItemType } from "../_lib/session";
+import { ItemHistory, RotationsPanel } from "./Team";
+import { AdminView } from "./Admin";
 import { ago, CopyButton, ItemIcon, strengthMeta, TotpCode } from "./bits";
 import { ItemEditor } from "./ItemEditor";
 import { NewVaultDialog, ShareVault } from "./ShareVault";
 import { ActivityView, SecurityView, SettingsView, TrashView } from "./Views";
 
-export type Nav = { kind: "all" } | { kind: "favorites" } | { kind: "type"; type: ItemType } | { kind: "vault"; uid: string } | { kind: "security" } | { kind: "activity" } | { kind: "trash" } | { kind: "settings" };
+export type Nav = { kind: "all" } | { kind: "favorites" } | { kind: "type"; type: ItemType } | { kind: "vault"; uid: string } | { kind: "security" } | { kind: "activity" } | { kind: "trash" } | { kind: "settings" } | { kind: "admin" };
 const TYPES: { type: ItemType; label: string; icon: typeof Globe }[] = [
   { type: "login", label: "Logins", icon: Globe },
   { type: "note", label: "Secure notes", icon: FileText },
@@ -43,7 +45,7 @@ export function VaultMain() {
   const listMode = ["all", "favorites", "type", "vault"].includes(nav.kind);
   const current = items.find((i) => i.uid === sel) ?? (listMode ? list[0] : undefined);
   const curVault = nav.kind === "vault" ? vaults.find((v) => v.uid === nav.uid) : undefined;
-  const canWriteSomewhere = vaults.some((v) => v.role !== "viewer");
+  const canWriteSomewhere = vaults.some((v) => canWrite(v.role));
   const go = (n: Nav) => { setNav(n); setSel(null); };
 
   const NavBtn = ({ n, icon: Icon, label, count, active }: { n: Nav; icon: typeof Globe; label: string; count?: number; active: boolean }) => (
@@ -76,12 +78,13 @@ export function VaultMain() {
             <p className="flex-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Vaults</p>
             <button type="button" aria-label="New shared vault" title="New shared vault" onClick={() => setNewVault(true)} className="rounded p-0.5 text-muted-foreground hover:bg-accent"><Plus className="h-3.5 w-3.5" /></button>
           </div>
-          {vaults.map((v) => <NavBtn key={v.uid} n={{ kind: "vault", uid: v.uid }} icon={v.kind === "personal" ? Lock : Users} label={v.name} count={items.filter((i) => i.vaultUid === v.uid).length} active={nav.kind === "vault" && nav.uid === v.uid} />)}
+          {vaults.map((v) => <NavBtn key={v.uid} n={{ kind: "vault", uid: v.uid }} icon={v.kind === "personal" ? Lock : v.company ? Building2 : Users} label={v.name} count={items.filter((i) => i.vaultUid === v.uid).length} active={nav.kind === "vault" && nav.uid === v.uid} />)}
           <div className="mt-4 border-t border-border pt-3">
             <NavBtn n={{ kind: "security" }} icon={ShieldAlert} label="Security check" active={nav.kind === "security"} />
             <NavBtn n={{ kind: "activity" }} icon={Activity} label="Activity" active={nav.kind === "activity"} />
             <NavBtn n={{ kind: "trash" }} icon={Trash2} label="Trash" count={trash.length} active={nav.kind === "trash"} />
             <NavBtn n={{ kind: "settings" }} icon={Settings} label="Settings" active={nav.kind === "settings"} />
+            {me?.isVaultAdmin && <NavBtn n={{ kind: "admin" }} icon={ShieldCheck} label="Vault admin" active={nav.kind === "admin"} />}
           </div>
           {me && <p className="mt-4 truncate px-2.5 text-[11.5px] text-muted-foreground">{me.user.email}</p>}
         </aside>
@@ -89,7 +92,7 @@ export function VaultMain() {
         {/* mobile nav */}
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex gap-1 overflow-x-auto border-b border-border px-3 py-2 md:hidden">
-            {([["All", { kind: "all" }], ["Favorites", { kind: "favorites" }], ["Security", { kind: "security" }], ["Activity", { kind: "activity" }], ["Trash", { kind: "trash" }], ["Settings", { kind: "settings" }]] as [string, Nav][]).map(([l, n]) => (
+            {([["All", { kind: "all" }], ["Favorites", { kind: "favorites" }], ["Security", { kind: "security" }], ["Activity", { kind: "activity" }], ["Trash", { kind: "trash" }], ["Settings", { kind: "settings" }], ...(me?.isVaultAdmin ? [["Vault admin", { kind: "admin" }]] : [])] as [string, Nav][]).map(([l, n]) => (
               <button key={l} type="button" onClick={() => go(n)} className={cn("shrink-0 rounded-full px-3 py-1 text-[12.5px]", nav.kind === n.kind ? "bg-product-vault/15 font-semibold" : "text-muted-foreground")}>{l}</button>
             ))}
           </div>
@@ -98,18 +101,20 @@ export function VaultMain() {
           {nav.kind === "security" ? <SecurityView onOpen={(uid) => { setNav({ kind: "all" }); setSel(uid); }} /> :
             nav.kind === "activity" ? <ActivityView /> :
             nav.kind === "trash" ? <TrashView /> :
-            nav.kind === "settings" ? <SettingsView /> : (
+            nav.kind === "settings" ? <SettingsView /> :
+            nav.kind === "admin" ? <AdminView onOpenVault={(uid) => go({ kind: "vault", uid })} /> : (
             <div className="flex min-h-0 flex-1">
               <section aria-label="Items" className={cn("flex min-h-0 w-full flex-col border-r border-border md:w-[340px] md:shrink-0", current && "hidden md:flex")}>
                 {curVault && (
                   <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14px] font-semibold">{curVault.name}</span>
-                      <span className="block text-[11.5px] text-muted-foreground">{curVault.kind === "personal" ? "Only you" : `${curVault.members} ${curVault.members === 1 ? "person" : "people"} · you are ${curVault.role}`}</span>
+                      <span className="block truncate text-[11.5px] text-muted-foreground">{curVault.kind === "personal" ? "Only you" : `${curVault.company ? `${curVault.company.name} · ` : ""}${curVault.members} ${curVault.members === 1 ? "person" : "people"} · you: ${ROLE_LABEL[curVault.role]}`}</span>
                     </span>
                     {curVault.kind === "shared" && <button type="button" onClick={() => setShare(curVault.uid)} className="flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12.5px] hover:bg-accent"><Users className="h-3.5 w-3.5" /> People</button>}
                   </div>
                 )}
+                {curVault?.role === "owner" && curVault.kind === "shared" && <RotationsPanel vaultUid={curVault.uid} onOpen={(uid) => setSel(uid)} />}
                 <ul className="min-h-0 flex-1 overflow-y-auto">
                   {!list.length && <li className="px-6 py-16 text-center text-[13px] text-muted-foreground">{q ? "Nothing matches." : "No items here yet."}{!q && canWriteSomewhere && <><br /><button type="button" onClick={() => setEditing("new")} className="mt-2 font-semibold text-primary hover:underline">Add your first item</button></>}</li>}
                   {list.map((i) => (
@@ -160,11 +165,17 @@ function Secret({ item, value, field, what }: { item: Item; value: string; field
   );
 }
 
+function UseOnlySecret({ what = "password" }: { what?: string }) {
+  return <span className="flex min-w-0 flex-1 items-center gap-2"><span className="tracking-[0.2em]">••••••••••</span><span className="rounded-full bg-product-vault/10 px-2 py-0.5 text-[11px] font-medium text-product-vault" title={`You can use this login but not see its ${what}`}>Use only</span></span>;
+}
+
 function ItemDetail({ item, onEdit, onBack }: { item: Item; onEdit: () => void; onBack: () => void }) {
   const { vaults } = useVault();
   const v = vaults.find((x) => x.uid === item.vaultUid);
   const d = item.data;
-  const canEdit = v?.role !== "viewer";
+  const canEdit = canWrite(v?.role);
+  const useOnly = !canReveal(v?.role);
+  const manager = v?.role === "owner" && v.kind === "shared";
   const s = d.password ? C.strength(d.password) : -1;
   const fav = async () => { try { await updateItem(item, { ...d, favorite: !d.favorite }); } catch (e) { toast.error(errMsg(e, "Couldn't save.")); } };
   const remove = async () => {
@@ -195,7 +206,7 @@ function ItemDetail({ item, onEdit, onBack }: { item: Item; onEdit: () => void; 
             {d.username && <Field label="Username"><span className="min-w-0 flex-1 break-all">{d.username}</span><CopyButton text={d.username} what="Username" item={item} field="username" /></Field>}
             {d.password && (
               <Field label="Password">
-                <Secret item={item} value={d.password} field="password" what="Password" />
+                {useOnly ? <UseOnlySecret /> : <Secret item={item} value={d.password} field="password" what="Password" />}
               </Field>
             )}
             {d.password && <div className="flex items-center gap-2 px-4 pb-2.5 text-[11.5px]"><span className="h-1.5 w-1.5 rounded-full" style={{ background: strengthMeta(s).color }} /><span style={{ color: strengthMeta(s).color }}>{strengthMeta(s).label}</span>{d.passwordUpdatedAt && <span className="text-muted-foreground">· changed {ago(d.passwordUpdatedAt)}</span>}</div>}
@@ -211,10 +222,10 @@ function ItemDetail({ item, onEdit, onBack }: { item: Item; onEdit: () => void; 
         {d.type === "card" && d.card && (
           <>
             {d.card.holder && <Field label="Cardholder"><span className="flex-1">{d.card.holder}</span></Field>}
-            {d.card.number && <Field label="Number"><Secret item={item} value={d.card.number} field="number" what="Card number" /></Field>}
+            {d.card.number && <Field label="Number">{useOnly ? <UseOnlySecret /> : <Secret item={item} value={d.card.number} field="number" what="Card number" />}</Field>}
             {d.card.expiry && <Field label="Expires"><span className="flex-1">{d.card.expiry}</span></Field>}
-            {d.card.cvv && <Field label="Security code"><Secret item={item} value={d.card.cvv} field="cvv" what="Security code" /></Field>}
-            {d.card.pin && <Field label="PIN"><Secret item={item} value={d.card.pin} field="pin" what="PIN" /></Field>}
+            {d.card.cvv && <Field label="Security code">{useOnly ? <UseOnlySecret /> : <Secret item={item} value={d.card.cvv} field="cvv" what="Security code" />}</Field>}
+            {d.card.pin && <Field label="PIN">{useOnly ? <UseOnlySecret /> : <Secret item={item} value={d.card.pin} field="pin" what="PIN" />}</Field>}
           </>
         )}
         {d.type === "identity" && d.identity && (
@@ -224,10 +235,12 @@ function ItemDetail({ item, onEdit, onBack }: { item: Item; onEdit: () => void; 
             ))}
           </>
         )}
-        {d.notes && <Field label={d.type === "note" ? "Note" : "Notes"}><p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[13.5px]">{d.notes}</p></Field>}
+        {d.notes && <Field label={d.type === "note" ? "Note" : "Notes"}>{useOnly ? <UseOnlySecret what="notes" /> : <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[13.5px]">{d.notes}</p>}</Field>}
         {d.type === "note" && !d.notes && <Field label="Note"><span className="text-muted-foreground">Empty</span></Field>}
       </div>
       {!!d.tags?.length && <p className="mt-3 flex flex-wrap gap-1.5">{d.tags.map((t) => <span key={t} className="rounded-full bg-muted px-2 py-0.5 text-[11.5px]">{t}</span>)}</p>}
+      {useOnly && <p className="mt-3 flex items-start gap-2 rounded-lg border border-product-vault/25 bg-product-vault/5 px-3 py-2 text-[12.5px]"><KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-product-vault" /><span><strong>Use only.</strong> Open the website and sign in with the EZ Vault browser extension — it fills the password for you. Showing, copying or exporting it is turned off for you, and every sign-in is recorded. (This is a strong guard in EZ Manage’s apps, not encryption: please don’t try to work around it.)</span></p>}
+      {manager && <ItemHistory itemUid={item.uid} />}
       <p className="mt-4 text-[11.5px] text-muted-foreground">Created {ago(item.createdAt)} · last edited {ago(item.updatedAt)}</p>
     </article>
   );

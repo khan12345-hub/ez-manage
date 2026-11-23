@@ -1,6 +1,8 @@
 /*
  * EZ Tracker desktop (Electron main process).
  * Screens: pair (code from the web) → consent (what is / isn't recorded) → main (task, Start / Stop).
+ * One computer can be paired to several companies (Company Work and Accounts & Invoices); one is
+ * active at a time and only one session runs at a time.
  * While tracking, a tray icon is always visible. Closing the window keeps tracking (in the tray);
  * Quit stops the session first.
  */
@@ -9,18 +11,20 @@ import { hostname, platform, release } from 'node:os';
 import { join } from 'node:path';
 import { Api, ApiError, type Me } from './api';
 import { Engine } from './engine';
-import { DEFAULT_API, clearQueue, getToken, loadConfig, saveConfig, setToken, type Config } from './store';
+import { DEFAULT_API, accountOf, activeAccount, addAccount, dropQueue, getToken, loadConfig, removeAccount, renameAccount, saveConfig, setActive, type Config } from './store';
 
-const CONSENT_VERSION = '2026-11-19';
+const CONSENT_VERSION = '2026-11-19.2';
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let cfg: Config;
 let me: Me | null = null;
 let lastError: string | null = null;
 let quitting = false;
+/** the pair screen was opened to add another company */
+let adding = false;
 
-const api = () => new Api(cfg.apiBase, getToken(cfg));
-const engine = new Engine(api, () => me, () => push(), async (minutes) => {
+const api = (acct?: string | null) => new Api(accountOf(cfg, acct)?.apiBase ?? cfg.apiBase, getToken(cfg, acct));
+const engine = new Engine(api, () => cfg.active ?? null, () => me, () => push(), async (minutes) => {
   if (win) { win.show(); win.focus(); }
   const r = await dialog.showMessageBox({
     type: 'question', title: 'EZ Tracker', buttons: ['Keep the time', 'Discard it'], defaultId: 0, cancelId: 0, noLink: true,
@@ -51,14 +55,15 @@ function icon(size: number, on: boolean) {
 const fmt = (s: number) => `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
 
 function screenName(): 'pair' | 'consent' | 'main' {
-  if (!getToken(cfg) || !me) return 'pair';
+  if (adding || !getToken(cfg) || !me) return 'pair';
   if (!me.consent.acceptedAt) return 'consent';
   return 'main';
 }
 
 function push() {
   const st = engine.state();
-  win?.webContents.send('state', { screen: screenName(), apiBase: cfg.apiBase, me, engine: st, consentVersion: CONSENT_VERSION, autoStart: !!cfg.autoStart, error: lastError });
+  const accounts = (cfg.accounts ?? []).map((a) => ({ id: a.id, name: a.name || 'Company', source: a.source ?? null }));
+  win?.webContents.send('state', { screen: screenName(), apiBase: cfg.apiBase, me, engine: st, consentVersion: me?.consent.version ?? CONSENT_VERSION, autoStart: !!cfg.autoStart, error: lastError, accounts, active: cfg.active ?? null, adding });
   updateTray();
 }
 
@@ -79,10 +84,16 @@ function updateTray() {
 
 async function refreshMe() {
   if (!getToken(cfg)) { me = null; return; }
-  try { me = await api().me(); lastError = null; engine.todayBase = me.today; engine.offline = false; }
-  catch (e) {
-    if (e instanceof ApiError && e.status === 401) { cfg = setToken(cfg, null); me = null; lastError = 'This computer was signed out. Pair it again with a new code.'; }
-    else engine.offline = true;
+  try {
+    me = await api().me(); lastError = null; engine.todayBase = me.today; engine.offline = false;
+    if (cfg.active && me.workspace) cfg = renameAccount(cfg, cfg.active, me.workspace.name, me.workspace.source);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401 && cfg.active && !engine.state().running) {
+      const gone = activeAccount(cfg)?.name || 'this company';
+      dropQueue(cfg.active); cfg = removeAccount(cfg, cfg.active); me = null;
+      lastError = `This computer was signed out of ${gone}. Pair it again with a new code.`;
+      if (cfg.active) await refreshMe();
+    } else engine.offline = true;
   }
 }
 
@@ -129,24 +140,42 @@ else {
 const ok = <T>(p: Promise<T>) => p.then((data) => ({ ok: true as const, data })).catch((e: any) => ({ ok: false as const, error: String(e?.message ?? e) }));
 
 ipcMain.handle('pair', (_e, b: { apiBase: string; code: string }) => ok((async () => {
+  if (engine.state().running) throw new Error('Stop tracking before you add a company.');
   const base = (b.apiBase || DEFAULT_API).trim().replace(/\/$/, '');
   if (!/^https?:\/\/.+/.test(base)) throw new Error('Enter the server address, e.g. https://app.example.com/api');
   const r = await new Api(base, null).pair(b.code, hostname().slice(0, 80), `${platform()} ${release()}`, app.getVersion());
-  cfg = setToken({ ...cfg, apiBase: base }, r.token);
-  lastError = null;
+  cfg = addAccount(cfg, { id: `d${r.deviceId}`, name: r.workspace?.name ?? 'Company', source: r.workspace?.source, apiBase: base, token: r.token });
+  adding = false; lastError = null;
   await refreshMe();
   push();
   return true;
 })()));
-ipcMain.handle('consent', () => ok((async () => { await api().consent(CONSENT_VERSION); await refreshMe(); push(); return true; })()));
+ipcMain.handle('consent', () => ok((async () => { await api().consent(me?.consent.version ?? CONSENT_VERSION); await refreshMe(); push(); return true; })()));
 ipcMain.handle('tasks', (_e, q: string) => ok(api().tasks(String(q ?? ''))));
-ipcMain.handle('start', (_e, t: { id?: number | null; name?: string | null }) => ok((async () => { await refreshMe(); if (!me?.tracked) throw new Error('Time tracking is not turned on for you in this workspace.'); await engine.start(t); return true; })()));
+ipcMain.handle('start', (_e, t: { id?: number | null; name?: string | null }) => ok((async () => { await refreshMe(); if (!me?.tracked) throw new Error('Time tracking is not turned on for you in this company.'); await engine.start(t); return true; })()));
 ipcMain.handle('stop', () => ok((async () => { await engine.stop(); await refreshMe(); push(); return true; })()));
-ipcMain.handle('signout', () => ok((async () => { if (engine.state().running) await engine.stop(); clearQueue(); cfg = setToken(cfg, null); me = null; push(); return true; })()));
+/** switch to another paired company (one session at a time: stop first) */
+ipcMain.handle('switch', (_e, id: string) => ok((async () => {
+  if (engine.state().running) throw new Error('Stop tracking before you switch company.');
+  cfg = setActive(cfg, String(id)); adding = false; lastError = null; me = null;
+  await refreshMe(); push(); return true;
+})()));
+ipcMain.handle('addCompany', (_e, on: boolean) => ok((async () => {
+  if (on && engine.state().running) throw new Error('Stop tracking before you add a company.');
+  adding = !!on; lastError = null; push(); return true;
+})()));
+/** sign this computer out of the active company (others stay paired) */
+ipcMain.handle('signout', () => ok((async () => {
+  if (engine.state().running) await engine.stop();
+  await engine.flush();
+  if (cfg.active) { dropQueue(cfg.active); cfg = removeAccount(cfg, cfg.active); }
+  me = null; await refreshMe(); push(); return true;
+})()));
 ipcMain.handle('autostart', (_e, on: boolean) => ok((async () => { cfg = { ...cfg, autoStart: !!on }; saveConfig(cfg); app.setLoginItemSettings({ openAtLogin: !!on }); push(); return true; })()));
 ipcMain.handle('openWeb', () => ok((async () => {
-  const web = cfg.apiBase.replace(/\/api\/?$/, '').replace(':3010', ':3000');
-  await shell.openExternal(`${web}/tracker${me?.workspace ? `/${me.workspace.uid}` : ''}`);
+  // the server tells where its web app is; older servers: guess from the API address
+  const web = (me?.webUrl ?? cfg.apiBase.replace(/\/api\/?$/, '').replace(':3010', ':3000')).replace(/\/$/, '');
+  await shell.openExternal(`${web}/tracker${me?.workspace ? `/${me.workspace.key ?? me.workspace.uid}` : ''}`);
   return true;
 })()));
 ipcMain.handle('refresh', () => ok((async () => { await refreshMe(); push(); return true; })()));

@@ -3,7 +3,10 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { AccessAuditService } from 'src/access/access-audit.service';
+import { ProductAccessService } from 'src/access/product-access.service';
 
 import {
   InvitationStatus,
@@ -60,6 +63,8 @@ export class InvitationsService {
     private readonly notificationsService: NotificationsService,
     private readonly notificationStreamService: NotificationStreamService,
     private readonly activityLogsService: ActivityLogsService,
+    @Optional() private readonly audit?: AccessAuditService,
+    @Optional() private readonly productAccess?: ProductAccessService,
   ) {}
 
   /**
@@ -122,11 +127,21 @@ export class InvitationsService {
     }
   }
 
-  async create(dto: CreateInvitationDto, invitedById: number) {
+  /**
+   * opts (Access Center only): `authorized` — the Access Center already checked the actor's
+   * scope (Administrator / Access Manager); `silent` — no invitation email (the Access Center
+   * sends one combined email for everything given).
+   */
+  async create(dto: CreateInvitationDto, invitedById: number, via: 'product' | 'access_center' = 'product', opts: { authorized?: boolean; silent?: boolean } = {}) {
     // ------------------------------------------------------------
     // 0. Authorize the inviter — for BOTH existing and new users
     // ------------------------------------------------------------
-    await this.assertCanInvite(dto, invitedById);
+    if (opts.authorized) {
+      const n = await this.prisma.board.count({ where: { id: { in: dto.boardIds }, workspaceId: dto.workspaceId } });
+      if (n !== new Set(dto.boardIds).size) throw new BadRequestException('One or more selected boards do not belong to the selected workspace.');
+    } else {
+      await this.assertCanInvite(dto, invitedById);
+    }
 
     // ------------------------------------------------------------
     // 1. Check if the invited user already exists
@@ -134,6 +149,14 @@ export class InvitationsService {
     const existingUser = await this.usersRepository.findByEmail(dto.email);
 
     if (existingUser) {
+      // Access Center: refused when the Administrator switched Accounts off for this person; otherwise it is switched on
+      try {
+        await this.productAccess?.allowInvite(existingUser.id, 'accounts', invitedById);
+      } catch (e) {
+        this.audit?.record({ actorId: invitedById, targetUserId: existingUser.id, product: 'accounts', workspaceId: dto.workspaceId, action: 'refused', toRole: dto.role, via });
+        throw e;
+      }
+      const wasMember = await this.prisma.workspaceMember.findFirst({ where: { workspaceId: dto.workspaceId, userId: existingUser.id, deletedAt: null }, select: { id: true } });
       // Validate BEFORE entering the transaction so HttpExceptions propagate correctly
       const existingBoardMembers = await this.prisma.boardMember.findMany({
         where: { userId: existingUser.id, boardId: { in: dto.boardIds } },
@@ -205,6 +228,8 @@ export class InvitationsService {
         // Notification failure must not break the invite response
       }
 
+      if (!wasMember) this.audit?.record({ actorId: invitedById, targetUserId: existingUser.id, product: 'accounts', workspaceId: dto.workspaceId, action: 'added', toRole: dto.role, via });
+
       return {
         success: true,
         message: 'User added to board(s) successfully.',
@@ -224,12 +249,14 @@ export class InvitationsService {
     // ------------------------------------------------------------
     // 3. Verify inviter belongs to workspace
     // ------------------------------------------------------------
-    const membership = await this.usersRepository.findWorkspaceMembership(
+    // (an Administrator, or an Access Center action already checked above, needs no membership here)
+    const trusted = opts.authorized || (inviter as any).systemRole === 'SUPER_ADMIN';
+    const membership = trusted ? null : await this.usersRepository.findWorkspaceMembership(
       invitedById,
       dto.workspaceId,
     );
 
-    if (!membership) {
+    if (!trusted && !membership) {
       throw new ForbiddenException('You are not a member of this workspace.');
     }
 
@@ -237,6 +264,7 @@ export class InvitationsService {
     // 4. Verify inviter has permission
     // ------------------------------------------------------------
     if (
+      !trusted && membership &&
       membership.role !== WorkspaceMemberRole.OWNER &&
       membership.role !== WorkspaceMemberRole.ADMIN
     ) {
@@ -349,7 +377,7 @@ export class InvitationsService {
 
     const template = invitationTemplate(inviteUrl);
 
-    try {
+    if (!opts.silent) try {
       await this.mailService.sendMail({
         to: dto.email,
         subject: template.subject,
@@ -360,6 +388,8 @@ export class InvitationsService {
       // Log but don't throw — invitation is already saved
       console.error('[InvitationsService] Failed to send invitation email:', mailError?.message ?? mailError);
     }
+
+    this.audit?.record({ actorId: invitedById, targetEmail: dto.email, product: 'accounts', workspaceId: dto.workspaceId, action: 'invited', toRole: dto.role, via });
 
     // ------------------------------------------------------------
     // 10. Return response
@@ -404,7 +434,7 @@ export class InvitationsService {
       throw new ForbiddenException('This invitation was sent to a different email address.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const accepted = await this.prisma.$transaction(async (tx) => {
       // Mark invitation as used so it cannot be accepted a second time
       await tx.invitation.update({
         where: { id: invitation.id },
@@ -454,6 +484,8 @@ export class InvitationsService {
         }, tx);
       }
     });
+    this.audit?.record({ actorId: invitation.invitedById, targetUserId: id, product: 'accounts', workspaceId: invitation.workspaceId, action: 'joined', toRole: invitation.role, via: 'invite_accept' });
+    return accepted;
   }
 
   async generateLink(
@@ -494,6 +526,7 @@ export class InvitationsService {
       update: {},
       create: { workspaceId: link.workspaceId, userId, role: link.role },
     });
+    this.audit?.record({ actorId: link.createdById, targetUserId: userId, product: 'accounts', workspaceId: link.workspaceId, workspaceName: link.workspace.name, action: 'joined', toRole: link.role, via: 'invite_link' });
 
     return { joined: true, workspace: link.workspace };
   }

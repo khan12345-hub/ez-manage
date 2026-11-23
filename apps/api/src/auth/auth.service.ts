@@ -6,7 +6,9 @@ import {
   ForbiddenException,
   BadRequestException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { AccessAuditService } from 'src/access/access-audit.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
 import { Request } from 'express-session';
@@ -38,6 +40,7 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    @Optional() private readonly audit?: AccessAuditService,
   ) {}
 
   async login(dto: LoginDto, req: Request) {
@@ -245,6 +248,15 @@ export class AuthService {
 
       return newUser;
     });
+    this.audit?.record({ actorId: invitation.invitedById, targetUserId: user.id, product: 'accounts', workspaceId: invitation.workspaceId, action: 'joined', toRole: invitation.role, via: 'sign_up' });
+    // one sign-up covers every product they were invited to (the Access Center sends one combined email):
+    // pending Company Work invitations for the same email are applied too
+    const workInvites = await this.prisma.workInvitation.findMany({ where: { email: { equals: invitation.email, mode: 'insensitive' }, status: 'PENDING', expiresAt: { gt: new Date() } } });
+    for (const wi of workInvites) {
+      await this.prisma.workMember.upsert({ where: { workspaceId_userId: { workspaceId: wi.workspaceId, userId: user.id } }, update: {}, create: { workspaceId: wi.workspaceId, userId: user.id, role: wi.role ?? 'MEMBER', invitedById: wi.invitedById } });
+      await this.prisma.workInvitation.update({ where: { id: wi.id }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
+      this.audit?.record({ actorId: wi.invitedById, targetUserId: user.id, product: 'work', workspaceId: wi.workspaceId, action: 'joined', toRole: wi.role ?? 'MEMBER', via: 'sign_up' });
+    }
 
     req.session.user = {
       id: user.id,
@@ -288,6 +300,7 @@ export class AuthService {
       await tx.workMember.create({ data: { workspaceId: invite.workspaceId, userId: newUser.id, role: invite.role ?? 'MEMBER', invitedById: invite.invitedById } });
       return newUser;
     });
+    this.audit?.record({ actorId: invite.invitedById, targetUserId: user.id, product: 'work', workspaceId: invite.workspaceId, action: 'joined', toRole: invite.role ?? 'MEMBER', via: 'sign_up' });
     req.session.user = { id: user.id, systemRole: user.systemRole };
     await new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
     const { password, ...safeUser } = user;

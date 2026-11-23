@@ -10,5 +10,6 @@ import { ActivityLogsService } from 'src/activity-logs/activity-logs.service';
   imports: [MailModule, NotificationsModule],
   controllers: [InvitationsController],
   providers: [InvitationsService, UsersRepository, ActivityLogsService],
+  exports: [InvitationsService],
 })
 export class InvitationsModule {}

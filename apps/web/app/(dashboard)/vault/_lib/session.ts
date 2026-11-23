@@ -25,10 +25,27 @@ export type ItemData = {
   identity?: { fullName?: string; email?: string; phone?: string; address?: string; company?: string };
 };
 export type Item = { uid: string; vaultUid: string; data: ItemData; keyVersion: number; createdAt: string; updatedAt: string; deletedAt: string | null; createdById: number; updatedById: number };
-export type VaultRow = { uid: string; kind: "personal" | "shared"; name: string; role: "owner" | "editor" | "viewer"; keyVersion: number; members: number; items: number; key: CryptoKey };
-export type Me = { user: { id: number; firstName: string; lastName: string; email: string; avatarUrl: string | null }; via: string; setup: boolean; keys: C.StoredKeys | null };
+export type Role = "owner" | "editor" | "viewer" | "use_only";
+export type Company = { source: "work" | "boards"; workspaceId: number; name: string };
+export type VaultRow = { uid: string; kind: "personal" | "shared"; name: string; role: Role; keyVersion: number; members: number; items: number; key: CryptoKey; company: Company | null; needsRekey: boolean };
+export type Me = {
+  user: { id: number; firstName: string; lastName: string; email: string; avatarUrl: string | null }; via: string; setup: boolean; keys: C.StoredKeys | null;
+  isAdmin: boolean; isVaultAdmin: boolean;
+  recovery: { enabled: boolean; version: number | null; publicKey: string | null; covered: boolean };
+  recoveryRequest: { id: number; status: string; createdAt: string; expiresAt: string } | null;
+};
+/** what each role may do (owner is called "Manager" in the app) */
+export const ROLE_LABEL: Record<Role, string> = { owner: "Manager", editor: "Editor", viewer: "Viewer", use_only: "Use only" };
+export const ROLE_HINT: Record<Role, string> = {
+  owner: "Adds and removes people, edits items",
+  editor: "Adds and edits items",
+  viewer: "Sees and copies items",
+  use_only: "Signs in with the extension; can't show or copy passwords",
+};
+export const canWrite = (r?: Role) => r === "owner" || r === "editor";
+export const canReveal = (r?: Role) => r !== "use_only";
 
-type RawVault = { uid: string; kind: "personal" | "shared"; encName: string; keyVersion: number; role: VaultRow["role"]; encVaultKey: string; members: number; items: number };
+type RawVault = { uid: string; kind: "personal" | "shared"; encName: string; keyVersion: number; role: Role; encVaultKey: string; members: number; items: number; company: Company | null; needsRekey: boolean };
 type RawItem = Omit<Item, "data"> & { data: string };
 
 export const vaultApi = {
@@ -36,6 +53,8 @@ export const vaultApi = {
   vaults: async () => (await api.get<RawVault[]>("/vault/vaults")).data,
   items: async (trash = false) => (await api.get<RawItem[]>("/vault/items", { params: trash ? { trash: 1 } : {} })).data,
   event: (itemUid: string, action: "viewed" | "revealed" | "copied" | "filled" | "exported", field?: string) => api.post("/vault/events", { itemUid, action, field }).catch(() => null),
+  /** a role check that must pass before showing / copying (refused for "use only") */
+  allow: async (itemUid: string, action: "revealed" | "copied" | "exported", field?: string) => { await api.post("/vault/events", { itemUid, action, field }); },
 };
 
 const LOCK_KEY = "ez:vault:lock-minutes";
@@ -65,7 +84,7 @@ async function openVaults(privateKey: CryptoKey) {
   for (const v of raw) {
     try {
       const key = await C.unwrapVaultKey(v.encVaultKey, privateKey);
-      out.push({ uid: v.uid, kind: v.kind, role: v.role, keyVersion: v.keyVersion, members: v.members, items: v.items, key, name: v.kind === "personal" ? "Personal" : await C.decryptText(key, v.encName).catch(() => "Vault") });
+      out.push({ uid: v.uid, kind: v.kind, role: v.role, keyVersion: v.keyVersion, members: v.members, items: v.items, key, company: v.company ?? null, needsRekey: !!v.needsRekey, name: v.kind === "personal" ? "Personal" : await C.decryptText(key, v.encName).catch(() => "Vault") });
     } catch { /* a vault whose key we can't open is skipped */ }
   }
   return out.sort((a, b) => (a.kind === "personal" ? -1 : b.kind === "personal" ? 1 : a.name.localeCompare(b.name)));
@@ -88,12 +107,24 @@ export const useVault = create<State>((set, get) => ({
   unlock: async (password) => {
     const keys = get().me?.keys;
     if (!keys) throw new Error("NOT_SETUP");
-    const { privateKey } = await C.unlockUserKeys(password, keys);
+    const { privateKey, pkcs8 } = await C.unlockUserKeys(password, keys);
     await get().open(privateKey);
+    // admin recovery: make sure this vault can be recovered with the current organisation key
+    const r = get().me?.recovery;
+    if (r?.enabled && !r.covered && r.publicKey) {
+      try { await api.post("/vault/recovery/wrap", { ...(await C.wrapForRecovery(pkcs8, r.publicKey)), version: r.version }); set({ me: { ...get().me!, recovery: { ...r, covered: true } } }); } catch { /* next unlock */ }
+    }
   },
   open: async (privateKey) => {
     set({ privateKey });
-    const vaults = await openVaults(privateKey);
+    let vaults = await openVaults(privateKey);
+    // someone was taken out of a vault without a new key (e.g. disabled): as its manager, re-key it now
+    const stale = vaults.filter((v) => v.needsRekey && v.role === "owner");
+    if (stale.length) {
+      useVault.setState({ vaults });
+      for (const v of stale) await rekeyWithout(v.uid, null).catch(() => null);
+      vaults = await openVaults(privateKey);
+    }
     const [a, t] = await Promise.all([vaultApi.items(), vaultApi.items(true)]);
     const live = await openItems(a, vaults);
     const dead = await openItems(t, vaults);
@@ -126,7 +157,7 @@ export async function updateItem(item: Item, data: ItemData, toVault?: string) {
  * Take someone out of a shared vault (or leave it): a new vault key for everyone who stays,
  * every item (trash too) re-encrypted with it, all switched over by the server in one go.
  */
-export async function rekeyWithout(vaultUid: string, userId: number) {
+export async function rekeyWithout(vaultUid: string, userId: number | null) {
   const v = vaultOf(vaultUid)!;
   const members = (await api.get<{ user: { id: number } | null; publicKey: string | null }[]>(`/vault/vaults/${vaultUid}/members`)).data;
   const stay = members.filter((m) => m.user && m.user.id !== userId);
@@ -141,7 +172,30 @@ export async function rekeyWithout(vaultUid: string, userId: number) {
   for (const r of [...a, ...t].filter((x) => x.vaultUid === vaultUid)) {
     items.push({ uid: r.uid, data: await C.encryptBytes(fresh, await C.decryptBytes(v.key, r.data)) });
   }
-  await api.post(`/vault/vaults/${vaultUid}/members/${userId}/remove`, { keyVersion: v.keyVersion + 1, members: keys, items });
+  // the name is encrypted with the vault key as well, so it moves to the new key too
+  const encName = await C.encryptText(fresh, v.name);
+  if (userId === null) await api.post(`/vault/vaults/${vaultUid}/rekey`, { keyVersion: v.keyVersion + 1, members: keys, items, encName });
+  else await api.post(`/vault/vaults/${vaultUid}/members/${userId}/remove`, { keyVersion: v.keyVersion + 1, members: keys, items, encName });
+}
+
+// ───────── admin recovery: the one-time key for a request stays in this browser (IndexedDB, not extractable) ─────────
+
+const IDB = "ez-vault-recovery";
+function idb(): Promise<IDBDatabase> {
+  return new Promise((res, rej) => { const r = indexedDB.open(IDB, 1); r.onupgradeneeded = () => r.result.createObjectStore("keys"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+}
+export async function saveRequestKey(userId: number, key: CryptoKey) {
+  const db = await idb();
+  await new Promise<void>((res, rej) => { const t = db.transaction("keys", "readwrite"); t.objectStore("keys").put(key, `u${userId}`); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+}
+export async function loadRequestKey(userId: number): Promise<CryptoKey | null> {
+  try {
+    const db = await idb();
+    return await new Promise((res) => { const t = db.transaction("keys", "readonly"); const g = t.objectStore("keys").get(`u${userId}`); g.onsuccess = () => res((g.result as CryptoKey) ?? null); g.onerror = () => res(null); });
+  } catch { return null; }
+}
+export async function dropRequestKey(userId: number) {
+  try { const db = await idb(); db.transaction("keys", "readwrite").objectStore("keys").delete(`u${userId}`); } catch { /* nothing to drop */ }
 }
 
 export const typeLabel: Record<ItemType, string> = { login: "Login", note: "Secure note", card: "Card", identity: "Identity" };

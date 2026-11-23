@@ -6,6 +6,7 @@ import { workApi } from "@/services/work.api";
 import { useAuth } from "@/providers/AuthProvider";
 import { useCeoAccess } from "@/services/ceo-tower.api";
 import { trackerApi } from "@/services/tracker.api";
+import { accessApi } from "@/services/access.api";
 
 /**
  * Which products this person can open. Each product has its own access:
@@ -16,14 +17,17 @@ import { trackerApi } from "@/services/tracker.api";
  */
 export function useProductAccess() {
   const { user } = useAuth();
-  const boards = useQuery({ queryKey: ["workspaces"], queryFn: getAllWorkspaces, enabled: !!user, staleTime: 30_000 });
-  const work = useQuery({ queryKey: ["work", "my-workspaces"], queryFn: workApi.myWorkspaces, enabled: !!user, staleTime: 30_000 });
+  // the Administrator's product switch (Access Center): a product turned off is hidden everywhere
+  const mine = useQuery({ queryKey: ["access", "me"], queryFn: accessApi.me, enabled: !!user, staleTime: 60_000 });
+  const off = new Set(mine.data?.off ?? []);
+  const boards = useQuery({ queryKey: ["workspaces"], queryFn: getAllWorkspaces, enabled: !!user && !!mine.data && !off.has("accounts"), staleTime: 30_000 });
+  const work = useQuery({ queryKey: ["work", "my-workspaces"], queryFn: workApi.myWorkspaces, enabled: !!user && !!mine.data && !off.has("work"), staleTime: 30_000 });
   const ceo = useCeoAccess();
   // EZ Tracker: any Company Work workspace you are a member of (not a guest)
-  const tracker = useQuery({ queryKey: ["tracker", "workspaces"], queryFn: trackerApi.workspaces, enabled: !!user, staleTime: 60_000 });
+  const tracker = useQuery({ queryKey: ["tracker", "workspaces"], queryFn: trackerApi.workspaces, enabled: !!user && !!mine.data && !off.has("tracker"), staleTime: 60_000 });
   const trackerWorkspaces = tracker.data ?? [];
-  const boardsWorkspaces = ((boards.data as any[] | undefined) ?? []);
-  const workWorkspaces = work.data ?? [];
+  const boardsWorkspaces = off.has("accounts") ? [] : ((boards.data as any[] | undefined) ?? []);
+  const workWorkspaces = off.has("work") ? [] : work.data ?? [];
   const firstBoards = boardsWorkspaces[0];
   const firstWork = workWorkspaces[0];
   const hasBoards = boardsWorkspaces.length > 0;
@@ -31,15 +35,18 @@ export function useProductAccess() {
   const boardsHref = firstBoards ? `/workspace/${firstBoards.uid ?? firstBoards.id}` : undefined;
   const workHref = firstWork ? `/work/${firstWork.uid}` : undefined;
   const isSuperAdmin = user?.systemRole === "SUPER_ADMIN";
-  const loading = !user || boards.isLoading || work.isLoading || ceo.loading;
+  const loading = !user || mine.isLoading || boards.isLoading || work.isLoading || ceo.loading;
   const hrefs = [hasBoards && boardsHref, hasWork && workHref, ceo.allowed && "/ceo"].filter(Boolean) as string[];
   return {
     loading,
     hasBoards,
     hasWork,
     hasCeo: ceo.allowed,
-    hasTracker: trackerWorkspaces.length > 0,
-    trackerHref: trackerWorkspaces[0] ? `/tracker/${trackerWorkspaces[0].uid}` : "/tracker",
+    hasTracker: !off.has("tracker") && trackerWorkspaces.length > 0,
+    hasVault: !off.has("vault"),
+    /** Access Center: Administrators and Access Managers */
+    canManageAccess: !!mine.data?.canManage,
+    trackerHref: trackerWorkspaces[0] ? `/tracker/${trackerWorkspaces[0].key}` : "/tracker",
     boardsWorkspaces,
     workWorkspaces,
     boardsHref,
@@ -49,7 +56,7 @@ export function useProductAccess() {
     /** the one product to open when there is exactly one */
     onlyHref: hrefs.length === 1 ? hrefs[0] : undefined,
     /** starting a new Work workspace: people already in Work (not guests / limited), or the super admin */
-    canCreateWork: isSuperAdmin || workWorkspaces.some((w: any) => ["OWNER", "ADMIN", "MEMBER"].includes(w.role)),
+    canCreateWork: !off.has("work") && (isSuperAdmin || workWorkspaces.some((w: any) => ["OWNER", "ADMIN", "MEMBER"].includes(w.role))),
     /** fetch fresh before sending someone away (a just-accepted invite may not be cached yet) */
     refetch: () => Promise.all([boards.refetch(), work.refetch()]),
   };
