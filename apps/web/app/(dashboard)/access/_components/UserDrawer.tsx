@@ -82,6 +82,7 @@ export function UserDrawer({ id, me, companies, onClose }: { id: number | null; 
                     product="accounts" roles={ACC_ROLES} grantAdmin={(ws) => me.admin || !!companies?.accounts.find((c) => c.id === ws)?.mayGrantAdmin} busy={act.isPending}
                     onRole={(ws, r) => run(() => accessApi.roleAccounts(u.id, ws, r), "Role changed")}
                     onRemove={(ws, n) => setConfirm({ title: `Remove ${name} from ${n}?`, body: "They lose this company's boards in Accounts & Invoices. Their past work stays.", action: "Remove", danger: true, run: () => accessApi.removeAccounts(u.id, ws) })} />
+                  {u.products.accounts.companies.length === 0 && <EmptyHint />}
                   <AddCompany product="accounts" options={(companies?.accounts ?? []).filter((c) => !u.products.accounts.companies.some((x) => x.workspace.id === c.id))} roles={ACC_ROLES} busy={act.isPending}
                     onAdd={(ws, role, boards) => run(() => accessApi.addAccounts(u.id, { workspaceId: ws, role, boardIds: boards }), "Added")} />
                 </Card>
@@ -92,6 +93,7 @@ export function UserDrawer({ id, me, companies, onClose }: { id: number | null; 
                     product="work" roles={WORK_ROLES} grantAdmin={(ws) => me.admin || !!companies?.work.find((c) => c.id === ws)?.mayGrantAdmin} busy={act.isPending}
                     onRole={(ws, r) => run(() => accessApi.roleWork(u.id, ws, r), "Role changed")}
                     onRemove={(ws, n) => setConfirm({ title: `Remove ${name} from ${n}?`, body: "They lose this company in Company Work. Their tasks stay.", action: "Remove", danger: true, run: () => accessApi.removeWork(u.id, ws) })} />
+                  {u.products.work.companies.length === 0 && <EmptyHint />}
                   <AddCompany product="work" options={(companies?.work ?? []).filter((c) => !u.products.work.companies.some((x) => x.workspace.id === c.id))} roles={WORK_ROLES} busy={act.isPending}
                     onAdd={(ws, role) => run(() => accessApi.addWork(u.id, { workspaceId: ws, role }), "Added")} />
                 </Card>
@@ -170,6 +172,15 @@ function Companies({ rows, product, roles, grantAdmin, busy, onRole, onRemove }:
         );
       })}
     </ul>
+  );
+}
+
+/** shown when a product is allowed but the person is in no company there — turning it on only allows it */
+function EmptyHint() {
+  return (
+    <p className="mt-2 rounded-lg bg-[#b45309]/10 px-2.5 py-1.5 text-[12px] text-[#92400e] dark:text-[#fbbf24]">
+      Turning the product on only allows it. Add them to a workspace below so they appear in the team and can use it.
+    </p>
   );
 }
 
