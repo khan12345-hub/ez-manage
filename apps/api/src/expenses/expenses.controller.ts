@@ -11,12 +11,14 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
+import { UploadedFiles } from '@nestjs/common';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { Public } from 'src/auth/decorators/public.decorator';
 import { SessionUser } from 'src/auth/types/session-user.type';
 import { ExpensesService } from './expenses.service';
-import { CategoryDto, CreateClaimDto, EditClaimDto, RejectDto } from './dto/expenses.dto';
+import { CategoryDto, CreateClaimDto, EditClaimDto, FormDto, RejectDto, ReopenDto } from './dto/expenses.dto';
 
 @Controller('expenses')
 export class ExpensesController {
@@ -79,6 +81,50 @@ export class ExpensesController {
   @Post('claims/:id/reject')
   reject(@Param('id', ParseIntPipe) id: number, @Body() dto: RejectDto, @CurrentUser() u: SessionUser) {
     return this.expenses.reject(id, u.id, dto.reason);
+  }
+
+  @Post('claims/:id/recall')
+  recall(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) {
+    return this.expenses.recall(id, u.id);
+  }
+
+  @Post('claims/:id/reopen')
+  reopen(@Param('id', ParseIntPipe) id: number, @Body() dto: ReopenDto, @CurrentUser() u: SessionUser) {
+    return this.expenses.reopen(id, u.id, dto.reason);
+  }
+
+  // ── reimbursement form (builder + shareable link) ──
+  @Get('workspaces/:ws/form')
+  getForm(@Param('ws') ws: string, @CurrentUser() u: SessionUser) {
+    return this.expenses.getForm(ws, u.id);
+  }
+
+  @Patch('workspaces/:ws/form')
+  updateForm(@Param('ws') ws: string, @Body() dto: FormDto, @CurrentUser() u: SessionUser) {
+    return this.expenses.updateForm(ws, u.id, dto);
+  }
+
+  @Post('workspaces/:ws/form/branding')
+  @Throttle({ auth: { ttl: 60_000, limit: 20 } })
+  @UseInterceptors(FileInterceptor('file'))
+  branding(@Param('ws') ws: string, @Query('kind') kind: string, @UploadedFile() file: Express.Multer.File, @CurrentUser() u: SessionUser) {
+    return this.expenses.uploadBranding(ws, u.id, kind === 'banner' ? 'banner' : 'logo', file);
+  }
+
+  // shared form — anyone with the link may VIEW it; only a logged-in user may submit
+  @Public()
+  @Get('form/:token')
+  formByToken(@Param('token') token: string) {
+    return this.expenses.formByToken(token);
+  }
+
+  @Post('form/:token')
+  @Throttle({ auth: { ttl: 60_000, limit: 20 } })
+  @UseInterceptors(FilesInterceptor('files', 10))
+  submitViaForm(@Param('token') token: string, @Body('values') values: string, @UploadedFiles() files: Express.Multer.File[], @CurrentUser() u: SessionUser) {
+    let parsed: Record<string, unknown> = {};
+    try { parsed = values ? JSON.parse(values) : {}; } catch { parsed = {}; }
+    return this.expenses.submitViaForm(token, u.id, parsed, files ?? []);
   }
 
   @Delete('claims/:id')
