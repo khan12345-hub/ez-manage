@@ -68,7 +68,7 @@ function SlotCard({ s, onOpen }: { s: TrackerSlot; onOpen: (shot: TrackerShot) =
   const start = new Date(s.start);
   const end = new Date(start.getTime() + 600_000);
   return (
-    <div className={cn("flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card", s.idleDiscarded && "opacity-60")}>
+    <div className={cn("flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card", s.idleDiscarded && "opacity-60", s.away && !s.idleDiscarded && "ring-1 ring-[#d97706]/40")}>
       {s.idleDiscarded ? (
         <div className="flex aspect-[16/10] items-center justify-center bg-[repeating-linear-gradient(135deg,transparent_0_8px,rgba(0,0,0,0.04)_8px_16px)] text-[11.5px] text-muted-foreground dark:bg-[repeating-linear-gradient(135deg,transparent_0_8px,rgba(255,255,255,0.05)_8px_16px)]">Idle · discarded</div>
       ) : first ? (
@@ -76,6 +76,7 @@ function SlotCard({ s, onOpen }: { s: TrackerSlot; onOpen: (shot: TrackerShot) =
           {first.url ? <img src={first.url} alt="" loading="lazy" className={cn("h-full w-full object-cover object-top transition duration-300 group-hover:scale-[1.04]", first.blurred && "blur-[1.5px]")} /> : <span className="flex h-full items-center justify-center text-muted-foreground"><EyeOff className="h-4 w-4" /></span>}
           {s.shots.length > 1 && <span className="absolute right-1.5 top-1.5 rounded-md bg-black/55 px-1.5 text-[10.5px] font-semibold text-white">+{s.shots.length - 1}</span>}
           {first.hiddenAt && <span className="absolute left-1.5 top-1.5 rounded-md bg-black/55 px-1.5 text-[10.5px] text-white">Hidden</span>}
+          {s.away && <span className="absolute bottom-1.5 left-1.5 rounded-md bg-[#d97706] px-1.5 py-0.5 text-[10px] font-semibold text-white">Away</span>}
         </button>
       ) : (
         <div className="flex aspect-[16/10] items-center justify-center bg-black/[0.03] text-muted-foreground dark:bg-white/[0.03]"><ImageOff className="h-4 w-4" /></div>
@@ -83,7 +84,7 @@ function SlotCard({ s, onOpen }: { s: TrackerSlot; onOpen: (shot: TrackerShot) =
       <div className="space-y-1.5 p-2.5">
         <p className="flex items-center justify-between text-[11.5px]"><span className="font-semibold tabular-nums">{t(start.toISOString())} – {t(end.toISOString())}</span><span className="tabular-nums text-muted-foreground">{Math.round(s.seconds / 60)}m</span></p>
         <ActivityBar pct={s.activityPct} />
-        <p className="truncate text-[11px] text-muted-foreground" title={s.task?.name ?? s.project ?? ""}>{s.task?.name ?? s.project ?? "No task"}</p>
+        <p className={cn("truncate text-[11px]", s.away ? "font-medium text-[#b45309] dark:text-[#fbbf24]" : "text-muted-foreground")} title={s.project ?? ""}>{s.away ? "Away · not on seat" : s.project ?? "Active"}</p>
       </div>
     </div>
   );

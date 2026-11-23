@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('ezt', {
   pair: (apiBase: string, code: string) => ipcRenderer.invoke('pair', { apiBase, code }),
   consent: () => ipcRenderer.invoke('consent'),
   tasks: (q: string) => ipcRenderer.invoke('tasks', q),
-  start: (t: { id?: number | null; name?: string | null }) => ipcRenderer.invoke('start', t),
+  start: (t: { id?: number | null; name?: string | null; note?: string | null }) => ipcRenderer.invoke('start', t),
   stop: () => ipcRenderer.invoke('stop'),
   signout: () => ipcRenderer.invoke('signout'),
   switchTo: (id: string) => ipcRenderer.invoke('switch', id),

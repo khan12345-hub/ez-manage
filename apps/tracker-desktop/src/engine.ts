@@ -75,13 +75,14 @@ export class Engine {
     };
   }
 
-  async start(task: { id?: number | null; name?: string | null }) {
+  async start(task: { id?: number | null; name?: string | null; note?: string | null }) {
     if (this.sessionId) return;
     const clientId = id('s');
     const acct = this.account();
     // a fresh online start: the server stamps the time (so a PC clock ahead of the server can't fail)
-    const s = await this.api(acct).start({ clientId, taskId: task.id ?? null, projectLabel: task.id ? null : task.name ?? null });
-    this.sessionId = s.id; this.sessionClient = clientId; this.sessionAcct = acct; this.startedAt = Date.parse(s.startedAt); this.taskName = task.name ?? null; this.sessionSeconds = 0;
+    const note = (task.note ?? task.name) ?? null;
+    const s = await this.api(acct).start({ clientId, projectLabel: note });
+    this.sessionId = s.id; this.sessionClient = clientId; this.sessionAcct = acct; this.startedAt = Date.parse(s.startedAt); this.taskName = note; this.sessionSeconds = 0;
     this.newSlot(Date.now());
     if (this.hook && !this.hookOn) { try { this.hook.start(); this.hookOn = true; } catch { this.hook = null; } }
     this.tick = setInterval(() => void this.second(), 1000);

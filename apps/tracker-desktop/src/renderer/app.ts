@@ -10,7 +10,7 @@ declare global {
   interface Window {
     ezt: {
       pair(apiBase: string, code: string): Promise<Res<boolean>>; consent(): Promise<Res<boolean>>; tasks(q: string): Promise<Res<Task[]>>;
-      start(t: { id?: number | null; name?: string | null }): Promise<Res<boolean>>; stop(): Promise<Res<boolean>>; signout(): Promise<Res<boolean>>;
+      start(t: { id?: number | null; name?: string | null; note?: string | null }): Promise<Res<boolean>>; stop(): Promise<Res<boolean>>; signout(): Promise<Res<boolean>>;
       switchTo(id: string): Promise<Res<boolean>>; addCompany(on: boolean): Promise<Res<boolean>>;
       autostart(on: boolean): Promise<Res<boolean>>; openWeb(): Promise<Res<boolean>>; refresh(): Promise<Res<boolean>>; onState(f: (s: State) => void): void;
     };
@@ -20,8 +20,7 @@ declare global {
 const root = document.getElementById('app')!;
 let state: State | null = null;
 let screen = '';
-let tasks: Task[] = [];
-let picked: Task | null = null;
+let noteDraft = '';
 let busy = false;
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -46,7 +45,7 @@ function wireHeader() {
     const v = sel.value;
     const r = v === '__add' ? await window.ezt.addCompany(true) : await window.ezt.switchTo(v);
     if (!r.ok) { const e = root.querySelector('#err'); if (e) e.textContent = r.error; render(); }
-    tasks = []; picked = null;
+    noteDraft = '';
   });
 }
 const brand = (sub: string) => `<div class="brand"><div class="logo" aria-hidden="true">⏱</div><div><b>EZ Tracker</b><span>${esc(sub)}</span></div></div>`;
@@ -90,7 +89,7 @@ function consentScreen(s: State) {
     <p class="muted">Please read what EZ Tracker records on this computer for <b>${esc(s.me?.workspace?.name ?? 'your workspace')}</b>.</p>
     <div class="cols" style="margin-top:12px">
       <div class="box yes"><b>Recorded only while you track</b><ul>
-        <li>When you press Start and Stop, and the task you picked</li>
+        <li>When you press Start and Stop, and any note you add</li>
         <li>${st.screenshotsPer10 ? `${st.screenshotsPer10} screenshot${st.screenshotsPer10 > 1 ? 's' : ''} of your screen(s) every 10 minutes, at random times${st.blur ? ', blurred' : ''}` : 'No screenshots (turned off)'}</li>
         <li>How many keyboard and mouse actions happen (a count only)</li>
         ${st.trackApps ? '<li>Which app is in front, and for how long</li>' : ''}
@@ -118,31 +117,20 @@ function consentScreen(s: State) {
   wireHeader();
 }
 
-function renderTasks() {
-  const list = $('#tasks');
-  if (!list) return;
-  list.innerHTML = tasks.length ? tasks.map((t) => `<button class="task${picked?.id === t.id ? ' sel' : ''}" data-id="${t.id}"><i style="background:${esc(t.color)}"></i><span><b>${esc(t.name)}</b><small>${esc(t.where)}</small></span></button>`).join('')
-    : '<p class="muted" style="padding:8px">Nothing assigned to you here (tasks in Company Work, items with you in a person column in Accounts &amp; Invoices). You can still start without a task.</p>';
-  list.querySelectorAll<HTMLButtonElement>('.task').forEach((b) => b.addEventListener('click', () => { const t = tasks.find((x) => x.id === Number(b.dataset.id)) ?? null; picked = picked?.id === t?.id ? null : t; renderTasks(); }));
-}
-let searchTimer: number | undefined;
-async function loadTasks(q: string) { const r = await window.ezt.tasks(q); tasks = r.ok ? r.data : []; renderTasks(); }
-
 function mainScreen(s: State) {
   const e = s.engine;
   root.innerHTML = `${header(s)}
   <section class="card timer">
     <span class="status ${e.running ? 'on' : ''}"><span class="dot"></span>${e.running ? 'Tracking' : 'Not tracking'}${e.offline ? ' · offline, saving on this computer' : ''}</span>
     <div class="clock" id="clock">${hms(e.sessionSeconds)}</div>
-    <div class="task-now" id="tn">${e.running ? esc(e.taskName ?? 'No task') : picked ? esc(picked.name) : '&nbsp;'}</div>
+    <div class="task-now" id="tn">${e.running ? esc(e.taskName ?? '') : noteDraft ? esc(noteDraft) : '&nbsp;'}</div>
     <button class="big ${e.running ? 'stop' : ''}" id="toggle" aria-label="${e.running ? 'Stop' : 'Start'}" ${busy || e.idlePrompt ? 'disabled' : ''}>${e.running ? STOP : PLAY}</button>
     <div class="today"><span>Today</span><b id="today">${hm(e.todaySeconds)}</b></div>
     <p class="err" id="err">${esc(s.error ?? '')}</p>
   </section>
   ${e.running ? '' : `<section class="card">
-    <h2>What are you working on?</h2>
-    <input id="q" type="search" placeholder="Search your tasks" aria-label="Search your tasks" />
-    <div class="list" id="tasks" role="list"></div>
+    <h2>What are you working on? <span class="muted" style="font-weight:400">(optional)</span></h2>
+    <input id="note" type="text" maxlength="500" placeholder="e.g. Client report — optional" aria-label="What are you working on (optional)" value="${esc(noteDraft)}" />
   </section>`}
   <div class="foot">
     <span>${s.me?.tracked ? '' : '<span class="pill warn">Tracking is off for you</span> '}${e.pending ? `<span class="pill">${e.pending} waiting to upload</span>` : ''}${e.nativeActivity ? '' : ' <span class="pill" title="Activity is measured from the system idle clock">basic activity</span>'}</span>
@@ -153,7 +141,7 @@ function mainScreen(s: State) {
   </div>`;
   $('#toggle').addEventListener('click', async () => {
     busy = true; render();
-    const r = e.running ? await window.ezt.stop() : await window.ezt.start(picked ? { id: picked.id, name: picked.name } : { name: null });
+    const r = e.running ? await window.ezt.stop() : await window.ezt.start({ name: null, note: noteDraft.trim() || null });
     busy = false;
     if (!r.ok) { render(); $('#err').textContent = r.error; } else render();
   });
@@ -161,8 +149,8 @@ function mainScreen(s: State) {
   wireHeader();
   $('#auto').addEventListener('change', (ev) => void window.ezt.autostart((ev.target as HTMLInputElement).checked));
   if (!e.running) {
-    $('#q').addEventListener('input', (ev) => { window.clearTimeout(searchTimer); const q = (ev.target as HTMLInputElement).value; searchTimer = window.setTimeout(() => void loadTasks(q), 250); });
-    if (!tasks.length) void loadTasks(''); else renderTasks();
+    const n = $('#note') as HTMLInputElement | null;
+    if (n) n.addEventListener('input', (ev) => { noteDraft = (ev.target as HTMLInputElement).value; const tn = $('#tn'); if (tn) tn.textContent = noteDraft || ' '; });
   }
 }
 

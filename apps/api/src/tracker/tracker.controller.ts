@@ -38,6 +38,7 @@ export class TrackerController {
   // managers only (system Administrator or a Tracker admin of the company); all/… = Administrator only
   @Get('all/people') peopleAll(@Query('offset') o: string, @CurrentUser() u: SessionUser) { return this.t.peopleAll(u.id, off(o)); }
   @Get(':ws/people') people(@Param('ws') ws: string, @Query('offset') o: string, @CurrentUser() u: SessionUser) { return this.t.peopleList(ws, u.id, off(o)); }
+  @Get(':ws/people/:userId') person(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @Query('offset') o: string, @CurrentUser() u: SessionUser) { return this.t.person(ws, u.id, target, off(o)); }
   @Patch(':ws/people/:userId/tracking') tracking(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.setTracking(ws, u.id, target, b?.on !== false); }
   @Throttle({ default: { ttl: 60_000, limit: 20 } })
   @Post(':ws/people/:userId/remind') remind(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @CurrentUser() u: SessionUser) { return this.t.remind(ws, u.id, target); }

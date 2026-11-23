@@ -16,7 +16,7 @@ export type TrackerSettings = {
   retentionDays: number; dayStart: string;
 };
 export const DEFAULT_SETTINGS: TrackerSettings = {
-  screenshotsPer10: 1, blur: false, trackApps: true, trackUrls: false, idleMinutes: 5,
+  screenshotsPer10: 1, blur: false, trackApps: true, trackUrls: false, idleMinutes: 15,
   retentionDays: 60, dayStart: '09:00',
 };
 
@@ -26,7 +26,7 @@ const SHOT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_SHOT = 3 * 1024 * 1024;
 const RETENTION = new Set([0, 30, 60, 90, 180]);
 
-export type Src = 'work' | 'boards';
+export type Src = 'work' | 'boards' | 'org';
 type Ctx = { orgId: number; source: Src; workspaceId: number; userId: number; role: string; isManager: boolean; isSystemAdmin: boolean; member: { role: string; tracking: boolean } | null };
 type TaskRef = { id: number; uid: string | null; name: string; source: Src; boardUid?: string | null };
 const BOARDS_ROLES = ['OWNER', 'ADMIN', 'MEMBER'] as const;
@@ -64,86 +64,44 @@ export class TrackerService {
     const s = { ...DEFAULT_SETTINGS, ...((raw && typeof raw === 'object' ? raw : {}) as Partial<TrackerSettings>) };
     return {
       screenshotsPer10: int(s.screenshotsPer10, 0, 3, 1), blur: !!s.blur, trackApps: !!s.trackApps, trackUrls: !!s.trackUrls,
-      idleMinutes: int(s.idleMinutes, 1, 60, 5), retentionDays: RETENTION.has(Number(s.retentionDays)) ? Number(s.retentionDays) : 60,
+      idleMinutes: int(s.idleMinutes, 1, 60, 15), retentionDays: RETENTION.has(Number(s.retentionDays)) ? Number(s.retentionDays) : 60,
       dayStart: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s.dayStart)) ? String(s.dayStart) : '09:00',
     };
   }
 
-  private async ensureOrg(source: Src, workspaceId: number) {
-    return this.prisma.trackerOrg.upsert({ where: { source_workspaceId: { source, workspaceId } }, update: {}, create: { source, workspaceId, settings: DEFAULT_SETTINGS as any } });
-  }
-
-  /** "b-<uid>" → Accounts & Invoices, "w-<uid>" or a bare uid / id → Company Work */
-  private parseWs(ws: string): { source: Src; key: string } {
-    if (ws.startsWith('b-')) return { source: 'boards', key: ws.slice(2) };
-    if (ws.startsWith('w-')) return { source: 'work', key: ws.slice(2) };
-    return { source: 'work', key: ws };
-  }
-
-  /** the company's workspace in its product (by uid or id) */
-  private async findWorkspace(source: Src, key: string): Promise<{ id: number; uid: string; name: string; color: string } | null> {
-    const where = /^\d+$/.test(key) ? { id: Number(key) } : { uid: key };
-    if (source === 'boards') {
-      const w = await this.prisma.workspace.findFirst({ where, select: { id: true, uid: true, name: true } });
-      return w ? { ...w, color: '#4f46e5' } : null;
-    }
-    return this.prisma.workWorkspace.findFirst({ where, select: { id: true, uid: true, name: true, color: true } });
-  }
-
-  /** the person's role in the company, or null when they are not trackable (not in it, guest, viewer) */
-  private async roleOf(source: Src, workspaceId: number, userId: number): Promise<string | null> {
-    if (source === 'boards') {
-      const m = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } }, select: { role: true, deletedAt: true } });
-      return m && !m.deletedAt && (BOARDS_ROLES as readonly string[]).includes(m.role) ? m.role : null;
-    }
-    const m = await this.prisma.workMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } }, select: { role: true } });
-    return m && m.role !== 'GUEST' ? m.role : null;
-  }
-
-  /** everyone in the company (who could be added to EZ Tracker) */
-  private async memberIds(source: Src, workspaceId: number) {
-    if (source === 'boards') return (await this.prisma.workspaceMember.findMany({ where: { workspaceId, deletedAt: null, role: { in: [...BOARDS_ROLES] } }, select: { userId: true } })).map((m) => m.userId);
-    return (await this.prisma.workMember.findMany({ where: { workspaceId, role: { not: 'GUEST' } }, select: { userId: true } })).map((m) => m.userId);
+  /** EZ Tracker is one organization-wide tracker: a single org row (source 'org', workspaceId 0). */
+  private async ensureOrg() {
+    return this.prisma.trackerOrg.upsert({ where: { source_workspaceId: { source: 'org', workspaceId: 0 } }, update: {}, create: { source: 'org', workspaceId: 0, settings: DEFAULT_SETTINGS as any } });
   }
 
   private async isSystemAdmin(userId: number) {
     return (await this.prisma.user.findUnique({ where: { id: userId }, select: { systemRole: true } }))?.systemRole === 'SUPER_ADMIN';
   }
-  /** the person's EZ Tracker membership in this company (still in the company), or null */
-  private async trackerMember(org: { id: number; source: string; workspaceId: number }, userId: number) {
-    const m = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: org.id, userId } }, select: { role: true, tracking: true } });
-    if (!m) return null;
-    return (await this.roleOf(org.source === 'boards' ? 'boards' : 'work', org.workspaceId, userId)) ? m : null;
-  }
-  /** EZ Tracker manager of this company: the system Administrator or a Tracker admin there */
+  /** EZ Tracker manager: the system Administrator or a Tracker admin */
   private async isManagerOf(orgId: number, userId: number) {
     if (await this.isSystemAdmin(userId)) return true;
     return (await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId, userId } }, select: { role: true } }))?.role === 'admin';
   }
-  /** the people of EZ Tracker in this company */
+  /** everyone in EZ Tracker */
   private async trackerIds(orgId: number) {
     return (await this.prisma.trackerMember.findMany({ where: { orgId }, select: { userId: true } })).map((m) => m.userId);
   }
 
   /**
-   * company (route key) → the caller's place in EZ Tracker there. Tracker members (still in the
-   * company) and the system Administrator get in; everyone else: 404.
+   * The caller's place in EZ Tracker (the single org). Tracker members and the system
+   * Administrator get in; everyone else: 404. The `ws` route param is ignored (one org).
    */
-  async ctx(ws: string, userId: number): Promise<Ctx> {
-    const { source, key } = this.parseWs(ws);
-    const w = await this.findWorkspace(source, key);
-    if (!w) throw new NotFoundException('Workspace not found.');
+  async ctx(_ws: string, userId: number): Promise<Ctx> {
+    const org = await this.ensureOrg();
     const sys = await this.isSystemAdmin(userId);
-    const existing = await this.prisma.trackerOrg.findUnique({ where: { source_workspaceId: { source, workspaceId: w.id } } });
-    if (!existing && !sys) throw new NotFoundException('Workspace not found.');
-    const org = existing ?? (await this.ensureOrg(source, w.id));
-    const member = await this.trackerMember(org, userId);
-    if (!member && !sys) throw new NotFoundException('Workspace not found.');
+    const m = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: org.id, userId } }, select: { role: true, tracking: true } });
+    if (!m && !sys) throw new NotFoundException('EZ Tracker is not set up for you.');
+    const member = m ?? null;
     const isManager = sys || member?.role === 'admin';
-    return { orgId: org.id, source, workspaceId: w.id, userId, role: member?.role ?? 'administrator', isManager, isSystemAdmin: sys, member };
+    return { orgId: org.id, source: 'org', workspaceId: 0, userId, role: member?.role ?? 'administrator', isManager, isSystemAdmin: sys, member };
   }
 
-  /** who this person may see: the company's Tracker people (manager) or only themself */
+  /** who this person may see: everyone (manager) or only themself */
   private async visibleIds(c: Ctx) {
     if (c.isManager) return this.trackerIds(c.orgId);
     return [c.userId];
@@ -157,14 +115,10 @@ export class TrackerService {
     if (!c.isManager) throw new ForbiddenException('Only Tracker admins and the Administrator can do this.');
   }
   private needMember(c: Ctx) {
-    if (!c.member) throw new ForbiddenException('You are not in EZ Tracker for this company. A Tracker admin can add you.');
-  }
-  private async orgSource(orgId: number) {
-    const org = await this.prisma.trackerOrg.findUniqueOrThrow({ where: { id: orgId } });
-    return { ...org, source: (org.source === 'boards' ? 'boards' : 'work') as Src };
+    if (!c.member) throw new ForbiddenException('You are not in EZ Tracker. A Tracker admin can add you.');
   }
 
-  /** names (and links) of the tasks / items sessions were on */
+  /** names of the tasks older sessions were on (new sessions carry no task) */
   private async taskMap(rows: { taskId: number | null; taskSource: string | null }[]) {
     const work = [...new Set(rows.filter((r) => r.taskId && r.taskSource !== 'boards').map((r) => r.taskId!))];
     const boards = [...new Set(rows.filter((r) => r.taskId && r.taskSource === 'boards').map((r) => r.taskId!))];
@@ -180,31 +134,13 @@ export class TrackerService {
 
   // ───────────── web: workspaces, overview, settings ─────────────
 
-  /**
-   * the companies the person can open in EZ Tracker (both products): where they are a Tracker
-   * member, or every company for the system Administrator. `manager` = they see the team there.
-   */
+  /** one entry: the organization. `manager` = the caller sees everyone (Tracker admin / Administrator). */
   async workspaces(userId: number) {
+    const org = await this.ensureOrg();
     const sys = await this.isSystemAdmin(userId);
-    const mine = await this.prisma.trackerMember.findMany({ where: { userId }, select: { role: true, org: { select: { id: true, source: true, workspaceId: true } } }, orderBy: { createdAt: 'asc' } });
-    const rows: { id: number; uid: string; name: string; color: string; role: string | null; source: Src; key: string; manager: boolean }[] = [];
-    for (const m of mine) {
-      const source: Src = m.org.source === 'boards' ? 'boards' : 'work';
-      if (!(await this.roleOf(source, m.org.workspaceId, userId))) continue; // left the company
-      const w = await this.findWorkspace(source, String(m.org.workspaceId));
-      if (w) rows.push({ ...w, role: m.role, source, key: companyKey(source, w.uid), manager: sys || m.role === 'admin' });
-    }
-    if (sys) {
-      // the Administrator sees every company of both products
-      const have = new Set(rows.map((r) => r.key));
-      const [allWork, allBoards] = await Promise.all([
-        this.prisma.workWorkspace.findMany({ where: { deletedAt: null }, select: { id: true, uid: true, name: true, color: true }, orderBy: { createdAt: 'asc' } }),
-        this.prisma.workspace.findMany({ select: { id: true, uid: true, name: true }, orderBy: { createdAt: 'asc' } }),
-      ]);
-      for (const w of allWork) if (!have.has(companyKey('work', w.uid))) rows.push({ ...w, role: null, source: 'work', key: companyKey('work', w.uid), manager: true });
-      for (const w of allBoards) if (!have.has(companyKey('boards', w.uid))) rows.push({ ...w, color: '#4f46e5', role: null, source: 'boards', key: companyKey('boards', w.uid), manager: true });
-    }
-    return rows;
+    const m = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: org.id, userId } }, select: { role: true } });
+    if (!m && !sys) return [];
+    return [{ id: 0, uid: 'org', name: 'Organization', color: '#0369a1', role: m?.role ?? null, source: 'org' as Src, key: 'org', manager: sys || m?.role === 'admin' }];
   }
 
   async overview(ws: string, userId: number) {
@@ -213,9 +149,8 @@ export class TrackerService {
     const settings = this.settingsOf(org.settings);
     const consent = await this.prisma.trackerConsent.findUnique({ where: { orgId_userId_version: { orgId: c.orgId, userId, version: CONSENT_VERSION } }, select: { acceptedAt: true } });
     const devices = await this.prisma.trackerDevice.count({ where: { userId, orgId: c.orgId, revokedAt: null } });
-    const w = await this.findWorkspace(c.source, String(c.workspaceId));
     return {
-      workspace: w ? { uid: w.uid, name: w.name, color: w.color, source: c.source, key: companyKey(c.source, w.uid) } : null,
+      workspace: { uid: 'org', name: 'Organization', color: '#0369a1', source: 'org' as Src, key: 'org' },
       role: c.role, isManager: c.isManager, isSystemAdmin: c.isSystemAdmin, member: !!c.member, canSeeOthers: c.isManager,
       settings, tracked: !!c.member?.tracking, consent: { version: CONSENT_VERSION, acceptedAt: consent?.acceptedAt ?? null }, devices,
     };
@@ -265,8 +200,7 @@ export class TrackerService {
     if (code.length !== 8) throw new BadRequestException('Enter the 8-character code from EZ Tracker on the web.');
     const row = await this.prisma.trackerPairCode.findUnique({ where: { codeHash: hashToken(code) } });
     if (!row || row.usedAt || row.expiresAt < new Date()) throw new BadRequestException('This code is wrong or expired. Make a new one on the web.');
-    const org = await this.prisma.trackerOrg.findUniqueOrThrow({ where: { id: row.orgId } });
-    if (!(await this.trackerMember(org, row.userId))) throw new ForbiddenException('You are not in EZ Tracker for this company anymore.');
+    if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: row.orgId, userId: row.userId } }, select: { id: true } }))) throw new ForbiddenException('You are not in EZ Tracker anymore.');
     await this.prisma.trackerPairCode.update({ where: { id: row.id }, data: { usedAt: new Date() } });
     const token = `ezt_${randomBytes(36).toString('base64url')}`;
     const d = await this.prisma.trackerDevice.create({
@@ -289,16 +223,14 @@ export class TrackerService {
   // ───────────── desktop ─────────────
 
   async desktopMe(d: TrackerDeviceCaller) {
-    const org = await this.orgSource(d.orgId);
+    const org = await this.prisma.trackerOrg.findUniqueOrThrow({ where: { id: d.orgId } });
     const settings = this.settingsOf(org.settings);
-    const member = await this.trackerMember(org, d.userId);
-    const ws = await this.findWorkspace(org.source, String(org.workspaceId));
-    const w = ws ? { uid: ws.uid, name: ws.name, source: org.source, key: companyKey(org.source, ws.uid) } : null;
+    const member = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: d.orgId, userId: d.userId } }, select: { role: true, tracking: true } });
     const u = await this.prisma.user.findUnique({ where: { id: d.userId }, select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } });
     const consent = await this.prisma.trackerConsent.findUnique({ where: { orgId_userId_version: { orgId: d.orgId, userId: d.userId, version: CONSENT_VERSION } }, select: { acceptedAt: true } });
-    const open = await this.prisma.trackerSession.findFirst({ where: { userId: d.userId, orgId: d.orgId, endedAt: null }, orderBy: { startedAt: 'desc' }, select: { id: true, startedAt: true, taskId: true, taskSource: true, projectLabel: true } });
+    const open = await this.prisma.trackerSession.findFirst({ where: { userId: d.userId, orgId: d.orgId, endedAt: null }, orderBy: { startedAt: 'desc' }, select: { id: true, startedAt: true, note: true } });
     return {
-      user: u, workspace: w, member: !!member,
+      user: u, workspace: { uid: 'org', name: 'Organization', source: 'org', key: 'org' }, member: !!member,
       settings: { screenshotsPer10: settings.screenshotsPer10, blur: settings.blur, trackApps: settings.trackApps, trackUrls: settings.trackUrls, idleMinutes: settings.idleMinutes },
       tracked: !!member?.tracking, consent: { version: CONSENT_VERSION, acceptedAt: consent?.acceptedAt ?? null },
       today: await this.todaySeconds(d.orgId, d.userId), openSession: open,
@@ -310,44 +242,18 @@ export class TrackerService {
 
   /** can this device record right now? (still a Tracker member here, tracking on for them, agreed to the current text) */
   private async mayTrack(d: TrackerDeviceCaller) {
-    const org = await this.orgSource(d.orgId);
-    const member = await this.trackerMember(org, d.userId);
-    if (!member) throw new ForbiddenException('You are not in EZ Tracker for this company anymore.');
+    const org = await this.prisma.trackerOrg.findUniqueOrThrow({ where: { id: d.orgId } });
+    const member = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: d.orgId, userId: d.userId } }, select: { tracking: true } });
+    if (!member) throw new ForbiddenException('You are not in EZ Tracker anymore.');
     const settings = this.settingsOf(org.settings);
-    if (!member.tracking) throw new ForbiddenException('Time tracking is paused for you in this company.');
+    if (!member.tracking) throw new ForbiddenException('Time tracking is paused for you.');
     const ok = await this.prisma.trackerConsent.findUnique({ where: { orgId_userId_version: { orgId: d.orgId, userId: d.userId, version: CONSENT_VERSION } }, select: { id: true } });
     if (!ok) throw new ForbiddenException('Please read and accept what EZ Tracker records before you start.');
     return { org, settings };
   }
 
-  /** the task picker: my open Company Work tasks, or Accounts & Invoices items with me in a person column */
-  async desktopTasks(d: TrackerDeviceCaller, q: string) {
-    const org = await this.orgSource(d.orgId);
-    const term = str(q, 80);
-    if (org.source === 'boards') {
-      const me = JSON.stringify({ users: [{ id: d.userId }] });
-      const like = `%${term.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-      const rows = await this.prisma.$queryRaw<{ id: number; name: string; board: string; grp: string }[]>(Prisma.sql`
-        SELECT t.id, t.name, b.name AS board, g.name AS grp
-        FROM tasks t JOIN groups g ON g.id = t."groupId" JOIN boards b ON b.id = g."boardId"
-        WHERE b."workspaceId" = ${org.workspaceId}
-          AND EXISTS (SELECT 1 FROM task_cells tc WHERE tc."taskId" = t.id AND tc.value @> ${me}::jsonb)
-          ${term ? Prisma.sql`AND t.name ILIKE ${like}` : Prisma.empty}
-        ORDER BY t."updatedAt" DESC LIMIT 50`);
-      return rows.map((t) => ({ id: t.id, uid: null, name: t.name, dueDate: null, where: `${t.board} / ${t.grp}`, color: '#4f46e5', source: 'boards' as const }));
-    }
-    const tasks = await this.prisma.workTask.findMany({
-      where: {
-        archivedAt: null, completedAt: null, list: { space: { workspaceId: org.workspaceId } },
-        assignees: { some: { userId: d.userId } },
-        ...(term ? { name: { contains: term, mode: 'insensitive' as const } } : {}),
-      },
-      select: { id: true, uid: true, name: true, dueDate: true, list: { select: { name: true, space: { select: { name: true, color: true } } } } },
-      orderBy: [{ updatedAt: 'desc' }], take: 50,
-    });
-    return tasks.map((t) => ({ id: t.id, uid: t.uid, name: t.name, dueDate: t.dueDate, where: `${t.list.space.name} / ${t.list.name}`, color: t.list.space.color, source: 'work' as const }));
-  }
-
+  /** no task picker anymore — EZ Tracker is a system tracker (task timing lives in Company Work) */
+  async desktopTasks(_d: TrackerDeviceCaller, _q: string): Promise<[]> { return []; }
   private async checkTask(source: Src, workspaceId: number, taskId: number) {
     if (source === 'boards') {
       const t = await this.prisma.task.findFirst({ where: { id: taskId, group: { board: { workspaceId } } }, select: { id: true } });
@@ -360,23 +266,21 @@ export class TrackerService {
   }
 
   async start(d: TrackerDeviceCaller, b: any) {
-    const { org } = await this.mayTrack(d);
+    await this.mayTrack(d);
     const clientId = cid(b?.clientId);
     const existing = await this.prisma.trackerSession.findUnique({ where: { userId_clientId: { userId: d.userId, clientId } } });
     if (existing) return existing; // a retried start
-    const taskId = b?.taskId ? await this.checkTask(org.source, org.workspaceId, Number(b.taskId)) : null;
+    // system tracker: just time + screenshots + activity, plus an optional free-text note.
     // a fresh online start sends no time (the server stamps it); a queued / offline start sends when it
-    // really began. A PC clock ahead of the server must not fail: clamp a future time to now, and only
-    // reject a genuinely old queued start (more than 7 days back).
+    // really began. Clamp a future PC-clock time to now; reject only a genuinely old queued start.
     const now = Date.now();
     let startedAt = b?.startedAt ? iso(b.startedAt, 'startedAt') : new Date();
     if (startedAt.getTime() > now) startedAt = new Date(now);
     if (startedAt.getTime() < now - 7 * 86_400_000) throw new BadRequestException('That start time is too old to record.');
-    // one running session per person: close any other
     const open = await this.prisma.trackerSession.findMany({ where: { userId: d.userId, endedAt: null } });
     for (const o of open) await this.finish(o.id, o.lastBeatAt ?? startedAt);
     return this.prisma.trackerSession.create({
-      data: { orgId: d.orgId, userId: d.userId, deviceId: d.deviceId, clientId, taskId, taskSource: taskId ? org.source : null, projectLabel: str(b?.projectLabel, 120) || null, note: str(b?.note, 500) || null, startedAt, lastBeatAt: new Date() },
+      data: { orgId: d.orgId, userId: d.userId, deviceId: d.deviceId, clientId, note: str(b?.note, 500) || str(b?.projectLabel, 120) || null, startedAt, lastBeatAt: new Date() },
     });
   }
 
@@ -528,38 +432,37 @@ export class TrackerService {
       this.prisma.trackerShot.findMany({ where: { orgId: c.orgId, userId: { in: ids }, deletedAt: null, takenAt: { gte: new Date(dayStart) } }, orderBy: { takenAt: 'desc' }, distinct: ['userId'], select: { userId: true, url: true, takenAt: true, blurred: true, hiddenAt: true } }),
     ]);
     const taskOf = await this.taskMap(open);
+    // Away ("not on seat") = a running person whose latest 10-minute slots show ~0 keyboard+mouse
+    const liveIds = open.filter((o) => o.lastBeatAt && now - o.lastBeatAt.getTime() < STALE_MS).map((o) => o.userId);
+    const recent = liveIds.length ? await this.prisma.trackerSlot.findMany({ where: { orgId: c.orgId, userId: { in: liveIds }, deletedAt: null, start: { gte: new Date(now - 60 * 60_000) } }, orderBy: { start: 'desc' }, select: { userId: true, start: true, seconds: true, keyboard: true, mouse: true } }) : [];
+    const awaySince = new Map<number, number>();
+    for (const uid of liveIds) {
+      let since: number | null = null;
+      for (const sl of recent.filter((x) => x.userId === uid)) { if (sl.seconds > 0 && sl.keyboard + sl.mouse === 0) since = sl.start.getTime(); else break; }
+      if (since !== null) awaySince.set(uid, since);
+    }
     const sum = new Map(slots.map((s) => [s.userId, s]));
     const lastShot = new Map(shots.map((s) => [s.userId, s]));
     return ids.filter((id) => users.has(id)).map((id) => {
       const o = open.find((x) => x.userId === id && x.lastBeatAt && now - x.lastBeatAt.getTime() < STALE_MS);
       const shot = lastShot.get(id);
       const hidden = shot?.hiddenAt && id !== c.userId;
+      const away = !!o && awaySince.has(id);
       return {
         user: users.get(id), me: id === c.userId,
-        status: o ? 'working' : 'offline', since: o?.startedAt ?? null,
+        status: o ? (away ? 'away' : 'working') : 'offline', since: o?.startedAt ?? null, awaySince: away ? new Date(awaySince.get(id)!) : null,
         task: o ? taskOf(o.taskId, o.taskSource) : null, project: o?.projectLabel ?? null,
         todaySeconds: sum.get(id)?._sum.seconds ?? 0, todayActivity: Math.round(sum.get(id)?._avg.activityPct ?? 0),
         lastShot: shot && !hidden ? { url: shot.url, takenAt: shot.takenAt, blurred: shot.blurred } : null,
       };
-    }).sort((a, b) => (a.status === b.status ? b.todaySeconds - a.todaySeconds : a.status === 'working' ? -1 : 1));
+    }).sort((a, b) => { const off = (x: string) => (x === 'offline' ? 1 : 0); return off(a.status) - off(b.status) || b.todaySeconds - a.todaySeconds; });
   }
 
-  /** the system Administrator: who is working right now in every company (both products) */
+  /** the system Administrator: who is working right now across the organization */
   async liveAll(userId: number, offsetMin: number) {
-    if (!(await this.isSystemAdmin(userId))) throw new ForbiddenException('Only the Administrator sees all companies.');
-    const ids = new Set((await this.prisma.trackerOrg.findMany({ select: { source: true, workspaceId: true } })).map((o) => `${o.source}:${o.workspaceId}`));
-    const mine = (await this.workspaces(userId)).filter((w) => ids.has(`${w.source}:${w.id}`));
-    const out: { company: { key: string; name: string; source: Src; color: string }; working: Awaited<ReturnType<TrackerService["live"]>>; people: number; todaySeconds: number }[] = [];
-    for (const w of mine) {
-      const rows = await this.live(w.key, userId, offsetMin).catch(() => null);
-      if (!rows) continue;
-      out.push({
-        company: { key: w.key, name: w.name, source: w.source, color: w.color },
-        working: rows.filter((r) => r.status === 'working'), people: rows.length,
-        todaySeconds: rows.reduce((n, r) => n + r.todaySeconds, 0),
-      });
-    }
-    return out;
+    if (!(await this.isSystemAdmin(userId))) throw new ForbiddenException('Only the Administrator sees everyone.');
+    const rows = await this.live('org', userId, offsetMin);
+    return [{ company: { key: 'org', name: 'Organization', source: 'org' as Src, color: '#0369a1' }, working: rows.filter((r) => r.status === 'working'), people: rows.length, todaySeconds: rows.reduce((n, r) => n + r.todaySeconds, 0) }];
   }
 
   /** local day start for the viewer's time zone (offsetMin = Date#getTimezoneOffset in the browser) */
@@ -586,16 +489,17 @@ export class TrackerService {
     const off = int(q.offset, -840, 840);
     const ids = await this.who(c, q.userId);
     const users = await this.people(ids);
-    const slots = await this.prisma.trackerSlot.findMany({ where: { orgId: c.orgId, userId: { in: ids }, deletedAt: null, idleDiscarded: false, start: { gte: a, lt: b } }, select: { userId: true, start: true, seconds: true, activityPct: true, session: { select: { taskId: true, taskSource: true, projectLabel: true } } } });
+    const slots = await this.prisma.trackerSlot.findMany({ where: { orgId: c.orgId, userId: { in: ids }, deletedAt: null, idleDiscarded: false, start: { gte: a, lt: b } }, select: { userId: true, start: true, seconds: true, keyboard: true, mouse: true, activityPct: true, session: { select: { taskId: true, taskSource: true, projectLabel: true } } } });
     const taskOf = await this.taskMap(slots.map((s) => s.session));
-    const rows = new Map<number, { days: Record<string, { seconds: number; act: number; n: number }>; total: number; tasks: Map<string, { name: string; uid: string | null; seconds: number }> }>();
-    for (const id of ids) rows.set(id, { days: {}, total: 0, tasks: new Map() });
+    const rows = new Map<number, { days: Record<string, { seconds: number; active: number; act: number; n: number }>; total: number; active: number; tasks: Map<string, { name: string; uid: string | null; seconds: number }> }>();
+    for (const id of ids) rows.set(id, { days: {}, total: 0, active: 0, tasks: new Map() });
     for (const s of slots) {
       const r = rows.get(s.userId)!;
       const k = this.dayKey(s.start.getTime(), off);
-      const d = (r.days[k] ??= { seconds: 0, act: 0, n: 0 });
-      d.seconds += s.seconds; d.act += s.activityPct * s.seconds; d.n += s.seconds;
-      r.total += s.seconds;
+      const d = (r.days[k] ??= { seconds: 0, active: 0, act: 0, n: 0 });
+      const active = s.keyboard + s.mouse > 0 ? s.seconds : 0;
+      d.seconds += s.seconds; d.active += active; d.act += s.activityPct * s.seconds; d.n += s.seconds;
+      r.total += s.seconds; r.active += active;
       const t = taskOf(s.session.taskId, s.session.taskSource);
       const tk = t ? `t${t.source}${t.id}` : `p${s.session.projectLabel ?? ''}`;
       const tr = r.tasks.get(tk) ?? { name: t?.name ?? s.session.projectLabel ?? 'No task', uid: t?.uid ?? null, seconds: 0 };
@@ -604,8 +508,8 @@ export class TrackerService {
     return ids.filter((id) => users.has(id)).map((id) => {
       const r = rows.get(id)!;
       return {
-        user: users.get(id), total: r.total,
-        days: Object.fromEntries(Object.entries(r.days).map(([k, v]) => [k, { seconds: v.seconds, activity: v.n ? Math.round(v.act / v.n) : 0 }])),
+        user: users.get(id), total: r.total, activeTotal: r.active,
+        days: Object.fromEntries(Object.entries(r.days).map(([k, v]) => [k, { seconds: v.seconds, active: v.active, activity: v.n ? Math.round(v.act / v.n) : 0 }])),
         tasks: [...r.tasks.values()].sort((x, y) => y.seconds - x.seconds),
       };
     }).sort((x, y) => y.total - x.total);
@@ -630,7 +534,8 @@ export class TrackerService {
     const user = (await this.people([who])).get(who) ?? null;
     return {
       user, own, canHide: c.isManager && !own,
-      slots: slots.map((s) => ({ ...s, task: taskOf(s.session.taskId, s.session.taskSource), project: s.session.projectLabel, session: undefined, shots: s.shots.map((x) => ({ ...x, url: x.hiddenAt && !own ? null : x.url })) })),
+      canSeeScreens: c.isManager,
+      slots: slots.map((s) => ({ ...s, away: s.keyboard + s.mouse === 0 && !s.idleDiscarded && s.seconds > 0, task: taskOf(s.session.taskId, s.session.taskSource), project: s.session.projectLabel, session: undefined, apps: c.isManager ? s.apps : [], shots: c.isManager ? s.shots.map((x) => ({ ...x, url: x.hiddenAt && !own ? null : x.url })) : [] })),
       totalSeconds: slots.filter((s) => !s.idleDiscarded).reduce((n, s) => n + s.seconds, 0),
     };
   }
@@ -638,6 +543,7 @@ export class TrackerService {
   /** apps & sites: time per app (and URL when site tracking is on) */
   async apps(ws: string, userId: number, q: any) {
     const c = await this.ctx(ws, userId);
+    this.needManager(c);
     const { a, b } = this.range(q.from, q.to);
     const ids = await this.who(c, q.userId);
     const rows = await this.prisma.trackerAppUsage.groupBy({ by: ['app'], where: { orgId: c.orgId, userId: { in: ids }, slot: { deletedAt: null, idleDiscarded: false, start: { gte: a, lt: b } } }, _sum: { seconds: true }, _count: { userId: true }, orderBy: { _sum: { seconds: 'desc' } }, take: 50 });
@@ -683,9 +589,8 @@ export class TrackerService {
   async candidates(ws: string, userId: number) {
     const c = await this.ctx(ws, userId);
     this.needManager(c);
-    const inTracker = new Set(await this.trackerIds(c.orgId));
-    const ids = (await this.memberIds(c.source, c.workspaceId)).filter((id) => !inTracker.has(id));
-    return [...(await this.people(ids)).values()].sort((a, b) => (a.firstName ?? '').localeCompare(b.firstName ?? ''));
+    const inTracker = await this.trackerIds(c.orgId);
+    return this.prisma.user.findMany({ where: { deletedAt: null, status: 'ACTIVE', id: { notIn: inTracker.length ? inTracker : [0] } }, select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }, orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }], take: 1000 });
   }
 
   /**
@@ -695,25 +600,19 @@ export class TrackerService {
   async addMembers(ws: string, userId: number, b: any) {
     const c = await this.ctx(ws, userId);
     this.needManager(c);
-    const w = await this.findWorkspace(c.source, String(c.workspaceId));
-    const company = w?.name ?? 'this company';
+    const company = 'EZ Tracker';
     const ids = new Set<number>((Array.isArray(b?.userIds) ? b.userIds : []).map(Number).filter(Number.isInteger));
     const emails: string[] = (Array.isArray(b?.emails) ? b.emails : []).map((e: unknown) => str(e, 200).toLowerCase()).filter(Boolean).slice(0, 50);
     for (const e of emails) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new BadRequestException(`"${e}" is not an email address.`);
       const u = await this.prisma.user.findFirst({ where: { email: { equals: e, mode: 'insensitive' }, deletedAt: null }, select: { id: true } });
-      if (!u) throw new BadRequestException(`There is no EZ Manage account for ${e}. Invite them to ${company} first.`);
+      if (!u) throw new BadRequestException(`There is no EZ Manage account for ${e}.`);
       ids.add(u.id);
     }
     if (!ids.size) throw new BadRequestException('Pick at least one person.');
     if (ids.size > 100) throw new BadRequestException('Add up to 100 people at a time.');
     const users = await this.people([...ids]);
-    for (const id of ids) {
-      if (!users.has(id) || !(await this.roleOf(c.source, c.workspaceId, id))) {
-        const u = users.get(id);
-        throw new BadRequestException(`${u ? `${u.firstName} ${u.lastName}`.trim() || u.email : 'That person'} is not in ${company} (guests and viewers can't be tracked). Add them to the company first.`);
-      }
-    }
+    for (const id of ids) if (!users.has(id)) throw new BadRequestException('That person no longer has an EZ Manage account.');
     const added: number[] = [];
     for (const id of ids) {
       const had = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: id } }, select: { id: true } });
@@ -721,12 +620,12 @@ export class TrackerService {
       await this.prisma.trackerMember.create({ data: { orgId: c.orgId, userId: id, role: b?.role === 'admin' ? 'admin' : 'member', addedById: userId } });
       added.push(id);
     }
-    const link = `${(process.env.FRONTEND_URL ?? '').replace(/\/$/, '')}/tracker/${w ? companyKey(c.source, w.uid) : ''}/me`;
+    const link = `${(process.env.FRONTEND_URL ?? '').replace(/\/$/, '')}/tracker/org/me`;
     for (const id of added) {
       await this.notifications.notify({
-        recipientId: id, type: 'AUTOMATION' as any, title: `You've been added to EZ Tracker for ${company}`,
+        recipientId: id, type: 'AUTOMATION' as any, title: `You've been added to EZ Tracker`,
         message: `To start: 1) open My tracking (${link}) and download the desktop app, 2) press "Get a pairing code" there and type it into the app, 3) read and agree to what it records, then press Start.`,
-        metadata: { event: 'tracker_added', href: link, company }, sendEmail: true,
+        metadata: { event: 'tracker_added', href: link }, sendEmail: true,
       }).catch((e) => this.log.warn(`added notice ${id}: ${e?.message}`));
     }
     return { added: added.length, people: await this.peopleRows(c, 0) };
@@ -783,7 +682,6 @@ export class TrackerService {
       this.prisma.trackerSession.groupBy({ by: ['userId'], where: { orgId: c.orgId, userId: { in: ids } }, _max: { lastBeatAt: true, startedAt: true } }),
       this.prisma.trackerReminder.groupBy({ by: ['userId'], where: { orgId: c.orgId, userId: { in: ids } }, _max: { sentAt: true } }),
     ]);
-    const w = await this.findWorkspace(c.source, String(c.workspaceId));
     return members.filter((m) => users.has(m.userId)).map((m) => {
       const id = m.userId;
       const dv = devices.filter((d) => d.userId === id);
@@ -792,7 +690,7 @@ export class TrackerService {
       const b = beats.find((x) => x.userId === id)?._max;
       const last = [b?.lastBeatAt, b?.startedAt, ...dv.map((d) => d.lastSeenAt)].filter((x): x is Date => !!x).sort((x, y) => +y - +x)[0] ?? null;
       return {
-        user: users.get(id)!, company: w ? { key: companyKey(c.source, w.uid), name: w.name, source: c.source } : null,
+        user: users.get(id)!, company: null,
         role: m.role, addedAt: m.createdAt,
         devices: dv, installed: dv.length > 0, lastSeenAt: dv.map((d) => d.lastSeenAt).filter((x): x is Date => !!x).sort((x, y) => +y - +x)[0] ?? null,
         consent: current ? { state: 'agreed' as const, at: current.acceptedAt } : cs.length ? { state: 'outdated' as const, at: cs[0]!.acceptedAt } : { state: 'never' as const, at: null },
@@ -804,17 +702,49 @@ export class TrackerService {
   }
   /** the system Administrator: the Tracker people of every company, as one list */
   async peopleAll(userId: number, offsetMin: number) {
-    if (!(await this.isSystemAdmin(userId))) throw new ForbiddenException('Only the Administrator sees all companies.');
-    const orgs = await this.prisma.trackerOrg.findMany({ select: { source: true, workspaceId: true } });
-    const out: Awaited<ReturnType<TrackerService['peopleRows']>> = [];
-    for (const o of orgs) {
-      const src: Src = o.source === 'boards' ? 'boards' : 'work';
-      const w = await this.findWorkspace(src, String(o.workspaceId));
-      if (!w) continue;
-      const c = await this.ctx(companyKey(src, w.uid), userId).catch(() => null);
-      if (c) out.push(...(await this.peopleRows(c, offsetMin)));
+    if (!(await this.isSystemAdmin(userId))) throw new ForbiddenException('Only the Administrator sees everyone.');
+    return this.peopleRows(await this.ctx('org', userId), offsetMin);
+  }
+
+  /** one person's full admin profile: identity + contact, devices, consent, and day/week/month tracked vs active */
+  async person(ws: string, userId: number, target: number, offsetMin: number) {
+    const c = await this.ctx(ws, userId);
+    this.needManager(c);
+    const m = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: target } }, select: { role: true, tracking: true, createdAt: true, addedById: true } });
+    if (!m) throw new NotFoundException('Person not found.');
+    const u = await this.prisma.user.findUnique({ where: { id: target }, select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true, phone: true, jobTitle: true, systemRole: true } });
+    if (!u) throw new NotFoundException('Person not found.');
+    const now = Date.now();
+    const todayStart = this.dayStart(now, offsetMin);
+    const monthStart = todayStart - 29 * 86_400_000;
+    const [devices, consents, slots, org, addedBy] = await Promise.all([
+      this.prisma.trackerDevice.findMany({ where: { orgId: c.orgId, userId: target, revokedAt: null }, select: { id: true, name: true, os: true, appVersion: true, lastSeenAt: true, createdAt: true }, orderBy: { createdAt: 'desc' } }),
+      this.prisma.trackerConsent.findMany({ where: { orgId: c.orgId, userId: target }, select: { version: true, acceptedAt: true }, orderBy: { acceptedAt: 'desc' } }),
+      this.prisma.trackerSlot.findMany({ where: { orgId: c.orgId, userId: target, deletedAt: null, idleDiscarded: false, start: { gte: new Date(monthStart) } }, select: { start: true, seconds: true, keyboard: true, mouse: true, activityPct: true } }),
+      this.prisma.trackerOrg.findUniqueOrThrow({ where: { id: c.orgId } }),
+      m.addedById ? this.people([m.addedById]) : Promise.resolve(null),
+    ]);
+    const byDay = new Map<string, { tracked: number; active: number; act: number; n: number }>();
+    for (const s of slots) {
+      const k = this.dayKey(s.start.getTime(), offsetMin);
+      const d = byDay.get(k) ?? { tracked: 0, active: 0, act: 0, n: 0 };
+      const active = s.keyboard + s.mouse > 0 ? s.seconds : 0;
+      d.tracked += s.seconds; d.active += active; d.act += s.activityPct * s.seconds; d.n += s.seconds;
+      byDay.set(k, d);
     }
-    return out;
+    const days = [...byDay.entries()].map(([day, v]) => ({ day, tracked: v.tracked, active: v.active, activity: v.n ? Math.round(v.act / v.n) : 0 })).sort((a, b) => (a.day < b.day ? 1 : -1));
+    const todayKey = this.dayKey(now, offsetMin);
+    const weekCut = this.dayKey(todayStart - 6 * 86_400_000, offsetMin);
+    const sum = (pred: (day: string) => boolean) => days.filter((d) => pred(d.day)).reduce((a, d) => ({ tracked: a.tracked + d.tracked, active: a.active + d.active }), { tracked: 0, active: 0 });
+    const cur = consents.find((x) => x.version === CONSENT_VERSION);
+    return {
+      user: u,
+      member: { role: m.role, tracking: m.tracking, addedAt: m.createdAt, addedBy: m.addedById ? (addedBy?.get(m.addedById) ?? null) : null },
+      devices, installed: devices.length > 0,
+      consent: { version: CONSENT_VERSION, state: cur ? 'agreed' : consents.length ? 'outdated' : 'never', acceptedAt: cur?.acceptedAt ?? consents[0]?.acceptedAt ?? null, history: consents.map((x) => ({ version: x.version, acceptedAt: x.acceptedAt })) },
+      periods: { day: sum((d) => d === todayKey), week: sum((d) => d >= weekCut), month: sum(() => true) },
+      days, idleMinutes: this.settingsOf(org.settings).idleMinutes, canSeeScreens: true,
+    };
   }
 
   /** a manager signs out someone's computer in this company */
@@ -834,15 +764,14 @@ export class TrackerService {
     if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: target } }, select: { id: true } }))) throw new NotFoundException('Person not found.');
     const recent = await this.prisma.trackerReminder.findFirst({ where: { orgId: c.orgId, userId: target, sentAt: { gt: new Date(Date.now() - 86_400_000) } }, select: { sentAt: true } });
     if (recent) throw new ConflictException('A reminder already went to this person today.');
-    const w = await this.findWorkspace(c.source, String(c.workspaceId));
     const from = (await this.people([userId])).get(userId);
-    const link = `${(process.env.FRONTEND_URL ?? '').replace(/\/$/, '')}/tracker/${w ? companyKey(c.source, w.uid) : ''}/me`;
-    const message = `${from ? `${from.firstName} ${from.lastName}`.trim() : 'Your manager'} asked you to set up EZ Tracker for ${w?.name ?? 'your company'}: `
+    const link = `${(process.env.FRONTEND_URL ?? '').replace(/\/$/, '')}/tracker/org/me`;
+    const message = `${from ? `${from.firstName} ${from.lastName}`.trim() : 'Your manager'} asked you to set up EZ Tracker: `
       + `1) open My tracking (${link}) and download the app, 2) make a pairing code there and type it into the app, 3) read and agree to what it records, then press Start.`;
     await this.prisma.trackerReminder.create({ data: { orgId: c.orgId, userId: target, sentById: userId } });
     await this.notifications.notify({
       recipientId: target, type: 'AUTOMATION' as any, title: 'Please set up EZ Tracker', message,
-      metadata: { event: 'tracker_reminder', href: link, company: w?.name ?? null }, sendEmail: true,
+      metadata: { event: 'tracker_reminder', href: link }, sendEmail: true,
     }).catch((e) => this.log.warn(`reminder ${target}: ${e?.message}`));
     return { ok: true, sentAt: new Date() };
   }

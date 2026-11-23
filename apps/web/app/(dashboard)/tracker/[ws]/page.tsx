@@ -17,10 +17,11 @@ function Since({ iso }: { iso: string }) {
 }
 
 function PersonCard({ r, ws }: { r: TrackerLiveRow; ws: string }) {
-  const on = r.status === "working";
+  const on = r.status !== "offline";
+  const away = r.status === "away";
   const href = `/tracker/${ws}/screenshots?user=${r.user.id}&day=${todayKey()}`;
   return (
-    <div className={cn(glass, "flex h-full flex-col overflow-hidden", on && "ring-1 ring-[#059669]/25")}>
+    <div className={cn(glass, "flex h-full flex-col overflow-hidden", away ? "ring-1 ring-[#d97706]/30" : on && "ring-1 ring-[#059669]/25")}>
       <Link href={href} className="relative block aspect-[16/9] overflow-hidden bg-gradient-to-br from-black/[0.04] to-black/[0.02] dark:from-white/[0.04] dark:to-white/[0.02]" aria-label={`${userName(r.user)}: screenshots today`}>
         {r.lastShot?.url ? (
           <>
@@ -36,7 +37,7 @@ function PersonCard({ r, ws }: { r: TrackerLiveRow; ws: string }) {
           <Avatar user={r.user} size={36} />
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5"><span className="truncate text-[14px] font-semibold">{userName(r.user)}</span>{r.me && <span className="rounded bg-black/[0.05] px-1.5 text-[10px] font-semibold text-muted-foreground dark:bg-white/10">You</span>}</span>
-            <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground"><StatusDot on={on} />{on ? <>Working · <Since iso={r.since!} /></> : "Not tracking"}</span>
+            <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground"><span className={cn("h-2 w-2 shrink-0 rounded-full", away ? "bg-[#d97706]" : on ? "bg-[#059669]" : "bg-muted-foreground/40")} />{away ? <span className="font-medium text-[#b45309] dark:text-[#fbbf24]">Away{r.awaySince ? <> · <Since iso={r.awaySince} /></> : null}</span> : on ? <>Working · <Since iso={r.since!} /></> : "Not tracking"}</span>
           </span>
           <span className="text-right"><span className="block text-[18px] font-bold leading-none tabular-nums">{hm(r.todaySeconds)}</span><span className="text-[11px] text-muted-foreground">today</span></span>
         </div>
