@@ -152,7 +152,7 @@ ipcMain.handle('pair', (_e, b: { apiBase: string; code: string }) => ok((async (
 })()));
 ipcMain.handle('consent', () => ok((async () => { await api().consent(me?.consent.version ?? CONSENT_VERSION); await refreshMe(); push(); return true; })()));
 ipcMain.handle('tasks', (_e, q: string) => ok(api().tasks(String(q ?? ''))));
-ipcMain.handle('start', (_e, t: { id?: number | null; name?: string | null }) => ok((async () => { await refreshMe(); if (!me?.tracked) throw new Error('Time tracking is not turned on for you in this company.'); await engine.start(t); return true; })()));
+ipcMain.handle('start', (_e, t: { id?: number | null; name?: string | null; note?: string | null }) => ok((async () => { await refreshMe(); if (!me?.tracked) throw new Error('Time tracking is not turned on for you in this company.'); await engine.start(t); return true; })()));
 ipcMain.handle('stop', () => ok((async () => { await engine.stop(); await refreshMe(); push(); return true; })()));
 /** switch to another paired company (one session at a time: stop first) */
 ipcMain.handle('switch', (_e, id: string) => ok((async () => {

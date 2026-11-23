@@ -18,18 +18,18 @@ export type TrackerOverview = {
   settings: TrackerSettings; tracked: boolean; consent: { version: string; acceptedAt: string | null }; devices: number;
 };
 export type TrackerLiveRow = {
-  user: TrackerUser; me: boolean; status: "working" | "offline"; since: string | null;
+  user: TrackerUser; me: boolean; status: "working" | "away" | "offline"; since: string | null; awaySince: string | null;
   task: TrackerTask | null; project: string | null;
   todaySeconds: number; todayActivity: number; lastShot: { url: string | null; takenAt: string; blurred: boolean } | null;
 };
-export type TrackerTimesheetRow = { user: TrackerUser; total: number; days: Record<string, { seconds: number; activity: number }>; tasks: { name: string; uid: string | null; seconds: number }[] };
+export type TrackerTimesheetRow = { user: TrackerUser; total: number; activeTotal: number; days: Record<string, { seconds: number; active: number; activity: number }>; tasks: { name: string; uid: string | null; seconds: number }[] };
 export type TrackerShot = { id: number; url: string | null; takenAt: string; blurred: boolean; screen: number; hiddenAt: string | null };
 export type TrackerSlot = {
-  id: number; start: string; seconds: number; keyboard: number; mouse: number; activityPct: number; idleDiscarded: boolean;
+  id: number; start: string; seconds: number; keyboard: number; mouse: number; activityPct: number; idleDiscarded: boolean; away: boolean;
   task: TrackerTask | null; project: string | null; shots: TrackerShot[];
   apps: { app: string; title: string | null; url: string | null; seconds: number }[];
 };
-export type TrackerDay = { user: TrackerUser | null; own: boolean; canHide: boolean; slots: TrackerSlot[]; totalSeconds: number };
+export type TrackerDay = { user: TrackerUser | null; own: boolean; canHide: boolean; canSeeScreens: boolean; slots: TrackerSlot[]; totalSeconds: number };
 export type TrackerAttendanceRow = { user: TrackerUser; day: string; firstStart: string; lastEnd: string | null; seconds: number; late: boolean; lateMinutes: number };
 export type TrackerCompanyLive = { company: { key: string; name: string; source: TrackerSource; color: string }; working: TrackerLiveRow[]; people: number; todaySeconds: number };
 export type TrackerPerson = {
@@ -39,6 +39,16 @@ export type TrackerPerson = {
   todaySeconds: number; lastActiveAt: string | null; lastRemindedAt: string | null;
 };
 export type TrackerDevice = { id: number; name: string; os: string | null; appVersion: string | null; lastSeenAt: string | null; createdAt: string };
+export type TrackerPeriod = { tracked: number; active: number };
+export type TrackerPersonDetail = {
+  user: TrackerUser & { phone: string | null; jobTitle: string | null; systemRole: string };
+  member: { role: "member" | "admin"; tracking: boolean; addedAt: string; addedBy: TrackerUser | null };
+  devices: TrackerDevice[]; installed: boolean;
+  consent: { version: string; state: "agreed" | "outdated" | "never"; acceptedAt: string | null; history: { version: string; acceptedAt: string }[] };
+  periods: { day: TrackerPeriod; week: TrackerPeriod; month: TrackerPeriod };
+  days: { day: string; tracked: number; active: number; activity: number }[];
+  idleMinutes: number; canSeeScreens: boolean;
+};
 
 const get = async <T,>(url: string) => (await api.get<T>(url)).data;
 const post = async <T,>(url: string, body?: unknown) => (await api.post<T>(url, body)).data;
@@ -61,6 +71,7 @@ export const trackerApi = {
   attendance: (ws: string, from: Date, to: Date, userId?: number) => get<{ dayStart: string; rows: TrackerAttendanceRow[] }>(`/tracker/${ws}/attendance?${qs({ from: from.toISOString(), to: to.toISOString(), offset: offset(), userId })}`),
   people: (ws: string) => get<TrackerPerson[]>(`/tracker/${ws}/people?${qs({ offset: offset() })}`),
   peopleAll: () => get<TrackerPerson[]>(`/tracker/all/people?${qs({ offset: offset() })}`),
+  person: (ws: string, userId: number) => get<TrackerPersonDetail>(`/tracker/${ws}/people/${userId}?${qs({ offset: offset() })}`),
   setTracking: async (ws: string, userId: number, on: boolean) => (await api.patch(`/tracker/${ws}/people/${userId}/tracking`, { on })).data,
   remind: (ws: string, userId: number) => post<{ ok: boolean; sentAt: string }>(`/tracker/${ws}/people/${userId}/remind`),
   revokeDeviceAs: async (ws: string, id: number) => (await api.delete(`/tracker/${ws}/devices/${id}`)).data,

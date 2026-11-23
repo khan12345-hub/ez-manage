@@ -3,41 +3,31 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { AppWindow, CalendarCheck, ChevronDown, Clock4, Home, Images, Menu, Settings, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { AppWindow, CalendarCheck, Clock4, Home, Images, Menu, Settings, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppSwitcher } from "@/components/AppSwitcher";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/providers/AuthProvider";
-import { SOURCE_LABEL, trackerApi } from "@/services/tracker.api";
 import { useTrackerWs } from "../_lib/tracker";
 import { Avatar } from "./bits";
 
 const NAV = [
   { path: "", label: "Live", icon: Home, team: false },
   { path: "timesheets", label: "Timesheets", icon: Clock4, team: false },
-  { path: "screenshots", label: "Screenshots", icon: Images, team: false },
-  { path: "apps", label: "Apps & sites", icon: AppWindow, team: false },
+  { path: "screenshots", label: "Screenshots", icon: Images, team: true },
+  { path: "apps", label: "Apps & sites", icon: AppWindow, team: true },
   { path: "attendance", label: "Attendance", icon: CalendarCheck, team: false },
   { path: "me", label: "My tracking", icon: UserRound, team: false },
   { path: "people", label: "People", icon: UsersRound, team: true },
   { path: "settings", label: "Settings", icon: Settings, team: true },
 ] as const;
 
-/** EZ Tracker: glass sidebar (app switcher on top) + slim title bar, like the other products */
+/** EZ Tracker: one organization-wide tracker. Glass sidebar (app switcher on top) + slim title bar. */
 export function TrackerShell({ children }: { children: React.ReactNode }) {
   const { ws, ov, isError } = useTrackerWs();
   const { user } = useAuth();
   const pathname = usePathname() ?? "";
   const base = `/tracker/${ws}`;
   const [menu, setMenu] = useState(false);
-  const { data: list } = useQuery({ queryKey: ["tracker", "workspaces"], queryFn: trackerApi.workspaces, staleTime: 60_000 });
-  // company picker: both products, with a product filter (remembered per browser)
-  const [pickOpen, setPickOpen] = useState(false);
-  const [filter, setFilterState] = useState<"all" | "work" | "boards">("all");
-  useEffect(() => { try { const v = window.localStorage.getItem("ezt-company-filter"); if (v === "work" || v === "boards" || v === "all") setFilterState(v); } catch {} }, []);
-  const setFilter = (v: "all" | "work" | "boards") => { setFilterState(v); try { window.localStorage.setItem("ezt-company-filter", v); } catch {} };
-  const both = !!list?.some((w) => w.source === "work") && !!list?.some((w) => w.source === "boards");
   const isOn = (p: string) => (p ? pathname.startsWith(`${base}/${p}`) : pathname === base);
   const title = NAV.find((n) => isOn(n.path))?.label ?? "EZ Tracker";
   useEffect(() => setMenu(false), [pathname]);
@@ -45,67 +35,16 @@ export function TrackerShell({ children }: { children: React.ReactNode }) {
   if (isError) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-10 text-center">
-        <p className="text-[20px] font-semibold">This workspace isn&apos;t available</p>
-        <p className="mt-1 text-[13px] text-muted-foreground">EZ Tracker works with your Company Work and Accounts &amp; Invoices companies. You&apos;re not a member of this one (guests and viewers aren&apos;t tracked).</p>
-        <Link href="/tracker" className="mt-4 text-[13px] font-semibold text-primary hover:underline">Back to EZ Tracker</Link>
+        <p className="text-[20px] font-semibold">EZ Tracker isn&apos;t set up for you</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">EZ Tracker records work time, screenshots and activity. A Tracker admin or the Administrator adds people to it.</p>
+        <Link href="/home" className="mt-4 text-[13px] font-semibold text-primary hover:underline">Back to home</Link>
       </div>
     );
   }
 
   const sidebar = (
     <div className="flex h-full flex-col overflow-y-auto rounded-[28px] border border-white/70 bg-white/60 p-3.5 shadow-[0_20px_60px_-24px_rgba(11,42,31,0.35)] ring-1 ring-black/[0.03] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10 dark:bg-white/[0.04]">
-      <AppSwitcher active="tracker" hrefs={{ tracker: base }} subtitle={ov?.workspace?.name ?? "Time & activity"} />
-      {list && list.length > 0 && (
-        <Popover open={pickOpen} onOpenChange={setPickOpen}>
-          <PopoverTrigger asChild>
-            <button type="button" aria-label="Pick a company" className="mt-3 flex h-11 w-full items-center gap-2 rounded-2xl bg-white/60 px-3 text-left text-[13px] font-medium ring-1 ring-black/[0.04] dark:bg-white/5">
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: ov?.workspace?.color ?? "#047857" }} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate leading-tight">{ov?.workspace?.name ?? "…"}</span>
-                {ov?.workspace && <span className="block truncate text-[10.5px] font-normal text-muted-foreground">{SOURCE_LABEL[ov.workspace.source]}</span>}
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-[272px] rounded-2xl p-2">
-            {/* which product's companies to check */}
-            {both && (
-              <div role="group" aria-label="Product" className="mb-2 grid grid-cols-3 gap-1 rounded-xl bg-muted/60 p-1">
-                {(["all", "work", "boards"] as const).map((f) => (
-                  <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)} className={cn("rounded-lg py-1 text-[11.5px] font-semibold transition", filter === f ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-                    {f === "all" ? "All" : f === "work" ? "Work" : "Accounts"}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="max-h-[320px] overflow-y-auto">
-              {(["work", "boards"] as const).filter((s) => filter === "all" || filter === s).map((s) => {
-                const rows = list.filter((w) => w.source === s);
-                if (!rows.length) return null;
-                return (
-                  <div key={s} className="mb-1.5">
-                    <p className="flex items-center gap-1.5 px-2 pb-1 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                      <span className={cn("rounded px-1 py-px text-[9px]", s === "boards" ? "bg-product-boards/12 text-product-boards dark:text-[#a5b4fc]" : "bg-product-work/12 text-product-work")}>{s === "boards" ? "accounts" : "work"}</span>
-                      {SOURCE_LABEL[s]}
-                    </p>
-                    {rows.map((w) => {
-                      const on = w.key === ws || (w.source === "work" && w.uid === ws);
-                      return (
-                        <Link key={w.key} href={`/tracker/${w.key}`} onClick={() => setPickOpen(false)} aria-current={on ? "page" : undefined}
-                          className={cn("flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-accent", on && "bg-accent font-semibold")}>
-                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: w.color }} />
-                          <span className="min-w-0 flex-1 truncate">{w.name}</span>
-                          {w.manager && <span className="text-[10px] text-muted-foreground">Manager</span>}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </PopoverContent>
-        </Popover>
-      )}
+      <AppSwitcher active="tracker" hrefs={{ tracker: base }} subtitle="Time & activity" />
       <p className="mb-1.5 mt-5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{ov?.canSeeOthers ? "Team" : "You"}</p>
       <nav aria-label="EZ Tracker" className="space-y-0.5">
         {NAV.filter((n) => !n.team || ov?.isManager).map((n) => {
@@ -155,7 +94,7 @@ export function TrackerShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3 rounded-[22px] border border-white/70 bg-white/60 px-3 py-2.5 shadow-[0_12px_40px_-24px_rgba(11,42,31,0.35)] backdrop-blur-2xl sm:px-4 dark:border-white/10 dark:bg-white/[0.04]">
             <button type="button" aria-label="Open menu" onClick={() => setMenu(true)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-border lg:hidden"><Menu className="h-4 w-4" /></button>
             <span className="min-w-0">
-              <span className="block text-[11px] font-medium text-muted-foreground">EZ Tracker{ov?.workspace ? ` · ${ov.workspace.name}` : ""}</span>
+              <span className="block text-[11px] font-medium text-muted-foreground">EZ Tracker</span>
               <h1 className="truncate text-[20px] font-semibold leading-tight tracking-tight">{title}</h1>
             </span>
             <span className="flex-1" />

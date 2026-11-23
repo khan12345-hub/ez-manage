@@ -2972,9 +2972,9 @@ model CalendarAccount {
 /// tracker settings for one Company Work workspace
 model TrackerOrg {
   id          Int      @id @default(autoincrement())
-  /// which product the company lives in: work (Company Work) | boards (Accounts & Invoices)
-  source      String   @default("work")
-  /// the company's workspace id in that product (work_workspaces.id or workspaces.id)
+  /// 'org' — EZ Tracker is one organization-wide tracker (legacy rows may be 'work'/'boards' before the collapse migration)
+  source      String   @default("org")
+  /// 0 for the org-level tracker (legacy: the company's workspace id before the collapse)
   workspaceId Int
   /// { screenshotsPer10, blur, trackApps, trackUrls, idleMinutes, retentionDays (0 = never), dayStart "09:00", trackAll, trackedUserIds }
   settings    Json     @default("{}")
