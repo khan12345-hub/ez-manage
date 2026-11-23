@@ -1,6 +1,6 @@
 {
   "name": "tracker-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "EZ Tracker desktop app: time, screenshots and activity for EZ Manage (Windows first)",
   "main": "dist/main.js",

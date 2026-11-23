@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Save } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Save, ShieldCheck, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackerApi, userName, type TrackerSettings } from "@/services/tracker.api";
 import { useTrackerWs } from "../../_lib/tracker";
@@ -37,13 +38,12 @@ export default function TrackerSettingsPage() {
   const qc = useQueryClient();
   const [s, setS] = useState<TrackerSettings | null>(null);
   useEffect(() => { if (ov && !s) setS(ov.settings); }, [ov, s]);
-  const { data: live = [] } = useQuery({ queryKey: ["tracker", ws, "live"], queryFn: () => trackerApi.live(ws), enabled: !!ws && !!ov?.isManager });
   const save = useMutation({
     mutationFn: (b: TrackerSettings) => trackerApi.updateSettings(ws, b),
     onSuccess: (r) => { setS(r); toast.success("Settings saved. Desktop apps pick them up within a minute."); qc.invalidateQueries({ queryKey: ["tracker", ws] }); },
     onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't save."),
   });
-  if (ov && !ov.isManager) return <p className={cn(glass, "px-6 py-12 text-center text-[13px] text-muted-foreground")}>Only workspace owners and admins can change tracking settings.</p>;
+  if (ov && !ov.isManager) return <p className={cn(glass, "px-6 py-12 text-center text-[13px] text-muted-foreground")}>Only Tracker admins and the Administrator can change tracking settings.</p>;
   if (!s) return <div className="h-96 animate-pulse rounded-[24px] bg-muted" />;
   const set = <K extends keyof TrackerSettings>(k: K, v: TrackerSettings[K]) => setS((x) => (x ? { ...x, [k]: v } : x));
   const dirty = JSON.stringify(s) !== JSON.stringify(ov?.settings);
@@ -73,22 +73,10 @@ export default function TrackerSettingsPage() {
         </Row>
       </section>
 
-      <section aria-label="Who is tracked" className={cn(glass, "p-5")}>
-        <h2 className="mb-1 text-[16px] font-semibold">Who is tracked</h2>
-        <Row title="Everyone in the workspace" sub="Off: only the people you tick below can start the tracker."><Toggle label="Track everyone" on={s.trackAll} onChange={(v) => set("trackAll", v)} /></Row>
-        {!s.trackAll && (
-          <ul className="grid gap-1.5 pt-2 sm:grid-cols-2 xl:grid-cols-3">
-            {live.map((r) => {
-              const on = s.trackedUserIds.includes(r.user.id);
-              return (
-                <li key={r.user.id}><label className={cn("flex cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 ring-1", on ? "bg-[#047857]/[0.06] ring-[#047857]/20" : "ring-border hover:bg-accent/50")}>
-                  <input type="checkbox" checked={on} onChange={() => set("trackedUserIds", on ? s.trackedUserIds.filter((x) => x !== r.user.id) : [...s.trackedUserIds, r.user.id])} className="h-4 w-4 accent-[#047857]" aria-label={`Track ${userName(r.user)}`} />
-                  <Avatar user={r.user} size={26} /><span className="truncate text-[13px] font-medium">{userName(r.user)}</span>
-                </label></li>
-              );
-            })}
-          </ul>
-        )}
+      <section aria-label="People" className={cn(glass, "flex flex-wrap items-center gap-3 p-5")}>
+        <ShieldCheck className="h-5 w-5 shrink-0 text-[#0369a1]" />
+        <span className="min-w-[220px] flex-1"><span className="block text-[15px] font-semibold">Who is tracked, and Tracker admins</span><span className="block text-[12.5px] text-muted-foreground">EZ Tracker has its own people for this company. Add people, pause someone&apos;s tracking or make them a Tracker admin on the People page.</span></span>
+        <Link href={`/tracker/${ws}/people`} className="flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-[12.5px] font-semibold hover:bg-accent"><UsersRound className="h-4 w-4" /> Open People</Link>
       </section>
 
       <div className="sticky bottom-4 flex justify-end">

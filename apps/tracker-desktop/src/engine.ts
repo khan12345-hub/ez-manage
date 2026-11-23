@@ -40,6 +40,8 @@ export type EngineState = { running: boolean; sessionId: number | null; startedA
 export class Engine {
   private sessionId: number | null = null;
   private sessionClient: string | null = null;
+  /** the company (account) this session belongs to: its slots / screenshots upload with its token */
+  private sessionAcct: string | null = null;
   private startedAt: number | null = null;
   private taskName: string | null = null;
   private slot: Slot | null = null;
@@ -56,7 +58,7 @@ export class Engine {
   todayBase = 0;
   offline = false;
 
-  constructor(private api: () => Api, private me: () => Me | null, private onChange: () => void, private askIdle: (minutes: number) => Promise<boolean>) {
+  constructor(private api: (acct?: string | null) => Api, private account: () => string | null, private me: () => Me | null, private onChange: () => void, private askIdle: (minutes: number) => Promise<boolean>) {
     if (this.hook) {
       this.hook.on('keydown', () => { this.kb++; this.inputThisSecond = true; });
       this.hook.on('mousedown', () => { this.ms++; this.inputThisSecond = true; });
@@ -76,9 +78,10 @@ export class Engine {
   async start(task: { id?: number | null; name?: string | null }) {
     if (this.sessionId) return;
     const clientId = id('s');
-    const startedAt = new Date().toISOString();
-    const s = await this.api().start({ clientId, taskId: task.id ?? null, projectLabel: task.id ? null : task.name ?? null, startedAt });
-    this.sessionId = s.id; this.sessionClient = clientId; this.startedAt = Date.parse(s.startedAt); this.taskName = task.name ?? null; this.sessionSeconds = 0;
+    const acct = this.account();
+    // a fresh online start: the server stamps the time (so a PC clock ahead of the server can't fail)
+    const s = await this.api(acct).start({ clientId, taskId: task.id ?? null, projectLabel: task.id ? null : task.name ?? null });
+    this.sessionId = s.id; this.sessionClient = clientId; this.sessionAcct = acct; this.startedAt = Date.parse(s.startedAt); this.taskName = task.name ?? null; this.sessionSeconds = 0;
     this.newSlot(Date.now());
     if (this.hook && !this.hookOn) { try { this.hook.start(); this.hookOn = true; } catch { this.hook = null; } }
     this.tick = setInterval(() => void this.second(), 1000);
@@ -91,15 +94,16 @@ export class Engine {
   async stop(serverEnded = false) {
     if (!this.sessionId) return;
     const sid = this.sessionId;
+    const acct = this.sessionAcct;
     if (this.idlePrompt) return; // decide about idle time first
     this.closeSlot();
     for (const t of [this.tick, this.flushTimer, this.beatTimer]) if (t) clearInterval(t);
     this.tick = this.flushTimer = this.beatTimer = null;
     if (this.hookOn) { try { this.hook?.stop(); } catch { /* ignore */ } this.hookOn = false; }
     this.todayBase += this.sessionSeconds; this.sessionSeconds = 0;
-    this.sessionId = null; this.sessionClient = null; this.startedAt = null; this.taskName = null;
+    this.sessionId = null; this.sessionClient = null; this.sessionAcct = null; this.startedAt = null; this.taskName = null;
     await this.flush();
-    if (!serverEnded) try { await this.api().stop(sid, new Date().toISOString()); } catch { this.offline = true; /* the server closes it after 15 min without a heartbeat */ }
+    if (!serverEnded) try { await this.api(acct).stop(sid, new Date().toISOString()); } catch { this.offline = true; /* the server closes it after 15 min without a heartbeat */ }
     this.onChange();
   }
 
@@ -118,7 +122,7 @@ export class Engine {
     const s = this.slot;
     if (!s || !this.sessionId || s.seconds === 0) return;
     const item: QueuedSlot = {
-      kind: 'slot', sessionId: this.sessionId, clientId: s.clientId, start: new Date(s.start).toISOString(), seconds: s.seconds, activeSeconds: s.activeSeconds,
+      kind: 'slot', acct: this.sessionAcct ?? undefined, sessionId: this.sessionId, clientId: s.clientId, start: new Date(s.start).toISOString(), seconds: s.seconds, activeSeconds: s.activeSeconds,
       keyboard: s.keyboard, mouse: s.mouse, idleDiscarded: false, apps: [...s.apps.values()].sort((a, b) => b.seconds - a.seconds).slice(0, 30),
     };
     enqueue(item);
@@ -213,14 +217,14 @@ export class Engine {
         if (img.isEmpty()) return;
         if (img.getSize().width > 1600) img = img.resize({ width: 1600, quality: 'good' });
         if (st.blur) { const { width, height } = img.getSize(); img = nativeImage.createFromBuffer(img.resize({ width: Math.max(16, Math.round(width / 14)), quality: 'good' }).toPNG()).resize({ width, height, quality: 'good' }); }
-        enqueue({ kind: 'shot', clientId: id('p'), slotClientId, takenAt: new Date().toISOString(), screen: i, blurred: !!st.blur, file: '' }, img.toJPEG(68));
+        enqueue({ kind: 'shot', acct: this.sessionAcct ?? undefined, clientId: id('p'), slotClientId, takenAt: new Date().toISOString(), screen: i, blurred: !!st.blur, file: '' }, img.toJPEG(68));
       });
     } catch { /* a missed screenshot is not fatal */ }
   }
 
   private async beat() {
     if (!this.sessionId) return;
-    try { const r = await this.api().heartbeat(this.sessionId); this.offline = false; if (r.ended) await this.stop(true); }
+    try { const r = await this.api(this.sessionAcct).heartbeat(this.sessionId); this.offline = false; if (r.ended) await this.stop(true); }
     catch (e) { this.offline = !(e instanceof ApiError); }
   }
 
@@ -231,11 +235,11 @@ export class Engine {
     for (const { name, item } of queued()) {
       try {
         if (item.kind === 'slot') {
-          const { kind, sessionId, ...slot } = item; void kind;
-          await this.api().slots(sessionId, [slot]);
+          const { kind, acct, sessionId, ...slot } = item; void kind;
+          await this.api(acct ?? 'legacy').slots(sessionId, [slot]);
         } else {
           const buf = readShot(item.file);
-          if (buf) await this.api().shot({ clientId: item.clientId, slotClientId: item.slotClientId, takenAt: item.takenAt, screen: String(item.screen), blurred: String(item.blurred) }, buf);
+          if (buf) await this.api(item.acct ?? 'legacy').shot({ clientId: item.clientId, slotClientId: item.slotClientId, takenAt: item.takenAt, screen: String(item.screen), blurred: String(item.blurred) }, buf);
         }
         dequeue(name, item);
         this.offline = false; sent++;

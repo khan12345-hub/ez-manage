@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
 import { EyeOff, ImageOff, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { hm, trackerApi, userName, type TrackerLiveRow } from "@/services/tracker.api";
+import { SOURCE_LABEL, hm, trackerApi, userName, type TrackerCompanyLive, type TrackerLiveRow } from "@/services/tracker.api";
 import { todayKey, useTrackerWs } from "../_lib/tracker";
 import { ActivityBar, Avatar, InstallHint, Stat, StatusDot, glass } from "../_components/bits";
 
@@ -49,6 +49,34 @@ function PersonCard({ r, ws }: { r: TrackerLiveRow; ws: string }) {
   );
 }
 
+/** the system Administrator: who is working right now in every company */
+function AllCompanies({ rows, current }: { rows: TrackerCompanyLive[]; current: string }) {
+  const working = rows.reduce((n, r) => n + r.working.length, 0);
+  return (
+    <section aria-label="All companies" className={cn(glass, "p-4")}>
+      <header className="mb-3 flex flex-wrap items-baseline gap-2">
+        <h2 className="text-[14px] font-semibold">All companies</h2>
+        <span className="text-[12px] text-muted-foreground">{working} working now · {rows.length} companies</span>
+      </header>
+      <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {rows.map((r) => (
+          <li key={r.company.key}>
+            <Link href={`/tracker/${r.company.key}`} className={cn("flex items-center gap-3 rounded-2xl px-3 py-2.5 ring-1 ring-black/[0.05] transition hover:bg-white/70 dark:ring-white/10 dark:hover:bg-white/5", r.company.key === current && "bg-white/70 ring-[#0369a1]/30 dark:bg-white/5")}>
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.company.color }} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-semibold">{r.company.name}</span>
+                <span className="block truncate text-[11px] text-muted-foreground">{SOURCE_LABEL[r.company.source]} · {hm(r.todaySeconds)} today</span>
+              </span>
+              <span className="flex -space-x-1.5">{r.working.slice(0, 4).map((w) => <span key={w.user.id} title={`${userName(w.user)} · working`} className="rounded-full ring-2 ring-white dark:ring-[#14181a]"><Avatar user={w.user} size={22} /></span>)}</span>
+              <span className={cn("min-w-[48px] text-right text-[12px] font-semibold tabular-nums", r.working.length ? "text-[#047857] dark:text-[#34d399]" : "text-muted-foreground")}>{r.working.length}/{r.people}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function TrackerLive() {
   const reduced = useReducedMotion();
   const { ws, ov } = useTrackerWs();
@@ -58,10 +86,12 @@ export default function TrackerLive() {
   const tracked = data.filter((r) => r.todaySeconds > 0);
   const avg = tracked.length ? Math.round(tracked.reduce((n, r) => n + r.todayActivity * r.todaySeconds, 0) / Math.max(1, total)) : 0;
   const team = !!ov?.canSeeOthers;
+  const { data: all = [] } = useQuery({ queryKey: ["tracker", "all", "live"], queryFn: trackerApi.liveAll, refetchInterval: 30_000, enabled: !!ov?.isSystemAdmin });
 
   if (isLoading) return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-[24px] bg-muted" />)}</div>;
   return (
     <div className="space-y-4">
+      {all.length > 1 && <AllCompanies rows={all} current={ov?.workspace?.key ?? ws} />}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label={team ? "Working now" : "Status"} value={team ? `${working.length}/${data.length}` : working.length ? "Working" : "Stopped"} sub={team ? "people tracking right now" : working[0]?.task?.name ?? "Start from the desktop app"} />
         <Stat label={team ? "Team time today" : "Your time today"} value={hm(total)} sub={team ? `${tracked.length} ${tracked.length === 1 ? "person" : "people"} tracked today` : "kept time (idle discarded)"} />

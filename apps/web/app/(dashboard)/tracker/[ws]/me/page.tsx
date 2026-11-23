@@ -31,6 +31,18 @@ export default function TrackerMe() {
   const revoke = useMutation({ mutationFn: (id: number) => trackerApi.revokeDevice(id), onSuccess: () => { toast.success("That computer is signed out"); qc.invalidateQueries({ queryKey: ["tracker", ws] }); }, onError: (e) => err(e, "Couldn't sign it out.") });
   const s = ov?.settings;
 
+  // the Administrator can open any company without being in its EZ Tracker
+  if (ov && !ov.member) {
+    return (
+      <section className={cn(glass, "p-6 text-center")}>
+        <ShieldCheck className="mx-auto h-8 w-8 text-[#0369a1]" />
+        <h2 className="mt-2 text-[16px] font-semibold">You are not tracked in this company</h2>
+        <p className="mx-auto mt-1 max-w-md text-[13px] text-muted-foreground">You see it as the Administrator. To track your own time here, add yourself on the People page, then come back for the download and pairing code.</p>
+        <a href={`/tracker/${ws}/people`} className="mt-4 inline-flex h-9 items-center rounded-xl border border-border px-3 text-[13px] font-semibold hover:bg-accent">Open People</a>
+      </section>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <section aria-label="Consent" className={cn(glass, "p-5")}>
@@ -38,7 +50,7 @@ export default function TrackerMe() {
           <span className={cn("flex h-10 w-10 items-center justify-center rounded-2xl", ov?.consent.acceptedAt ? "bg-[#047857]/10 text-[#047857] dark:text-[#34d399]" : "bg-[#b45309]/10 text-[#b45309] dark:text-[#fbbf24]")}><ShieldCheck className="h-5 w-5" /></span>
           <span className="min-w-0 flex-1">
             <h2 className="text-[16px] font-semibold">What EZ Tracker records</h2>
-            <p className="text-[12.5px] text-muted-foreground">{ov?.consent.acceptedAt ? `You agreed on ${new Date(ov.consent.acceptedAt).toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}.` : "Nothing is recorded until you agree, here or in the desktop app."}{ov && !ov.tracked ? " Tracking is not turned on for you in this workspace." : ""}</p>
+            <p className="text-[12.5px] text-muted-foreground">{ov?.consent.acceptedAt ? `You agreed on ${new Date(ov.consent.acceptedAt).toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}.` : "Nothing is recorded until you agree, here or in the desktop app."}{ov && !ov.tracked ? " Your tracking is paused in this company." : ""}</p>
           </span>
           {ov && !ov.consent.acceptedAt && <button type="button" disabled={consent.isPending} onClick={() => consent.mutate()} className="flex h-10 items-center gap-1.5 rounded-xl bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">{consent.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} I agree</button>}
         </header>
@@ -52,7 +64,7 @@ export default function TrackerMe() {
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">1</span>
               <span className="min-w-0 flex-1">Install EZ Tracker for Windows.{" "}
                 {DOWNLOAD ? <a href={DOWNLOAD} className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#0369a1] px-3 font-semibold text-white"><Download className="h-4 w-4" /> Download for Windows</a>
-                  : <span className="mt-1 block text-[12px] text-muted-foreground">Your admin gives you the installer (built from <code className="rounded bg-muted px-1">apps/tracker-desktop</code>).</span>}
+                  : <span className="mt-1 block text-[12px] text-muted-foreground">Ask your Tracker admin for the installer.</span>}
               </span>
             </li>
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">2</span>

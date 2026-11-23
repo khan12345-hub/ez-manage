@@ -3,13 +3,15 @@
 type Res<T> = { ok: true; data: T } | { ok: false; error: string };
 type Me = { user: { firstName: string | null; lastName: string | null; email: string } | null; workspace: { name: string } | null; settings: { screenshotsPer10: number; blur: boolean; trackApps: boolean; trackUrls: boolean; idleMinutes: number }; tracked: boolean; consent: { acceptedAt: string | null } };
 type EngineState = { running: boolean; startedAt: string | null; taskName: string | null; sessionSeconds: number; todaySeconds: number; pending: number; offline: boolean; idlePrompt: boolean; nativeActivity: boolean };
-type State = { screen: 'pair' | 'consent' | 'main'; apiBase: string; me: Me | null; engine: EngineState; autoStart: boolean; error: string | null };
+type Account = { id: string; name: string; source: 'work' | 'boards' | null };
+type State = { screen: 'pair' | 'consent' | 'main'; apiBase: string; me: Me | null; engine: EngineState; autoStart: boolean; error: string | null; accounts: Account[]; active: string | null; adding: boolean };
 type Task = { id: number; name: string; where: string; color: string };
 declare global {
   interface Window {
     ezt: {
       pair(apiBase: string, code: string): Promise<Res<boolean>>; consent(): Promise<Res<boolean>>; tasks(q: string): Promise<Res<Task[]>>;
       start(t: { id?: number | null; name?: string | null }): Promise<Res<boolean>>; stop(): Promise<Res<boolean>>; signout(): Promise<Res<boolean>>;
+      switchTo(id: string): Promise<Res<boolean>>; addCompany(on: boolean): Promise<Res<boolean>>;
       autostart(on: boolean): Promise<Res<boolean>>; openWeb(): Promise<Res<boolean>>; refresh(): Promise<Res<boolean>>; onState(f: (s: State) => void): void;
     };
   }
@@ -26,15 +28,37 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const hms = (s: number) => `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 const hm = (s: number) => `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
 const $ = <T extends HTMLElement>(sel: string) => root.querySelector(sel) as T;
+const PRODUCT: Record<string, string> = { work: 'Company Work', boards: 'Accounts & Invoices' };
+/** header: the active company, and a switcher when this computer is paired to more than one */
+function header(s: State) {
+  const acc = s.accounts.find((a) => a.id === s.active);
+  if (!s.accounts.length) return brand('Time, screenshots and activity');
+  const locked = s.engine.running;
+  return `<div class="brand"><div class="logo" aria-hidden="true">⏱</div><div style="min-width:0;flex:1"><b>EZ Tracker</b>
+    <select id="company" class="company" aria-label="Company" ${locked ? 'disabled title="Stop tracking to switch company"' : ''}>
+      ${s.accounts.map((a) => `<option value="${esc(a.id)}" ${a.id === s.active ? 'selected' : ''}>${esc(a.name)}${a.source ? ` · ${esc(PRODUCT[a.source] ?? '')}` : ''}</option>`).join('')}
+      <option value="__add">+ Add a company…</option>
+    </select></div></div>${acc ? '' : ''}`;
+}
+function wireHeader() {
+  const sel = root.querySelector<HTMLSelectElement>('#company');
+  sel?.addEventListener('change', async () => {
+    const v = sel.value;
+    const r = v === '__add' ? await window.ezt.addCompany(true) : await window.ezt.switchTo(v);
+    if (!r.ok) { const e = root.querySelector('#err'); if (e) e.textContent = r.error; render(); }
+    tasks = []; picked = null;
+  });
+}
 const brand = (sub: string) => `<div class="brand"><div class="logo" aria-hidden="true">⏱</div><div><b>EZ Tracker</b><span>${esc(sub)}</span></div></div>`;
 const PLAY = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>';
 const STOP = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
 
 function pairScreen(s: State) {
-  root.innerHTML = `${brand('Time, screenshots and activity')}
+  const more = s.adding && s.accounts.length > 0;
+  root.innerHTML = `${brand(more ? 'Add another company' : 'Time, screenshots and activity')}
   <section class="card">
-    <h1>Connect this computer</h1>
-    <p class="muted">On the web, open <b>EZ Tracker → My tracking</b> and press <b>Get a pairing code</b>. Type the 8 characters here.</p>
+    <h1>${more ? 'Add a company' : 'Connect this computer'}</h1>
+    <p class="muted">On the web, open <b>EZ Tracker</b>, pick the company (Company Work or Accounts &amp; Invoices), go to <b>My tracking</b> and press <b>Get a pairing code</b>. Type the 8 characters here.</p>
     <label for="code">Pairing code</label>
     <input id="code" type="text" class="code" maxlength="9" placeholder="ABCD-2345" autocomplete="off" spellcheck="false" />
     <details style="margin-top:10px"><summary class="muted" style="cursor:pointer">Server address</summary>
@@ -43,7 +67,9 @@ function pairScreen(s: State) {
     <p class="err" id="err">${esc(s.error ?? '')}</p>
     <button class="btn" id="go">Connect</button>
   </section>
-  <p class="muted" style="text-align:center">Nothing is recorded until you agree to it on the next screen.</p>`;
+  <p class="muted" style="text-align:center">Nothing is recorded until you agree to it on the next screen.</p>
+  ${more ? '<div class="foot" style="justify-content:center"><button class="link" id="cancel">Back to my companies</button></div>' : ''}`;
+  root.querySelector('#cancel')?.addEventListener('click', () => void window.ezt.addCompany(false));
   const go = async () => {
     const code = $<HTMLInputElement>('#code').value.trim();
     if (code.replace(/[^a-z0-9]/gi, '').length !== 8) { $('#err').textContent = 'The code has 8 letters and numbers.'; return; }
@@ -58,7 +84,7 @@ function pairScreen(s: State) {
 
 function consentScreen(s: State) {
   const st = s.me!.settings;
-  root.innerHTML = `${brand(s.me?.workspace?.name ?? '')}
+  root.innerHTML = `${header(s)}
   <section class="card">
     <h1>Before you start</h1>
     <p class="muted">Please read what EZ Tracker records on this computer for <b>${esc(s.me?.workspace?.name ?? 'your workspace')}</b>.</p>
@@ -76,7 +102,7 @@ function consentScreen(s: State) {
         <li>Your microphone or camera</li>
       </ul></div>
       <div class="box who"><b>Who sees it</b><ul>
-        <li>You, the workspace owners / admins and your manager</li>
+        <li>You, your company's Tracker admins and the EZ Manage Administrator</li>
         <li>You can delete any of your screenshots on the web; its 10 minutes are removed too</li>
         <li>A tray icon is always shown while tracking</li>
       </ul></div>
@@ -85,17 +111,18 @@ function consentScreen(s: State) {
     <p class="err" id="err"></p>
     <button class="btn" id="go" disabled>I agree</button>
   </section>
-  <div class="foot"><button class="link" id="out">Use another account</button></div>`;
+  <div class="foot"><button class="link" id="out">Sign this computer out of this company</button></div>`;
   $('#agree').addEventListener('change', (e) => { $<HTMLButtonElement>('#go').disabled = !(e.target as HTMLInputElement).checked; });
   $('#go').addEventListener('click', async () => { $<HTMLButtonElement>('#go').disabled = true; const r = await window.ezt.consent(); if (!r.ok) { $('#err').textContent = r.error; $<HTMLButtonElement>('#go').disabled = false; } });
   $('#out').addEventListener('click', () => void window.ezt.signout());
+  wireHeader();
 }
 
 function renderTasks() {
   const list = $('#tasks');
   if (!list) return;
   list.innerHTML = tasks.length ? tasks.map((t) => `<button class="task${picked?.id === t.id ? ' sel' : ''}" data-id="${t.id}"><i style="background:${esc(t.color)}"></i><span><b>${esc(t.name)}</b><small>${esc(t.where)}</small></span></button>`).join('')
-    : '<p class="muted" style="padding:8px">No open tasks assigned to you. You can still start without a task.</p>';
+    : '<p class="muted" style="padding:8px">Nothing assigned to you here (tasks in Company Work, items with you in a person column in Accounts &amp; Invoices). You can still start without a task.</p>';
   list.querySelectorAll<HTMLButtonElement>('.task').forEach((b) => b.addEventListener('click', () => { const t = tasks.find((x) => x.id === Number(b.dataset.id)) ?? null; picked = picked?.id === t?.id ? null : t; renderTasks(); }));
 }
 let searchTimer: number | undefined;
@@ -103,7 +130,7 @@ async function loadTasks(q: string) { const r = await window.ezt.tasks(q); tasks
 
 function mainScreen(s: State) {
   const e = s.engine;
-  root.innerHTML = `${brand(s.me?.workspace?.name ?? '')}
+  root.innerHTML = `${header(s)}
   <section class="card timer">
     <span class="status ${e.running ? 'on' : ''}"><span class="dot"></span>${e.running ? 'Tracking' : 'Not tracking'}${e.offline ? ' · offline, saving on this computer' : ''}</span>
     <div class="clock" id="clock">${hms(e.sessionSeconds)}</div>
@@ -131,6 +158,7 @@ function mainScreen(s: State) {
     if (!r.ok) { render(); $('#err').textContent = r.error; } else render();
   });
   $('#web').addEventListener('click', () => void window.ezt.openWeb());
+  wireHeader();
   $('#auto').addEventListener('change', (ev) => void window.ezt.autostart((ev.target as HTMLInputElement).checked));
   if (!e.running) {
     $('#q').addEventListener('input', (ev) => { window.clearTimeout(searchTimer); const q = (ev.target as HTMLInputElement).value; searchTimer = window.setTimeout(() => void loadTasks(q), 250); });
@@ -150,7 +178,7 @@ window.ezt.onState((s) => {
   const prev = state;
   state = s;
   // the clock ticks without rebuilding the page (keeps the search box focus)
-  if (prev && s.screen === 'main' && screen === 'main' && prev.engine.running === s.engine.running && prev.engine.idlePrompt === s.engine.idlePrompt && prev.engine.pending === s.engine.pending && prev.engine.offline === s.engine.offline && prev.me?.tracked === s.me?.tracked && !busy) {
+  if (prev && s.screen === 'main' && screen === 'main' && prev.engine.running === s.engine.running && prev.engine.idlePrompt === s.engine.idlePrompt && prev.engine.pending === s.engine.pending && prev.engine.offline === s.engine.offline && prev.me?.tracked === s.me?.tracked && prev.active === s.active && prev.accounts.length === s.accounts.length && !busy) {
     const c = $('#clock'); if (c) c.textContent = hms(s.engine.sessionSeconds);
     const t = $('#today'); if (t) t.textContent = hm(s.engine.todaySeconds);
     return;

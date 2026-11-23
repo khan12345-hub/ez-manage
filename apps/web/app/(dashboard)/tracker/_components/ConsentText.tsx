@@ -27,7 +27,7 @@ export function ConsentText({ shots, blur, apps, urls, retention }: { shots: num
       <div className="rounded-2xl bg-black/[0.03] p-3.5 ring-1 ring-border dark:bg-white/[0.04]">
         <p className="mb-1.5 flex items-center gap-1.5 font-semibold"><ShieldCheck className="h-4 w-4" /> Who sees it</p>
         <ul className="list-disc space-y-1 pl-4 text-foreground/85">
-          <li>You, and the workspace owners / admins and your manager</li>
+          <li>You, your company&apos;s Tracker admins and the EZ Manage Administrator</li>
           <li>You can delete any of your screenshots; its 10 minutes are removed too</li>
           <li>Screenshots are deleted after {retention ? `${retention} days` : "you or an admin delete them"}</li>
         </ul>

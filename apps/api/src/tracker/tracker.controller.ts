@@ -16,6 +16,8 @@ export class TrackerController {
   constructor(private readonly t: TrackerService) {}
 
   @Get('workspaces') workspaces(@CurrentUser() u: SessionUser) { return this.t.workspaces(u.id); }
+  /** owners / admins: who is working now across every company they manage */
+  @Get('all/live') liveAll(@Query('offset') o: string, @CurrentUser() u: SessionUser) { return this.t.liveAll(u.id, off(o)); }
   @Get(':ws/overview') overview(@Param('ws') ws: string, @CurrentUser() u: SessionUser) { return this.t.overview(ws, u.id); }
   @Patch(':ws/settings') settings(@Param('ws') ws: string, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.updateSettings(ws, u.id, b); }
   @Post(':ws/consent') consent(@Param('ws') ws: string, @Body() b: any, @CurrentUser() u: SessionUser, @Ip() ip: string, @Headers('user-agent') ua: string) {
@@ -32,6 +34,19 @@ export class TrackerController {
   @Get(':ws/day') day(@Param('ws') ws: string, @Query() q: any, @CurrentUser() u: SessionUser) { return this.t.day(ws, u.id, q); }
   @Get(':ws/apps') apps(@Param('ws') ws: string, @Query() q: any, @CurrentUser() u: SessionUser) { return this.t.apps(ws, u.id, q); }
   @Get(':ws/attendance') attendance(@Param('ws') ws: string, @Query() q: any, @CurrentUser() u: SessionUser) { return this.t.attendance(ws, u.id, q); }
+
+  // managers only (system Administrator or a Tracker admin of the company); all/… = Administrator only
+  @Get('all/people') peopleAll(@Query('offset') o: string, @CurrentUser() u: SessionUser) { return this.t.peopleAll(u.id, off(o)); }
+  @Get(':ws/people') people(@Param('ws') ws: string, @Query('offset') o: string, @CurrentUser() u: SessionUser) { return this.t.peopleList(ws, u.id, off(o)); }
+  @Patch(':ws/people/:userId/tracking') tracking(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.setTracking(ws, u.id, target, b?.on !== false); }
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  @Post(':ws/people/:userId/remind') remind(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @CurrentUser() u: SessionUser) { return this.t.remind(ws, u.id, target); }
+  @Get(':ws/candidates') candidates(@Param('ws') ws: string, @CurrentUser() u: SessionUser) { return this.t.candidates(ws, u.id); }
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  @Post(':ws/people') addPeople(@Param('ws') ws: string, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.addMembers(ws, u.id, b); }
+  @Delete(':ws/people/:userId') removePerson(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @CurrentUser() u: SessionUser) { return this.t.removeMember(ws, u.id, target); }
+  @Patch(':ws/people/:userId/role') role(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.setRole(ws, u.id, target, String(b?.role ?? '')); }
+  @Delete(':ws/devices/:id') revokeAs(@Param('ws') ws: string, @Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.t.revokeDeviceAs(ws, u.id, id); }
 
   @Delete('shots/:id') deleteShot(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.t.deleteShot(id, u.id); }
   @Post('shots/:id/hide') hideShot(@Param('id', ParseIntPipe) id: number, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.hideShot(id, u.id, b?.hidden !== false); }

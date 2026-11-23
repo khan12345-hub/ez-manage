@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('ezt', {
   start: (t: { id?: number | null; name?: string | null }) => ipcRenderer.invoke('start', t),
   stop: () => ipcRenderer.invoke('stop'),
   signout: () => ipcRenderer.invoke('signout'),
+  switchTo: (id: string) => ipcRenderer.invoke('switch', id),
+  addCompany: (on: boolean) => ipcRenderer.invoke('addCompany', on),
   autostart: (on: boolean) => ipcRenderer.invoke('autostart', on),
   openWeb: () => ipcRenderer.invoke('openWeb'),
   refresh: () => ipcRenderer.invoke('refresh'),
