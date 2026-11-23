@@ -63,7 +63,13 @@ export default function SetupAccountPage() {
 
   const setupAccountMutation = useMutation({
     mutationFn: (data: SetupAccountPayload) => setUpAccount(data),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      // already an EZ Manage user: access was added to their existing account — send them to log in
+      if (res?.alreadyExists) {
+        toast.success(res.message ?? "You already have an account — log in to continue. Access has been added.");
+        router.push(`/login${res.email ? `?email=${encodeURIComponent(res.email)}` : ""}`);
+        return;
+      }
       toast.success(`Account Setup Completed!`);
       queryClient.invalidateQueries({ queryKey: ["me"] });
       router.push("/home");

@@ -179,11 +179,36 @@ export class AuthService {
       );
     }
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: invitation.email },
+    // Already an EZ Manage user (invited from another product with the same email):
+    // grant Accounts access to the existing account and send them to log in — no new password.
+    const existingUser = await this.prisma.user.findFirst({
+      where: { email: { equals: invitation.email, mode: 'insensitive' }, deletedAt: null },
+      select: { id: true },
     });
     if (existingUser) {
-      throw new BadRequestException('A user with this email already exists.');
+      const boardGroupAccess = invitation.boardGroupAccess as { boardId: number; groupIds: number[] }[] | null;
+      await this.prisma.$transaction(async (tx) => {
+        await tx.invitation.update({ where: { id: invitation.id }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
+        await tx.workspaceMember.upsert({
+          where: { workspaceId_userId: { workspaceId: invitation.workspaceId, userId: existingUser.id } },
+          create: { workspaceId: invitation.workspaceId, userId: existingUser.id, role: invitation.role },
+          update: {},
+        });
+        for (const boardId of invitation.boardIds) {
+          const entry = boardGroupAccess?.find((g) => g.boardId === boardId);
+          const accessAllGroups = !entry || entry.groupIds.length === 0;
+          const m = await tx.boardMember.upsert({
+            where: { boardId_userId: { boardId, userId: existingUser.id } },
+            create: { boardId, userId: existingUser.id, role: workspaceToBoardRole(invitation.role), accessAllGroups },
+            update: {},
+          });
+          if (entry && entry.groupIds.length > 0) {
+            await tx.boardMemberGroupAccess.createMany({ data: entry.groupIds.map((groupId) => ({ boardMemberId: m.id, groupId })), skipDuplicates: true });
+          }
+        }
+      });
+      this.audit?.record({ actorId: invitation.invitedById, targetUserId: existingUser.id, product: 'accounts', workspaceId: invitation.workspaceId, action: 'joined', toRole: String(invitation.role), via: 'sign_up' });
+      return { alreadyExists: true, email: invitation.email, message: 'You already have an account. Log in with your existing password — Accounts & Invoices access has been added.' };
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -288,8 +313,20 @@ export class AuthService {
     if (invite.status !== 'PENDING' || invite.acceptedAt || invite.expiresAt < new Date()) {
       throw new BadRequestException('Invitation has expired or already accepted.');
     }
-    if (await this.prisma.user.findUnique({ where: { email: invite.email } })) {
-      throw new BadRequestException('A user with this email already exists.');
+    // Already an EZ Manage user (e.g. invited from another product with the same email):
+    // don't make a new password — just grant Work access and send them to log in.
+    const existingWork = await this.prisma.user.findFirst({ where: { email: { equals: invite.email, mode: 'insensitive' }, deletedAt: null }, select: { id: true } });
+    if (existingWork) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.workInvitation.update({ where: { id: invite.id }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
+        await tx.workMember.upsert({
+          where: { workspaceId_userId: { workspaceId: invite.workspaceId, userId: existingWork.id } },
+          create: { workspaceId: invite.workspaceId, userId: existingWork.id, role: invite.role ?? 'MEMBER', invitedById: invite.invitedById },
+          update: {},
+        });
+      });
+      this.audit?.record({ actorId: invite.invitedById, targetUserId: existingWork.id, product: 'work', workspaceId: invite.workspaceId, action: 'joined', toRole: invite.role ?? 'MEMBER', via: 'sign_up' });
+      return { alreadyExists: true, email: invite.email, message: 'You already have an account. Log in with your existing password — Company Work access has been added.' };
     }
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.$transaction(async (tx) => {
