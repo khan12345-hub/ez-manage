@@ -24,7 +24,11 @@ export class CrmSetupService {
 
   // ── workspaces ──
   async myWorkspaces(userId: number) {
-    const rows = await this.prisma.crmMember.findMany({ where: { userId }, include: { workspace: { select: { id: true, uid: true, name: true, currency: true, createdAt: true } } }, orderBy: { joinedAt: 'asc' } });
+    const admin = await this.access.isCrmAdministrator(userId);
+    // a CRM Administrator (global or product-level) opens every CRM workspace, even without a membership
+    const rows = admin
+      ? (await this.prisma.crmWorkspace.findMany({ select: { id: true, uid: true, name: true, currency: true, createdAt: true }, orderBy: { createdAt: 'asc' } })).map((workspace) => ({ workspaceId: workspace.id, role: 'ADMIN', workspace }))
+      : await this.prisma.crmMember.findMany({ where: { userId }, include: { workspace: { select: { id: true, uid: true, name: true, currency: true, createdAt: true } } }, orderBy: { joinedAt: 'asc' } });
     const ids = rows.map((r) => r.workspaceId);
     const [contacts, deals] = await Promise.all([
       this.prisma.crmContact.groupBy({ by: ['workspaceId'], where: { workspaceId: { in: ids } }, _count: { _all: true } }),
@@ -33,7 +37,7 @@ export class CrmSetupService {
     const c = new Map(contacts.map((x) => [x.workspaceId, x._count._all]));
     const d = new Map(deals.map((x) => [x.workspaceId, { open: x._count._all, value: Number(x._sum.amount ?? 0) }]));
     return {
-      canCreate: await this.access.isSuperAdmin(userId),
+      canCreate: await this.access.isCrmAdministrator(userId),
       workspaces: rows.map((r) => ({ ...r.workspace, role: r.role, contacts: c.get(r.workspaceId) ?? 0, openDeals: d.get(r.workspaceId)?.open ?? 0, pipelineValue: d.get(r.workspaceId)?.value ?? 0 })),
     };
   }

@@ -29,6 +29,7 @@ export type InviteBody = {
   accounts?: { workspaceId: number; role: string; boardIds?: number[] } | null;
   work?: { workspaceId: number; role: string } | null;
   tracker?: { source: 'boards' | 'work'; workspaceId: number; role: 'member' | 'admin' } | null;
+  crm?: { workspaceId: number; role: string } | null;
   vault?: boolean;
 };
 
@@ -189,6 +190,9 @@ export class AccessService {
   private async summaries(a: Actor, rows: any[]) {
     const ids = rows.map((r) => r.id);
     const prodAdmins = a.admin ? await this.prisma.productAdmin.findMany({ where: { userId: { in: ids } }, select: { userId: true, product: true } }).catch(() => [] as { userId: number; product: string }[]) : [];
+    const crm = (a.admin || a.productAdminOf.includes('crm'))
+      ? await this.prisma.crmMember.findMany({ where: { userId: { in: ids } }, select: { userId: true, role: true, workspace: { select: { id: true, uid: true, name: true } } } }).catch(() => [] as any[])
+      : [];
     const [acc, work, switches, tAdmin, tDev, vault, scopes, boardRows] = await Promise.all([
       this.prisma.workspaceMember.findMany({ where: { userId: { in: ids }, deletedAt: null, ...(a.admin ? {} : { workspaceId: { in: this.accWs(a) } }) }, select: { userId: true, role: true, workspace: { select: { id: true, uid: true, name: true } } } }),
       this.prisma.workMember.findMany({ where: { userId: { in: ids }, workspace: { deletedAt: null }, ...(a.admin ? {} : { workspaceId: { in: this.workWs(a) } }) }, select: { userId: true, role: true, workspace: { select: { id: true, uid: true, name: true } } } }),
@@ -221,6 +225,9 @@ export class AccessService {
             adminOf: tAdmin.get(u.id) ?? 0,
             devices: tDev.get(u.id) ?? 0,
           },
+          ...(a.admin || a.productAdminOf.includes('crm') ? {
+            crm: { ...state('crm', crm.some((m: any) => m.userId === u.id)), companies: crm.filter((m: any) => m.userId === u.id).map((m: any) => ({ workspace: m.workspace, role: m.role })) },
+          } : {}),
           ...(a.admin ? {
             executive: { on: u.systemRole === 'SUPER_ADMIN', locked: true },
             vault: { ...state('vault', true), setUp: vaultSet.has(u.id) },
@@ -261,8 +268,9 @@ export class AccessService {
       accounts: acc.filter((w) => manage('accounts', w.id)).map((w) => ({ ...w, mayGrantAdmin: grant('accounts', w.id) })),
       work: work.filter((w) => manage('work', w.id)).map((w) => ({ ...w, mayGrantAdmin: grant('work', w.id) })),
       tracker: a.admin ? { boards: acc.map((w) => ({ id: w.id, name: w.name })), work: work.map((w) => ({ id: w.id, name: w.name })) } : { boards: [], work: [] },
-      // every company, for granting Access Manager scopes (Administrator only)
-      ...(a.admin ? {} : {}),
+      crm: (a.admin || a.productAdminOf.includes('crm'))
+        ? (await this.prisma.crmWorkspace.findMany({ select: { id: true, uid: true, name: true }, orderBy: { name: 'asc' } }))
+        : [],
     };
   }
 
@@ -392,6 +400,53 @@ export class AccessService {
     return this.user(a, userId);
   }
 
+  // ── EZ CRM ──
+
+  private needCrmAdmin(a: Actor) {
+    if (!a.admin && !a.productAdminOf.includes('crm')) throw new ForbiddenException('Only the Administrator or the EZ CRM Administrator can manage CRM people.');
+  }
+
+  async addCrm(a: Actor, userId: number, dto: { workspaceId: number; role: string }) {
+    this.needCrmAdmin(a);
+    await this.target(userId);
+    const role = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'].includes(String(dto.role).toUpperCase()) ? String(dto.role).toUpperCase() : 'MEMBER';
+    const ws = await this.prisma.crmWorkspace.findFirst({ where: { id: Number(dto.workspaceId) }, select: { id: true, name: true } });
+    if (!ws) throw new NotFoundException('CRM workspace not found.');
+    const had = await this.prisma.crmMember.findUnique({ where: { workspaceId_userId: { workspaceId: ws.id, userId } } });
+    if (had) throw new BadRequestException(`Already in ${ws.name} — change the role instead.`);
+    await this.products.allowInvite(userId, 'crm', a.id);
+    await this.prisma.crmMember.create({ data: { workspaceId: ws.id, userId, role } });
+    this.audit.record({ actorId: a.id, targetUserId: userId, product: 'crm', workspaceId: ws.id, workspaceName: ws.name, action: 'added', toRole: role, via: 'access_center' });
+    return { company: ws.name, role };
+  }
+
+  async roleCrm(a: Actor, userId: number, workspaceId: number, role: string) {
+    this.needCrmAdmin(a);
+    const r = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'].includes(String(role).toUpperCase()) ? String(role).toUpperCase() : null;
+    if (!r) throw new BadRequestException('Pick Owner, Admin, Member or Viewer.');
+    const m = await this.prisma.crmMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
+    if (!m) throw new NotFoundException('Not in this CRM.');
+    if (m.role === 'OWNER' && r !== 'OWNER' && (await this.prisma.crmMember.count({ where: { workspaceId, role: 'OWNER' } })) <= 1) throw new BadRequestException('A CRM needs at least one owner.');
+    await this.prisma.crmMember.update({ where: { workspaceId_userId: { workspaceId, userId } }, data: { role: r } });
+    this.audit.record({ actorId: a.id, targetUserId: userId, product: 'crm', workspaceId, action: 'role_changed', fromRole: m.role, toRole: r, via: 'access_center' });
+    return this.user(a, userId);
+  }
+
+  async removeCrm(a: Actor, userId: number, workspaceId: number) {
+    this.needCrmAdmin(a);
+    const m = await this.prisma.crmMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
+    if (!m) throw new NotFoundException('Not in this CRM.');
+    if (m.role === 'OWNER' && (await this.prisma.crmMember.count({ where: { workspaceId, role: 'OWNER' } })) <= 1) throw new BadRequestException('A CRM needs at least one owner.');
+    await this.prisma.crmMember.delete({ where: { workspaceId_userId: { workspaceId, userId } } });
+    await Promise.all([
+      this.prisma.crmContact.updateMany({ where: { workspaceId, ownerId: userId }, data: { ownerId: null } }),
+      this.prisma.crmCompany.updateMany({ where: { workspaceId, ownerId: userId }, data: { ownerId: null } }),
+      this.prisma.crmDeal.updateMany({ where: { workspaceId, ownerId: userId }, data: { ownerId: null } }),
+    ]);
+    this.audit.record({ actorId: a.id, targetUserId: userId, product: 'crm', workspaceId, action: 'removed', fromRole: m.role, via: 'access_center' });
+    return this.user(a, userId);
+  }
+
   // ── EZ Tracker (through the Tracker's own service, when it is there) ──
 
   private trackerService(): any {
@@ -425,11 +480,12 @@ export class AccessService {
     if (!emails.length) throw new BadRequestException('Add at least one email.');
     const bad = emails.filter((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
     if (bad.length) throw new BadRequestException(`Not a valid email: ${bad.join(', ')}`);
-    if (!b.accounts && !b.work && !b.tracker && !b.vault) throw new BadRequestException('Pick at least one product.');
+    if (!b.accounts && !b.work && !b.tracker && !b.crm && !b.vault) throw new BadRequestException('Pick at least one product.');
     // check every permission before changing anything
     if (b.accounts) this.need(a, 'accounts', Number(b.accounts.workspaceId), b.accounts.role);
     if (b.work) this.need(a, 'work', Number(b.work.workspaceId), b.work.role);
     if (b.tracker || b.vault) this.needAdmin(a);
+    if (b.crm) this.needCrmAdmin(a);
     const inviter = await this.prisma.user.findUnique({ where: { id: a.id }, select: { firstName: true, lastName: true } });
     const inviterName = `${inviter?.firstName ?? ''} ${inviter?.lastName ?? ''}`.trim() || 'Your administrator';
     const results: { email: string; existing: boolean; given: string[]; problems: string[] }[] = [];
@@ -444,6 +500,7 @@ export class AccessService {
         if (b.accounts) await tryIt(PRODUCT_LABEL.accounts, () => this.addAccounts(a, user.id, { workspaceId: Number(b.accounts!.workspaceId), role: b.accounts!.role, boardIds: b.accounts!.boardIds }));
         if (b.work) await tryIt(PRODUCT_LABEL.work, () => this.addWork(a, user.id, { workspaceId: Number(b.work!.workspaceId), role: b.work!.role }));
         if (b.tracker) await tryIt(PRODUCT_LABEL.tracker, () => this.addTracker(a, user.id, b.tracker!));
+        if (b.crm) await tryIt(PRODUCT_LABEL.crm, () => this.addCrm(a, user.id, { workspaceId: Number(b.crm!.workspaceId), role: b.crm!.role }));
         if (b.vault) await tryIt(PRODUCT_LABEL.vault, async () => { if (await this.products.isOff(user.id, 'vault')) await this.setProduct(a, [user.id], 'vault', true); });
         results.push({ email, existing: true, given, problems });
         continue;
@@ -475,6 +532,7 @@ export class AccessService {
         });
       }
       if (b.tracker) problems.push(`${PRODUCT_LABEL.tracker}: can be added once they have signed up.`);
+      if (b.crm) problems.push(`${PRODUCT_LABEL.crm}: can be added once they have signed up.`);
       if (b.vault) given.push(`${PRODUCT_LABEL.vault} (every account has it)`);
       if (link && given.length) await this.combinedEmail(email, inviterName, given, link);
       results.push({ email, existing: false, given, problems });

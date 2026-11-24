@@ -997,6 +997,31 @@ export class CeoTowerService {
       people: people.slice(0, 40),
       updates,
       attention: { companies: companies.filter((c) => c.health !== 'healthy').map((c) => ({ key: c.key, name: c.name, source: c.source, overdue: c.stats.overdue })), overdue: overdueList },
+      // EZ CRM rollup (only on the all-companies view; CRM is its own product, not tied to a boards/work company)
+      crm: source === 'all' && !company ? await this.crmRollup(userId) : null,
     };
+  }
+
+  /** a CRM summary for the Executive Hub: contacts, companies, open pipeline and what was won this month */
+  private async crmRollup(userId: number) {
+    try {
+      const isSuper = (await this.prisma.user.findUnique({ where: { id: userId }, select: { systemRole: true } }))?.systemRole === 'SUPER_ADMIN';
+      const wsIds = isSuper
+        ? (await this.prisma.crmWorkspace.findMany({ select: { id: true } })).map((w) => w.id)
+        : (await this.prisma.crmMember.findMany({ where: { userId }, select: { workspaceId: true } })).map((m) => m.workspaceId);
+      if (!wsIds.length) return null;
+      const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+      const [contacts, companies, openDeals, won] = await Promise.all([
+        this.prisma.crmContact.count({ where: { workspaceId: { in: wsIds } } }),
+        this.prisma.crmCompany.count({ where: { workspaceId: { in: wsIds } } }),
+        this.prisma.crmDeal.groupBy({ by: ['workspaceId'], where: { workspaceId: { in: wsIds }, wonAt: null, lostAt: null }, _count: { _all: true }, _sum: { amount: true } }),
+        this.prisma.crmDeal.aggregate({ where: { workspaceId: { in: wsIds }, wonAt: { gte: monthStart } }, _count: { _all: true }, _sum: { amount: true } }),
+      ]);
+      const open = openDeals.reduce((a, x) => a + x._count._all, 0);
+      const pipelineValue = openDeals.reduce((a, x) => a + Number(x._sum.amount ?? 0), 0);
+      return { workspaces: wsIds.length, contacts, companies, openDeals: open, pipelineValue, wonThisMonth: { count: won._count._all, value: Number(won._sum.amount ?? 0) } };
+    } catch {
+      return null; // CRM tables not present yet
+    }
   }
 }

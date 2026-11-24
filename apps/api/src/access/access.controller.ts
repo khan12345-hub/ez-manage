@@ -115,6 +115,22 @@ export class AccessController {
     return this.access.user(a, id);
   }
 
+  @Post('users/:id/crm')
+  async addCrm(@AccessActor() a: Actor, @Param('id', ParseIntPipe) id: number, @Body() b: { workspaceId: number; role: string }) {
+    await this.access.addCrm(a, id, { workspaceId: Number(b.workspaceId), role: String(b.role ?? '') });
+    return this.access.user(a, id);
+  }
+
+  @Patch('users/:id/crm/:ws')
+  roleCrm(@AccessActor() a: Actor, @Param('id', ParseIntPipe) id: number, @Param('ws', ParseIntPipe) ws: number, @Body() b: { role: string }) {
+    return this.access.roleCrm(a, id, ws, String(b.role ?? ''));
+  }
+
+  @Delete('users/:id/crm/:ws')
+  removeCrm(@AccessActor() a: Actor, @Param('id', ParseIntPipe) id: number, @Param('ws', ParseIntPipe) ws: number) {
+    return this.access.removeCrm(a, id, ws);
+  }
+
   @Post('users/:id/system-role')
   systemRole(@AccessActor() a: Actor, @Param('id', ParseIntPipe) id: number, @Body() b: { role: 'SUPER_ADMIN' | 'USER' }) {
     return this.access.setSystemRole(a, id, b.role);

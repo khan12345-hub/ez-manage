@@ -1,10 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 
-export const PRODUCTS = ['accounts', 'work', 'tracker', 'vault', 'executive'] as const;
+export const PRODUCTS = ['accounts', 'work', 'tracker', 'vault', 'crm', 'executive'] as const;
 export type Product = (typeof PRODUCTS)[number];
 export const PRODUCT_LABEL: Record<Product, string> = {
-  accounts: 'Accounts & Invoices', work: 'Company Work', tracker: 'EZ Tracker', vault: 'EZ Vault', executive: 'Executive Hub',
+  accounts: 'Accounts & Invoices', work: 'Company Work', tracker: 'EZ Tracker', vault: 'EZ Vault', crm: 'EZ CRM', executive: 'Executive Hub',
 };
 
 /**
