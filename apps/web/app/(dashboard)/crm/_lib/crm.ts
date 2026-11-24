@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { crmApi, crmKeys, type CrmObject, type CrmWorkspace } from "@/services/crm.api";
 
-/** glass surfaces used across EZ CRM */
+/** glass surfaces used across EZ Sales */
 export const glass = "rounded-[22px] border border-white/70 bg-white/72 shadow-[0_16px_44px_-28px_rgba(11,42,31,0.38)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.045]";
 export const input = "h-9 w-full rounded-xl border border-border bg-background px-3 text-[13px] outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/15";
 export const btnPrimary = "inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-forest px-3.5 text-[13px] font-semibold text-forest-foreground shadow-[0_8px_18px_-10px_rgba(11,42,31,0.8)] transition hover:brightness-110 disabled:opacity-40 dark:bg-primary dark:text-primary-foreground";

@@ -232,10 +232,10 @@ export function CeoDashboard({ data, source, company, onFocus, onOpen, onView, o
         ))}
       </motion.div>
 
-      {/* EZ CRM rollup */}
+      {/* EZ Sales rollup */}
       {data.crm && (
         <motion.div variants={fade}>
-          <Card title="EZ CRM" sub={`${data.crm.workspaces} ${data.crm.workspaces === 1 ? "CRM" : "CRMs"} · contacts, companies and pipeline`}>
+          <Card title="EZ Sales" sub={`${data.crm.workspaces} ${data.crm.workspaces === 1 ? "CRM" : "CRMs"} · contacts, companies and pipeline`}>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {([
                 { label: "Contacts", value: data.crm.contacts, icon: Contact2, tone: "#9333ea", money: false },

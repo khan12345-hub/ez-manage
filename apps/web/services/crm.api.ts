@@ -1,5 +1,5 @@
 /*
- * EZ CRM API client (5th product). Kept apart from Boards and Work.
+ * EZ Sales API client (5th product). Kept apart from Boards and Work.
  * (To be moved to apps/web/products/crm/ in the repo-wide reorganisation.)
  */
 import { api } from "@/lib/api";

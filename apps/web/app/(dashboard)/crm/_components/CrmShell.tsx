@@ -110,13 +110,13 @@ export function CrmShell({ children }: { children: React.ReactNode }) {
       <div className="flex h-full flex-col items-center justify-center p-10 text-center">
         <p className="text-[20px] font-semibold">This CRM isn&apos;t available</p>
         <p className="mt-1 text-[13px] text-muted-foreground">It doesn&apos;t exist, or you&apos;re not a member. Ask its owner to add you.</p>
-        <Link href="/crm" className="mt-4 text-[13px] font-semibold text-primary hover:underline">Back to EZ CRM</Link>
+        <Link href="/crm" className="mt-4 text-[13px] font-semibold text-primary hover:underline">Back to EZ Sales</Link>
       </div>
     );
   }
 
   const nav = (
-    <nav aria-label="EZ CRM" className="space-y-0.5">
+    <nav aria-label="EZ Sales" className="space-y-0.5">
       {NAV.map((n) => {
         if (n.path === "settings" && ws && !ws.canAdmin && ws.role === "VIEWER") return null;
         const on = isOn(n.path);
@@ -164,7 +164,7 @@ export function CrmShell({ children }: { children: React.ReactNode }) {
         <div className="absolute -bottom-40 left-[35%] h-[420px] w-[420px] rounded-full bg-[#b08d57]/15 blur-[120px] dark:bg-[#b08d57]/8" />
       </div>
 
-      <aside aria-label="EZ CRM menu" className="sticky top-0 z-30 hidden h-screen w-[268px] shrink-0 p-3 lg:block">{sidebar}</aside>
+      <aside aria-label="EZ Sales menu" className="sticky top-0 z-30 hidden h-screen w-[268px] shrink-0 p-3 lg:block">{sidebar}</aside>
       {menu && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button type="button" aria-label="Close menu" onClick={() => setMenu(false)} className="absolute inset-0 bg-black/30" />
@@ -177,7 +177,7 @@ export function CrmShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3 rounded-[22px] border border-white/70 bg-white/60 px-3 py-2.5 shadow-[0_12px_40px_-24px_rgba(11,42,31,0.35)] backdrop-blur-2xl sm:px-4 dark:border-white/10 dark:bg-white/[0.04]">
             <button type="button" aria-label="Open menu" onClick={() => setMenu(true)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-border lg:hidden"><Menu className="h-4 w-4" /></button>
             <span className="hidden min-w-0 sm:block">
-              <span className="block text-[11px] font-medium text-muted-foreground">EZ CRM</span>
+              <span className="block text-[11px] font-medium text-muted-foreground">EZ Sales</span>
               <h1 className="truncate text-[20px] font-semibold leading-tight tracking-tight">{title}</h1>
             </span>
             <span className="flex-1 sm:hidden" />

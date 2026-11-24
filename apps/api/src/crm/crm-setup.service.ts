@@ -18,7 +18,7 @@ export const DEFAULT_STAGES = [
 ];
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'field';
 
-/** EZ CRM setup: workspaces, members, pipelines & stages, custom properties, saved views, notifications. */
+/** EZ Sales setup: workspaces, members, pipelines & stages, custom properties, saved views, notifications. */
 @Injectable()
 export class CrmSetupService {
   constructor(private readonly prisma: PrismaService, private readonly access: CrmAccessService, @Optional() private readonly mail?: MailService) {}

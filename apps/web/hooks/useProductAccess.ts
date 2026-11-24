@@ -27,7 +27,7 @@ export function useProductAccess() {
   // EZ Tracker: any Company Work workspace you are a member of (not a guest)
   const tracker = useQuery({ queryKey: ["tracker", "workspaces"], queryFn: trackerApi.workspaces, enabled: !!user && !!mine.data && !off.has("tracker"), staleTime: 60_000 });
   const trackerWorkspaces = tracker.data ?? [];
-  // EZ CRM: a CRM workspace you are a member of (or may create one)
+  // EZ Sales: a CRM workspace you are a member of (or may create one)
   const crm = useQuery({ queryKey: ["crm", "workspaces"], queryFn: crmApi.workspaces, enabled: !!user && !!mine.data, staleTime: 60_000 });
   const crmWorkspaces = crm.data?.workspaces ?? [];
   const boardsWorkspaces = off.has("accounts") ? [] : ((boards.data as any[] | undefined) ?? []);

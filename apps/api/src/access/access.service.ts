@@ -401,10 +401,10 @@ export class AccessService {
     return this.user(a, userId);
   }
 
-  // ── EZ CRM ──
+  // ── EZ Sales ──
 
   private needCrmAdmin(a: Actor) {
-    if (!a.admin && !a.productAdminOf.includes('crm')) throw new ForbiddenException('Only the Administrator or the EZ CRM Administrator can manage CRM people.');
+    if (!a.admin && !a.productAdminOf.includes('crm')) throw new ForbiddenException('Only the Administrator or the EZ Sales Administrator can manage CRM people.');
   }
 
   async addCrm(a: Actor, userId: number, dto: { workspaceId: number; role: string }) {

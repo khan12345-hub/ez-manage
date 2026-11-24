@@ -42,7 +42,7 @@ function CrmLanding() {
         <div className={`${glass} p-3`}><AppSwitcher active="crm" subtitle="Contacts, companies and deals" /></div>
         <div className={`${glass} p-6`}>
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#be185d] text-white shadow-[0_10px_24px_-12px_rgba(190,24,93,0.9)]"><Handshake className="h-6 w-6" /></span>
-          <h1 className="mt-4 text-[26px] font-semibold tracking-tight">EZ CRM</h1>
+          <h1 className="mt-4 text-[26px] font-semibold tracking-tight">EZ Sales</h1>
           <p className="mt-1 text-[13.5px] text-muted-foreground">Every contact, company and deal in one place: a pipeline you can drag, a timeline of every call and meeting, and tasks so nothing slips.</p>
           {isLoading ? <div className="mt-6 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div> : (
             <>

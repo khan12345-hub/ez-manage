@@ -17,7 +17,7 @@ const SORTS: Record<Obj, string[]> = {
 };
 const nameOf = (u?: { firstName: string | null; lastName: string | null } | null) => (u ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() : '');
 
-/** EZ CRM records: companies, contacts, deals, activities, timeline, bulk actions, home summary. */
+/** EZ Sales records: companies, contacts, deals, activities, timeline, bulk actions, home summary. */
 @Injectable()
 export class CrmRecordsService {
   private readonly log = new Logger('Crm');

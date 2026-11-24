@@ -997,7 +997,7 @@ export class CeoTowerService {
       people: people.slice(0, 40),
       updates,
       attention: { companies: companies.filter((c) => c.health !== 'healthy').map((c) => ({ key: c.key, name: c.name, source: c.source, overdue: c.stats.overdue })), overdue: overdueList },
-      // EZ CRM rollup (only on the all-companies view; CRM is its own product, not tied to a boards/work company)
+      // EZ Sales rollup (only on the all-companies view; CRM is its own product, not tied to a boards/work company)
       crm: source === 'all' && !company ? await this.crmRollup(userId) : null,
     };
   }

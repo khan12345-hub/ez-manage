@@ -210,7 +210,7 @@ export class AuthService {
       // Work (ClickUp-style) invites live in their own table
       const workInvite = await this.prisma.workInvitation.findUnique({ where: { token: dto.token } });
       if (workInvite) return this.setupWorkAccount(workInvite, dto, req);
-      // EZ CRM invites, too
+      // EZ Sales invites, too
       const crmInvite = await this.prisma.crmInvitation.findUnique({ where: { token: dto.token } });
       if (crmInvite) return this.setupCrmAccount(crmInvite, dto, req);
       throw new NotFoundException('Invitation not found or invalid.');
@@ -411,7 +411,7 @@ export class AuthService {
         await tx.crmMember.upsert({ where: { workspaceId_userId: { workspaceId: invite.workspaceId, userId: existing.id } }, create: { workspaceId: invite.workspaceId, userId: existing.id, role: invite.role }, update: {} });
       });
       this.audit?.record({ actorId: invite.invitedById, targetUserId: existing.id, product: 'crm', workspaceId: invite.workspaceId, action: 'joined', toRole: invite.role, via: 'sign_up' });
-      return { alreadyExists: true, email: invite.email, message: 'You already have an account. Log in with your existing password — EZ CRM access has been added.' };
+      return { alreadyExists: true, email: invite.email, message: 'You already have an account. Log in with your existing password — EZ Sales access has been added.' };
     }
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.$transaction(async (tx) => {
