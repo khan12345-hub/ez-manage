@@ -66,7 +66,7 @@ export function SecurityView({ onOpen }: { onOpen: (uid: string) => void }) {
   );
 
   return (
-    <GlassPage title="Security check" hint="Find passwords that are weak, used more than once, old, or found in known data breaches. Everything is checked in your browser." max="max-w-3xl">
+    <GlassPage title="Watchtower" hint="Your security score, and passwords that are weak, reused, old, missing 2FA, or found in known data breaches. Everything is checked in your browser." max="max-w-3xl">
       <motion.div variants={fade} className={cn(GLASS, "mb-5 flex flex-wrap items-center gap-5 p-5")}>
         <div className="relative h-20 w-20 shrink-0">
           <svg viewBox="0 0 36 36" className="h-20 w-20 -rotate-90"><circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--muted)" strokeWidth="3" /><motion.circle cx="18" cy="18" r="15.9" fill="none" stroke={tone} strokeWidth="3" strokeLinecap="round" initial={{ strokeDasharray: "0 100" }} animate={{ strokeDasharray: `${score} 100` }} transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }} /></svg>
