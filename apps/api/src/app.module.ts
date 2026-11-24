@@ -49,6 +49,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { BoardsChatTasksModule } from './chat-tasks/boards-chat-tasks.module';
 import { TrackerModule } from './tracker/tracker.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { CrmModule } from './crm/crm.module';
 @Module({
   imports: [
     AccessCoreModule,
@@ -108,6 +109,7 @@ import { ExpensesModule } from './expenses/expenses.module';
     CalendarModule,
     BoardsChatTasksModule,
     TrackerModule,
+    CrmModule,
     ExpensesModule,
     ],
   controllers: [AppController],

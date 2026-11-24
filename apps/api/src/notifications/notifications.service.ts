@@ -86,8 +86,8 @@ export class NotificationsService implements OnModuleInit {
 
     sendEmail?: boolean;
 
-    /** boards (default) | work */
-    product?: 'boards' | 'work';
+    /** boards (default) | work | crm */
+    product?: 'boards' | 'work' | 'crm';
   }) {
 
     const {
