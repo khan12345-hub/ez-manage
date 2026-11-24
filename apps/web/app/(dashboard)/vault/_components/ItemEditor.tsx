@@ -6,7 +6,7 @@ import { CreditCard, Eye, EyeOff, FileText, Globe, IdCard, Plus, X } from "lucid
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
-import { createItem, errMsg, typeLabel, updateItem, useVault, type Item, type ItemData, type ItemType } from "../_lib/session";
+import { createItem, errMsg, typeLabel, updateItem, updateItemEverywhere, sameLoginElsewhere, useVault, type Item, type ItemData, type ItemType } from "../_lib/session";
 import { canWrite } from "../_lib/session";
 import { Generator, StrengthBar } from "./bits";
 
@@ -25,9 +25,13 @@ export function ItemEditor({ item, defaultVault, defaultType, onClose, onSaved }
   const [d, setD] = useState<ItemData>(item?.data ?? { type: "login", title: "", urls: [""], username: "", password: "", notes: "", tags: [] });
   const [showPw, setShowPw] = useState(!item);
   const [busy, setBusy] = useState(false);
+  const [propagate, setPropagate] = useState(false);
   const set = (p: Partial<ItemData>) => setD((x) => ({ ...x, ...p }));
   const urls = d.urls?.length ? d.urls : [""];
   const reused = d.password && items.filter((i) => i.uid !== item?.uid && i.data.password === d.password).length;
+  // editing a login whose password changed, and the same login exists in other vaults we manage
+  const pwChanged = !!item && type === "login" && (d.password ?? "") !== (item.data.password ?? "");
+  const elsewhere = pwChanged ? sameLoginElsewhere(item, { ...d, type, urls }).length : 0;
 
   const save = async () => {
     const title = d.title.trim() || (type === "login" ? C.hostOf(urls[0] ?? "") : "") || "Untitled";
@@ -37,9 +41,16 @@ export function ItemEditor({ item, defaultVault, defaultType, onClose, onSaved }
     setBusy(true);
     try {
       let uid = item?.uid;
-      if (item) await updateItem(item, data, vaultUid);
-      else uid = await createItem(vaultUid, data);
-      toast.success(item ? "Saved" : "Added");
+      if (item && propagate && elsewhere > 0) {
+        const { updated } = await updateItemEverywhere(item, data, vaultUid);
+        toast.success(updated > 0 ? `Saved · password updated in ${updated} other vault${updated > 1 ? "s" : ""}` : "Saved");
+      } else if (item) {
+        await updateItem(item, data, vaultUid);
+        toast.success("Saved");
+      } else {
+        uid = await createItem(vaultUid, data);
+        toast.success("Added");
+      }
       onSaved(uid);
       onClose();
     } catch (e) { toast.error(errMsg(e, "Couldn't save.")); } finally { setBusy(false); }
@@ -105,6 +116,12 @@ export function ItemEditor({ item, defaultVault, defaultType, onClose, onSaved }
               {writable.map((v) => <option key={v.uid} value={v.uid}>{v.name}{v.kind === "shared" ? ` (shared, ${v.members})` : ""}</option>)}
             </select>
           </L>
+          {elsewhere > 0 && (
+            <label className="flex items-start gap-2 rounded-lg border border-product-vault/25 bg-product-vault/5 px-3 py-2 text-[12.5px]">
+              <input type="checkbox" checked={propagate} onChange={(e) => setPropagate(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-[var(--primary)]" />
+              <span>Also update this password in <strong>{elsewhere} other vault{elsewhere > 1 ? "s" : ""}</strong> that have the same login. Only vaults you manage are changed; copies in vaults you can’t open aren’t touched.</span>
+            </label>
+          )}
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onClose} className="h-9 rounded-lg px-3 text-[13px] text-muted-foreground hover:bg-accent">Cancel</button>
             <button type="submit" disabled={busy || !vaultUid} className="h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">{busy ? "Saving…" : "Save"}</button>

@@ -466,6 +466,28 @@ export class VaultService {
     return { ...r, vaultUid: vault.uid };
   }
 
+  /**
+   * After the browser propagated a password to the same login in other shared vaults, let those
+   * vaults' members know. Zero-knowledge: the server only learns the vault ids (never the secret,
+   * the url or the title), and the copies are already updated — this is a courtesy notice.
+   */
+  async passwordUpdated(c: VaultCaller, vaultUids: unknown) {
+    const uids = Array.isArray(vaultUids) ? [...new Set(vaultUids.map((x) => String(x)))].slice(0, 50) : [];
+    let notified = 0;
+    for (const uid of uids) {
+      let vaultId: number;
+      try { vaultId = (await this.member(uid, c.userId, 'write')).v.id; } catch { continue; }
+      const members = await this.prisma.vaultMember.findMany({ where: { vaultId, userId: { not: c.userId } }, select: { userId: true } });
+      const ids = members.map((m) => m.userId);
+      if (ids.length) {
+        await this.notify(ids, 'A shared password was updated', 'A login in a shared vault you can open had its password changed — your copy is already up to date.', { vault: uid });
+        notified += ids.length;
+      }
+      await this.log(c.userId, 'password_propagated', vaultId, null, { via: c.via });
+    }
+    return { notified };
+  }
+
   async deleteItem(c: VaultCaller, itemUid: string, forever = false) {
     const { it, v } = await this.itemOf(itemUid, c.userId, 'write');
     if (forever) {

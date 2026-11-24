@@ -28,6 +28,7 @@ export class VaultController {
   @Patch('items/:uid') updateItem(@Caller() c: VaultCaller, @Param('uid') uid: string, @Body() b: any) { return this.vault.updateItem(c, uid, b); }
   @Delete('items/:uid') deleteItem(@Caller() c: VaultCaller, @Param('uid') uid: string, @Query('forever') forever: string) { return this.vault.deleteItem(c, uid, forever === '1'); }
   @Post('items/:uid/restore') restoreItem(@Caller() c: VaultCaller, @Param('uid') uid: string) { return this.vault.restoreItem(c, uid); }
+  @Post('password-updated') passwordUpdated(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.passwordUpdated(c, b?.vaultUids); }
 
   @Get('people') people(@Caller() c: VaultCaller, @Query('q') q: string, @Query('vault') vault: string) { return this.vault.people(c, q, vault || undefined); }
   @Get('vaults/:uid/members') members(@Caller() c: VaultCaller, @Param('uid') uid: string) { return this.vault.members(c, uid); }

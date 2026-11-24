@@ -153,6 +153,47 @@ export async function updateItem(item: Item, data: ItemData, toVault?: string) {
   await useVault.getState().reload();
 }
 
+/** the same login (username + overlapping website) in OTHER vaults the user can write to — matched in the browser */
+export function sameLoginElsewhere(item: Item | null, data: ItemData) {
+  const uname = (data.username ?? "").trim().toLowerCase();
+  if (data.type !== "login" || !uname) return [] as Item[];
+  const urls = (data.urls ?? []).filter(Boolean);
+  const st = useVault.getState();
+  return st.items.filter((i) =>
+    i.uid !== item?.uid &&
+    i.data.type === "login" &&
+    (i.data.username ?? "").trim().toLowerCase() === uname &&
+    canWrite(vaultOf(i.vaultUid)?.role) &&
+    (i.data.urls ?? []).some((u) => urls.some((s) => C.sameSite(u, s))),
+  );
+}
+
+/**
+ * Save the edited login AND push its new password to the same login wherever else the user can
+ * write it (shared vaults they manage) — all re-encrypted in the browser under each vault's own key.
+ * Zero-knowledge holds: only vaults whose key is already unlocked here are touched; copies in vaults
+ * we can't open (e.g. someone else's personal vault) are never seen and can't be reached.
+ */
+export async function updateItemEverywhere(item: Item, data: ItemData, toVault?: string) {
+  const matches = sameLoginElsewhere(item, data);
+  await updateItem(item, data, toVault);
+  const affected = new Set<string>();
+  for (const m of matches) {
+    const v = vaultOf(m.vaultUid);
+    if (!v || !canWrite(v.role)) continue;
+    const nd: ItemData = { ...m.data, password: data.password, passwordUpdatedAt: new Date().toISOString() };
+    try {
+      await api.patch(`/vault/items/${m.uid}`, { data: await C.encryptJson(v.key, nd), keyVersion: v.keyVersion });
+      affected.add(m.vaultUid);
+    } catch { /* a vault whose key moved under us is skipped; the user can retry */ }
+  }
+  if (affected.size) {
+    await useVault.getState().reload();
+    await api.post(`/vault/password-updated`, { vaultUids: [...affected] }).catch(() => null);
+  }
+  return { updated: affected.size };
+}
+
 /**
  * Take someone out of a shared vault (or leave it): a new vault key for everyone who stays,
  * every item (trash too) re-encrypted with it, all switched over by the server in one go.
