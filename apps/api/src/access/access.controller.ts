@@ -120,6 +120,11 @@ export class AccessController {
     return this.access.setSystemRole(a, id, b.role);
   }
 
+  @Post('users/:id/product-admin')
+  productAdmin(@AccessActor() a: Actor, @Param('id', ParseIntPipe) id: number, @Body() b: { product: string; on: boolean }) {
+    return this.access.setProductAdmin(a, id, String(b.product ?? ''), b.on === true);
+  }
+
   @Post('users/:id/manager-scopes')
   scopes(@AccessActor() a: Actor, @Param('id', ParseIntPipe) id: number, @Body() b: { scopes: { product: string; workspaceId: number; source?: string | null; mayGrantAdmin?: boolean }[] }) {
     return this.access.setScopes(a, id, Array.isArray(b.scopes) ? b.scopes.slice(0, 200) : []);

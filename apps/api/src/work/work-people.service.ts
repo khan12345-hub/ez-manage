@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { AccessAuditService } from 'src/access/access-audit.service';
 import { ProductAccessService } from 'src/access/product-access.service';
+import { ProductAdminService } from 'src/access/product-admin.service';
 import { randomUUID } from 'node:crypto';
 import { NotificationEntityType, NotificationType } from 'generated/prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
@@ -30,6 +31,7 @@ export class WorkPeopleService {
     private readonly workNotify: WorkNotifyService,
     @Optional() private readonly audit?: AccessAuditService,
     @Optional() private readonly productAccess?: ProductAccessService,
+    @Optional() private readonly productAdmin?: ProductAdminService,
   ) {}
 
   /* ── Work workspaces (ClickUp-style; nothing to do with Boards workspaces) ── */
@@ -99,6 +101,15 @@ export class WorkPeopleService {
   async myWorkspaces(userId: number) {
     const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null }, select: { systemRole: true } });
     if (!user) return [];
+    // a Company Work product Administrator opens every company (full admin), even without a membership
+    if (this.productAdmin && (await this.productAdmin.is(userId, 'work'))) {
+      const all = await this.prisma.workWorkspace.findMany({
+        where: { deletedAt: null },
+        select: { id: true, uid: true, name: true, color: true, avatarUrl: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      return all.map((w) => ({ ...w, role: 'ADMIN' as const }));
+    }
     const rows = await this.prisma.workMember.findMany({
       where: { userId, workspace: { deletedAt: null } },
       select: { role: true, workspace: { select: { id: true, uid: true, name: true, color: true, avatarUrl: true } } },

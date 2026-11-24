@@ -7,12 +7,15 @@ import { Ban, CheckCircle2, Crown, Loader2, Plus, ShieldCheck, Trash2, X } from 
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { accessApi, roleLabel, type AccessCompanies, type ManagerScope, type MyAccess, type ProductKey } from "@/services/access.api";
+import { accessApi, roleLabel, type AccessCompanies, type AdminProduct, type ManagerScope, type MyAccess, type ProductKey } from "@/services/access.api";
 import { Confirm, PRODUCT_META, Person, RoleChip, errText } from "./bits";
 import { HistoryList } from "./History";
 
 const ACC_ROLES = ["ADMIN", "MEMBER", "VIEWER", "GUEST"];
 const WORK_ROLES = ["ADMIN", "MEMBER", "LIMITED_MEMBER", "GUEST"];
+// products that can have a per-product Administrator (crm is future, hidden until that product ships)
+const PRODUCT_ADMIN_LIST: AdminProduct[] = ["accounts", "work", "tracker", "vault"];
+const PRODUCT_ADMIN_LABEL: Record<string, string> = { accounts: "Accounts & Invoices", work: "Company Work", tracker: "EZ Tracker", vault: "EZ Vault", crm: "CRM" };
 const sel = "h-8 rounded-lg border border-border bg-background px-2 text-[12.5px] outline-none focus:border-primary/50";
 
 export function UserDrawer({ id, me, companies, onClose }: { id: number | null; me: MyAccess; companies?: AccessCompanies; onClose: () => void }) {
@@ -65,6 +68,7 @@ export function UserDrawer({ id, me, companies, onClose }: { id: number | null; 
               <div className="mt-3 flex flex-wrap gap-1.5 text-[11.5px] font-semibold">
                 {isAdminUser && <span className="flex items-center gap-1 rounded-full bg-[#b08d57] px-2 py-0.5 text-forest"><Crown className="h-3 w-3" /> Administrator</span>}
                 {!!u.managerScopes?.length && <span className="flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5"><ShieldCheck className="h-3 w-3" /> Access Manager · {u.managerScopes.length}</span>}
+                {(u.productAdminOf ?? []).map((p) => <span key={p} className="flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5"><Crown className="h-3 w-3" /> {PRODUCT_ADMIN_LABEL[p] ?? p} Admin</span>)}
                 {disabled && <span className="rounded-full bg-[#dc2626] px-2 py-0.5">Disabled</span>}
                 {u.lastLoginAt && <span className="rounded-full bg-white/10 px-2 py-0.5 font-medium">Last sign-in {new Date(u.lastLoginAt).toLocaleDateString()}</span>}
               </div>
@@ -121,6 +125,28 @@ export function UserDrawer({ id, me, companies, onClose }: { id: number | null; 
                           className={cn("h-8 rounded-lg px-3 text-[12.5px] font-semibold disabled:opacity-40", isAdminUser ? "border border-border hover:bg-accent" : "bg-forest text-white dark:bg-primary")}>{isAdminUser ? "Remove role" : "Make Co-Admin"}</button>
                       </div>
                     </Card>
+                    {!isAdminUser && (
+                      <Card>
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest text-white dark:bg-primary"><Crown className="h-4 w-4" /></span>
+                          <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold">Product Administrator</span><span className="block text-[11.5px] text-muted-foreground">Full admin of one whole product — all its companies, people and settings — and nothing else.</span></span>
+                        </div>
+                        <div className="mt-3 space-y-1.5">
+                          {PRODUCT_ADMIN_LIST.map((p) => {
+                            const on = (u.productAdminOf ?? []).includes(p);
+                            return (
+                              <div key={p} className="flex items-center gap-3 rounded-lg border border-border px-2.5 py-2">
+                                <span className="min-w-0 flex-1 text-[13px] font-medium">{PRODUCT_ADMIN_LABEL[p]}</span>
+                                <button type="button" disabled={act.isPending} onClick={() => on
+                                  ? run(() => accessApi.setProductAdmin(u.id, p, false), `${PRODUCT_ADMIN_LABEL[p]} Administrator removed`)
+                                  : setConfirm({ title: `Make ${name} the ${PRODUCT_ADMIN_LABEL[p]} Administrator?`, body: <>They get full admin of <b>every</b> company in {PRODUCT_ADMIN_LABEL[p]} — people, settings and all its data — but no other product and not the Access Center's system controls. They are signed out so it applies at once.{p === "vault" ? " (Vault stays zero-knowledge: they manage members and settings but can never read saved passwords.)" : ""}</>, action: "Make Administrator", danger: true, type: name, run: () => accessApi.setProductAdmin(u.id, p, true) })}
+                                  className={cn("h-8 rounded-lg px-3 text-[12px] font-semibold disabled:opacity-40", on ? "border border-border hover:bg-accent" : "bg-forest text-white dark:bg-primary")}>{on ? "Remove" : "Make Admin"}</button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </Card>
+                    )}
                     {!isAdminUser && <ManagerScopes userId={u.id} scopes={u.managerScopes ?? []} companies={companies} />}
                     <Card>
                       <div className="flex items-center gap-3">

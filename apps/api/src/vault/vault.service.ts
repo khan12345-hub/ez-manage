@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { ProductAdminService } from 'src/access/product-admin.service';
 import type { VaultCaller } from './vault.guard';
 
 const USER_MINI = { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } as const;
@@ -31,7 +32,7 @@ function blob(v: unknown, what: string, max = 200_000): string {
 @Injectable()
 export class VaultService {
   private readonly logger = new Logger('Vault');
-  constructor(private readonly prisma: PrismaService, @Optional() private readonly notifications?: NotificationsService) {}
+  constructor(private readonly prisma: PrismaService, @Optional() private readonly notifications?: NotificationsService, @Optional() private readonly productAdmin?: ProductAdminService) {}
 
   // ───────── who is who ─────────
 
@@ -68,9 +69,15 @@ export class VaultService {
     if (!SOURCES.includes(source) || !Number.isInteger(workspaceId) || workspaceId <= 0) throw new BadRequestException('Pick a company.');
     return { source, workspaceId };
   }
-  /** Vault admin for a company: the system Administrator, or someone granted it for that company */
+  /**
+   * Vault admin for a company: the system Administrator, an EZ Vault product Administrator, or
+   * someone granted it for that company. This governs vault MANAGEMENT only (members, roles,
+   * structure, settings) — it never yields plaintext: reading a secret still needs the vault key
+   * wrapped for the caller's own key, which a non-member product Administrator does not have.
+   */
   private async canAdminCompany(userId: number, source: Source, workspaceId: number) {
     if (await this.isSuperAdmin(userId)) return true;
+    if (this.productAdmin && (await this.productAdmin.is(userId, 'vault'))) return true;
     return !!(await this.prisma.vaultAdmin.findUnique({ where: { source_workspaceId_userId: { source, workspaceId, userId } }, select: { id: true } }));
   }
 
