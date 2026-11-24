@@ -252,8 +252,8 @@ export function AppShell({ children }: AppShellProps) {
   // Work (ClickUp-style product) has its own sidebar: Spaces → Folders → Lists
   // NOTE: "/workspace/..." is Boards — match "/work" or "/work/..." only
   const isWorkPage = /^\/work(\/|$)/.test(pathname ?? "");
-  // CEO Tower is its own full-screen product with its own header
-  const isCeoPage = /^\/(ceo|vault|tracker|access)(\/|$)/.test(pathname ?? "");
+  // These products are full-screen with their own header + sidebar (no Accounts shell around them)
+  const isCeoPage = /^\/(ceo|vault|tracker|access|crm)(\/|$)/.test(pathname ?? "");
 
   return (
     <div className={cn("relative flex h-screen w-screen overflow-hidden bg-background text-foreground antialiased font-sans", isWorkPage && "work-ui")}>
