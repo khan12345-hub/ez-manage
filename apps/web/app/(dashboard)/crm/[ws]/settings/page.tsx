@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2, Trophy, UserPlus, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, Mail, Plus, Trash2, Trophy, UserPlus, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { crmApi, crmKeys, userName, type CrmObject, type CrmPropType, type CrmRole } from "@/services/crm.api";
@@ -36,9 +36,10 @@ export default function CrmSettingsPage() {
   const delWs = useMutation({ mutationFn: () => crmApi.deleteWorkspace(uid), onSuccess: () => { qc.invalidateQueries({ queryKey: ["crm"] }); router.push("/crm"); }, onError: onErr() });
   // members
   const [email, setEmail] = useState(""); const [role, setRole] = useState<CrmRole>("MEMBER");
-  const addM = useMutation({ mutationFn: () => crmApi.addMember(uid, { email: email.trim(), role }), onSuccess: () => { setEmail(""); refresh(); toast.success("Added"); }, onError: onErr("Couldn't add.") });
+  const addM = useMutation({ mutationFn: () => crmApi.addMember(uid, { email: email.trim(), role }), onSuccess: (r) => { const inv = (r as { invited?: boolean })?.invited; setEmail(""); refresh(); toast.success(inv ? "Invite sent — they join when they sign up" : "Added"); }, onError: onErr("Couldn't add.") });
   const roleM = useMutation({ mutationFn: (v: { id: number; role: CrmRole }) => crmApi.updateMember(uid, v.id, v.role), onSuccess: refresh, onError: onErr() });
   const rmM = useMutation({ mutationFn: (id: number) => crmApi.removeMember(uid, id), onSuccess: refresh, onError: onErr() });
+  const cancelI = useMutation({ mutationFn: (id: number) => crmApi.cancelInvite(uid, id), onSuccess: () => { refresh(); toast.success("Invite cancelled"); }, onError: onErr() });
   // pipelines
   const [pid, setPid] = useState<number | null>(null);
   const pipeline = ws?.pipelines.find((p) => p.id === pid) ?? ws?.pipelines[0];
@@ -85,7 +86,7 @@ export default function CrmSettingsPage() {
           <div className="space-y-4">
             <h2 className="text-[17px] font-semibold">Members <span className="text-muted-foreground">{ws.members.length}</span></h2>
             <form onSubmit={(e) => { e.preventDefault(); if (email.trim()) addM.mutate(); }} className="flex flex-wrap gap-2">
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email of an EZ Manage user" aria-label="Email" className={cn(input, "min-w-[220px] flex-1")} />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email — existing user joins now, a new one gets an invite" aria-label="Email" className={cn(input, "min-w-[220px] flex-1")} />
               <select value={role} onChange={(e) => setRole(e.target.value as CrmRole)} aria-label="Role" className={cn(input, "w-36")}>{ROLES.filter((r) => ws.role === "OWNER" || r.value !== "OWNER").map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select>
               <button type="submit" disabled={!email.trim() || addM.isPending} className={btnPrimary}><UserPlus className="h-4 w-4" /> Add</button>
             </form>
@@ -100,6 +101,20 @@ export default function CrmSettingsPage() {
                 </li>
               ))}
             </ul>
+            {!!ws.invites?.length && (
+              <div className="space-y-2">
+                <h3 className="text-[13px] font-semibold text-muted-foreground">Pending invites <span>{ws.invites.length}</span></h3>
+                <ul className="divide-y divide-border/60 rounded-2xl border border-dashed border-border">
+                  {ws.invites.map((iv) => (
+                    <li key={iv.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+                      <span className="grid h-8 w-8 place-items-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground"><Mail className="h-4 w-4" /></span>
+                      <span className="min-w-0 flex-1"><span className="block truncate text-[13.5px] font-medium">{iv.email}</span><span className="block truncate text-[12px] text-muted-foreground">Invited as {ROLES.find((r) => r.value === iv.role)?.label ?? iv.role} · not signed up yet</span></span>
+                      <button type="button" aria-label={`Cancel invite to ${iv.email}`} onClick={() => cancelI.mutate(iv.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

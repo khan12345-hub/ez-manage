@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
+import { randomBytes } from 'crypto';
 import { Prisma, WorkspaceMemberRole } from 'generated/prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { InvitationsService } from 'src/invitations/invitations.service';
@@ -532,7 +533,18 @@ export class AccessService {
         });
       }
       if (b.tracker) problems.push(`${PRODUCT_LABEL.tracker}: can be added once they have signed up.`);
-      if (b.crm) problems.push(`${PRODUCT_LABEL.crm}: can be added once they have signed up.`);
+      if (b.crm) {
+        await tryIt(PRODUCT_LABEL.crm, async () => {
+          const ws = await this.prisma.crmWorkspace.findFirst({ where: { id: Number(b.crm!.workspaceId) }, select: { name: true } });
+          if (!ws) throw new NotFoundException('CRM not found.');
+          const role = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'].includes(String(b.crm!.role).toUpperCase()) ? String(b.crm!.role).toUpperCase() : 'MEMBER';
+          const open = await this.prisma.crmInvitation.findFirst({ where: { workspaceId: Number(b.crm!.workspaceId), email: { equals: email, mode: 'insensitive' }, status: 'PENDING', expiresAt: { gt: new Date() } }, select: { id: true } });
+          const token = open ? null : randomBytes(24).toString('base64url');
+          if (token) await this.prisma.crmInvitation.create({ data: { workspaceId: Number(b.crm!.workspaceId), email, role, token, invitedById: a.id, expiresAt: new Date(Date.now() + 7 * 86_400_000) } });
+          link ??= token ? `${process.env.FRONTEND_URL}/setup-account?token=${token}` : null;
+          return { company: ws.name, role };
+        });
+      }
       if (b.vault) given.push(`${PRODUCT_LABEL.vault} (every account has it)`);
       if (link && given.length) await this.combinedEmail(email, inviterName, given, link);
       results.push({ email, existing: false, given, problems });

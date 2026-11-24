@@ -1,6 +1,7 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
+import { MailService } from 'src/mail/mail.service';
 import { CrmAccessService } from './crm-access.service';
 import type { AddCrmMemberDto, CreateCrmWorkspaceDto, PipelineDto, PropertyDto, UpdateCrmMemberDto, UpdateCrmWorkspaceDto, UpdatePropertyDto, UpdateViewDto, ViewDto } from './dto/crm.dto';
 
@@ -20,7 +21,15 @@ const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(
 /** EZ CRM setup: workspaces, members, pipelines & stages, custom properties, saved views, notifications. */
 @Injectable()
 export class CrmSetupService {
-  constructor(private readonly prisma: PrismaService, private readonly access: CrmAccessService) {}
+  constructor(private readonly prisma: PrismaService, private readonly access: CrmAccessService, @Optional() private readonly mail?: MailService) {}
+
+  private esc(t: string) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  /** pending invites into a CRM (people who haven't signed up yet) */
+  private async pendingInvites(workspaceId: number) {
+    const rows = await this.prisma.crmInvitation.findMany({ where: { workspaceId, status: 'PENDING', expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, role: true, createdAt: true } });
+    return rows;
+  }
 
   // ── workspaces ──
   async myWorkspaces(userId: number) {
@@ -56,12 +65,13 @@ export class CrmSetupService {
 
   async workspace(wsUid: string, userId: number) {
     const { ws, role, canEdit, canAdmin } = await this.access.ws(wsUid, userId);
-    const [members, pipelines, properties] = await Promise.all([
+    const [members, pipelines, properties, invites] = await Promise.all([
       this.members(ws.id),
       this.pipelines(ws.id),
       this.prisma.crmProperty.findMany({ where: { workspaceId: ws.id }, orderBy: [{ object: 'asc' }, { position: 'asc' }, { id: 'asc' }] }),
+      canAdmin ? this.pendingInvites(ws.id) : Promise.resolve([] as { id: number; email: string; role: string; createdAt: Date }[]),
     ]);
-    return { ...ws, role, canEdit, canAdmin, members, pipelines, properties };
+    return { ...ws, role, canEdit, canAdmin, members, pipelines, properties, invites };
   }
 
   async updateWorkspace(wsUid: string, userId: number, dto: UpdateCrmWorkspaceDto) {
@@ -86,12 +96,39 @@ export class CrmSetupService {
   async addMember(wsUid: string, userId: number, dto: AddCrmMemberDto) {
     const { ws, role } = await this.access.ws(wsUid, userId, 'admin');
     if (dto.role === 'OWNER' && role !== 'OWNER') throw new ForbiddenException('Only the owner can add another owner.');
-    const u = await this.prisma.user.findFirst({ where: { email: { equals: dto.email.trim(), mode: 'insensitive' } }, select: { id: true } });
-    if (!u) throw new NotFoundException('No EZ Manage user has this email. Invite them to EZ Manage first.');
-    const had = await this.prisma.crmMember.findUnique({ where: { workspaceId_userId: { workspaceId: ws.id, userId: u.id } } });
-    if (had) throw new BadRequestException('Already a member of this CRM.');
-    await this.prisma.crmMember.create({ data: { workspaceId: ws.id, userId: u.id, role: dto.role } });
-    return this.members(ws.id);
+    const email = dto.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException('Enter a valid email.');
+    const u = await this.prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' }, deletedAt: null }, select: { id: true } });
+    // already has an EZ Manage account → add straight away
+    if (u) {
+      const had = await this.prisma.crmMember.findUnique({ where: { workspaceId_userId: { workspaceId: ws.id, userId: u.id } } });
+      if (had) throw new BadRequestException('Already a member of this CRM.');
+      await this.prisma.crmMember.create({ data: { workspaceId: ws.id, userId: u.id, role: dto.role } });
+      return { invited: false as const };
+    }
+    // new person → invite them by email; they become a member when they sign up
+    const open = await this.prisma.crmInvitation.findFirst({ where: { workspaceId: ws.id, email: { equals: email, mode: 'insensitive' }, status: 'PENDING', expiresAt: { gt: new Date() } }, select: { id: true } });
+    if (open) throw new BadRequestException('Already invited — they just need to sign up.');
+    const token = randomBytes(24).toString('base64url');
+    await this.prisma.crmInvitation.create({ data: { workspaceId: ws.id, email, role: dto.role, token, invitedById: userId, expiresAt: new Date(Date.now() + 7 * 86_400_000) } });
+    const link = `${process.env.FRONTEND_URL ?? ''}/setup-account?token=${token}`;
+    const inviter = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
+    const who = `${inviter?.firstName ?? ''} ${inviter?.lastName ?? ''}`.trim() || 'Your team';
+    try {
+      await this.mail?.sendMail({
+        to: email,
+        subject: `${who} invited you to a CRM on EZ Manage`,
+        html: `<p>${this.esc(who)} invited you to the <b>${this.esc(ws.name)}</b> CRM on EZ Manage as ${this.esc(dto.role)}.</p><p><a href="${link}">Set up your account</a> to join. The link expires in 7 days.</p>`,
+        text: `${who} invited you to the ${ws.name} CRM on EZ Manage as ${dto.role}.\n\nSet up your account: ${link} (expires in 7 days)`,
+      });
+    } catch { /* email failures shouldn't block the invite */ }
+    return { invited: true as const, email };
+  }
+
+  async cancelInvite(wsUid: string, userId: number, inviteId: number) {
+    const { ws } = await this.access.ws(wsUid, userId, 'admin');
+    await this.prisma.crmInvitation.deleteMany({ where: { id: inviteId, workspaceId: ws.id } });
+    return { ok: true };
   }
 
   async updateMember(wsUid: string, userId: number, memberId: number, dto: UpdateCrmMemberDto) {
