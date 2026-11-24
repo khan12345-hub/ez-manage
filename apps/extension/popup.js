@@ -56,7 +56,9 @@ function row(it) {
   const acts = document.createElement("div"); acts.className = "acts";
   const btn = (label, title, fn, cls) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.title = title; b.setAttribute("aria-label", `${title}: ${it.title}`); if (cls) b.className = cls; b.addEventListener("click", fn); acts.append(b); };
   const forHere = pageUrl && (it.urls || []).some((x) => sameSite(x, pageUrl));
+  const hasSite = (it.urls || []).some(Boolean);
   if (forHere) btn("Fill", "Fill on this page", async () => { const r = await send({ type: "fillTab", uid: it.uid }); if (r.ok) window.close(); else toast(r.error || "Couldn't fill"); }, "fill");
+  else if (hasSite) btn("Open & fill", "Open the website and sign in", async () => { const r = await send({ type: "openAndFill", uid: it.uid }); if (r.ok) window.close(); else toast(r.error || "Couldn't open"); }, "fill");
   if (it.username) btn("User", "Copy username", () => copy(it.username, "Username"));
   if (it.useOnly) { const tag = document.createElement("span"); tag.className = "u"; tag.textContent = "use only"; tag.title = "You can sign in with this, but not see or copy the password"; acts.append(tag); }
   // Privacy: the extension fills the password into the page but never copies the raw password to the clipboard.
