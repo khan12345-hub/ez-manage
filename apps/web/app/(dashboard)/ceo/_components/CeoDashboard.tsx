@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { animate, motion, useInView, useReducedMotion, type Variants } from "framer-motion";
-import { AlertTriangle, ArrowRight, ArrowUpRight, Building2, CheckCircle2, CircleDot, Clock3, Sparkles, TrendingDown, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpRight, Building2, CheckCircle2, CircleDot, Clock3, Contact2, CircleDollarSign, Sparkles, Target, TrendingDown, TrendingUp, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { ceoApi, type CeoCompany, type CeoHealth, type CeoOverview, type CeoSource } from "@/services/ceo-tower.api";
@@ -231,6 +231,33 @@ export function CeoDashboard({ data, source, company, onFocus, onOpen, onView, o
           </motion.button>
         ))}
       </motion.div>
+
+      {/* EZ CRM rollup */}
+      {data.crm && (
+        <motion.div variants={fade}>
+          <Card title="EZ CRM" sub={`${data.crm.workspaces} ${data.crm.workspaces === 1 ? "CRM" : "CRMs"} · contacts, companies and pipeline`}>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {([
+                { label: "Contacts", value: data.crm.contacts, icon: Contact2, tone: "#9333ea", money: false },
+                { label: "Companies", value: data.crm.companies, icon: Building2, tone: "#2563eb", money: false },
+                { label: "Open deals", value: data.crm.openDeals, icon: Target, tone: "#0369a1", money: false },
+                { label: "Pipeline value", value: data.crm.pipelineValue, icon: CircleDollarSign, tone: "#047857", money: true },
+              ] as const).map((t) => (
+                <div key={t.label} className="flex items-start gap-2.5 rounded-2xl border border-black/[0.05] bg-white/60 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: `${t.tone}16`, color: t.tone }}><t.icon className="h-4.5 w-4.5" /></span>
+                  <span className="min-w-0">
+                    <span className="block text-[11.5px] font-medium text-muted-foreground">{t.label}</span>
+                    <span className="mt-0.5 block text-[20px] font-bold leading-none tracking-tight tabular-nums">{t.money ? `$${Math.round(t.value).toLocaleString()}` : <CountUp value={t.value} />}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            {data.crm.wonThisMonth.count > 0 && (
+              <p className="mt-3 text-[12.5px] text-muted-foreground">Won this month: <b className="text-foreground">{data.crm.wonThisMonth.count}</b> {data.crm.wonThisMonth.count === 1 ? "deal" : "deals"} · <b className="text-foreground">${Math.round(data.crm.wonThisMonth.value).toLocaleString()}</b></p>
+            )}
+          </Card>
+        </motion.div>
+      )}
 
       {/* tasks the CEO gave out, and how many got done */}
       <motion.div variants={fade}><AssignedSummary onOpen={onAssigned} source={source} scope={company} /></motion.div>

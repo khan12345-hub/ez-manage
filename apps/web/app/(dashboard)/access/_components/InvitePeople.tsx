@@ -18,7 +18,9 @@ export function InvitePeople({ open, onClose, me, companies }: { open: boolean; 
   const [acc, setAcc] = useState<{ on: boolean; ws: number | ""; role: string; boards: number[] }>({ on: false, ws: "", role: "MEMBER", boards: [] });
   const [work, setWork] = useState<{ on: boolean; ws: number | ""; role: string }>({ on: false, ws: "", role: "MEMBER" });
   const [tracker, setTracker] = useState<{ on: boolean; key: string; role: "member" | "admin" }>({ on: false, key: "", role: "member" });
+  const [crm, setCrm] = useState<{ on: boolean; ws: number | ""; role: string }>({ on: false, ws: "", role: "MEMBER" });
   const [vault, setVault] = useState(false);
+  const canCrm = me.admin || (me.productAdminOf ?? []).includes("crm");
   const [results, setResults] = useState<Awaited<ReturnType<typeof accessApi.invite>>["results"] | null>(null);
   const list = emails.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean);
   const accWs = companies?.accounts.find((c) => c.id === acc.ws);
@@ -29,14 +31,15 @@ export function InvitePeople({ open, onClose, me, companies }: { open: boolean; 
       if (acc.on && acc.ws) body.accounts = { workspaceId: Number(acc.ws), role: acc.role, boardIds: acc.boards.length ? acc.boards : undefined };
       if (work.on && work.ws) body.work = { workspaceId: Number(work.ws), role: work.role };
       if (tracker.on && tracker.key) { const [source, id] = tracker.key.split(":"); body.tracker = { source: source as "boards" | "work", workspaceId: Number(id), role: tracker.role }; }
+      if (crm.on && crm.ws) body.crm = { workspaceId: Number(crm.ws), role: crm.role };
       if (vault) body.vault = true;
       return accessApi.invite(body);
     },
     onSuccess: (r) => { setResults(r.results); qc.invalidateQueries({ queryKey: ["access"] }); const ok = r.results.filter((x) => x.given.length).length; toast.success(`${ok} of ${r.results.length} invited`); },
     onError: (e) => toast.error(errText(e)),
   });
-  const ready = list.length > 0 && ((acc.on && !!acc.ws) || (work.on && !!work.ws) || (tracker.on && !!tracker.key) || vault) && !(acc.on && !acc.ws) && !(work.on && !work.ws);
-  const reset = () => { setEmails(""); setResults(null); setAcc({ on: false, ws: "", role: "MEMBER", boards: [] }); setWork({ on: false, ws: "", role: "MEMBER" }); setTracker({ on: false, key: "", role: "member" }); setVault(false); };
+  const ready = list.length > 0 && ((acc.on && !!acc.ws) || (work.on && !!work.ws) || (tracker.on && !!tracker.key) || (crm.on && !!crm.ws) || vault) && !(acc.on && !acc.ws) && !(work.on && !work.ws) && !(crm.on && !crm.ws);
+  const reset = () => { setEmails(""); setResults(null); setAcc({ on: false, ws: "", role: "MEMBER", boards: [] }); setWork({ on: false, ws: "", role: "MEMBER" }); setTracker({ on: false, key: "", role: "member" }); setCrm({ on: false, ws: "", role: "MEMBER" }); setVault(false); };
 
   const Block = ({ p, on, setOn, children, disabled, note }: { p: keyof typeof PRODUCT_META; on: boolean; setOn: (v: boolean) => void; children?: React.ReactNode; disabled?: boolean; note?: string }) => (
     <div className={cn("rounded-2xl border p-3 transition", on ? "border-primary/40 bg-primary/[0.03]" : "border-border", disabled && "opacity-60")}>
@@ -109,6 +112,17 @@ export function InvitePeople({ open, onClose, me, companies }: { open: boolean; 
                 </select>
                 <select value={tracker.role} onChange={(e) => setTracker((x) => ({ ...x, role: e.target.value as "member" | "admin" }))} aria-label="Tracker role" className={sel}>
                   <option value="member">Tracked member</option><option value="admin">Tracker admin</option>
+                </select>
+              </Block>
+            )}
+            {canCrm && (
+              <Block p="crm" on={crm.on} setOn={(v) => setCrm((x) => ({ ...x, on: v }))} note="Existing accounts only">
+                <select value={crm.ws} onChange={(e) => setCrm((x) => ({ ...x, ws: e.target.value ? Number(e.target.value) : "" }))} aria-label="CRM" className={cn(sel, "min-w-[180px] flex-1")}>
+                  <option value="">CRM…</option>
+                  {companies?.crm?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <select value={crm.role} onChange={(e) => setCrm((x) => ({ ...x, role: e.target.value }))} aria-label="CRM role" className={sel}>
+                  {["OWNER", "ADMIN", "MEMBER", "VIEWER"].map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
                 </select>
               </Block>
             )}

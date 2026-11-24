@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
 
-export type ProductKey = "accounts" | "work" | "tracker" | "vault" | "executive";
+export type ProductKey = "accounts" | "work" | "tracker" | "vault" | "crm" | "executive";
 export type ManagerScope = { product: "accounts" | "work" | "tracker"; workspaceId: number; source: "boards" | "work" | null; mayGrantAdmin: boolean };
 export type AdminProduct = "accounts" | "work" | "tracker" | "vault" | "crm";
 export type MyAccess = { off: ProductKey[]; canManage: boolean; admin: boolean; scopes: ManagerScope[]; productAdminOf: AdminProduct[] };
@@ -13,6 +13,7 @@ export type AccessUser = {
     accounts: Switch & { companies: { workspace: Ws; role: string; boards: number }[] };
     work: Switch & { companies: { workspace: Ws; role: string }[] };
     tracker: Switch & { trackedCompanies: number; adminOf: number; devices: number };
+    crm?: Switch & { companies: { workspace: Ws; role: string }[] };
     executive?: Switch;
     vault?: Switch & { setUp: boolean };
   };
@@ -29,12 +30,14 @@ export type AccessCompanies = {
   accounts: (Ws & { boards: { id: number; name: string }[]; mayGrantAdmin: boolean })[];
   work: (Ws & { mayGrantAdmin: boolean })[];
   tracker: { boards: { id: number; name: string }[]; work: { id: number; name: string }[] };
+  crm?: Ws[];
 };
 export type InviteBody = {
   emails: string[];
   accounts?: { workspaceId: number; role: string; boardIds?: number[] } | null;
   work?: { workspaceId: number; role: string } | null;
   tracker?: { source: "boards" | "work"; workspaceId: number; role: "member" | "admin" } | null;
+  crm?: { workspaceId: number; role: string } | null;
   vault?: boolean;
 };
 
@@ -58,6 +61,9 @@ export const accessApi = {
   roleWork: async (id: number, ws: number, role: string) => (await api.patch(`${A}/users/${id}/work/${ws}`, { role })).data,
   removeWork: async (id: number, ws: number) => (await api.delete(`${A}/users/${id}/work/${ws}`)).data,
   addTracker: async (id: number, b: { source: "boards" | "work"; workspaceId: number; role: "member" | "admin" }) => (await api.post(`${A}/users/${id}/tracker`, b)).data,
+  addCrm: async (id: number, b: { workspaceId: number; role: string }) => (await api.post(`${A}/users/${id}/crm`, b)).data,
+  roleCrm: async (id: number, ws: number, role: string) => (await api.patch(`${A}/users/${id}/crm/${ws}`, { role })).data,
+  removeCrm: async (id: number, ws: number) => (await api.delete(`${A}/users/${id}/crm/${ws}`)).data,
   systemRole: async (id: number, role: "SUPER_ADMIN" | "USER") => (await api.post(`${A}/users/${id}/system-role`, { role })).data,
   setProductAdmin: async (id: number, product: AdminProduct, on: boolean) => (await api.post<AccessUser & { history: AccessRow[] }>(`${A}/users/${id}/product-admin`, { product, on })).data,
   setScopes: async (id: number, scopes: ManagerScope[]) => (await api.post(`${A}/users/${id}/manager-scopes`, { scopes })).data,
@@ -66,6 +72,6 @@ export const accessApi = {
 };
 
 export const PRODUCT_LABELS: Record<ProductKey, string> = {
-  accounts: "Accounts & Invoices", work: "Company Work", tracker: "EZ Tracker", vault: "EZ Vault", executive: "Executive Hub",
+  accounts: "Accounts & Invoices", work: "Company Work", tracker: "EZ Tracker", vault: "EZ Vault", crm: "EZ CRM", executive: "Executive Hub",
 };
 export const roleLabel = (r: string) => r.charAt(0) + r.slice(1).toLowerCase().replace(/_/g, " ");

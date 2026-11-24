@@ -21,6 +21,7 @@ export interface CeoOverview {
     companies: { key: string; name: string; source: "boards" | "work"; overdue: number }[];
     overdue: { source: "boards" | "work"; task: { id: number; uid: string; name: string }; where: string; company?: string; due: string; people: string[] }[];
   };
+  crm: { workspaces: number; contacts: number; companies: number; openDeals: number; pipelineValue: number; wonThisMonth: { count: number; value: number } } | null;
 }
 
 export type CeoTaskState = "open" | "in_progress" | "overdue" | "due_week" | "done_week" | "unassigned" | "all";

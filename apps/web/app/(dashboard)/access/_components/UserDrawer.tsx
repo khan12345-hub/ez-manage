@@ -14,7 +14,8 @@ import { HistoryList } from "./History";
 const ACC_ROLES = ["ADMIN", "MEMBER", "VIEWER", "GUEST"];
 const WORK_ROLES = ["ADMIN", "MEMBER", "LIMITED_MEMBER", "GUEST"];
 // products that can have a per-product Administrator (crm is future, hidden until that product ships)
-const PRODUCT_ADMIN_LIST: AdminProduct[] = ["accounts", "work", "tracker", "vault"];
+const PRODUCT_ADMIN_LIST: AdminProduct[] = ["accounts", "work", "tracker", "vault", "crm"];
+const CRM_ROLES = ["OWNER", "ADMIN", "MEMBER", "VIEWER"];
 const PRODUCT_ADMIN_LABEL: Record<string, string> = { accounts: "Accounts & Invoices", work: "Company Work", tracker: "EZ Tracker", vault: "EZ Vault", crm: "CRM" };
 const sel = "h-8 rounded-lg border border-border bg-background px-2 text-[12.5px] outline-none focus:border-primary/50";
 
@@ -101,6 +102,19 @@ export function UserDrawer({ id, me, companies, onClose }: { id: number | null; 
                   <AddCompany product="work" options={(companies?.work ?? []).filter((c) => !u.products.work.companies.some((x) => x.workspace.id === c.id))} roles={WORK_ROLES} busy={act.isPending}
                     onAdd={(ws, role) => run(() => accessApi.addWork(u.id, { workspaceId: ws, role }), "Added")} />
                 </Card>
+                {/* EZ CRM */}
+                {(me.admin || (me.productAdminOf ?? []).includes("crm")) && u.products.crm && (
+                <Card>
+                  <ProductHead p="crm" sub={u.products.crm.companies.length ? `${u.products.crm.companies.length} ${u.products.crm.companies.length === 1 ? "CRM" : "CRMs"}` : "Not in any CRM"} />
+                  <Companies rows={u.products.crm.companies.map((c) => ({ id: c.workspace.id, name: c.workspace.name, role: c.role }))}
+                    product="crm" roles={CRM_ROLES} grantAdmin={() => true} busy={act.isPending}
+                    onRole={(ws, r) => run(() => accessApi.roleCrm(u.id, ws, r), "Role changed")}
+                    onRemove={(ws, n) => setConfirm({ title: `Remove ${name} from ${n}?`, body: "They lose this CRM. Their records stay (just unassigned).", action: "Remove", danger: true, run: () => accessApi.removeCrm(u.id, ws) })} />
+                  {u.products.crm.companies.length === 0 && <EmptyHint />}
+                  <AddCompany product="crm" options={(companies?.crm ?? []).filter((c) => !u.products.crm!.companies.some((x) => x.workspace.id === c.id)).map((c) => ({ id: c.id, name: c.name, mayGrantAdmin: true }))} roles={CRM_ROLES} busy={act.isPending}
+                    onAdd={(ws, role) => run(() => accessApi.addCrm(u.id, { workspaceId: ws, role }), "Added")} />
+                </Card>
+                )}
                 {/* EZ Tracker */}
                 <Card>
                   <ProductHead p="tracker" sub={`${u.products.tracker.trackedCompanies} ${u.products.tracker.trackedCompanies === 1 ? "company" : "companies"} · ${u.products.tracker.devices} ${u.products.tracker.devices === 1 ? "computer" : "computers"}${u.products.tracker.adminOf ? ` · Tracker admin in ${u.products.tracker.adminOf}` : ""}`} />
@@ -211,7 +225,7 @@ function EmptyHint() {
 }
 
 function AddCompany({ product, options, roles, busy, onAdd }: {
-  product: "accounts" | "work"; options: { id: number; name: string; mayGrantAdmin: boolean; boards?: { id: number; name: string }[] }[]; roles: string[]; busy: boolean;
+  product: "accounts" | "work" | "crm"; options: { id: number; name: string; mayGrantAdmin: boolean; boards?: { id: number; name: string }[] }[]; roles: string[]; busy: boolean;
   onAdd: (ws: number, role: string, boards?: number[]) => void;
 }) {
   const [open, setOpen] = useState(false);
