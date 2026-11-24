@@ -1,7 +1,8 @@
 import { ProfileSettings } from "./ProfileSettings";
 import { WhatsappSettingsSection } from "./WhatsappSettingsSection";
+import { SecuritySection } from "./SecuritySection";
 import { NotificationsTab } from "../system-settings/general/NotificationsTab";
-import { Settings2, BellRing, Plug2 } from "lucide-react";
+import { Settings2, BellRing, Plug2, ShieldCheck } from "lucide-react";
 
 function SectionDivider({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
@@ -36,6 +37,10 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-col gap-8">
           <ProfileSettings />
+
+          <SectionDivider icon={ShieldCheck} label="Security" />
+
+          <SecuritySection />
 
           <SectionDivider icon={Plug2} label="Integrations" />
 
