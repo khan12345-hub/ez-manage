@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginDto } from "@repo/shared";
 import { ArrowRight, Eye, EyeOff, ShieldCheck, Mail, KeyRound } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 import { Button } from "components/ui/button";
 import { useLogin, useMfaVerify } from "@/services/auth/auth.hooks";
 import { mfaSendCode } from "@/services/auth/auth.api";
@@ -13,10 +14,13 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+const LAST_EMAIL = "ez:last-email";
+
 /* Sign-in form — "Ledger Reserve" (Phase 0). Logic unchanged; layout restyled. */
 export function LoginForm() {
   const loginMutation = useLogin();
   const reduced = useReducedMotion();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -25,12 +29,21 @@ export function LoginForm() {
     defaultValues: { email: "", password: "" },
   });
 
-  const { register, handleSubmit, formState: { errors } } = form;
+  const { register, handleSubmit, setValue, setFocus, formState: { errors } } = form;
+
+  // prefill the email: from an invite link (?email=…) or the last account used on this device,
+  // so after signing out you only need your password.
+  useEffect(() => {
+    let email = searchParams?.get("email") ?? "";
+    if (!email) { try { email = localStorage.getItem(LAST_EMAIL) ?? ""; } catch { /* private mode */ } }
+    if (email) { setValue("email", email); setTimeout(() => setFocus("password"), 0); }
+  }, [searchParams, setValue, setFocus]);
   const mfaVerify = useMfaVerify();
   const [code, setCode] = useState("");
   const [sentCode, setSentCode] = useState(false);
 
   function onSubmit(values: LoginDto) {
+    try { if (values.email) localStorage.setItem(LAST_EMAIL, values.email.trim()); } catch { /* private mode */ }
     loginMutation.mutate(values);
   }
 

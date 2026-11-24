@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Activity, Building2, CreditCard, ExternalLink, Eye, EyeOff, FileText, Fingerprint, Globe, IdCard, KeyRound, LayoutDashboard, Layers, LifeBuoy, Lock, Pencil, Plus, Search, Settings, ShieldAlert, ShieldCheck, Star, Trash2, Users } from "lucide-react";
+import { Activity, Building2, CreditCard, ExternalLink, Eye, EyeOff, FileText, Fingerprint, Globe, IdCard, KeyRound, LayoutDashboard, Layers, LifeBuoy, Lock, Pencil, Plus, Search, Settings, ShieldAlert, ShieldCheck, Star, Tag, Trash2, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
@@ -19,7 +19,7 @@ import { PeopleView } from "./People";
 import { EmergencyView } from "./Emergency";
 import { Backdrop, GLASS } from "./ui";
 
-export type Nav = { kind: "overview" } | { kind: "all" } | { kind: "favorites" } | { kind: "type"; type: ItemType } | { kind: "vault"; uid: string } | { kind: "security" } | { kind: "activity" } | { kind: "people" } | { kind: "emergency" } | { kind: "trash" } | { kind: "settings" } | { kind: "admin" };
+export type Nav = { kind: "overview" } | { kind: "all" } | { kind: "favorites" } | { kind: "type"; type: ItemType } | { kind: "vault"; uid: string } | { kind: "tag"; tag: string } | { kind: "security" } | { kind: "activity" } | { kind: "people" } | { kind: "emergency" } | { kind: "trash" } | { kind: "settings" } | { kind: "admin" };
 const TYPES: { type: ItemType; label: string; icon: typeof Globe }[] = [
   { type: "login", label: "Logins", icon: Globe },
   { type: "passkey", label: "Passkeys", icon: Fingerprint },
@@ -43,10 +43,17 @@ export function VaultMain() {
     if (nav.kind === "favorites") r = r.filter((i) => i.data.favorite);
     if (nav.kind === "type") r = r.filter((i) => i.data.type === nav.type);
     if (nav.kind === "vault") r = r.filter((i) => i.vaultUid === nav.uid);
+    if (nav.kind === "tag") r = r.filter((i) => (i.data.tags ?? []).includes(nav.tag));
     if (term) r = r.filter((i) => `${i.data.title} ${i.data.username ?? ""} ${(i.data.urls ?? []).join(" ")} ${(i.data.tags ?? []).join(" ")}`.toLowerCase().includes(term));
     return [...r].sort((a, b) => a.data.title.localeCompare(b.data.title));
   }, [items, nav, q]);
-  const listMode = ["all", "favorites", "type", "vault"].includes(nav.kind);
+  const listMode = ["all", "favorites", "type", "vault", "tag"].includes(nav.kind);
+  // all tags across items (for the sidebar), most-used first
+  const tags = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const i of items) for (const t of i.data.tags ?? []) if (t.trim()) m.set(t, (m.get(t) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [items]);
   const current = items.find((i) => i.uid === sel) ?? (listMode ? list[0] : undefined);
   const curVault = nav.kind === "vault" ? vaults.find((v) => v.uid === nav.uid) : undefined;
   const canWriteSomewhere = vaults.some((v) => canWrite(v.role));
@@ -89,8 +96,14 @@ export function VaultMain() {
               <button type="button" aria-label="New shared vault" title="New shared vault" onClick={() => setNewVault(true)} className="rounded p-0.5 text-muted-foreground hover:bg-accent"><Plus className="h-3.5 w-3.5" /></button>
             </div>
             {vaults.map((v) => <NavBtn key={v.uid} n={{ kind: "vault", uid: v.uid }} icon={v.kind === "personal" ? Lock : v.company ? Building2 : Users} label={v.name} count={items.filter((i) => i.vaultUid === v.uid).length} active={nav.kind === "vault" && nav.uid === v.uid} />)}
+            {tags.length > 0 && (
+              <>
+                <p className="mb-1 mt-3 px-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Tags</p>
+                {tags.slice(0, 12).map(([t, n]) => <NavBtn key={t} n={{ kind: "tag", tag: t }} icon={Tag} label={t} count={n} active={nav.kind === "tag" && nav.tag === t} />)}
+              </>
+            )}
             <div className="mt-3 space-y-0.5 border-t border-black/[0.06] pt-3 dark:border-white/10">
-              <NavBtn n={{ kind: "security" }} icon={ShieldAlert} label="Security check" active={nav.kind === "security"} />
+              <NavBtn n={{ kind: "security" }} icon={ShieldAlert} label="Watchtower" active={nav.kind === "security"} />
               <NavBtn n={{ kind: "activity" }} icon={Activity} label="Activity" active={nav.kind === "activity"} />
               <NavBtn n={{ kind: "people" }} icon={Users} label="People" active={nav.kind === "people"} />
               <NavBtn n={{ kind: "emergency" }} icon={LifeBuoy} label="Emergency access" active={nav.kind === "emergency"} />
@@ -105,7 +118,7 @@ export function VaultMain() {
         <div className="flex min-h-0 flex-1 flex-col">
           {/* mobile nav */}
           <div className="flex gap-1 overflow-x-auto px-3 py-2 md:hidden">
-            {([["Overview", { kind: "overview" }], ["All", { kind: "all" }], ["Favorites", { kind: "favorites" }], ["Security", { kind: "security" }], ["Activity", { kind: "activity" }], ["People", { kind: "people" }], ["Emergency", { kind: "emergency" }], ["Trash", { kind: "trash" }], ["Settings", { kind: "settings" }], ...(me?.isVaultAdmin ? [["Vault admin", { kind: "admin" }]] : [])] as [string, Nav][]).map(([l, n]) => (
+            {([["Overview", { kind: "overview" }], ["All", { kind: "all" }], ["Favorites", { kind: "favorites" }], ["Watchtower", { kind: "security" }], ["Activity", { kind: "activity" }], ["People", { kind: "people" }], ["Emergency", { kind: "emergency" }], ["Trash", { kind: "trash" }], ["Settings", { kind: "settings" }], ...(me?.isVaultAdmin ? [["Vault admin", { kind: "admin" }]] : [])] as [string, Nav][]).map(([l, n]) => (
               <button key={l} type="button" onClick={() => go(n)} className={cn("shrink-0 rounded-full px-3 py-1 text-[12.5px] font-semibold", nav.kind === n.kind ? "bg-forest text-white dark:bg-primary" : "bg-white/70 text-muted-foreground dark:bg-white/5")}>{l}</button>
             ))}
           </div>
@@ -132,7 +145,7 @@ export function VaultMain() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 border-b border-black/[0.06] px-4 py-2.5 dark:border-white/10">
-                    <span className="min-w-0 flex-1 text-[14px] font-semibold">{nav.kind === "favorites" ? "Favorites" : nav.kind === "type" ? TYPES.find((t) => t.type === nav.type)?.label : "All items"}</span>
+                    <span className="min-w-0 flex-1 text-[14px] font-semibold">{nav.kind === "favorites" ? "Favorites" : nav.kind === "type" ? TYPES.find((t) => t.type === nav.type)?.label : nav.kind === "tag" ? `#${nav.tag}` : "All items"}</span>
                     <span className="font-mono text-[11.5px] text-muted-foreground">{list.length}</span>
                   </div>
                 )}
