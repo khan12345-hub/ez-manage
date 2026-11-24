@@ -111,15 +111,60 @@
     document.documentElement.append(host);
     place(box, el);
   }
+
+  // ── in-field icon: a small EZ Vault mark inside login fields; click to open / close the list (like 1Password) ──
+  let iconHost = null, iconEl = null;
+  function removeIcon() { iconHost?.remove(); iconHost = iconEl = null; }
+  function positionIcon(el) {
+    if (!iconHost) return;
+    const r = el.getBoundingClientRect();
+    const btn = iconHost.shadowRoot.querySelector(".ic");
+    btn.style.left = `${r.right - 26}px`;
+    btn.style.top = `${r.top + (r.height - 20) / 2}px`;
+  }
+  async function showIcon(el) {
+    const res = await send({ type: "matches" });
+    if (!res.ok) return;
+    // show the key when this site has logins (or when locked, so they can open it)
+    if (!res.locked && !res.items.length) { removeIcon(); return; }
+    if (iconEl === el && iconHost) { positionIcon(el); return; }
+    removeIcon();
+    iconEl = el;
+    iconHost = document.createElement("ez-vault-icon");
+    const sh = iconHost.attachShadow({ mode: "open" });
+    sh.innerHTML = `<style>
+      :host{all:initial}
+      .ic{position:fixed;z-index:2147483646;width:20px;height:20px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:${res.locked ? "#6b6f69" : "#0b2a1f"};border:1px solid ${res.locked ? "#6b6f69" : "#b08d57"};box-shadow:0 2px 6px -1px rgba(11,42,31,.5)}
+      .ic:hover{filter:brightness(1.15)}
+      .ic svg{width:12px;height:12px}</style>
+      <button class="ic" type="button" title="EZ Vault" aria-label="EZ Vault logins">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#f3efe6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3"/><path d="m16 7 2 2"/><path d="m19 4 2 2"/></svg>
+      </button>`;
+    const btn = sh.querySelector(".ic");
+    btn.addEventListener("mousedown", (e) => e.preventDefault());
+    btn.addEventListener("click", (e) => { e.stopPropagation(); if (host && forEl === el) hide(); else show(el); });
+    document.documentElement.append(iconHost);
+    positionIcon(el);
+  }
+
+  function onField(el) {
+    showIcon(el);
+    // keep the auto-open on an empty field, so filling stays one click away
+    if (!el.value) show(el); else hide();
+  }
   document.addEventListener("focusin", (e) => {
     const el = e.target;
-    if (!(el instanceof HTMLInputElement) || !visible(el)) return;
-    // only on an empty field, so it never covers the form once it's filled
-    if (!el.value && (el.type === "password" || fieldsNear(el))) show(el); else hide();
+    if (el instanceof HTMLInputElement && visible(el) && (el.type === "password" || fieldsNear(el))) onField(el);
+    else { hide(); removeIcon(); }
   }, true);
   document.addEventListener("input", (e) => { if (e.isTrusted && host && e.target === forEl) hide(); }, true);
-  document.addEventListener("mousedown", (e) => { if (host && !e.composedPath().includes(host) && e.target !== forEl) hide(); }, true);
-  addEventListener("scroll", () => { if (host && forEl) place(shadow.querySelector(".box"), forEl); }, true);
+  document.addEventListener("mousedown", (e) => {
+    const path = e.composedPath();
+    if (host && !path.includes(host) && !path.includes(iconHost) && e.target !== forEl) hide();
+    if (iconHost && !path.includes(iconHost) && e.target !== iconEl) removeIcon();
+  }, true);
+  addEventListener("scroll", () => { if (host && forEl) place(shadow.querySelector(".box"), forEl); if (iconEl) positionIcon(iconEl); }, true);
+  addEventListener("resize", () => { if (host && forEl) place(shadow.querySelector(".box"), forEl); if (iconEl) positionIcon(iconEl); }, true);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); }, true);
 
   // popup "Fill" button
@@ -181,6 +226,19 @@
     }));
     document.documentElement.append(barHost);
   }
+  // "Open & fill": the popup sent us to this login's site — pull the credentials and fill them
+  (async () => {
+    for (const wait of [0, 400, 1200]) {
+      await new Promise((r) => setTimeout(r, wait));
+      const r = await send({ type: "pendingFill" });
+      if (r.ok && r.fill) {
+        const target = passwords()[0] || document.querySelector('input[type="email"], input[type="text"], input:not([type])');
+        if (target) fillInto(target, r.fill.username, r.fill.password);
+        return;
+      }
+    }
+  })();
+
   // after a login form navigated here, show the offer again
   (async () => {
     for (const wait of [0, 600, 1500]) {

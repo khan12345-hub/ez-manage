@@ -126,6 +126,10 @@ async function judge(url, username, password) {
   return { action: "save" };
 }
 
+// "Open & fill": the popup navigates the tab to the login's site; the content script there pulls the
+// credentials on load (so the URL is checked from the page's own location — no extra tab permission).
+let pendingFill = null;
+
 // a login form posts and the page navigates at once: the next page's "pending" question waits for it
 let lastSubmit = Promise.resolve();
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
@@ -194,6 +198,19 @@ async function handle(msg, sender) {
       await event(it.uid, "filled");
       return {};
     }
+    case "openAndFill": {
+      // popup "Open & fill": go to the login's own site, then fill it once the page loads
+      if (!fromPopup(sender)) throw new Error("Not allowed");
+      const it = logins(s.items || []).find((i) => i.uid === msg.uid);
+      if (!it) throw new Error("Login not found.");
+      const raw = (it.urls || [])[0];
+      if (!raw) throw new Error("This login has no website.");
+      const full = /^https?:\/\//.test(raw) ? raw : `https://${raw}`;
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      pendingFill = { tabId: tab.id, uid: it.uid, at: Date.now() };
+      await chrome.tabs.update(tab.id, { url: full });
+      return { ok: true };
+    }
     case "activeUrl": {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       return { url: tab?.url || "" };
@@ -212,6 +229,18 @@ async function handle(msg, sender) {
       if (!url || !it || !matchesUrl(it, url)) throw new Error("Not allowed");
       await event(it.uid, "filled");
       return { username: it.username || "", password: it.password || "" };
+    }
+    case "pendingFill": {
+      // a page just loaded; if the popup's "Open & fill" sent this tab here, hand it the login —
+      // but only if the page's own URL matches the item (so secrets never land on the wrong site)
+      const tabId = sender?.tab?.id;
+      const url = pageOf(sender);
+      if (!pendingFill || pendingFill.tabId !== tabId || Date.now() - pendingFill.at > 30_000) return { fill: null };
+      const it = s.unlocked ? logins(s.items || []).find((i) => i.uid === pendingFill.uid) : null;
+      if (!it || !url || !matchesUrl(it, url)) return { fill: null };
+      pendingFill = null;
+      await event(it.uid, "filled");
+      return { fill: { username: it.username || "", password: it.password || "" } };
     }
     case "submitted": {
       const url = pageOf(sender);
