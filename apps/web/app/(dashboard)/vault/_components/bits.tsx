@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Check, Copy, CreditCard, FileText, Globe, IdCard, RefreshCw, Wand2 } from "lucide-react";
+import { Check, Copy, CreditCard, FileText, Fingerprint, Globe, IdCard, RefreshCw, Wand2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
@@ -44,7 +44,7 @@ export function CopyButton({ text, what, item, field, className }: { text: strin
   );
 }
 
-const TYPE_ICON: Record<ItemType, typeof Globe> = { login: Globe, note: FileText, card: CreditCard, identity: IdCard };
+const TYPE_ICON: Record<ItemType, typeof Globe> = { login: Globe, passkey: Fingerprint, note: FileText, card: CreditCard, identity: IdCard };
 /**
  * A login shows the website's own icon, fetched straight from that site (e.g. facebook.com/favicon.ico) —
  * never through a third-party favicon service, so no one else learns which sites you keep logins for.

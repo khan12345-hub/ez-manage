@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { CreditCard, Eye, EyeOff, FileText, Globe, IdCard, Plus, X } from "lucide-react";
+import { CreditCard, Eye, EyeOff, FileText, Fingerprint, Globe, IdCard, Plus, RefreshCw, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
@@ -10,7 +10,14 @@ import { createItem, errMsg, typeLabel, updateItem, updateItemEverywhere, sameLo
 import { canWrite } from "../_lib/session";
 import { Generator, StrengthBar } from "./bits";
 
-const TYPES: { type: ItemType; icon: typeof Globe }[] = [{ type: "login", icon: Globe }, { type: "note", icon: FileText }, { type: "card", icon: CreditCard }, { type: "identity", icon: IdCard }];
+const TYPES: { type: ItemType; icon: typeof Globe }[] = [{ type: "login", icon: Globe }, { type: "passkey", icon: Fingerprint }, { type: "note", icon: FileText }, { type: "card", icon: CreditCard }, { type: "identity", icon: IdCard }];
+
+/** generate a WebAuthn-style passkey (ES256 / P-256) in the browser; stored encrypted like everything else */
+async function makePasskey(rpId: string, username: string) {
+  const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const [priv, pub] = await Promise.all([crypto.subtle.exportKey("jwk", kp.privateKey), crypto.subtle.exportKey("jwk", kp.publicKey)]);
+  return { rpId, username, credentialId: C.toB64(C.randomBytes(16)), publicKey: JSON.stringify(pub), privateKey: JSON.stringify(priv), alg: "ES256", createdAt: new Date().toISOString() };
+}
 const input = "h-9 w-full rounded-md border border-border bg-background px-2.5 text-[13.5px] outline-none focus:border-primary/50";
 
 function L({ label, children }: { label: string; children: React.ReactNode }) {
@@ -34,7 +41,7 @@ export function ItemEditor({ item, defaultVault, defaultType, onClose, onSaved }
   const elsewhere = pwChanged ? sameLoginElsewhere(item, { ...d, type, urls }).length : 0;
 
   const save = async () => {
-    const title = d.title.trim() || (type === "login" ? C.hostOf(urls[0] ?? "") : "") || "Untitled";
+    const title = d.title.trim() || (type === "login" ? C.hostOf(urls[0] ?? "") : type === "passkey" ? (d.passkey?.rpId ?? "") : "") || "Untitled";
     const data: ItemData = { ...d, type, title, urls: urls.map((u) => u.trim()).filter(Boolean), tags: (d.tags ?? []).filter(Boolean) };
     if (type === "login" && d.password !== item?.data.password) data.passwordUpdatedAt = new Date().toISOString();
     if (data.totp && !(await C.totp(data.totp).catch(() => null))) { toast.error("That one-time code secret isn't valid."); return; }
@@ -62,7 +69,7 @@ export function ItemEditor({ item, defaultVault, defaultType, onClose, onSaved }
         <DialogTitle>{item ? `Edit ${typeLabel[type].toLowerCase()}` : "New item"}</DialogTitle>
         <DialogDescription className="sr-only">Everything here is encrypted in your browser before it is saved.</DialogDescription>
         {!item && (
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-5 gap-1.5">
             {TYPES.map((t) => <button key={t.type} type="button" aria-pressed={type === t.type} onClick={() => setType(t.type)} className={cn("flex flex-col items-center gap-1 rounded-lg border py-2 text-[11.5px] font-medium", type === t.type ? "border-product-vault bg-product-vault/8" : "border-border hover:bg-accent")}><t.icon className="h-4 w-4" />{typeLabel[t.type]}</button>)}
           </div>
         )}
@@ -92,6 +99,22 @@ export function ItemEditor({ item, defaultVault, defaultType, onClose, onSaved }
                 </div>
               </L>
               <L label="One-time code secret (2FA, optional)"><input className={cn(input, "font-mono")} value={d.totp ?? ""} onChange={(e) => set({ totp: e.target.value })} placeholder="Secret key or otpauth:// link" spellCheck={false} autoComplete="off" /></L>
+            </>
+          )}
+          {type === "passkey" && (
+            <>
+              <L label="Website / app"><input className={input} value={d.passkey?.rpId ?? ""} onChange={(e) => set({ passkey: { ...d.passkey, rpId: e.target.value } })} placeholder="example.com" spellCheck={false} autoComplete="off" /></L>
+              <L label="Username or email"><input className={input} value={d.passkey?.username ?? ""} onChange={(e) => set({ passkey: { ...d.passkey, username: e.target.value } })} autoComplete="off" spellCheck={false} /></L>
+              {d.passkey?.credentialId ? (
+                <div className="rounded-lg border border-product-vault/25 bg-product-vault/5 p-3 text-[12.5px]">
+                  <p className="flex items-center gap-1.5 font-medium text-product-vault"><Fingerprint className="h-4 w-4" /> Passkey created{d.passkey.createdAt ? ` · ${new Date(d.passkey.createdAt).toLocaleDateString()}` : ""}</p>
+                  <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">ID: {d.passkey.credentialId.slice(0, 24)}… · {d.passkey.alg ?? "ES256"}</p>
+                  <button type="button" onClick={async () => set({ passkey: await makePasskey(d.passkey?.rpId ?? "", d.passkey?.username ?? "") })} className="mt-2 flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"><RefreshCw className="h-3.5 w-3.5" /> Regenerate</button>
+                </div>
+              ) : (
+                <button type="button" onClick={async () => set({ passkey: await makePasskey(d.passkey?.rpId ?? "", d.passkey?.username ?? "") })} className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-forest px-3 text-[13px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground"><Fingerprint className="h-4 w-4" /> Generate passkey</button>
+              )}
+              <p className="text-[11.5px] text-muted-foreground">The private key is encrypted in your browser and stored here — the server never sees it. (Signing in to sites directly with it comes later.)</p>
             </>
           )}
           {type === "card" && (
