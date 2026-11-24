@@ -197,6 +197,10 @@ export function LoginForm() {
           <ArrowRight className="ml-1 h-4 w-4 text-brass-soft dark:text-primary-foreground" />
         </Button>
 
+        <Link href="/recover" className="text-[13px] font-medium text-primary hover:underline">
+          Have an Account Recovery Key? Use your kit
+        </Link>
+
         <p className="border-t pt-4 text-[13px] leading-relaxed text-muted-foreground">
           New to the team? Ask your workspace admin for an invite. Accounts are
           created by invitation only.

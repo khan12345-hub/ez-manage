@@ -29,6 +29,9 @@ model User {
 
   crmMembers CrmMember[]
 
+  // Account Recovery Key (the "Account Kit" emailed at sign-up): SHA-256 of a high-entropy code
+  recoveryKeyHash String? @map("recovery_key_hash")
+
   // Multi-factor authentication (TOTP authenticator app + email code + recovery codes)
   mfaTotpEnabled   Boolean           @default(false) @map("mfa_totp_enabled")
   mfaTotpSecret    String?           @map("mfa_totp_secret") // AES-GCM encrypted base32 secret
