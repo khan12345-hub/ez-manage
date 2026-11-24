@@ -24,6 +24,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { BoardMemberRole, WorkspaceMemberRole } from 'generated/prisma/enums';
 import { MailService } from 'src/mail/mail.service';
+import { MfaService } from './mfa/mfa.service';
 
 function workspaceToBoardRole(role: WorkspaceMemberRole): BoardMemberRole {
   switch (role) {
@@ -40,6 +41,7 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly mfa: MfaService,
     @Optional() private readonly audit?: AccessAuditService,
   ) {}
 
@@ -67,10 +69,21 @@ export class AuthService {
       );
     }
 
+    // 5. Second factor: if this account has MFA set up, don't sign in yet — hold a
+    //    pending challenge in the session and let /auth/mfa/verify finish the sign-in.
+    const methods = await this.mfa.methodsFor(user.id);
+    if (methods.length) {
+      req.session.mfaPending = { userId: user.id, methods, at: Date.now() };
+      delete req.session.user;
+      await new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
+      return { message: 'One more step.', mfaRequired: true, methods, email: user.email };
+    }
+
     req.session.user = {
       id: user.id,
       systemRole: user.systemRole,
     };
+    delete req.session.mfaPending;
 
     await new Promise<void>((resolve, reject) => {
       req.session.save((err) => {
@@ -85,7 +98,36 @@ export class AuthService {
     return {
       message: 'Login successful.',
       user: safeUser,
+      // the client sends them to set up MFA when it is mandatory but not yet configured
+      mfaSetupRequired: await this.mfa.isRequired(user.id),
     };
+  }
+
+  /** finish a sign-in that was held for a second factor */
+  async mfaVerify(code: string, req: Request) {
+    const pending = req.session.mfaPending;
+    if (!pending || Date.now() - pending.at > 10 * 60 * 1000) {
+      delete req.session.mfaPending;
+      throw new UnauthorizedException('Your sign-in expired. Enter your email and password again.');
+    }
+    const ok = await this.mfa.verifyChallenge(pending, code);
+    if (!ok) throw new UnauthorizedException('That code is wrong or expired.');
+    const user = await this.authRepository.findUserById(pending.userId);
+    if (!user || user.status !== UserStatus.ACTIVE) throw new UnauthorizedException('Account not available.');
+    req.session.user = { id: user.id, systemRole: user.systemRole };
+    delete req.session.mfaPending;
+    await new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
+    return { message: 'Login successful.', user };
+  }
+
+  /** send an email code for the pending sign-in */
+  async mfaSendEmailCode(req: Request) {
+    const pending = req.session.mfaPending;
+    if (!pending) throw new UnauthorizedException('No sign-in is waiting for a code.');
+    if (!pending.methods.includes('email')) throw new BadRequestException('Email codes are not set up for this account.');
+    const made = await this.mfa.makeEmailCode(pending.userId);
+    if (made) { pending.emailCodeHash = made.hash; pending.emailExpires = made.expires; req.session.mfaPending = pending; await new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve()))); }
+    return { sent: true };
   }
 
   async me(sessionUser: SessionUser) {
@@ -104,7 +146,9 @@ export class AuthService {
     if (user.status !== UserStatus.ACTIVE) {
       throw new ForbiddenException('Your account is inactive.');
     }
-    return user;
+    // two-step verification state, so the app can prompt mandatory users to finish enrolling
+    const mfa = await this.mfa.status(user.id).catch(() => null);
+    return { ...user, mfa };
   }
 
   async logout(req: Request, res: Response) {

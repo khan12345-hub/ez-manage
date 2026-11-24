@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginDto } from "@repo/shared";
-import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, ShieldCheck, Mail, KeyRound } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "components/ui/button";
-import { useLogin } from "@/services/auth/auth.hooks";
+import { useLogin, useMfaVerify } from "@/services/auth/auth.hooks";
+import { mfaSendCode } from "@/services/auth/auth.api";
+import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +26,9 @@ export function LoginForm() {
   });
 
   const { register, handleSubmit, formState: { errors } } = form;
+  const mfaVerify = useMfaVerify();
+  const [code, setCode] = useState("");
+  const [sentCode, setSentCode] = useState(false);
 
   function onSubmit(values: LoginDto) {
     loginMutation.mutate(values);
@@ -31,6 +36,45 @@ export function LoginForm() {
 
   const fieldBox =
     "flex h-12 items-center rounded-lg border bg-card px-3.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20";
+
+  // password accepted, a second factor is still needed
+  const challenge = (loginMutation.data as any)?.mfaRequired
+    ? (loginMutation.data as { methods: ("totp" | "email")[]; email?: string })
+    : null;
+
+  if (challenge) {
+    const hasTotp = challenge.methods.includes("totp");
+    const hasEmail = challenge.methods.includes("email");
+    const sendEmail = async () => {
+      try { await mfaSendCode(); setSentCode(true); toast.success("We emailed you a code."); }
+      catch { toast.error("Couldn't send the code. Try again."); }
+    };
+    return (
+      <motion.div className="w-full max-w-[400px]" initial={reduced ? undefined : { opacity: 0, y: 12 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <div className="mb-8 flex flex-col gap-2">
+          <span className="grid h-11 w-11 place-items-center rounded-xl bg-forest/10 text-forest dark:bg-primary/15 dark:text-primary"><ShieldCheck className="h-5 w-5" /></span>
+          <h1 className="font-serif text-[36px] font-normal leading-[1.05] text-foreground">Two-step verification</h1>
+          <p className="text-[15px] text-muted-foreground">{hasTotp ? "Enter the 6-digit code from your authenticator app." : "Enter the code we send to your email."}{hasEmail ? " You can also use a recovery code." : ""}</p>
+        </div>
+        <form onSubmit={(e) => { e.preventDefault(); if (code.trim()) mfaVerify.mutate(code.trim()); }} className="flex flex-col gap-4" noValidate>
+          <div className={cn(fieldBox)}>
+            <KeyRound className="mr-2 h-[18px] w-[18px] text-muted-foreground" />
+            <input autoFocus inputMode="text" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456 or recovery code"
+              className="w-full bg-transparent text-[15px] tracking-[0.15em] text-foreground outline-none placeholder:tracking-normal placeholder:text-muted-foreground/60" />
+          </div>
+          {hasEmail && (
+            <button type="button" onClick={sendEmail} className="flex items-center gap-1.5 self-start text-[13px] font-medium text-primary hover:underline">
+              <Mail className="h-4 w-4" /> {sentCode ? "Resend email code" : "Email me a code"}
+            </button>
+          )}
+          <Button loading={mfaVerify.isPending} type="submit" disabled={!code.trim()} className="mt-1 h-[50px] w-full rounded-lg border-0 bg-forest text-[15px] font-semibold text-white hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90">
+            Verify <ArrowRight className="ml-1 h-4 w-4 text-brass-soft dark:text-primary-foreground" />
+          </Button>
+          <button type="button" onClick={() => { loginMutation.reset(); setCode(""); setSentCode(false); }} className="text-[13px] text-muted-foreground hover:text-foreground">Back to sign in</button>
+        </form>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

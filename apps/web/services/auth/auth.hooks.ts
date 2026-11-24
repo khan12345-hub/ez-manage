@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getMe, login, logout } from "./auth.api";
+import { getMe, login, logout, mfaVerify } from "./auth.api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { postLoginPath } from "@/lib/post-login-path";
@@ -15,7 +15,9 @@ export function useLogin() {
   return useMutation({
     mutationFn: login,
 
-    onSuccess: async () => {
+    onSuccess: async (data: any) => {
+      // password accepted but a second factor is still needed — the form shows the challenge
+      if (data?.mfaRequired) return;
       queryClient.invalidateQueries({ queryKey: ["me"] });
       // Same rule as LoginAuthGuard / GuestWrapper (shared helper) so they
       // can't race to different pages: safe ?redirect= target, else /dashboard.
@@ -32,6 +34,24 @@ export function useLogin() {
         error?.response?.data?.message ||
         "Login Failed. Please try again.";
       toast.error(errorMsg);
+    },
+    retry: false,
+  });
+}
+
+/** finish a sign-in that was held for a second factor */
+export function useMfaVerify() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  return useMutation({
+    mutationFn: (code: string) => mfaVerify(code),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      router.push(postLoginPath(`?${searchParams.toString()}`));
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || "That code didn't work. Try again.");
     },
     retry: false,
   });

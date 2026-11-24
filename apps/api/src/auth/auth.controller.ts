@@ -27,6 +27,21 @@ export class AuthController {
     return this.authService.login(dto, req);
   }
 
+  // ── second-factor challenge (still "public": the password step set a pending session) ──
+  @Public()
+  @Throttle({ auth: { ttl: 60_000, limit: 10 } })
+  @Post('mfa/verify')
+  async mfaVerify(@Body() body: { code: string }, @Req() req: any) {
+    return this.authService.mfaVerify(String(body?.code ?? ''), req);
+  }
+
+  @Public()
+  @Throttle({ auth: { ttl: 60_000, limit: 5 } })
+  @Post('mfa/send-code')
+  async mfaSendCode(@Req() req: any) {
+    return this.authService.mfaSendEmailCode(req);
+  }
+
   @SkipThrottle()
   @Get('me')
   async me(@CurrentUser() user: SessionUser) {

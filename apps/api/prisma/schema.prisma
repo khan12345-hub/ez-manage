@@ -27,6 +27,13 @@ model User {
   emailNotificationsEnabled Boolean @default(true) @map("email_notifications_enabled")
   inAppNotificationsEnabled Boolean @default(true) @map("in_app_notifications_enabled")
 
+  // Multi-factor authentication (TOTP authenticator app + email code + recovery codes)
+  mfaTotpEnabled  Boolean   @default(false) @map("mfa_totp_enabled")
+  mfaTotpSecret   String?   @map("mfa_totp_secret") // AES-GCM encrypted base32 secret
+  mfaEmailEnabled Boolean   @default(false) @map("mfa_email_enabled")
+  mfaEnrolledAt   DateTime? @map("mfa_enrolled_at")
+  mfaRecoveryCodes MfaRecoveryCode[]
+
   whatsappPhone         String?   @map("whatsapp_phone") @db.VarChar(20)
   whatsappEnabled       Boolean   @default(false) @map("whatsapp_enabled")
   whatsappPhoneVerified Boolean   @default(false) @map("whatsapp_phone_verified")
@@ -3240,6 +3247,20 @@ model AccessAudit {
   @@index([targetUserId, createdAt])
   @@index([createdAt])
   @@map("access_audit")
+}
+
+/// One-time MFA recovery code (hashed). Used when the authenticator / email is unavailable.
+model MfaRecoveryCode {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  codeHash  String    @map("code_hash")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mfa_recovery_codes")
 }
 
 /// A per-product Administrator: full admin over one entire product (all its companies,
