@@ -488,6 +488,129 @@ export class VaultService {
     return { notified };
   }
 
+  // ───────── emergency / full access ─────────
+
+  private pubGrant(g: any) {
+    const { encVaultKey, keyVersion, ...r } = g; // never expose the wrapped key through the grant API
+    return r;
+  }
+  private async grantFromMe(c: VaultCaller, id: number) {
+    const g = await this.prisma.vaultEmergencyGrant.findFirst({ where: { id: Number(id), granterId: c.userId } });
+    if (!g) throw new NotFoundException('Grant not found.');
+    return g;
+  }
+  private async grantToMe(c: VaultCaller, id: number) {
+    const g = await this.prisma.vaultEmergencyGrant.findFirst({ where: { id: Number(id), granteeId: c.userId } });
+    if (!g) throw new NotFoundException('Grant not found.');
+    return g;
+  }
+  /** turn a grant on: make the grantee a real member of the granter's vault using the stored wrapped key */
+  private async activateGrant(g: { id: number; vaultId: number; granteeId: number; granterId: number; role: string; encVaultKey: string; keyVersion: number }) {
+    await this.prisma.vaultMember.upsert({
+      where: { vaultId_userId: { vaultId: g.vaultId, userId: g.granteeId } },
+      create: { vaultId: g.vaultId, userId: g.granteeId, role: g.role, encVaultKey: g.encVaultKey, keyVersion: g.keyVersion, addedById: g.granterId },
+      update: { role: g.role, encVaultKey: g.encVaultKey, keyVersion: g.keyVersion },
+    });
+    await this.prisma.vaultEmergencyGrant.update({ where: { id: g.id }, data: { status: 'active', activatedAt: new Date() } });
+    await this.log(g.granterId, 'emergency_activated', g.vaultId, null, { grantee: g.granteeId });
+  }
+
+  async emergencyList(c: VaultCaller) {
+    const [given, received] = await Promise.all([
+      this.prisma.vaultEmergencyGrant.findMany({ where: { granterId: c.userId }, orderBy: { createdAt: 'desc' } }),
+      this.prisma.vaultEmergencyGrant.findMany({ where: { granteeId: c.userId }, orderBy: { createdAt: 'desc' } }),
+    ]);
+    // wait-mode grants to me whose time has elapsed turn on now (works even if the granter is offline)
+    for (const g of received) {
+      if (g.status === 'requested' && g.mode === 'wait' && g.activatesAt && g.activatesAt <= new Date()) {
+        await this.activateGrant(g); g.status = 'active'; g.activatedAt = new Date();
+      }
+    }
+    const ids = [...new Set([...given.map((g) => g.granteeId), ...received.map((g) => g.granterId)])];
+    const users = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: USER_MINI });
+    const by = (id: number) => users.find((u) => u.id === id) ?? null;
+    return {
+      given: given.map((g) => ({ ...this.pubGrant(g), grantee: by(g.granteeId) })),
+      received: received.map((g) => ({ ...this.pubGrant(g), granter: by(g.granterId) })),
+    };
+  }
+
+  async emergencyCreate(c: VaultCaller, b: any) {
+    const { v } = await this.member(String(b?.vaultUid ?? ''), c.userId, 'owner');
+    const granteeId = Number(b?.granteeId);
+    if (!granteeId || granteeId === c.userId) throw new BadRequestException('Pick someone else to trust.');
+    const role = ['viewer', 'editor', 'owner'].includes(String(b?.role)) ? String(b.role) : 'viewer';
+    const mode = b?.mode === 'wait' ? 'wait' : 'approval';
+    const waitDays = Math.max(0, Math.min(90, Number(b?.waitDays) || 3));
+    const target = await this.prisma.user.findFirst({ where: { id: granteeId, deletedAt: null }, select: { id: true } });
+    if (!target) throw new BadRequestException('Only people with an EZ Manage account can be trusted.');
+    if (!(await this.prisma.vaultUser.findUnique({ where: { userId: granteeId }, select: { userId: true } }))) throw new BadRequestException('They haven’t set up EZ Vault yet.');
+    const encVaultKey = blob(b?.encVaultKey, 'vault key', 5_000);
+    const g = await this.prisma.vaultEmergencyGrant.upsert({
+      where: { granterId_granteeId: { granterId: c.userId, granteeId } },
+      create: { granterId: c.userId, granteeId, vaultId: v.id, role, mode, waitDays, encVaultKey, keyVersion: v.keyVersion, status: 'offered' },
+      update: { vaultId: v.id, role, mode, waitDays, encVaultKey, keyVersion: v.keyVersion, status: 'offered', requestedAt: null, activatesAt: null, activatedAt: null },
+    });
+    await this.notify([granteeId], 'Emergency access offered', 'Someone gave you emergency access to their EZ Vault. Open EZ Vault to see it.', { grant: g.id });
+    return this.pubGrant(g);
+  }
+
+  /** grantee asks to open it (approval mode waits for the granter; wait mode counts down) */
+  async emergencyRequest(c: VaultCaller, id: number) {
+    const g = await this.grantToMe(c, id);
+    if (!['offered', 'declined'].includes(g.status)) throw new BadRequestException('This access can’t be requested right now.');
+    const data = g.mode === 'wait'
+      ? { status: 'requested', requestedAt: new Date(), activatesAt: new Date(Date.now() + g.waitDays * 86_400_000) }
+      : { status: 'requested', requestedAt: new Date(), activatesAt: null };
+    const up = await this.prisma.vaultEmergencyGrant.update({ where: { id: g.id }, data });
+    await this.notify([g.granterId], 'Emergency access requested',
+      g.mode === 'wait' ? `Someone you trusted asked to open your vault. It opens in ${g.waitDays} day${g.waitDays === 1 ? '' : 's'} unless you decline.` : 'Someone you trusted asked to open your vault. Approve or decline in EZ Vault.',
+      { grant: g.id });
+    return this.pubGrant(up);
+  }
+
+  /** granter approves (or force-opens early for a wait grant) */
+  async emergencyApprove(c: VaultCaller, id: number) {
+    const g = await this.grantFromMe(c, id);
+    if (g.status === 'active') return this.pubGrant(g);
+    await this.activateGrant(g);
+    await this.notify([g.granteeId], 'Emergency access granted', 'You can now open their EZ Vault.', { grant: g.id });
+    const up = await this.prisma.vaultEmergencyGrant.findUnique({ where: { id: g.id } });
+    return this.pubGrant(up);
+  }
+
+  /** granter declines a request or cancels a pending wait countdown */
+  async emergencyDecline(c: VaultCaller, id: number) {
+    const g = await this.grantFromMe(c, id);
+    const up = await this.prisma.vaultEmergencyGrant.update({ where: { id: g.id }, data: { status: 'declined', activatesAt: null } });
+    await this.notify([g.granteeId], 'Emergency access declined', 'Your request to open their vault was declined.', { grant: g.id });
+    return this.pubGrant(up);
+  }
+
+  /** granter removes access entirely (re-keys the vault if it was already open to them) */
+  async emergencyRevoke(c: VaultCaller, id: number) {
+    const g = await this.grantFromMe(c, id);
+    if (g.status === 'active') {
+      await this.prisma.vaultMember.deleteMany({ where: { vaultId: g.vaultId, userId: g.granteeId } });
+      await this.prisma.vault.update({ where: { id: g.vaultId }, data: { needsRekey: true } });
+    }
+    await this.prisma.vaultEmergencyGrant.delete({ where: { id: g.id } });
+    await this.notify([g.granteeId], 'Emergency access removed', 'Your emergency access to their EZ Vault was removed.', {});
+    await this.log(c.userId, 'emergency_revoked', g.vaultId, null, { grantee: g.granteeId });
+    return { ok: true };
+  }
+
+  /** grantee gives up their own access */
+  async emergencyLeave(c: VaultCaller, id: number) {
+    const g = await this.grantToMe(c, id);
+    if (g.status === 'active') {
+      await this.prisma.vaultMember.deleteMany({ where: { vaultId: g.vaultId, userId: c.userId } });
+      await this.prisma.vault.update({ where: { id: g.vaultId }, data: { needsRekey: true } });
+    }
+    await this.prisma.vaultEmergencyGrant.update({ where: { id: g.id }, data: { status: 'declined', activatesAt: null } });
+    return { ok: true };
+  }
+
   async deleteItem(c: VaultCaller, itemUid: string, forever = false) {
     const { it, v } = await this.itemOf(itemUid, c.userId, 'write');
     if (forever) {

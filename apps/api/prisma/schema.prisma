@@ -3249,6 +3249,37 @@ model AccessAudit {
   @@map("access_audit")
 }
 
+/// Emergency / full access: a person grants a trusted EZ Manage user access to their own vault.
+/// Zero-knowledge — the vault key is wrapped for the grantee in the granter's browser and only
+/// becomes a real VaultMember when the grant activates (granter approves, or a wait period elapses).
+model VaultEmergencyGrant {
+  id          Int       @id @default(autoincrement())
+  granterId   Int
+  granteeId   Int
+  /// the granter's personal vault the grantee gets access to
+  vaultId     Int
+  /// viewer | editor | owner — what the grantee may do once active
+  role        String    @default("viewer")
+  /// wait | approval — the granter chooses how access turns on
+  mode        String    @default("approval")
+  waitDays    Int       @default(3)
+  /// offered | requested | active | revoked | declined
+  status      String    @default("offered")
+  /// the vault key wrapped for the grantee's public key (used to make the member when it activates)
+  encVaultKey String    @db.Text
+  keyVersion  Int       @default(1)
+  requestedAt DateTime?
+  activatesAt DateTime?
+  activatedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([granterId, granteeId])
+  @@index([granteeId])
+  @@index([status])
+  @@map("vault_emergency_grants")
+}
+
 /// One-time MFA recovery code (hashed). Used when the authenticator / email is unavailable.
 model MfaRecoveryCode {
   id        Int       @id @default(autoincrement())

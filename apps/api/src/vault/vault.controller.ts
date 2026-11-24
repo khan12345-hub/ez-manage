@@ -30,6 +30,15 @@ export class VaultController {
   @Post('items/:uid/restore') restoreItem(@Caller() c: VaultCaller, @Param('uid') uid: string) { return this.vault.restoreItem(c, uid); }
   @Post('password-updated') passwordUpdated(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.passwordUpdated(c, b?.vaultUids); }
 
+  // emergency / full access
+  @Get('emergency') emergency(@Caller() c: VaultCaller) { return this.vault.emergencyList(c); }
+  @Post('emergency') emergencyCreate(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.emergencyCreate(c, b); }
+  @Post('emergency/:id/request') emergencyRequest(@Caller() c: VaultCaller, @Param('id', ParseIntPipe) id: number) { return this.vault.emergencyRequest(c, id); }
+  @Post('emergency/:id/approve') emergencyApprove(@Caller() c: VaultCaller, @Param('id', ParseIntPipe) id: number) { return this.vault.emergencyApprove(c, id); }
+  @Post('emergency/:id/decline') emergencyDecline(@Caller() c: VaultCaller, @Param('id', ParseIntPipe) id: number) { return this.vault.emergencyDecline(c, id); }
+  @Post('emergency/:id/revoke') emergencyRevoke(@Caller() c: VaultCaller, @Param('id', ParseIntPipe) id: number) { return this.vault.emergencyRevoke(c, id); }
+  @Post('emergency/:id/leave') emergencyLeave(@Caller() c: VaultCaller, @Param('id', ParseIntPipe) id: number) { return this.vault.emergencyLeave(c, id); }
+
   @Get('people') people(@Caller() c: VaultCaller, @Query('q') q: string, @Query('vault') vault: string) { return this.vault.people(c, q, vault || undefined); }
   @Get('vaults/:uid/members') members(@Caller() c: VaultCaller, @Param('uid') uid: string) { return this.vault.members(c, uid); }
   @Post('vaults/:uid/members') addMember(@Caller() c: VaultCaller, @Param('uid') uid: string, @Body() b: any) { return this.vault.addMember(c, uid, b); }
