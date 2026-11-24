@@ -27,11 +27,13 @@ model User {
   emailNotificationsEnabled Boolean @default(true) @map("email_notifications_enabled")
   inAppNotificationsEnabled Boolean @default(true) @map("in_app_notifications_enabled")
 
+  crmMembers CrmMember[]
+
   // Multi-factor authentication (TOTP authenticator app + email code + recovery codes)
-  mfaTotpEnabled  Boolean   @default(false) @map("mfa_totp_enabled")
-  mfaTotpSecret   String?   @map("mfa_totp_secret") // AES-GCM encrypted base32 secret
-  mfaEmailEnabled Boolean   @default(false) @map("mfa_email_enabled")
-  mfaEnrolledAt   DateTime? @map("mfa_enrolled_at")
+  mfaTotpEnabled   Boolean           @default(false) @map("mfa_totp_enabled")
+  mfaTotpSecret    String?           @map("mfa_totp_secret") // AES-GCM encrypted base32 secret
+  mfaEmailEnabled  Boolean           @default(false) @map("mfa_email_enabled")
+  mfaEnrolledAt    DateTime?         @map("mfa_enrolled_at")
   mfaRecoveryCodes MfaRecoveryCode[]
 
   whatsappPhone         String?   @map("whatsapp_phone") @db.VarChar(20)
@@ -3433,4 +3435,254 @@ model ExpenseFormField {
 
   @@index([formId])
   @@map("expense_form_fields")
+}
+
+// ───────────────────────── EZ CRM (5th product; data kept apart from Boards and Work) ─────────────────────────
+
+model CrmWorkspace {
+  id        Int      @id @default(autoincrement())
+  uid       String   @unique
+  name      String
+  ownerId   Int
+  currency  String   @default("USD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members    CrmMember[]
+  companies  CrmCompany[]
+  contacts   CrmContact[]
+  pipelines  CrmPipeline[]
+  deals      CrmDeal[]
+  activities CrmActivity[]
+  properties CrmProperty[]
+  views      CrmView[]
+
+  @@map("crm_workspaces")
+}
+
+model CrmMember {
+  workspaceId Int
+  userId      Int
+  /// OWNER | ADMIN | MEMBER | VIEWER
+  role        String   @default("MEMBER")
+  joinedAt    DateTime @default(now())
+
+  workspace CrmWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+  @@map("crm_members")
+}
+
+model CrmCompany {
+  id             Int       @id @default(autoincrement())
+  workspaceId    Int
+  name           String
+  domain         String?
+  industry       String?
+  size           String?
+  phone          String?
+  city           String?
+  country        String?
+  ownerId        Int?
+  custom         Json      @default("{}")
+  createdById    Int
+  lastActivityAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace  CrmWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contacts   CrmContact[]
+  deals      CrmDeal[]
+  activities CrmActivity[]
+
+  @@index([workspaceId, ownerId])
+  @@index([workspaceId, name])
+  @@map("crm_companies")
+}
+
+model CrmContact {
+  id             Int       @id @default(autoincrement())
+  workspaceId    Int
+  firstName      String
+  lastName       String    @default("")
+  email          String?
+  phone          String?
+  title          String?
+  companyId      Int?
+  ownerId        Int?
+  /// subscriber | lead | mql | sql | opportunity | customer | evangelist | other
+  lifecycle      String    @default("lead")
+  /// new | open | in_progress | attempted | connected | unqualified | bad_timing
+  leadStatus     String?
+  source         String?
+  custom         Json      @default("{}")
+  createdById    Int
+  lastActivityAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace  CrmWorkspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company    CrmCompany?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deals      CrmDealContact[]
+  activities CrmActivity[]
+
+  @@index([workspaceId, ownerId])
+  @@index([workspaceId, lifecycle])
+  @@index([workspaceId, email])
+  @@index([companyId])
+  @@map("crm_contacts")
+}
+
+model CrmPipeline {
+  id          Int      @id @default(autoincrement())
+  workspaceId Int
+  name        String
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workspace CrmWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  stages    CrmStage[]
+  deals     CrmDeal[]
+
+  @@index([workspaceId])
+  @@map("crm_pipelines")
+}
+
+model CrmStage {
+  id          Int     @id @default(autoincrement())
+  pipelineId  Int
+  name        String
+  position    Int     @default(0)
+  /// chance to win, 0-100 (weighted forecast)
+  probability Int     @default(10)
+  isWon       Boolean @default(false)
+  isLost      Boolean @default(false)
+
+  pipeline CrmPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals    CrmDeal[]
+
+  @@index([pipelineId])
+  @@map("crm_stages")
+}
+
+model CrmDeal {
+  id             Int       @id @default(autoincrement())
+  workspaceId    Int
+  pipelineId     Int
+  stageId        Int
+  name           String
+  amount         Decimal   @default(0) @db.Decimal(14, 2)
+  currency       String?
+  closeDate      DateTime?
+  ownerId        Int?
+  /// low | medium | high
+  priority       String?
+  companyId      Int?
+  custom         Json      @default("{}")
+  position       Float     @default(1000)
+  wonAt          DateTime?
+  lostAt         DateTime?
+  lostReason     String?
+  createdById    Int
+  lastActivityAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace  CrmWorkspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  pipeline   CrmPipeline      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  stage      CrmStage         @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  company    CrmCompany?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contacts   CrmDealContact[]
+  activities CrmActivity[]
+
+  @@index([workspaceId, stageId])
+  @@index([workspaceId, ownerId])
+  @@index([pipelineId])
+  @@index([companyId])
+  @@map("crm_deals")
+}
+
+model CrmDealContact {
+  dealId    Int
+  contactId Int
+
+  deal    CrmDeal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contact CrmContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([dealId, contactId])
+  @@index([contactId])
+  @@map("crm_deal_contacts")
+}
+
+/// timeline items: note | call | meeting | email_log | task, and system events (kind "event")
+model CrmActivity {
+  id          Int       @id @default(autoincrement())
+  workspaceId Int
+  kind        String
+  subject     String?
+  body        String?
+  dueAt       DateTime?
+  doneAt      DateTime?
+  /// call / meeting outcome
+  outcome     String?
+  durationMin Int?
+  ownerId     Int
+  assigneeId  Int?
+  contactId   Int?
+  companyId   Int?
+  dealId      Int?
+  /// system events: { event, from, to }
+  meta        Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace CrmWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contact   CrmContact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  company   CrmCompany?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  deal      CrmDeal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, kind, doneAt])
+  @@index([workspaceId, assigneeId, doneAt])
+  @@index([contactId])
+  @@index([companyId])
+  @@index([dealId])
+  @@map("crm_activities")
+}
+
+/// custom property definitions per object (contact | company | deal)
+model CrmProperty {
+  id          Int      @id @default(autoincrement())
+  workspaceId Int
+  object      String
+  key         String
+  label       String
+  /// text | number | date | select | multiselect | bool | url
+  type        String   @default("text")
+  options     Json     @default("[]")
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workspace CrmWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, object, key])
+  @@map("crm_properties")
+}
+
+/// saved table views per object (filters, sort, columns), shared with the workspace
+model CrmView {
+  id          Int      @id @default(autoincrement())
+  workspaceId Int
+  object      String
+  name        String
+  settings    Json     @default("{}")
+  createdById Int
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workspace CrmWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, object])
+  @@map("crm_views")
 }

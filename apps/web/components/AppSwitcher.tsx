@@ -8,13 +8,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BarChart3, Check, ChevronsUpDown, Home, Timer, KeyRound, LayoutGrid, ListChecks, ShieldCheck } from "lucide-react";
+import { BarChart3, Check, ChevronsUpDown, Home, Timer, KeyRound, LayoutGrid, ListChecks, ShieldCheck, Contact2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRODUCT_NAME } from "@/lib/products";
 import { useProductAccess } from "@/hooks/useProductAccess";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export type AppKey = "boards" | "work" | "ceo" | "vault" | "tracker";
+export type AppKey = "boards" | "work" | "ceo" | "vault" | "tracker" | "crm";
 
 export const APPS: Record<AppKey, { name: string; line: string; icon: typeof Home; color: string }> = {
   boards: { name: PRODUCT_NAME.boards, line: "Accounts, invoices and team tables", icon: LayoutGrid, color: "#4f46e5" },
@@ -22,6 +22,7 @@ export const APPS: Record<AppKey, { name: string; line: string; icon: typeof Hom
   ceo: { name: PRODUCT_NAME.ceo, line: "Every company, risks and decisions", icon: BarChart3, color: "#b45309" },
   vault: { name: PRODUCT_NAME.vault, line: "Every password in one locked place", icon: KeyRound, color: "#0f766e" },
   tracker: { name: PRODUCT_NAME.tracker, line: "Time, screenshots and activity", icon: Timer, color: "#0369a1" },
+  crm: { name: PRODUCT_NAME.crm, line: "Contacts, companies and deals", icon: Contact2, color: "#9333ea" },
 };
 
 function useApps(hrefs?: Partial<Record<AppKey, string>>) {
@@ -32,6 +33,8 @@ function useApps(hrefs?: Partial<Record<AppKey, string>>) {
   else if (access.canCreateWork) list.push({ key: "work", href: "/work/create" }); // no workspace yet: start one
   if (access.hasCeo) list.push({ key: "ceo", href: "/ceo" });
   if (access.hasTracker) list.push({ key: "tracker", href: hrefs?.tracker ?? access.trackerHref ?? "/tracker" });
+  if (access.hasCrm) list.push({ key: "crm", href: hrefs?.crm ?? access.crmHref ?? "/crm" });
+  else if (access.canCreateCrm) list.push({ key: "crm", href: "/crm" }); // no CRM workspace yet: start one
   if (access.hasVault) list.push({ key: "vault", href: "/vault" });
   return list;
 }

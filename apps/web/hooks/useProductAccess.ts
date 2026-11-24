@@ -7,6 +7,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useCeoAccess } from "@/services/ceo-tower.api";
 import { trackerApi } from "@/services/tracker.api";
 import { accessApi } from "@/services/access.api";
+import { crmApi } from "@/services/crm.api";
 
 /**
  * Which products this person can open. Each product has its own access:
@@ -26,6 +27,9 @@ export function useProductAccess() {
   // EZ Tracker: any Company Work workspace you are a member of (not a guest)
   const tracker = useQuery({ queryKey: ["tracker", "workspaces"], queryFn: trackerApi.workspaces, enabled: !!user && !!mine.data && !off.has("tracker"), staleTime: 60_000 });
   const trackerWorkspaces = tracker.data ?? [];
+  // EZ CRM: a CRM workspace you are a member of (or may create one)
+  const crm = useQuery({ queryKey: ["crm", "workspaces"], queryFn: crmApi.workspaces, enabled: !!user && !!mine.data, staleTime: 60_000 });
+  const crmWorkspaces = crm.data?.workspaces ?? [];
   const boardsWorkspaces = off.has("accounts") ? [] : ((boards.data as any[] | undefined) ?? []);
   const workWorkspaces = off.has("work") ? [] : work.data ?? [];
   const firstBoards = boardsWorkspaces[0];
@@ -44,6 +48,10 @@ export function useProductAccess() {
     hasWork,
     hasCeo: ceo.allowed,
     hasTracker: !off.has("tracker") && trackerWorkspaces.length > 0,
+    hasCrm: crmWorkspaces.length > 0,
+    canCreateCrm: !!crm.data?.canCreate,
+    crmWorkspaces,
+    crmHref: crmWorkspaces[0] ? `/crm/${crmWorkspaces[0].uid}` : "/crm",
     hasVault: !off.has("vault"),
     /** Access Center: global Administrators, per-product Administrators and Access Managers */
     canManageAccess: !!mine.data?.canManage,

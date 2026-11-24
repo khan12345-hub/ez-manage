@@ -22,6 +22,7 @@ import {
   LogOut,
   Sparkles,
   KeyRound,
+  Contact2,
   ShieldCheck,
   Timer,
 } from "lucide-react";
@@ -197,7 +198,7 @@ function CeoGraphic() {
 
 /* ─── product card ──────────────────────────────────────────────────────── */
 
-type Tone = "boards" | "work" | "ceo" | "vault" | "tracker" | "access";
+type Tone = "boards" | "work" | "ceo" | "vault" | "tracker" | "access" | "crm";
 
 function ProductCard({
   tone,
@@ -270,6 +271,7 @@ function ProductCard({
             tone === "vault" && "bg-product-vault/12 text-product-vault ring-1 ring-product-vault/25",
             tone === "tracker" && "bg-[#0369a1]/10 text-[#0369a1] ring-1 ring-[#0369a1]/25 dark:text-[#7dd3fc]",
             tone === "access" && "bg-[#475569]/12 text-[#475569] ring-1 ring-[#475569]/25 dark:text-[#cbd5e1]",
+            tone === "crm" && "bg-[#9333ea]/12 text-[#9333ea] ring-1 ring-[#9333ea]/25 dark:text-[#d8b4fe]",
           )}
         >
           <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
@@ -283,6 +285,7 @@ function ProductCard({
             tone === "vault" && "text-product-vault",
             tone === "tracker" && "text-[#0369a1] dark:text-[#7dd3fc]",
             tone === "access" && "text-[#475569] dark:text-[#cbd5e1]",
+            tone === "crm" && "text-[#9333ea] dark:text-[#d8b4fe]",
           )}
         >
           {kicker}
@@ -710,6 +713,25 @@ export default function HomePage() {
                 footer={
                   <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#0369a1] dark:text-[#7dd3fc]">
                     Open {PRODUCT_NAME.tracker}
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  </span>
+                }
+              />
+            </motion.div>
+            )}
+            {(access.hasCrm || access.canCreateCrm) && (
+            <motion.div variants={fadeUp}>
+              <ProductCard
+                tone="crm"
+                href={access.hasCrm ? access.crmHref : "/crm"}
+                icon={Contact2}
+                kicker="Sales"
+                title={PRODUCT_NAME.crm}
+                blurb="Contacts, companies and deals in a pipeline — follow every relationship and what's next, kept apart from your other products."
+                graphic={<Contact2 className="h-16 w-16 text-[#9333ea]/25" strokeWidth={1.2} aria-hidden />}
+                footer={
+                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#9333ea] dark:text-[#d8b4fe]">
+                    {access.hasCrm ? `Open ${PRODUCT_NAME.crm}` : `Start ${PRODUCT_NAME.crm}`}
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
                   </span>
                 }
