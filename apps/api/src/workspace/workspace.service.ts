@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException, Optional } from '@nestjs/common';
 import { AccessAuditService } from 'src/access/access-audit.service';
+import { ProductAdminService } from 'src/access/product-admin.service';
 import { randomBytes } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
@@ -21,6 +22,7 @@ export class WorkspaceService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly audit?: AccessAuditService,
+    @Optional() private readonly productAdmin?: ProductAdminService,
   ) {}
 
   async create(createWorkspaceDto: CreateWorkspaceDto, userId: number) {
@@ -72,6 +74,11 @@ export class WorkspaceService {
   }
 
   async findAll(userId: number) {
+    // an Accounts & Invoices product Administrator opens every company (full admin), even without a membership
+    if (this.productAdmin && (await this.productAdmin.is(userId, 'accounts'))) {
+      const all = await this.prisma.workspace.findMany({ orderBy: { createdAt: 'desc' } });
+      return all.map((workspace) => ({ ...workspace, role: WorkspaceMemberRole.ADMIN }));
+    }
     const memberships = await this.prisma.workspaceMember.findMany({
       where: {
         userId,

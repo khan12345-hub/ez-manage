@@ -45,8 +45,10 @@ export function useProductAccess() {
     hasCeo: ceo.allowed,
     hasTracker: !off.has("tracker") && trackerWorkspaces.length > 0,
     hasVault: !off.has("vault"),
-    /** Access Center: Administrators and Access Managers */
+    /** Access Center: global Administrators, per-product Administrators and Access Managers */
     canManageAccess: !!mine.data?.canManage,
+    /** products this person is a per-product Administrator of (accounts | work | tracker | vault | crm) */
+    productAdminOf: (mine.data?.productAdminOf ?? []) as string[],
     trackerHref: trackerWorkspaces[0] ? `/tracker/${trackerWorkspaces[0].key}` : "/tracker",
     boardsWorkspaces,
     workWorkspaces,

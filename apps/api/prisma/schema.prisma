@@ -3242,6 +3242,23 @@ model AccessAudit {
   @@map("access_audit")
 }
 
+/// A per-product Administrator: full admin over one entire product (all its companies,
+/// people and settings) and nothing else — not other products, not the Access Center's
+/// system controls. The global Administrator (systemRole SUPER_ADMIN) sits above this and
+/// runs the Access Center across every product.
+model ProductAdmin {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  /// accounts | work | tracker | vault | crm
+  product     String   @db.VarChar(20)
+  grantedById Int?
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, product])
+  @@index([userId])
+  @@map("product_admins")
+}
+
 // ───────────────────────── Reimbursements / Expenses (inside Accounts & Invoices) ─────────────────────────
 /// Expense/reimbursement categories per Accounts & Invoices company, with an optional soft monthly budget.
 model ExpenseCategory {

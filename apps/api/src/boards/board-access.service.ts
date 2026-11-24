@@ -15,10 +15,11 @@ import {
 
 import { BOARD_ROLE_PERMISSIONS } from '../auth/permissions/board-permissions';
 import { WORKSPACE_ROLE_PERMISSIONS } from '../auth/permissions/workspace-permissions';
+import { ProductAdminService } from 'src/access/product-admin.service';
 
 @Injectable()
 export class BoardAccessService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly productAdmin: ProductAdminService) {}
 
   /**
    * Creating a board (or importing one) inside a workspace requires being an
@@ -32,6 +33,8 @@ export class BoardAccessService {
     });
     if (!user) throw new NotFoundException('User not found.');
     if (user.systemRole === SystemRole.SUPER_ADMIN) return;
+    // an Accounts & Invoices product Administrator is full admin of every company
+    if (await this.productAdmin.is(userId, 'accounts')) return;
 
     const member = await this.prisma.workspaceMember.findFirst({
       where: { workspaceId, userId, deletedAt: null },
@@ -136,15 +139,14 @@ export class BoardAccessService {
     if (user.systemRole === SystemRole.SUPER_ADMIN) {
       return true;
     }
+    // an Accounts & Invoices product Administrator is full admin of every company's boards
+    if (await this.productAdmin.is(userId, 'accounts')) {
+      return true;
+    }
 
     // ---------------------------------------
     // Load Board Access
     // ---------------------------------------
-    console.log({
-      boardId,
-      userId,
-      permission
-    });
 
     const board = await this.prisma.board.findUnique({
       where: {

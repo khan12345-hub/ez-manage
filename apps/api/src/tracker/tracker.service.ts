@@ -7,6 +7,7 @@ import { STORAGE_SERVICE } from 'src/storage/storage.module';
 import type { StorageProvider } from 'src/storage/storage.types';
 import { hashToken, type TrackerDeviceCaller } from './tracker.guard';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { ProductAdminService } from 'src/access/product-admin.service';
 
 /** the consent text version; bump when the wording on the desktop consent screen changes */
 export const CONSENT_VERSION = '2026-11-19.2';
@@ -56,7 +57,7 @@ function sniff(buf: Buffer): string | null {
 @Injectable()
 export class TrackerService {
   private readonly log = new Logger('Tracker');
-  constructor(private readonly prisma: PrismaService, @Inject(STORAGE_SERVICE) private readonly storage: StorageProvider, private readonly notifications: NotificationsService) {}
+  constructor(private readonly prisma: PrismaService, @Inject(STORAGE_SERVICE) private readonly storage: StorageProvider, private readonly notifications: NotificationsService, private readonly productAdmin: ProductAdminService) {}
 
   // ───────────── access ─────────────
 
@@ -77,9 +78,10 @@ export class TrackerService {
   private async isSystemAdmin(userId: number) {
     return (await this.prisma.user.findUnique({ where: { id: userId }, select: { systemRole: true } }))?.systemRole === 'SUPER_ADMIN';
   }
-  /** EZ Tracker manager: the system Administrator or a Tracker admin */
+  /** EZ Tracker manager: the system Administrator, an EZ Tracker product Administrator, or a Tracker admin */
   private async isManagerOf(orgId: number, userId: number) {
     if (await this.isSystemAdmin(userId)) return true;
+    if (await this.productAdmin.is(userId, 'tracker')) return true;
     return (await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId, userId } }, select: { role: true } }))?.role === 'admin';
   }
   /** everyone in EZ Tracker */
@@ -94,10 +96,11 @@ export class TrackerService {
   async ctx(_ws: string, userId: number): Promise<Ctx> {
     const org = await this.ensureOrg();
     const sys = await this.isSystemAdmin(userId);
+    const prodAdmin = sys ? false : await this.productAdmin.is(userId, 'tracker');
     const m = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: org.id, userId } }, select: { role: true, tracking: true } });
-    if (!m && !sys) throw new NotFoundException('EZ Tracker is not set up for you.');
+    if (!m && !sys && !prodAdmin) throw new NotFoundException('EZ Tracker is not set up for you.');
     const member = m ?? null;
-    const isManager = sys || member?.role === 'admin';
+    const isManager = sys || prodAdmin || member?.role === 'admin';
     return { orgId: org.id, source: 'org', workspaceId: 0, userId, role: member?.role ?? 'administrator', isManager, isSystemAdmin: sys, member };
   }
 

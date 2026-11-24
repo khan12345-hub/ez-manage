@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
+import { ProductAdminService } from 'src/access/product-admin.service';
 
 /**
  * Who can do what in Work (ClickUp-style product). Work access is its OWN
@@ -29,9 +30,9 @@ export interface WorkAccess {
 
 @Injectable()
 export class WorkAccessService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly productAdmin: ProductAdminService) {}
 
-  /** The user's role in a Work workspace — only from Work membership (Boards plays no part). */
+  /** The user's role in a Work workspace — Work membership, or a Company Work product Administrator (all companies). */
   async roleIn(workspaceId: number, userId: number): Promise<{ role: WorkRoleName | null; superAdmin: boolean }> {
     const [user, member, ws] = await Promise.all([
       this.prisma.user.findFirst({ where: { id: userId, deletedAt: null }, select: { systemRole: true } }),
@@ -39,6 +40,8 @@ export class WorkAccessService {
       this.prisma.workWorkspace.findFirst({ where: { id: workspaceId, deletedAt: null }, select: { id: true } }),
     ]);
     if (!user || !ws) return { role: null, superAdmin: false };
+    // a Company Work product Administrator is full admin of every Work company
+    if (await this.productAdmin.is(userId, 'work')) return { role: 'ADMIN', superAdmin: true };
     // the platform/Boards system role grants nothing in Work — only Work membership counts
     return { role: (member?.role as WorkRoleName) ?? null, superAdmin: false };
   }

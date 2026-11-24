@@ -9,6 +9,7 @@ import { WorkPeopleService } from 'src/work/work-people.service';
 import type { WorkRoleName } from 'src/work/work-access.service';
 import { AccessAuditService } from './access-audit.service';
 import { PRODUCTS, PRODUCT_LABEL, ProductAccessService, type Product } from './product-access.service';
+import { ProductAdminService, ADMIN_PRODUCTS, type AdminProduct } from './product-admin.service';
 
 const USER = { id: true, firstName: true, lastName: true, email: true, avatarUrl: true, systemRole: true, status: true, lastLoginAt: true, createdAt: true } as const;
 const ACC_ROLES: WorkspaceMemberRole[] = ['ADMIN', 'MEMBER', 'VIEWER', 'GUEST'];
@@ -20,8 +21,8 @@ const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const ROLE = (r: string) => r.charAt(0) + r.slice(1).toLowerCase().replace(/_/g, ' ');
 
 export type Scope = { product: 'accounts' | 'work' | 'tracker'; workspaceId: number; source: 'boards' | 'work' | null; mayGrantAdmin: boolean };
-/** who is using the Access Center: an Administrator, or an Access Manager with scopes */
-export type Actor = { id: number; admin: boolean; scopes: Scope[] };
+/** who is using the Access Center: a global Administrator, a per-product Administrator, or an Access Manager with scopes */
+export type Actor = { id: number; admin: boolean; scopes: Scope[]; productAdminOf: AdminProduct[] };
 export type UserFilter = { q?: string; product?: string; role?: string; status?: string; page?: number; pageSize?: number };
 export type InviteBody = {
   emails: string[];
@@ -44,6 +45,7 @@ export class AccessService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly products: ProductAccessService,
+    private readonly productAdmin: ProductAdminService,
     private readonly audit: AccessAuditService,
     private readonly invitations: InvitationsService,
     private readonly workspaces: WorkspaceService,
@@ -57,10 +59,34 @@ export class AccessService {
   async actor(userId: number): Promise<Actor | null> {
     const u = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null, status: 'ACTIVE' }, select: { systemRole: true } });
     if (!u) return null;
-    if (u.systemRole === 'SUPER_ADMIN') return { id: userId, admin: true, scopes: [] };
-    const scopes = await this.prisma.accessManagerScope.findMany({ where: { userId }, select: { product: true, workspaceId: true, source: true, mayGrantAdmin: true } });
-    if (!scopes.length) return null;
-    return { id: userId, admin: false, scopes: scopes as Scope[] };
+    if (u.systemRole === 'SUPER_ADMIN') return { id: userId, admin: true, scopes: [], productAdminOf: [] };
+    const [granted, productAdminSet] = await Promise.all([
+      this.prisma.accessManagerScope.findMany({ where: { userId }, select: { product: true, workspaceId: true, source: true, mayGrantAdmin: true } }),
+      this.productAdmin.products(userId),
+    ]);
+    const productAdminOf = ADMIN_PRODUCTS.filter((p) => productAdminSet.has(p));
+    // a per-product Administrator manages every company of their product from the Access Center:
+    // synthesise full scopes (accounts / work) so the existing people-management machinery applies
+    const synth = await this.productAdminScopes(productAdminOf);
+    // de-dupe synthesised scopes against explicit manager scopes
+    const seen = new Set((granted as Scope[]).map((s) => `${s.product}:${s.workspaceId}:${s.source ?? ''}`));
+    const scopes = [...(granted as Scope[]), ...synth.filter((s) => !seen.has(`${s.product}:${s.workspaceId}:${s.source ?? ''}`))];
+    if (!scopes.length && !productAdminOf.length) return null;
+    return { id: userId, admin: false, scopes, productAdminOf };
+  }
+
+  /** every company of each accounts/work product the person administers, as full scopes */
+  private async productAdminScopes(productAdminOf: AdminProduct[]): Promise<Scope[]> {
+    const out: Scope[] = [];
+    if (productAdminOf.includes('accounts')) {
+      const ws = await this.prisma.workspace.findMany({ select: { id: true } });
+      for (const w of ws) out.push({ product: 'accounts', workspaceId: w.id, source: null, mayGrantAdmin: true });
+    }
+    if (productAdminOf.includes('work')) {
+      const ws = await this.prisma.workWorkspace.findMany({ where: { deletedAt: null }, select: { id: true } });
+      for (const w of ws) out.push({ product: 'work', workspaceId: w.id, source: null, mayGrantAdmin: true });
+    }
+    return out;
   }
 
   private scopeFor(a: Actor, product: 'accounts' | 'work' | 'tracker', workspaceId: number, source?: 'boards' | 'work') {
@@ -86,8 +112,24 @@ export class AccessService {
 
   async me(userId: number) {
     const a = await this.actor(userId);
-    if (!a) return { canManage: false, admin: false, scopes: [] as Scope[] };
-    return { canManage: true, admin: a.admin, scopes: a.scopes };
+    if (!a) return { canManage: false, admin: false, scopes: [] as Scope[], productAdminOf: [] as AdminProduct[] };
+    return { canManage: true, admin: a.admin, scopes: a.scopes, productAdminOf: a.productAdminOf };
+  }
+
+  // ── per-product Administrators (global Administrator only) ──
+
+  async setProductAdmin(a: Actor, userId: number, product: string, on: boolean) {
+    this.needAdmin(a);
+    if (!ADMIN_PRODUCTS.includes(product as AdminProduct)) throw new BadRequestException('Unknown product.');
+    const u = await this.target(userId);
+    if (u.systemRole === 'SUPER_ADMIN') throw new BadRequestException('Administrators already manage every product.');
+    const was = await this.productAdmin.is(userId, product as AdminProduct);
+    if (was === on) return this.user(a, userId);
+    await this.productAdmin.set(userId, product as AdminProduct, on, a.id);
+    // their sign-in carries their reach: end it so the change applies at once
+    await this.prisma.$executeRaw`DELETE FROM sessions WHERE (sess::jsonb -> 'user' ->> 'id') = ${String(userId)}`;
+    this.audit.record({ actorId: a.id, targetUserId: userId, product: 'system', action: on ? 'product_admin_set' : 'product_admin_removed', toRole: PRODUCT_LABEL[product as Product] ?? product, via: 'access_center' });
+    return this.user(a, userId);
   }
 
   // ── reading ──
@@ -146,6 +188,7 @@ export class AccessService {
 
   private async summaries(a: Actor, rows: any[]) {
     const ids = rows.map((r) => r.id);
+    const prodAdmins = a.admin ? await this.prisma.productAdmin.findMany({ where: { userId: { in: ids } }, select: { userId: true, product: true } }).catch(() => [] as { userId: number; product: string }[]) : [];
     const [acc, work, switches, tAdmin, tDev, vault, scopes, boardRows] = await Promise.all([
       this.prisma.workspaceMember.findMany({ where: { userId: { in: ids }, deletedAt: null, ...(a.admin ? {} : { workspaceId: { in: this.accWs(a) } }) }, select: { userId: true, role: true, workspace: { select: { id: true, uid: true, name: true } } } }),
       this.prisma.workMember.findMany({ where: { userId: { in: ids }, workspace: { deletedAt: null }, ...(a.admin ? {} : { workspaceId: { in: this.workWs(a) } }) }, select: { userId: true, role: true, workspace: { select: { id: true, uid: true, name: true } } } }),
@@ -184,6 +227,7 @@ export class AccessService {
           } : {}),
         },
         ...(a.admin ? { managerScopes: scopes.filter((s: any) => s.userId === u.id) } : {}),
+        ...(a.admin ? { productAdminOf: prodAdmins.filter((p) => p.userId === u.id).map((p) => p.product) } : {}),
       };
       if (!a.admin) { delete (base as any).lastLoginAt; }
       return base;

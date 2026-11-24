@@ -2,7 +2,8 @@ import { api } from "@/lib/api";
 
 export type ProductKey = "accounts" | "work" | "tracker" | "vault" | "executive";
 export type ManagerScope = { product: "accounts" | "work" | "tracker"; workspaceId: number; source: "boards" | "work" | null; mayGrantAdmin: boolean };
-export type MyAccess = { off: ProductKey[]; canManage: boolean; admin: boolean; scopes: ManagerScope[] };
+export type AdminProduct = "accounts" | "work" | "tracker" | "vault" | "crm";
+export type MyAccess = { off: ProductKey[]; canManage: boolean; admin: boolean; scopes: ManagerScope[]; productAdminOf: AdminProduct[] };
 type Ws = { id: number; uid: string; name: string };
 type Switch = { on: boolean; explicit?: boolean; has?: boolean; locked?: boolean };
 export type AccessUser = {
@@ -16,6 +17,7 @@ export type AccessUser = {
     vault?: Switch & { setUp: boolean };
   };
   managerScopes?: ManagerScope[];
+  productAdminOf?: AdminProduct[];
 };
 export type AccessRow = {
   id: number; createdAt: string; product: string; action: string; workspaceId: number | null; workspaceName: string | null;
@@ -57,6 +59,7 @@ export const accessApi = {
   removeWork: async (id: number, ws: number) => (await api.delete(`${A}/users/${id}/work/${ws}`)).data,
   addTracker: async (id: number, b: { source: "boards" | "work"; workspaceId: number; role: "member" | "admin" }) => (await api.post(`${A}/users/${id}/tracker`, b)).data,
   systemRole: async (id: number, role: "SUPER_ADMIN" | "USER") => (await api.post(`${A}/users/${id}/system-role`, { role })).data,
+  setProductAdmin: async (id: number, product: AdminProduct, on: boolean) => (await api.post<AccessUser & { history: AccessRow[] }>(`${A}/users/${id}/product-admin`, { product, on })).data,
   setScopes: async (id: number, scopes: ManagerScope[]) => (await api.post(`${A}/users/${id}/manager-scopes`, { scopes })).data,
   disable: async (id: number) => (await api.post<{ disabled: boolean; leftSharedVaults: number; keptAsOnlyOwner: number }>(`${A}/users/${id}/disable`)).data,
   enable: async (id: number) => (await api.post(`${A}/users/${id}/enable`)).data,
