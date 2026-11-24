@@ -9,7 +9,7 @@ import { create } from "zustand";
 import { api } from "@/lib/api";
 import * as C from "@/lib/vault/vault-crypto";
 
-export type ItemType = "login" | "note" | "card" | "identity";
+export type ItemType = "login" | "passkey" | "note" | "card" | "identity";
 export type ItemData = {
   type: ItemType;
   title: string;
@@ -23,6 +23,8 @@ export type ItemData = {
   passwordUpdatedAt?: string;
   card?: { holder?: string; number?: string; expiry?: string; cvv?: string; pin?: string };
   identity?: { fullName?: string; email?: string; phone?: string; address?: string; company?: string };
+  /** a passkey (WebAuthn credential) stored here: the private key is encrypted like everything else */
+  passkey?: { rpId?: string; username?: string; credentialId?: string; publicKey?: string; privateKey?: string; alg?: string; createdAt?: string };
 };
 export type Item = { uid: string; vaultUid: string; data: ItemData; keyVersion: number; createdAt: string; updatedAt: string; deletedAt: string | null; createdById: number; updatedById: number };
 export type Role = "owner" | "editor" | "viewer" | "use_only";
@@ -239,5 +241,5 @@ export async function dropRequestKey(userId: number) {
   try { const db = await idb(); db.transaction("keys", "readwrite").objectStore("keys").delete(`u${userId}`); } catch { /* nothing to drop */ }
 }
 
-export const typeLabel: Record<ItemType, string> = { login: "Login", note: "Secure note", card: "Card", identity: "Identity" };
+export const typeLabel: Record<ItemType, string> = { login: "Login", passkey: "Passkey", note: "Secure note", card: "Card", identity: "Identity" };
 export const errMsg = (e: any, f: string) => e?.response?.data?.message?.toString?.() ?? (e?.message === "WRONG_PASSWORD" ? "That master password isn't right." : f);

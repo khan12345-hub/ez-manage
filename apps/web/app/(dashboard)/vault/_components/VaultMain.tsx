@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Activity, Building2, CreditCard, ExternalLink, Eye, EyeOff, FileText, Globe, IdCard, KeyRound, LayoutDashboard, Layers, LifeBuoy, Lock, Pencil, Plus, Search, Settings, ShieldAlert, ShieldCheck, Star, Trash2, Users } from "lucide-react";
+import { Activity, Building2, CreditCard, ExternalLink, Eye, EyeOff, FileText, Fingerprint, Globe, IdCard, KeyRound, LayoutDashboard, Layers, LifeBuoy, Lock, Pencil, Plus, Search, Settings, ShieldAlert, ShieldCheck, Star, Trash2, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
@@ -22,6 +22,7 @@ import { Backdrop, GLASS } from "./ui";
 export type Nav = { kind: "overview" } | { kind: "all" } | { kind: "favorites" } | { kind: "type"; type: ItemType } | { kind: "vault"; uid: string } | { kind: "security" } | { kind: "activity" } | { kind: "people" } | { kind: "emergency" } | { kind: "trash" } | { kind: "settings" } | { kind: "admin" };
 const TYPES: { type: ItemType; label: string; icon: typeof Globe }[] = [
   { type: "login", label: "Logins", icon: Globe },
+  { type: "passkey", label: "Passkeys", icon: Fingerprint },
   { type: "note", label: "Secure notes", icon: FileText },
   { type: "card", label: "Cards", icon: CreditCard },
   { type: "identity", label: "Identities", icon: IdCard },
@@ -244,6 +245,20 @@ function ItemDetail({ item, onEdit, onBack }: { item: Item; onEdit: () => void; 
                 <a href={/^https?:\/\//.test(u) ? u : `https://${u}`} target="_blank" rel="noreferrer noopener" aria-label="Open website" className="rounded-md p-1.5 text-muted-foreground hover:bg-accent"><ExternalLink className="h-4 w-4" /></a>
               </Field>
             ))}
+          </>
+        )}
+        {d.type === "passkey" && d.passkey && (
+          <>
+            {d.passkey.rpId && <Field label="Website / app"><span className="min-w-0 flex-1 break-all">{d.passkey.rpId}</span><CopyButton text={d.passkey.rpId} what="Website" item={item} field="rpId" /></Field>}
+            {d.passkey.username && <Field label="Username"><span className="min-w-0 flex-1 break-all">{d.passkey.username}</span><CopyButton text={d.passkey.username} what="Username" item={item} field="username" /></Field>}
+            <Field label="Passkey">
+              <span className="min-w-0 flex-1">
+                {d.passkey.credentialId
+                  ? <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-product-vault"><KeyRound className="h-3.5 w-3.5" /> Stored{d.passkey.createdAt ? ` · created ${new Date(d.passkey.createdAt).toLocaleDateString()}` : ""} · {d.passkey.alg ?? "ES256"}</span>
+                  : <span className="text-muted-foreground">Not generated</span>}
+              </span>
+              {d.passkey.credentialId && <CopyButton text={d.passkey.credentialId} what="Credential ID" item={item} field="credentialId" />}
+            </Field>
           </>
         )}
         {d.type === "card" && d.card && (
