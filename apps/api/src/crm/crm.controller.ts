@@ -30,6 +30,7 @@ export class CrmController {
   @Post('workspaces/:ws/members') addMember(@Param('ws') ws: string, @Body() dto: AddCrmMemberDto, @CurrentUser() u: SessionUser) { return this.setup.addMember(ws, u.id, dto); }
   @Patch('workspaces/:ws/members/:userId') updateMember(@Param('ws') ws: string, @Param('userId', ParseIntPipe) id: number, @Body() dto: UpdateCrmMemberDto, @CurrentUser() u: SessionUser) { return this.setup.updateMember(ws, u.id, id, dto); }
   @Delete('workspaces/:ws/members/:userId') removeMember(@Param('ws') ws: string, @Param('userId', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.setup.removeMember(ws, u.id, id); }
+  @Delete('workspaces/:ws/invites/:id') cancelInvite(@Param('ws') ws: string, @Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.setup.cancelInvite(ws, u.id, id); }
 
   // pipelines
   @Post('workspaces/:ws/pipelines') createPipeline(@Param('ws') ws: string, @Body() dto: PipelineDto, @CurrentUser() u: SessionUser) { return this.setup.createPipeline(ws, u.id, dto); }

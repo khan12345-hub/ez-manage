@@ -210,6 +210,9 @@ export class AuthService {
       // Work (ClickUp-style) invites live in their own table
       const workInvite = await this.prisma.workInvitation.findUnique({ where: { token: dto.token } });
       if (workInvite) return this.setupWorkAccount(workInvite, dto, req);
+      // EZ CRM invites, too
+      const crmInvite = await this.prisma.crmInvitation.findUnique({ where: { token: dto.token } });
+      if (crmInvite) return this.setupCrmAccount(crmInvite, dto, req);
       throw new NotFoundException('Invitation not found or invalid.');
     }
 
@@ -326,6 +329,7 @@ export class AuthService {
       await this.prisma.workInvitation.update({ where: { id: wi.id }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
       this.audit?.record({ actorId: wi.invitedById, targetUserId: user.id, product: 'work', workspaceId: wi.workspaceId, action: 'joined', toRole: wi.role ?? 'MEMBER', via: 'sign_up' });
     }
+    await this.applyPendingCrmInvites(user.id, invitation.email);
 
     req.session.user = {
       id: user.id,
@@ -385,7 +389,53 @@ export class AuthService {
     req.session.user = { id: user.id, systemRole: user.systemRole };
     await new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
     const { password, ...safeUser } = user;
+    await this.applyPendingCrmInvites(user.id, invite.email);
     return { success: true, message: 'Account set up successfully.', user: safeUser };
+  }
+
+  /** when someone joins a CRM with its own invite link (no Boards/Work account yet) */
+  private async setupCrmAccount(
+    invite: { id: number; email: string; workspaceId: number; role: string; invitedById: number | null; status: string; acceptedAt: Date | null; expiresAt: Date },
+    dto: SetupAccountDto,
+    req: Request,
+  ) {
+    if (invite.status !== 'PENDING' || invite.acceptedAt || invite.expiresAt < new Date()) {
+      throw new BadRequestException('Invitation has expired or already accepted.');
+    }
+    const existing = await this.prisma.user.findFirst({ where: { email: { equals: invite.email, mode: 'insensitive' }, deletedAt: null }, select: { id: true } });
+    if (existing) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.crmInvitation.update({ where: { id: invite.id }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
+        await tx.crmMember.upsert({ where: { workspaceId_userId: { workspaceId: invite.workspaceId, userId: existing.id } }, create: { workspaceId: invite.workspaceId, userId: existing.id, role: invite.role }, update: {} });
+      });
+      this.audit?.record({ actorId: invite.invitedById, targetUserId: existing.id, product: 'crm', workspaceId: invite.workspaceId, action: 'joined', toRole: invite.role, via: 'sign_up' });
+      return { alreadyExists: true, email: invite.email, message: 'You already have an account. Log in with your existing password — EZ CRM access has been added.' };
+    }
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const user = await this.prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({ data: { firstName: dto.firstName, lastName: dto.lastName, email: invite.email, password: hashedPassword, status: 'ACTIVE' } });
+      await tx.crmInvitation.update({ where: { id: invite.id }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
+      await tx.crmMember.create({ data: { workspaceId: invite.workspaceId, userId: newUser.id, role: invite.role } });
+      return newUser;
+    });
+    this.audit?.record({ actorId: invite.invitedById, targetUserId: user.id, product: 'crm', workspaceId: invite.workspaceId, action: 'joined', toRole: invite.role, via: 'sign_up' });
+    await this.applyPendingCrmInvites(user.id, invite.email);
+    req.session.user = { id: user.id, systemRole: user.systemRole };
+    await new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
+    const { password, ...safeUser } = user;
+    return { success: true, message: 'Account set up successfully.', user: safeUser };
+  }
+
+  /** apply any other pending CRM invites for this email (one sign-up joins every CRM they were invited to) */
+  private async applyPendingCrmInvites(userId: number, email: string) {
+    try {
+      const invites = await this.prisma.crmInvitation.findMany({ where: { email: { equals: email, mode: 'insensitive' }, status: 'PENDING', expiresAt: { gt: new Date() } } });
+      for (const ci of invites) {
+        await this.prisma.crmMember.upsert({ where: { workspaceId_userId: { workspaceId: ci.workspaceId, userId } }, update: {}, create: { workspaceId: ci.workspaceId, userId, role: ci.role } });
+        await this.prisma.crmInvitation.update({ where: { id: ci.id }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
+        this.audit?.record({ actorId: ci.invitedById, targetUserId: userId, product: 'crm', workspaceId: ci.workspaceId, action: 'joined', toRole: ci.role, via: 'sign_up' });
+      }
+    } catch { /* crm tables may be absent in some deployments */ }
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
@@ -452,10 +502,14 @@ export class AuthService {
 
     if (!invitation) {
       const wi = await this.prisma.workInvitation.findUnique({ where: { token }, include: { workspace: true } });
-      if (!wi || wi.status !== 'PENDING' || wi.expiresAt < new Date() || wi.workspace.deletedAt) {
-        throw new NotFoundException('Invitation not found, expired, or invalid.');
+      if (wi && wi.status === 'PENDING' && wi.expiresAt >= new Date() && !wi.workspace.deletedAt) {
+        return { email: wi.email, role: wi.role, workspaceName: wi.workspace.name, product: 'work' };
       }
-      return { email: wi.email, role: wi.role, workspaceName: wi.workspace.name, product: 'work' };
+      const ci = await this.prisma.crmInvitation.findUnique({ where: { token }, include: { workspace: true } });
+      if (ci && ci.status === 'PENDING' && ci.expiresAt >= new Date()) {
+        return { email: ci.email, role: ci.role, workspaceName: ci.workspace.name, product: 'crm' };
+      }
+      throw new NotFoundException('Invitation not found, expired, or invalid.');
     }
     if (
       invitation.status !== 'PENDING' ||

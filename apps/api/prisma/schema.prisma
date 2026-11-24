@@ -3448,16 +3448,40 @@ model CrmWorkspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members    CrmMember[]
-  companies  CrmCompany[]
-  contacts   CrmContact[]
-  pipelines  CrmPipeline[]
-  deals      CrmDeal[]
-  activities CrmActivity[]
-  properties CrmProperty[]
-  views      CrmView[]
+  members     CrmMember[]
+  companies   CrmCompany[]
+  contacts    CrmContact[]
+  pipelines   CrmPipeline[]
+  deals       CrmDeal[]
+  activities  CrmActivity[]
+  properties  CrmProperty[]
+  views       CrmView[]
+  invitations CrmInvitation[]
 
   @@map("crm_workspaces")
+}
+
+/// A pending invite into a CRM workspace for someone who doesn't have an EZ Manage account yet.
+/// When they sign up with this token (or any invite with the same email), they become a member.
+model CrmInvitation {
+  id          Int       @id @default(autoincrement())
+  workspaceId Int
+  email       String
+  /// OWNER | ADMIN | MEMBER | VIEWER
+  role        String    @default("MEMBER")
+  token       String    @unique
+  /// PENDING | ACCEPTED | EXPIRED
+  status      String    @default("PENDING")
+  invitedById Int?
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace CrmWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([email])
+  @@map("crm_invitations")
 }
 
 model CrmMember {
