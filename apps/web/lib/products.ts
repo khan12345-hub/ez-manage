@@ -8,7 +8,7 @@ export const PRODUCT_NAME = {
   ceo: "Executive Hub",
   vault: "EZ Vault",
   tracker: "EZ Tracker",
-  crm: "EZ CRM",
+  crm: "EZ Sales",
 } as const;
 
 /** short form for tight places (badges, rail tiles) */
@@ -18,7 +18,7 @@ export const PRODUCT_SHORT = {
   ceo: "Executive",
   vault: "Vault",
   tracker: "Tracker",
-  crm: "CRM",
+  crm: "Sales",
 } as const;
 
 export const productName = (source: "boards" | "work") => PRODUCT_NAME[source];

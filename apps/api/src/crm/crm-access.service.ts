@@ -7,7 +7,7 @@ export type CrmRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
 export type CrmLevel = 'view' | 'edit' | 'admin';
 export type CrmCtx = { ws: { id: number; uid: string; name: string; currency: string; ownerId: number }; role: CrmRole; canEdit: boolean; canAdmin: boolean };
 
-/** EZ CRM access: membership of a CRM workspace. Outsiders get 404; viewers are read-only. */
+/** EZ Sales access: membership of a CRM workspace. Outsiders get 404; viewers are read-only. */
 @Injectable()
 export class CrmAccessService {
   constructor(private readonly prisma: PrismaService, private readonly productAccess: ProductAccessService, private readonly productAdmin: ProductAdminService) {}
@@ -17,13 +17,13 @@ export class CrmAccessService {
     return u?.systemRole === 'SUPER_ADMIN';
   }
 
-  /** the global Administrator or an EZ CRM product Administrator — full admin of every CRM workspace */
+  /** the global Administrator or an EZ Sales product Administrator — full admin of every CRM workspace */
   async isCrmAdministrator(userId: number) {
     return (await this.isSuperAdmin(userId)) || (await this.productAdmin.is(userId, 'crm'));
   }
 
   async ws(wsUid: string, userId: number, level: CrmLevel = 'view'): Promise<CrmCtx> {
-    // the Administrator's product switch (Access Center) can block EZ CRM for a person
+    // the Administrator's product switch (Access Center) can block EZ Sales for a person
     await this.productAccess.assert(userId, 'crm');
     const ws = await this.prisma.crmWorkspace.findUnique({ where: { uid: wsUid }, select: { id: true, uid: true, name: true, currency: true, ownerId: true } });
     if (!ws) throw new NotFoundException('CRM workspace not found.');

@@ -12,7 +12,7 @@ import {
 type Q = Record<string, string | undefined>;
 const W = { default: { limit: 120, ttl: 60_000 } };
 
-/** EZ CRM — the 5th product. Everything is scoped to a CRM workspace (by uid) the person is a member of. */
+/** EZ Sales — the 5th product. Everything is scoped to a CRM workspace (by uid) the person is a member of. */
 @Controller('crm')
 export class CrmController {
   constructor(private readonly setup: CrmSetupService, private readonly rec: CrmRecordsService) {}

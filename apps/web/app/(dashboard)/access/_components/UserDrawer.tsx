@@ -16,7 +16,7 @@ const WORK_ROLES = ["ADMIN", "MEMBER", "LIMITED_MEMBER", "GUEST"];
 // products that can have a per-product Administrator (crm is future, hidden until that product ships)
 const PRODUCT_ADMIN_LIST: AdminProduct[] = ["accounts", "work", "tracker", "vault", "crm"];
 const CRM_ROLES = ["OWNER", "ADMIN", "MEMBER", "VIEWER"];
-const PRODUCT_ADMIN_LABEL: Record<string, string> = { accounts: "Accounts & Invoices", work: "Company Work", tracker: "EZ Tracker", vault: "EZ Vault", crm: "CRM" };
+const PRODUCT_ADMIN_LABEL: Record<string, string> = { accounts: "Accounts & Invoices", work: "Company Work", tracker: "EZ Tracker", vault: "EZ Vault", crm: "EZ Sales" };
 const sel = "h-8 rounded-lg border border-border bg-background px-2 text-[12.5px] outline-none focus:border-primary/50";
 
 export function UserDrawer({ id, me, companies, onClose }: { id: number | null; me: MyAccess; companies?: AccessCompanies; onClose: () => void }) {
@@ -102,7 +102,7 @@ export function UserDrawer({ id, me, companies, onClose }: { id: number | null; 
                   <AddCompany product="work" options={(companies?.work ?? []).filter((c) => !u.products.work.companies.some((x) => x.workspace.id === c.id))} roles={WORK_ROLES} busy={act.isPending}
                     onAdd={(ws, role) => run(() => accessApi.addWork(u.id, { workspaceId: ws, role }), "Added")} />
                 </Card>
-                {/* EZ CRM */}
+                {/* EZ Sales */}
                 {(me.admin || (me.productAdminOf ?? []).includes("crm")) && u.products.crm && (
                 <Card>
                   <ProductHead p="crm" sub={u.products.crm.companies.length ? `${u.products.crm.companies.length} ${u.products.crm.companies.length === 1 ? "CRM" : "CRMs"}` : "Not in any CRM"} />

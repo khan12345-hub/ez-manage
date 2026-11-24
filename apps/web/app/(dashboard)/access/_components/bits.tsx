@@ -11,7 +11,7 @@ export const PRODUCT_META: Record<ProductKey, { label: string; short: string; co
   work: { label: "Company Work", short: "Work", color: "#047857" },
   tracker: { label: "EZ Tracker", short: "Tracker", color: "#0369a1" },
   vault: { label: "EZ Vault", short: "Vault", color: "#0f766e" },
-  crm: { label: "EZ CRM", short: "CRM", color: "#9333ea" },
+  crm: { label: "EZ Sales", short: "Sales", color: "#9333ea" },
   executive: { label: "Executive Hub", short: "Executive", color: "#b45309" },
 };
 

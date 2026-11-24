@@ -72,6 +72,6 @@ export const accessApi = {
 };
 
 export const PRODUCT_LABELS: Record<ProductKey, string> = {
-  accounts: "Accounts & Invoices", work: "Company Work", tracker: "EZ Tracker", vault: "EZ Vault", crm: "EZ CRM", executive: "Executive Hub",
+  accounts: "Accounts & Invoices", work: "Company Work", tracker: "EZ Tracker", vault: "EZ Vault", crm: "EZ Sales", executive: "Executive Hub",
 };
 export const roleLabel = (r: string) => r.charAt(0) + r.slice(1).toLowerCase().replace(/_/g, " ");
