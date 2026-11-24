@@ -330,6 +330,7 @@ export class AuthService {
       this.audit?.record({ actorId: wi.invitedById, targetUserId: user.id, product: 'work', workspaceId: wi.workspaceId, action: 'joined', toRole: wi.role ?? 'MEMBER', via: 'sign_up' });
     }
     await this.applyPendingCrmInvites(user.id, invitation.email);
+    await this.issueAccountKit({ id: user.id, email: user.email, firstName: user.firstName });
 
     req.session.user = {
       id: user.id,
@@ -386,10 +387,11 @@ export class AuthService {
       return newUser;
     });
     this.audit?.record({ actorId: invite.invitedById, targetUserId: user.id, product: 'work', workspaceId: invite.workspaceId, action: 'joined', toRole: invite.role ?? 'MEMBER', via: 'sign_up' });
+    await this.applyPendingCrmInvites(user.id, invite.email);
+    await this.issueAccountKit({ id: user.id, email: user.email, firstName: user.firstName });
     req.session.user = { id: user.id, systemRole: user.systemRole };
     await new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
     const { password, ...safeUser } = user;
-    await this.applyPendingCrmInvites(user.id, invite.email);
     return { success: true, message: 'Account set up successfully.', user: safeUser };
   }
 
@@ -420,6 +422,7 @@ export class AuthService {
     });
     this.audit?.record({ actorId: invite.invitedById, targetUserId: user.id, product: 'crm', workspaceId: invite.workspaceId, action: 'joined', toRole: invite.role, via: 'sign_up' });
     await this.applyPendingCrmInvites(user.id, invite.email);
+    await this.issueAccountKit({ id: user.id, email: user.email, firstName: user.firstName });
     req.session.user = { id: user.id, systemRole: user.systemRole };
     await new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
     const { password, ...safeUser } = user;
@@ -436,6 +439,55 @@ export class AuthService {
         this.audit?.record({ actorId: ci.invitedById, targetUserId: userId, product: 'crm', workspaceId: ci.workspaceId, action: 'joined', toRole: ci.role, via: 'sign_up' });
       }
     } catch { /* crm tables may be absent in some deployments */ }
+  }
+
+  // ───────── Account Kit (recovery key emailed at sign-up) ─────────
+  private genRecoveryKey(): string {
+    const B32 = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L — easy to read and type
+    const bytes = crypto.randomBytes(20);
+    let out = '';
+    for (let i = 0; i < 20; i++) out += B32[bytes[i] % B32.length];
+    return `EZ1-${out.slice(0, 5)}-${out.slice(5, 10)}-${out.slice(10, 15)}-${out.slice(15, 20)}`;
+  }
+  private hashRecoveryKey(key: string): string {
+    return crypto.createHash('sha256').update(String(key).replace(/[^A-Za-z0-9]/g, '').toUpperCase()).digest('hex');
+  }
+
+  /** generate the account's recovery key, store its hash, and email the "Account Kit" */
+  private async issueAccountKit(user: { id: number; email: string; firstName: string }) {
+    const key = this.genRecoveryKey();
+    await this.prisma.user.update({ where: { id: user.id }, data: { recoveryKeyHash: this.hashRecoveryKey(key) } });
+    const esc = (t: string) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const recoverUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/recover`;
+    try {
+      await this.mailService.sendMail({
+        to: user.email,
+        subject: 'Your EZ Manage Account Kit — keep this safe',
+        html: `<p>Hi ${esc(user.firstName || '')},</p>
+<p>Welcome to EZ Manage. This is your <b>Account Kit</b> — keep it somewhere safe (print it or save it offline). You'll need it if you ever forget your password.</p>
+<table style="border-collapse:collapse;margin:16px 0"><tr><td style="padding:6px 10px;color:#555">Sign-in email</td><td style="padding:6px 10px;font-weight:600">${esc(user.email)}</td></tr>
+<tr><td style="padding:6px 10px;color:#555">Account Recovery Key</td><td style="padding:6px 10px;font-weight:700;font-family:monospace;font-size:15px;letter-spacing:1px">${esc(key)}</td></tr></table>
+<p>If you forget your password, go to <a href="${recoverUrl}">${recoverUrl}</a> and enter your email and this key to set a new one.</p>
+<p style="color:#888;font-size:13px">Anyone with this key and your email can reset your password — do not share it. EZ Manage will never ask you for it.</p>`,
+        text: `Hi ${user.firstName || ''},\n\nWelcome to EZ Manage. Keep this Account Kit safe — you'll need it if you forget your password.\n\nSign-in email: ${user.email}\nAccount Recovery Key: ${key}\n\nForgot your password? Go to ${recoverUrl} and enter your email and this key.\n\nAnyone with this key and your email can reset your password — do not share it.`,
+      });
+    } catch (e: any) { /* email failure must not block sign-up */ }
+    return key;
+  }
+
+  /** reset the password using the Account Recovery Key (no email round-trip) */
+  async recoverWithKey(dto: { email: string; recoveryKey: string; password: string }) {
+    const email = String(dto?.email || '').trim().toLowerCase();
+    const user = await this.prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' }, deletedAt: null }, select: { id: true, recoveryKeyHash: true, status: true } });
+    const ok = !!(user?.recoveryKeyHash && user.recoveryKeyHash === this.hashRecoveryKey(String(dto?.recoveryKey || '')));
+    if (!ok) throw new BadRequestException("That email and Account Recovery Key don't match.");
+    if (user!.status !== UserStatus.ACTIVE) throw new ForbiddenException('Your account is inactive.');
+    if (!dto?.password || dto.password.length < 8) throw new BadRequestException('Password must be at least 8 characters.');
+    const hashed = await bcrypt.hash(dto.password, 10);
+    await this.prisma.user.update({ where: { id: user!.id }, data: { password: hashed } });
+    // sign them out of any existing sessions for safety
+    await this.prisma.$executeRaw`DELETE FROM sessions WHERE (sess::jsonb -> 'user' ->> 'id') = ${String(user!.id)}`;
+    return { success: true, message: 'Password reset. Sign in with your new password.' };
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {

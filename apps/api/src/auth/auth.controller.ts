@@ -88,6 +88,13 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ auth: { ttl: 60_000, limit: 5 } })
+  @Post('recover-with-key')
+  async recoverWithKey(@Body() body: { email: string; recoveryKey: string; password: string }) {
+    return this.authService.recoverWithKey({ email: String(body?.email ?? ''), recoveryKey: String(body?.recoveryKey ?? ''), password: String(body?.password ?? '') });
+  }
+
+  @Public()
   @Get('invitation-details/:token')
   async getInvitationDetails(@Param('token') token: string) {
     return this.authService.getInvitationDetails(token);

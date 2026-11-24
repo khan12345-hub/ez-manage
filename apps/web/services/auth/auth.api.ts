@@ -28,6 +28,11 @@ export async function resetPassword(data: { token: string; password: string }) {
   return response.data;
 }
 
+// recover with the Account Recovery Key from the Account Kit emailed at sign-up
+export async function recoverWithKey(data: { email: string; recoveryKey: string; password: string }) {
+  return (await api.post("/auth/recover-with-key", data)).data as { success: boolean; message?: string };
+}
+
 // ───────────────────────── MFA (two-step verification) ─────────────────────────
 export type MfaStatus = { totp: boolean; email: boolean; enabled: boolean; required: boolean; enrolledAt: string | null; recoveryLeft: number };
 
