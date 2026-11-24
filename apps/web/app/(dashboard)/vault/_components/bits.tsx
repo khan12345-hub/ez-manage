@@ -45,7 +45,11 @@ export function CopyButton({ text, what, item, field, className }: { text: strin
 }
 
 const TYPE_ICON: Record<ItemType, typeof Globe> = { login: Globe, note: FileText, card: CreditCard, identity: IdCard };
-/** the site's initial on a colored tile (no third-party favicon requests: they'd leak which sites you use) */
+/**
+ * A login shows the website's own icon, fetched straight from that site (e.g. facebook.com/favicon.ico) —
+ * never through a third-party favicon service, so no one else learns which sites you keep logins for.
+ * When a site has no reachable icon we fall back to its initial on a colored tile.
+ */
 export function ItemIcon({ item, size = 34 }: { item: Item; size?: number }) {
   const d = item.data;
   const host = d.urls?.[0] ? C.hostOf(d.urls[0]) : "";
@@ -53,6 +57,27 @@ export function ItemIcon({ item, size = 34 }: { item: Item; size?: number }) {
   let h = 0;
   for (const ch of host || d.title) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const Icon = TYPE_ICON[d.type] ?? Globe;
+  const [broken, setBroken] = useState(false);
+  // a new item (host changes) should try its favicon again
+  useEffect(() => setBroken(false), [host]);
+  const showIcon = d.type === "login" && !!host && !broken;
+
+  if (showIcon) {
+    return (
+      <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-black/[0.06] dark:bg-white/90" style={{ width: size, height: size }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`https://${host}/favicon.ico`}
+          alt=""
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
+          onError={() => setBroken(true)}
+          style={{ width: size * 0.62, height: size * 0.62, objectFit: "contain" }}
+        />
+      </span>
+    );
+  }
   return (
     <span className="flex shrink-0 items-center justify-center rounded-lg text-white" style={{ width: size, height: size, background: `hsl(${h % 360} 45% 38%)`, fontSize: size * 0.42 }}>
       {d.type === "login" && letter ? <span className="font-semibold">{letter}</span> : <Icon style={{ width: size * 0.5, height: size * 0.5 }} />}
