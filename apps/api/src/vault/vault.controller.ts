@@ -70,6 +70,8 @@ export class VaultController {
   @Post('admin/companies/admins') addVaultAdmin(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.setVaultAdmin(c, b, true); }
   @Post('admin/companies/admins/remove') removeVaultAdmin(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.setVaultAdmin(c, b, false); }
   @Post('admin/users/:id/remove-everywhere') removeEverywhere(@Caller() c: VaultCaller, @Param('id', ParseIntPipe) id: number) { return this.vault.adminRemoveEverywhere(c, id); }
+  @Get('admin/team') teamActivity(@Caller() c: VaultCaller, @Query() q: any) { return this.vault.teamActivity(c, q); }
+  @Get('admin/team/member') teamMember(@Caller() c: VaultCaller, @Query() q: any) { return this.vault.teamMemberEvents(c, q); }
 
   @Post('events') clientEvent(@Caller() c: VaultCaller, @Body() b: any) { return this.vault.clientEvent(c, b); }
   @Get('events') events(@Caller() c: VaultCaller, @Query('vault') vault: string, @Query('item') item: string) { return this.vault.events(c, vault || undefined, item || undefined); }
