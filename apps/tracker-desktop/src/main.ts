@@ -8,6 +8,7 @@
  */
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron';
 import { hostname, platform, release } from 'node:os';
+import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { Api, ApiError, type Me } from './api';
 import { Engine } from './engine';
@@ -22,6 +23,8 @@ let lastError: string | null = null;
 let quitting = false;
 /** the pair screen was opened to add another company */
 let adding = false;
+/** auto-connect in progress: waiting for the person to confirm in the browser */
+let connectToken = 0;
 /**
  * Unattended ("silent") deployment, like Hubstaff's Silent App: no window or tray, auto-starts
  * tracking on login. For organisation-managed computers where staff have been told monitoring is on
@@ -193,6 +196,45 @@ ipcMain.handle('pair', (_e, b: { apiBase: string; code: string }) => ok((async (
   push();
   return true;
 })()));
+/**
+ * Auto-connect: open the web app (where the person is already signed in) and wait for them to confirm,
+ * then this computer is paired to their account — no code to type. Returns true once connected, or
+ * false if it was cancelled or timed out.
+ */
+ipcMain.handle('connect', (_e, b: { apiBase: string }) => ok((async () => {
+  if (engine.state().running) throw new Error('Stop tracking before you add a company.');
+  const base = (b?.apiBase || DEFAULT_API).trim().replace(/\/$/, '');
+  if (!/^https?:\/\/.+/.test(base)) throw new Error('Enter the server address, e.g. https://app.example.com/api');
+  const client = new Api(base, null);
+  const nonce = randomBytes(24).toString('base64url');
+  // where to send the person: ask the server, else guess from the API address
+  let web = base.replace(/\/api\/?$/, '').replace(':3010', ':3000');
+  try { const c = await client.config(); if (c.webUrl) web = c.webUrl.replace(/\/$/, ''); } catch { /* use the guess */ }
+  await shell.openExternal(`${web}/tracker/connect?c=${encodeURIComponent(nonce)}`);
+
+  const ticket = ++connectToken;
+  const name = hostname().slice(0, 80), os = `${platform()} ${release()}`, ver = app.getVersion();
+  const deadline = Date.now() + 10 * 60_000;
+  while (Date.now() < deadline) {
+    if (ticket !== connectToken) return false; // cancelled or superseded
+    await new Promise((r) => setTimeout(r, 2500));
+    if (ticket !== connectToken) return false;
+    let r: Awaited<ReturnType<Api['connectExchange']>>;
+    try { r = await client.connectExchange(nonce, name, os, ver); }
+    catch (e) { if (e instanceof ApiError && e.status >= 400 && e.status < 500 && e.status !== 404 && e.status !== 429) throw e; continue; }
+    if ('token' in r) {
+      cfg = addAccount(cfg, { id: `d${r.deviceId}`, name: r.workspace?.name ?? 'Company', source: r.workspace?.source, apiBase: base, token: r.token });
+      adding = false; lastError = null;
+      await refreshMe();
+      if (silent) { if (win) { win.destroy(); win = null; } await ensureSilent(); return true; }
+      push();
+      return true;
+    }
+  }
+  if (ticket === connectToken) throw new Error('The connect link expired. Press “Connect with my account” again.');
+  return false;
+})()));
+ipcMain.handle('cancelConnect', () => ok((async () => { connectToken++; return true; })()));
 ipcMain.handle('consent', () => ok((async () => { await api().consent(me?.consent.version ?? CONSENT_VERSION); await refreshMe(); push(); return true; })()));
 ipcMain.handle('tasks', (_e, q: string) => ok(api().tasks(String(q ?? ''))));
 ipcMain.handle('start', (_e, t: { id?: number | null; name?: string | null; note?: string | null }) => ok((async () => { await refreshMe(); if (!me?.tracked) throw new Error('Time tracking is not turned on for you in this company.'); await engine.start(t); return true; })()));

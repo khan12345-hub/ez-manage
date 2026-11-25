@@ -212,6 +212,40 @@ export class TrackerService {
     return { token, deviceId: d.id, ...(await this.desktopMe({ userId: row.userId, deviceId: d.id, orgId: row.orgId })) };
   }
 
+  /**
+   * Auto-connect ("connect with my account"): the desktop makes a secret nonce, opens the web signed
+   * in as the person, who confirms — the browser registers that nonce for their account. The desktop
+   * then exchanges the same nonce for its token. No code to type.
+   */
+  async connectStart(userId: number, nonce: string) {
+    const n = str(nonce, 200).replace(/[^A-Za-z0-9_-]/g, '');
+    if (n.length < 20) throw new BadRequestException('Open EZ Tracker on this computer and press “Connect with my account” — this link is incomplete.');
+    const org = await this.ensureOrg();
+    const member = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: org.id, userId } }, select: { id: true } });
+    if (!member) throw new ForbiddenException('You are not in EZ Tracker.');
+    await this.prisma.trackerPairCode.deleteMany({ where: { userId, OR: [{ expiresAt: { lt: new Date() } }, { usedAt: { not: null } }] } });
+    await this.prisma.trackerPairCode.create({ data: { orgId: org.id, userId, codeHash: hashToken(n), expiresAt: new Date(Date.now() + 10 * 60_000) } });
+    return { ok: true };
+  }
+
+  /** Public: where the desktop should send the person to confirm an auto-connect. */
+  publicConfig() { return { webUrl: process.env.FRONTEND_URL ?? null }; }
+
+  async connectExchange(b: any) {
+    const n = str(b?.nonce, 200).replace(/[^A-Za-z0-9_-]/g, '');
+    if (n.length < 20) throw new BadRequestException('Bad connect code.');
+    const row = await this.prisma.trackerPairCode.findUnique({ where: { codeHash: hashToken(n) } });
+    if (!row) return { pending: true as const };               // the person hasn't confirmed in the browser yet
+    if (row.usedAt || row.expiresAt < new Date()) throw new BadRequestException('This connect link expired. Try again from the app.');
+    if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: row.orgId, userId: row.userId } }, select: { id: true } }))) throw new ForbiddenException('You are not in EZ Tracker anymore.');
+    await this.prisma.trackerPairCode.update({ where: { id: row.id }, data: { usedAt: new Date() } });
+    const token = `ezt_${randomBytes(36).toString('base64url')}`;
+    const d = await this.prisma.trackerDevice.create({
+      data: { orgId: row.orgId, userId: row.userId, name: str(b?.name, 80) || 'Computer', os: str(b?.os, 40) || null, appVersion: str(b?.appVersion, 20) || null, tokenHash: hashToken(token), lastSeenAt: new Date() },
+    });
+    return { token, deviceId: d.id, ...(await this.desktopMe({ userId: row.userId, deviceId: d.id, orgId: row.orgId })) };
+  }
+
   async devices(ws: string, userId: number) {
     const c = await this.ctx(ws, userId);
     return this.prisma.trackerDevice.findMany({ where: { userId, orgId: c.orgId, revokedAt: null }, select: { id: true, name: true, os: true, appVersion: true, lastSeenAt: true, createdAt: true }, orderBy: { createdAt: 'desc' } });

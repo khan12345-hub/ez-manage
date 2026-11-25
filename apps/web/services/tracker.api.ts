@@ -61,6 +61,7 @@ export const trackerApi = {
   updateSettings: async (ws: string, body: Partial<TrackerSettings>) => (await api.patch<TrackerSettings>(`/tracker/${ws}/settings`, body)).data,
   acceptConsent: (ws: string, version: string) => post<{ version: string; acceptedAt: string }>(`/tracker/${ws}/consent`, { version }),
   pairCode: (ws: string) => post<{ code: string; expiresAt: string }>(`/tracker/${ws}/pair-codes`),
+  connect: (nonce: string) => post<{ ok: true }>(`/tracker/connect`, { nonce }),
   devices: (ws: string) => get<TrackerDevice[]>(`/tracker/${ws}/devices`),
   revokeDevice: async (id: number) => (await api.delete(`/tracker/devices/${id}`)).data,
   liveAll: () => get<TrackerCompanyLive[]>(`/tracker/all/live?${qs({ offset: offset() })}`),
