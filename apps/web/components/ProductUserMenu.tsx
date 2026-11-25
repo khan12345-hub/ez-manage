@@ -12,7 +12,7 @@ import { useLogout } from "@/services/auth/auth.hooks";
  * opens My profile, All products, Access Center (if allowed), System settings (Administrator), Log out.
  * The main AppShell has its own; this gives the standalone product shells the same.
  */
-export function ProductUserMenu({ subtitle, canManageAccess }: { subtitle?: string; canManageAccess?: boolean }) {
+export function ProductUserMenu({ subtitle, canManageAccess, compact, placement = "up" }: { subtitle?: string; canManageAccess?: boolean; compact?: boolean; placement?: "up" | "down" }) {
   const { user } = useAuth();
   const logout = useLogout();
   const router = useRouter();
@@ -36,20 +36,27 @@ export function ProductUserMenu({ subtitle, canManageAccess }: { subtitle?: stri
     </button>
   );
 
+  const Pic = avatarUrl
+    ? <img src={avatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+    : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold text-primary">{initials}</span>;
+
   return (
     <div ref={ref} className="relative">
-      <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2.5 rounded-2xl px-1 py-1 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.05]">
-        {avatarUrl
-          ? <img src={avatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
-          : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold text-primary">{initials}</span>}
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-semibold leading-tight">{name}</span>
-          {subtitle && <span className="block truncate text-[11px] text-muted-foreground">{subtitle}</span>}
-        </span>
-        <ChevronUp className={cn("h-4 w-4 shrink-0 text-muted-foreground transition", !open && "rotate-180")} />
-      </button>
+      {compact ? (
+        <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label="Account" onClick={() => setOpen((o) => !o)} className="flex h-9 w-9 items-center justify-center rounded-full transition hover:ring-2 hover:ring-border">{Pic}</button>
+      ) : (
+        <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2.5 rounded-2xl px-1 py-1 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.05]">
+          {Pic}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-semibold leading-tight">{name}</span>
+            {subtitle && <span className="block truncate text-[11px] text-muted-foreground">{subtitle}</span>}
+          </span>
+          <ChevronUp className={cn("h-4 w-4 shrink-0 text-muted-foreground transition", !open && "rotate-180")} />
+        </button>
+      )}
       {open && (
-        <div role="menu" className="absolute bottom-full left-0 z-50 mb-2 w-[220px] rounded-xl border border-border bg-popover p-1.5 shadow-[0_16px_48px_-12px_rgba(0,0,0,0.3)]">
+        <div role="menu" className={cn("absolute z-50 w-[220px] rounded-xl border border-border bg-popover p-1.5 shadow-[0_16px_48px_-12px_rgba(0,0,0,0.3)]", placement === "down" ? "top-full mt-2 right-0" : "bottom-full mb-2 left-0")}>
+          {compact && <div className="truncate border-b border-border px-2.5 pb-2 pt-1 text-[12px]"><span className="block truncate font-semibold">{name}</span>{subtitle && <span className="block truncate text-[11px] text-muted-foreground">{subtitle}</span>}</div>}
           <Item icon={User} label="My profile" onClick={() => go("/settings")} />
           <Item icon={LayoutGrid} label="All products" onClick={() => go("/home")} />
           {canManageAccess && <Item icon={ShieldCheck} label="Access Center" onClick={() => go("/access")} />}
