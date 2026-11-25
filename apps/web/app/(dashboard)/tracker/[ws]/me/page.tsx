@@ -14,7 +14,8 @@ import { BarLegend, HoursBars, Ring, StatTile, fade, stagger } from "../../_comp
 import { ConsentText } from "../../_components/ConsentText";
 
 const err = (e: any, m: string) => toast.error(e?.response?.data?.message?.toString?.() ?? m);
-const DOWNLOAD = process.env.NEXT_PUBLIC_TRACKER_DOWNLOAD_URL;
+// A hosted URL if set, otherwise the API serves the installer from TRACKER_INSTALLER_PATH on the server.
+const DOWNLOAD = process.env.NEXT_PUBLIC_TRACKER_DOWNLOAD_URL || (process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/tracker/desktop/download` : undefined);
 
 function Countdown({ until }: { until: string }) {
   const [now, setNow] = useState(Date.now());
@@ -173,13 +174,13 @@ export default function TrackerMe() {
 
       <motion.div variants={fade} className="grid gap-4 xl:grid-cols-2">
         <section aria-label="Desktop app" className={cn(glass, "p-5")}>
-          <h2 className="text-[16px] font-semibold">Desktop app</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-[16px] font-semibold">Desktop app</h2>
+            {DOWNLOAD && <a href={DOWNLOAD} className="flex h-9 items-center gap-1.5 rounded-xl bg-[#0369a1] px-3.5 text-[13px] font-semibold text-white hover:bg-[#075985]"><Download className="h-4 w-4" /> Download for Windows</a>}
+          </div>
           <ol className="mt-3 space-y-3 text-[13px]">
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">1</span>
-              <span className="min-w-0 flex-1">Install EZ Tracker for Windows.{" "}
-                {DOWNLOAD ? <a href={DOWNLOAD} className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#0369a1] px-3 font-semibold text-white"><Download className="h-4 w-4" /> Download for Windows</a>
-                  : <span className="mt-1 block text-[12px] text-muted-foreground">Ask your Tracker admin for the installer.</span>}
-              </span>
+              <span className="min-w-0 flex-1">Install EZ Tracker for Windows — use the <b>Download for Windows</b> button above.</span>
             </li>
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">2</span>
               <span className="min-w-0 flex-1">Easiest: in the app press <b>“Connect with my account”</b> — it opens here, you confirm, and it links on its own. Or make a pairing code and type it in. A code works once, for 10 minutes.
