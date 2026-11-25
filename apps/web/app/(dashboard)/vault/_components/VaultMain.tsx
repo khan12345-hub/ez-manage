@@ -96,6 +96,7 @@ export function VaultMain() {
         </label>
         {canWriteSomewhere && <button type="button" onClick={() => setEditing("new")} className="flex h-9 items-center gap-1.5 rounded-xl bg-forest px-3 text-[13px] font-semibold text-forest-foreground shadow-[0_10px_24px_-14px_rgba(11,42,31,0.8)] dark:bg-primary dark:text-primary-foreground"><Plus className="h-4 w-4" /> New item</button>}
         <button type="button" onClick={() => { lock(); toast("EZ Vault locked"); }} aria-label="Lock EZ Vault" title="Lock" className="flex h-9 items-center gap-1.5 rounded-xl border border-white/70 bg-white/70 px-3 text-[13px] hover:bg-white dark:border-white/10 dark:bg-white/5"><Lock className="h-4 w-4" /><span className="hidden sm:inline">Lock</span></button>
+        <div className="md:hidden"><ProductUserMenu compact placement="down" subtitle={me?.isVaultAdmin ? "Vault admin" : "Member"} /></div>
       </header>
 
       <div className="relative z-10 flex min-h-0 flex-1">
