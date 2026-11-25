@@ -7,11 +7,11 @@ import * as C from "./vault-crypto.js";
 // Live by default (for the distributed extension). The connect flow also passes the web's own server
 // address, so the extension points right whichever site you sign in to. For local dev, set
 // api=http://localhost:3010 and web=http://localhost:3000 under the popup's Advanced settings.
-const DEFAULTS = { api: "https://staging-apimanage.ezify.pk", web: "https://staging-manage.ezify.pk", lockMinutes: 15, never: [] };
+const DEFAULTS = { api: "https://staging-apimanage.ezify.pk", web: "https://staging-manage.ezify.pk", lockMinutes: 15, never: [], autoSubmit: true, offerSave: true, showIcons: true };
 const WEB_ORIGINS = ["https://staging-manage.ezify.pk", "https://manage.ezify.pk", "http://localhost:3000"];
 
 async function settings() {
-  const s = await chrome.storage.local.get(["api", "web", "token", "lockMinutes", "never", "user"]);
+  const s = await chrome.storage.local.get(["api", "web", "token", "lockMinutes", "never", "user", "autoSubmit", "offerSave", "showIcons"]);
   return { ...DEFAULTS, ...s };
 }
 const session = () => chrome.storage.session.get(["unlocked", "vaultKeys", "vaults", "items", "lastActive", "pending"]);
@@ -119,6 +119,7 @@ async function saveLogin({ url, username, password, title }, updateUid) {
 async function judge(url, username, password) {
   const st = await settings();
   const host = C.hostOf(url);
+  if (st.offerSave === false) return { action: "none" };        // "Offer to save logins" turned off in Settings
   if (st.never.includes(host)) return { action: "none" };
   const s = await session();
   if (!s.unlocked) return { action: "locked" };
@@ -152,7 +153,7 @@ async function handle(msg, sender) {
     // ── popup ──
     case "state": {
       const st = await settings();
-      return { connected: !!st.token, unlocked: !!s.unlocked, user: st.user || null, api: st.api, web: st.web, lockMinutes: st.lockMinutes };
+      return { connected: !!st.token, unlocked: !!s.unlocked, user: st.user || null, api: st.api, web: st.web, lockMinutes: st.lockMinutes, autoSubmit: st.autoSubmit !== false, offerSave: st.offerSave !== false, showIcons: st.showIcons !== false };
     }
     case "settings": {
       if (!fromPopup(sender)) throw new Error("Not allowed");
@@ -160,6 +161,7 @@ async function handle(msg, sender) {
       if (typeof msg.api === "string" && /^https?:\/\/[^\s]+$/.test(msg.api.trim())) patch.api = msg.api.trim().replace(/\/$/, "");
       if (typeof msg.web === "string" && /^https?:\/\/[^\s]+$/.test(msg.web.trim())) patch.web = msg.web.trim().replace(/\/$/, "");
       if (Number.isInteger(msg.lockMinutes) && msg.lockMinutes >= 1 && msg.lockMinutes <= 480) patch.lockMinutes = msg.lockMinutes;
+      for (const k of ["autoSubmit", "offerSave", "showIcons"]) if (typeof msg[k] === "boolean") patch[k] = msg[k];
       await chrome.storage.local.set(patch);
       return {};
     }
@@ -244,7 +246,7 @@ async function handle(msg, sender) {
       const it = s.unlocked ? logins(s.items || []).find((i) => i.uid === pendingFill.uid) : null;
       if (!it || !url || !matchesUrl(it, url)) return { fill: null };
       if (!pendingFill.logged) { pendingFill.logged = true; await event(it.uid, "filled"); }
-      return { fill: { username: it.username || "", password: it.password || "", autoSubmit: true } };
+      return { fill: { username: it.username || "", password: it.password || "", autoSubmit: (await settings()).autoSubmit !== false } };
     }
     case "fillDone": { pendingFill = null; return { ok: true }; } // the password step was filled — stop reusing
     case "submitted": {
