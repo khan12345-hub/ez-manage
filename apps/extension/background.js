@@ -4,10 +4,11 @@
 // The master password is never stored anywhere.
 import * as C from "./vault-crypto.js";
 
-// Live by default (for the distributed extension). For local dev, set api=http://localhost:3010 and
-// web=http://localhost:3000 under the popup's Advanced settings.
-const DEFAULTS = { api: "https://apimanage.ezify.pk", web: "https://manage.ezify.pk", lockMinutes: 15, never: [] };
-const WEB_ORIGINS = ["https://manage.ezify.pk", "https://staging-manage.ezify.pk", "http://localhost:3000"];
+// Live by default (for the distributed extension). The connect flow also passes the web's own server
+// address, so the extension points right whichever site you sign in to. For local dev, set
+// api=http://localhost:3010 and web=http://localhost:3000 under the popup's Advanced settings.
+const DEFAULTS = { api: "https://staging-apimanage.ezify.pk", web: "https://staging-manage.ezify.pk", lockMinutes: 15, never: [] };
+const WEB_ORIGINS = ["https://staging-manage.ezify.pk", "https://manage.ezify.pk", "http://localhost:3000"];
 
 async function settings() {
   const s = await chrome.storage.local.get(["api", "web", "token", "lockMinutes", "never", "user"]);

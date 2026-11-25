@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Activity, Building2, CreditCard, ExternalLink, Eye, EyeOff, FileText, Fingerprint, Gauge, Globe, IdCard, KeyRound, LayoutDashboard, Layers, LifeBuoy, Lock, Pencil, Plus, Search, Settings, ShieldAlert, ShieldCheck, Siren, Star, Tag, Trash2, Users } from "lucide-react";
 import { api } from "@/lib/api";
@@ -37,6 +37,12 @@ export function VaultMain() {
   const [editing, setEditing] = useState<Item | "new" | null>(null);
   const [newVault, setNewVault] = useState(false);
   const [share, setShare] = useState<string | null>(null);
+
+  // The browser extension opens /vault?connect=extension — jump straight to Settings, where it
+  // auto-connects (the ?connect flag stays in the URL for SettingsView to act on).
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("connect") === "extension") setNav({ kind: "settings" });
+  }, []);
 
   const list = useMemo(() => {
     const term = q.trim().toLowerCase();
