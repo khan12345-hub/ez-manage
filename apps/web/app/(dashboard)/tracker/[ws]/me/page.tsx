@@ -127,7 +127,7 @@ export default function TrackerMe() {
               </span>
             </li>
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">2</span>
-              <span className="min-w-0 flex-1">Make a pairing code and type it into the app. It works once, for 10 minutes.
+              <span className="min-w-0 flex-1">Easiest: in the app press <b>“Connect with my account”</b> — it opens here, you confirm, and it links on its own. Or make a pairing code and type it in. A code works once, for 10 minutes.
                 <span className="mt-2 flex flex-wrap items-center gap-2">
                   {code ? (
                     <>
@@ -158,6 +158,30 @@ export default function TrackerMe() {
           )}
         </section>
       </motion.div>
+
+      {ov?.isManager && (
+        <motion.section variants={fade} aria-label="Silent (unattended) setup" className={cn(glass, "p-5")}>
+          <header className="mb-3 flex flex-wrap items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#334155]/10 text-[#334155] dark:text-[#cbd5e1]"><ShieldCheck className="h-5 w-5" /></span>
+            <span className="min-w-0 flex-1">
+              <h2 className="text-[16px] font-semibold">Silent (unattended) setup <span className="ml-1 rounded bg-black/[0.06] px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground dark:bg-white/10">managers</span></h2>
+              <p className="text-[12.5px] text-muted-foreground">For organisation-owned computers where staff have been told monitoring is on — runs with no window and tracks automatically on login, like Hubstaff's Silent App.</p>
+            </span>
+          </header>
+          <p className="text-[13px] text-muted-foreground">There is no separate “silent” download — it's the <b>same EZ Tracker installer</b>, launched once with a flag:</p>
+          <ol className="mt-3 space-y-2.5 text-[13px]">
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">1</span>
+              <span className="min-w-0 flex-1">Install EZ Tracker on the computer{DOWNLOAD ? <> — <a href={DOWNLOAD} className="font-semibold text-[#0369a1] underline dark:text-[#7dd3fc]">download</a></> : ""}, and make sure tracking is turned on for that person (People → add them).</span></li>
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">2</span>
+              <span className="min-w-0 flex-1">Launch it <b>once</b> with <code className="rounded bg-black/[0.06] px-1.5 py-0.5 font-mono text-[12px] dark:bg-white/10">--silent</code>, e.g. a shortcut to:
+                <code className="mt-1.5 block overflow-x-auto rounded-lg bg-black/[0.05] px-3 py-2 font-mono text-[12px] dark:bg-white/[0.06]">"C:\Program Files\EZ Tracker\EZ Tracker.exe" --silent</code>
+              </span></li>
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">3</span>
+              <span className="min-w-0 flex-1">The Pair screen shows <b>this one time</b> — press “Connect with my account” or paste a pairing code. The moment it's paired the window closes for good; after that it auto-starts on login, auto-accepts the monitoring policy and tracks on its own.</span></li>
+          </ol>
+          <p className="mt-3 rounded-xl bg-[#b45309]/[0.07] px-3.5 py-2.5 text-[12px] text-[#92400e] dark:text-[#fbbf24]">It is <b>not covert</b> — it keeps the “EZ Tracker” name in the process list, Installed Programs and the Windows start-up list. Only use it for people who have been told their work activity is monitored.</p>
+        </motion.section>
+      )}
     </motion.div>
   );
 }
