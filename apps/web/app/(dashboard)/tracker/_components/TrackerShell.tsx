@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AppWindow, CalendarCheck, Clock4, Home, Images, Menu, Settings, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { AppWindow, CalendarCheck, Clock4, Home, Images, Menu, Settings, ShieldCheck, Siren, UserRound, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppSwitcher } from "@/components/AppSwitcher";
 import { useAuth } from "@/providers/AuthProvider";
@@ -16,6 +16,7 @@ const NAV = [
   { path: "screenshots", label: "Screenshots", icon: Images, team: true },
   { path: "apps", label: "Apps & sites", icon: AppWindow, team: true },
   { path: "attendance", label: "Attendance", icon: CalendarCheck, team: false },
+  { path: "alerts", label: "Unusual activity", icon: Siren, team: true },
   { path: "me", label: "My tracking", icon: UserRound, team: false },
   { path: "people", label: "People", icon: UsersRound, team: true },
   { path: "settings", label: "Settings", icon: Settings, team: true },
