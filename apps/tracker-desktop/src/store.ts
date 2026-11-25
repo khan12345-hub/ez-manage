@@ -10,7 +10,7 @@ import { join } from 'node:path';
 
 /** one paired company on this computer (its own device token) */
 export type Account = { id: string; name: string; source?: string; apiBase: string; tokenEnc: string };
-export type Config = { apiBase: string; accounts?: Account[]; active?: string | null; autoStart?: boolean; /** before multi-company */ tokenEnc?: string };
+export type Config = { apiBase: string; accounts?: Account[]; active?: string | null; autoStart?: boolean; /** unattended/silent deployment: no window or tray, auto-start tracking on login (org-managed devices) */ silent?: boolean; /** before multi-company */ tokenEnc?: string };
 export type QueuedSlot = {
   kind: 'slot'; acct?: string; sessionId: number; clientId: string; start: string; seconds: number; activeSeconds: number;
   keyboard: number; mouse: number; idleDiscarded: boolean; apps: { app: string; title?: string; url?: string; seconds: number }[];
