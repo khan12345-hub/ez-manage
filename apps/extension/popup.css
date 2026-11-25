@@ -69,6 +69,35 @@ body[data-view="list"]{width:720px}
 .gp-row{display:flex;align-items:center;justify-content:space-between;font-weight:600;margin:14px 0 8px;border-top:1px solid var(--line);padding-top:12px}
 .gp-row select{height:32px;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:#fff;font:inherit;cursor:pointer}
 .gp-opts{display:grid;gap:8px}
+
+/* Watchtower banner on the item detail */
+.wt-banner{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;margin:0 16px 10px;padding:11px 12px;border-radius:11px;background:#fbe9e7;border:1px solid #f3c9c3}
+.wt-banner:hover{background:#f9dedb}
+.wt-ico{color:#b42318;font-size:15px}
+.wt-mid{flex:1;min-width:0;display:flex;flex-direction:column}
+.wt-mid b{font-size:12.5px;color:#8a1f16}.wt-mid span{font-size:11px;color:#9a6a62}
+.wt-arrow{color:#b42318;font-size:18px}
+
+/* account button in the header + left slide-over panel */
+.acctbtn{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:4px 8px 4px 4px;border-radius:9px}
+.acctbtn:hover{background:rgba(255,255,255,.12)}
+.acct-caret{opacity:.75;font-size:12px}
+.acctpanel{position:fixed;top:0;left:0;height:100%;width:300px;background:#fff;color:var(--ink);border-right:1px solid var(--line);box-shadow:14px 0 44px rgba(0,0,0,.16);padding:14px 14px;z-index:60;transform:translateX(-100%);visibility:hidden;transition:transform .22s ease,visibility .22s;overflow-y:auto}
+.acctpanel.open{transform:translateX(0);visibility:visible}
+.ap-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.ap-head b{font-size:15px}
+.ap-card{display:flex;align-items:center;gap:11px;background:#f6f3ec;border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:14px}
+.ap-ava{width:38px;height:38px;border-radius:10px;background:#e6ece7;color:var(--green);display:grid;place-items:center;font-weight:700}
+.ap-mid{min-width:0}.ap-name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ap-email{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ap-sec{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:4px 2px 6px}
+.ap-row{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);margin-bottom:6px}
+.ap-row:hover{border-color:var(--brass)}
+.ap-dot{width:9px;height:9px;border-radius:50%}.ap-dot.red{background:#dc2626}.ap-dot.amber{background:#d97706}
+.ap-rowmid{flex:1;min-width:0;display:flex;flex-direction:column}.ap-rowmid b{font-size:12.5px}.ap-rowmid span{font-size:11px;color:var(--muted)}
+.ap-arrow{color:var(--muted);font-size:17px}
+.ap-div{border-top:1px solid var(--line);margin:12px 0}
+.ap-item{all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;font-size:13px;font-weight:600}
+.ap-item:hover{background:#f1f5f1}
+.ap-item.danger{color:var(--red)}
 .lv-body{display:grid;grid-template-columns:272px 1fr;gap:12px;align-items:start}
 .col{max-height:430px;overflow-y:auto;padding-right:2px;gap:2px}
 /* flat, 1Password-style rows (no per-row card) */
