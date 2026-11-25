@@ -43,15 +43,23 @@
     </form>
   </section>
 
-  <!-- list -->
-  <section id="v-list" class="view" hidden>
-    <input id="i-search" class="search" type="search" placeholder="Search logins" aria-label="Search logins" />
-    <p id="here-label" class="section" hidden>For this site</p>
-    <ul id="here" class="items"></ul>
-    <p id="all-label" class="section">All logins</p>
-    <ul id="all" class="items"></ul>
-    <p id="empty" class="muted center" hidden>No logins yet. Add them in EZ Vault on the web, or log in to a site and choose Save.</p>
-    <button id="btn-web" class="link" type="button">Open EZ Vault</button>
+  <!-- list (two-pane: items on the left, the selected item's details on the right) -->
+  <section id="v-list" class="view listview" hidden>
+    <div class="lv-bar">
+      <input id="i-search" class="search" type="search" placeholder="Search EZ Vault" aria-label="Search" />
+      <button id="btn-gen2" class="icon2" title="Password generator" aria-label="Password generator">⚿</button>
+      <button id="btn-new" class="icon2 plus" title="New item (opens EZ Vault on the web)" aria-label="New item">＋</button>
+    </div>
+    <div class="lv-filter" role="tablist">
+      <button class="tab" data-f="site" type="button">This site</button>
+      <button class="tab is-on" data-f="all" type="button">All items</button>
+      <button class="tab" data-f="fav" type="button">Favorites</button>
+    </div>
+    <div class="lv-body">
+      <ul id="list-col" class="items col" aria-label="Items"></ul>
+      <div id="detail" class="detail"><p id="empty" class="muted center detail-empty">Select an item to see its details.</p></div>
+    </div>
+    <button id="btn-web" class="link" type="button" hidden>Open EZ Vault</button>
   </section>
 
   <!-- generator -->

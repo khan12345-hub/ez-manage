@@ -38,10 +38,17 @@ export function VaultMain() {
   const [newVault, setNewVault] = useState(false);
   const [share, setShare] = useState<string | null>(null);
 
-  // The browser extension opens /vault?connect=extension — jump straight to Settings, where it
-  // auto-connects (the ?connect flag stays in the URL for SettingsView to act on).
+  // Deep-links the browser extension opens:
+  //  ?connect=extension → Settings (it auto-connects there; the flag stays for SettingsView)
+  //  ?new=login         → the new-item editor
+  //  ?item=<uid>        → open that item
   useEffect(() => {
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("connect") === "extension") setNav({ kind: "settings" });
+    if (typeof window === "undefined") return;
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("connect") === "extension") { setNav({ kind: "settings" }); return; }
+    if (p.has("new")) { setNav({ kind: "all" }); setEditing("new"); }
+    else { const uid = p.get("item"); if (uid) { setNav({ kind: "all" }); setSel(uid); } }
+    if (p.has("new") || p.has("item")) { const u = new URL(window.location.href); u.searchParams.delete("new"); u.searchParams.delete("item"); window.history.replaceState({}, "", u.toString()); }
   }, []);
 
   const list = useMemo(() => {
