@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Activity, Building2, CreditCard, ExternalLink, Eye, EyeOff, FileText, Fingerprint, Globe, IdCard, KeyRound, LayoutDashboard, Layers, LifeBuoy, Lock, Pencil, Plus, Search, Settings, ShieldAlert, ShieldCheck, Star, Tag, Trash2, Users } from "lucide-react";
+import { Activity, Building2, CreditCard, ExternalLink, Eye, EyeOff, FileText, Fingerprint, Globe, IdCard, KeyRound, LayoutDashboard, Layers, LifeBuoy, Lock, Pencil, Plus, Search, Settings, ShieldAlert, ShieldCheck, Siren, Star, Tag, Trash2, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
@@ -13,13 +13,13 @@ import { AdminView } from "./Admin";
 import { ago, CopyButton, ItemIcon, strengthMeta, TotpCode } from "./bits";
 import { ItemEditor } from "./ItemEditor";
 import { NewVaultDialog, ShareVault } from "./ShareVault";
-import { ActivityView, SecurityView, SettingsView, TrashView } from "./Views";
+import { ActivityView, AlertsView, SecurityView, SettingsView, TrashView } from "./Views";
 import { OverviewView } from "./Overview";
 import { PeopleView } from "./People";
 import { EmergencyView } from "./Emergency";
 import { Backdrop, GLASS } from "./ui";
 
-export type Nav = { kind: "overview" } | { kind: "all" } | { kind: "favorites" } | { kind: "type"; type: ItemType } | { kind: "vault"; uid: string } | { kind: "tag"; tag: string } | { kind: "security" } | { kind: "activity" } | { kind: "people" } | { kind: "emergency" } | { kind: "trash" } | { kind: "settings" } | { kind: "admin" };
+export type Nav = { kind: "overview" } | { kind: "all" } | { kind: "favorites" } | { kind: "type"; type: ItemType } | { kind: "vault"; uid: string } | { kind: "tag"; tag: string } | { kind: "security" } | { kind: "activity" } | { kind: "alerts" } | { kind: "people" } | { kind: "emergency" } | { kind: "trash" } | { kind: "settings" } | { kind: "admin" };
 const TYPES: { type: ItemType; label: string; icon: typeof Globe }[] = [
   { type: "login", label: "Logins", icon: Globe },
   { type: "passkey", label: "Passkeys", icon: Fingerprint },
@@ -105,6 +105,7 @@ export function VaultMain() {
             <div className="mt-3 space-y-0.5 border-t border-black/[0.06] pt-3 dark:border-white/10">
               <NavBtn n={{ kind: "security" }} icon={ShieldAlert} label="Watchtower" active={nav.kind === "security"} />
               <NavBtn n={{ kind: "activity" }} icon={Activity} label="Activity" active={nav.kind === "activity"} />
+              <NavBtn n={{ kind: "alerts" }} icon={Siren} label="Unusual activity" active={nav.kind === "alerts"} />
               <NavBtn n={{ kind: "people" }} icon={Users} label="People" active={nav.kind === "people"} />
               <NavBtn n={{ kind: "emergency" }} icon={LifeBuoy} label="Emergency access" active={nav.kind === "emergency"} />
               <NavBtn n={{ kind: "trash" }} icon={Trash2} label="Trash" count={trash.length} active={nav.kind === "trash"} />
@@ -118,7 +119,7 @@ export function VaultMain() {
         <div className="flex min-h-0 flex-1 flex-col">
           {/* mobile nav */}
           <div className="flex gap-1 overflow-x-auto px-3 py-2 md:hidden">
-            {([["Overview", { kind: "overview" }], ["All", { kind: "all" }], ["Favorites", { kind: "favorites" }], ["Watchtower", { kind: "security" }], ["Activity", { kind: "activity" }], ["People", { kind: "people" }], ["Emergency", { kind: "emergency" }], ["Trash", { kind: "trash" }], ["Settings", { kind: "settings" }], ...(me?.isVaultAdmin ? [["Vault admin", { kind: "admin" }]] : [])] as [string, Nav][]).map(([l, n]) => (
+            {([["Overview", { kind: "overview" }], ["All", { kind: "all" }], ["Favorites", { kind: "favorites" }], ["Watchtower", { kind: "security" }], ["Activity", { kind: "activity" }], ["Unusual", { kind: "alerts" }], ["People", { kind: "people" }], ["Emergency", { kind: "emergency" }], ["Trash", { kind: "trash" }], ["Settings", { kind: "settings" }], ...(me?.isVaultAdmin ? [["Vault admin", { kind: "admin" }]] : [])] as [string, Nav][]).map(([l, n]) => (
               <button key={l} type="button" onClick={() => go(n)} className={cn("shrink-0 rounded-full px-3 py-1 text-[12.5px] font-semibold", nav.kind === n.kind ? "bg-forest text-white dark:bg-primary" : "bg-white/70 text-muted-foreground dark:bg-white/5")}>{l}</button>
             ))}
           </div>
@@ -127,6 +128,7 @@ export function VaultMain() {
           {nav.kind === "overview" ? <OverviewView onOpen={open} onNav={go} /> :
             nav.kind === "security" ? <SecurityView onOpen={(uid) => { setNav({ kind: "all" }); setSel(uid); }} /> :
             nav.kind === "activity" ? <ActivityView /> :
+            nav.kind === "alerts" ? <AlertsView /> :
             nav.kind === "people" ? <PeopleView onNav={go} /> :
             nav.kind === "emergency" ? <EmergencyView /> :
             nav.kind === "trash" ? <TrashView /> :

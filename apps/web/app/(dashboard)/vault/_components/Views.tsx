@@ -90,6 +90,67 @@ export function SecurityView({ onOpen }: { onOpen: (uid: string) => void }) {
   );
 }
 
+// ───────── Unusual activity (shared by the Activity panel and its own page) ─────────
+export type Flag = { id: string; person: string; reason: string; detail: string; at: string; high: boolean };
+export function unusualFlags(data: Ev[]): Flag[] {
+  const flags: Flag[] = [];
+  const SENS = ["revealed", "copied", "exported"];
+  const byUser = new Map<string, Ev[]>();
+  for (const e of data) { const n = name(e.user); byUser.set(n, [...(byUser.get(n) ?? []), e]); }
+  for (const [person, evs] of byUser) {
+    const sorted = [...evs].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+    const sens = sorted.filter((e) => SENS.includes(e.action));
+    for (let i = 0; i < sens.length; ) {
+      const t0 = +new Date(sens[i]!.createdAt);
+      let j = i; while (j < sens.length && +new Date(sens[j]!.createdAt) - t0 <= 10 * 60000) j++;
+      if (j - i >= 8) { flags.push({ id: `burst-${person}-${i}`, person, reason: "Many secrets opened fast", detail: `${j - i} reveals/copies/exports within 10 minutes`, at: sens[i]!.createdAt, high: true }); i = j; } else i++;
+    }
+    const exp = sorted.filter((e) => e.action === "exported");
+    if (exp.length >= 3) flags.push({ id: `exp-${person}`, person, reason: "Bulk export", detail: `${exp.length} items exported`, at: exp[exp.length - 1]!.createdAt, high: true });
+    const odd = sens.filter((e) => { const h = new Date(e.createdAt).getHours(); return h >= 1 && h < 5; });
+    if (odd.length >= 3) flags.push({ id: `odd-${person}`, person, reason: "Late-night access", detail: `${odd.length} secrets opened between 1–5 AM`, at: odd[odd.length - 1]!.createdAt, high: false });
+    const blk = sorted.filter((e) => e.action === "blocked" || !!e.meta?.tried);
+    if (blk.length >= 3) flags.push({ id: `blk-${person}`, person, reason: "Repeated blocked attempts", detail: `${blk.length} tries to show/copy/export without permission`, at: blk[blk.length - 1]!.createdAt, high: true });
+  }
+  return flags.sort((a, b) => (a.high === b.high ? 0 : a.high ? -1 : 1) || +new Date(b.at) - +new Date(a.at));
+}
+
+/** a dedicated page for the Administrator / vault owner to watch for risky behaviour */
+export function AlertsView() {
+  const { vaults } = useVault();
+  const [vault, setVault] = useState("");
+  const { data = [], isLoading } = useQuery({ queryKey: ["vault", "events", vault], queryFn: async () => (await api.get<Ev[]>("/vault/events", { params: vault ? { vault } : {} })).data });
+  const flags = useMemo(() => unusualFlags(data), [data]);
+  const ownedShared = vaults.filter((v) => v.role === "owner" && v.kind === "shared");
+  const high = flags.filter((f) => f.high).length;
+
+  return (
+    <GlassPage title="Unusual activity" hint="Risky behaviour spotted in the vault's activity — bursts of secrets opened, bulk exports, late-night access and repeated blocked attempts. Found in your browser from the (non-secret) event log." max="max-w-3xl">
+      <motion.div variants={fade} className={cn(TILE, "mb-4 flex flex-wrap items-center gap-2 p-3")}>
+        <select value={vault} onChange={(e) => setVault(e.target.value)} aria-label="Whose activity" className="h-9 rounded-lg border border-border bg-background px-2 text-[13px] font-medium">
+          <option value="">My activity</option>
+          {ownedShared.map((v) => <option key={v.uid} value={v.uid}>Everyone in {v.name}</option>)}
+        </select>
+        <span className="ml-auto text-[12.5px] text-muted-foreground">{high} high · {flags.length - high} to review</span>
+      </motion.div>
+      <motion.section variants={fade} className={cn(GLASS, "overflow-hidden")}>
+        <header className="flex items-center gap-2 border-b border-black/[0.06] px-4 py-2.5 dark:border-white/10"><ShieldAlert className="h-4 w-4 text-[#dc2626]" /><h2 className="flex-1 text-[13.5px] font-semibold">Alerts</h2><span className="font-mono text-[11.5px] text-muted-foreground">{flags.length}</span></header>
+        {isLoading ? <div className="m-4 h-40 animate-pulse rounded-xl bg-muted" /> : !flags.length ? <p className="flex items-center justify-center gap-2 py-12 text-center text-[13px] text-muted-foreground"><CheckCircle2 className="h-4 w-4 text-[#0b6b4f]" /> Nothing unusual right now.</p> : (
+          <ul className="divide-y divide-border/50">
+            {flags.map((f) => (
+              <li key={f.id} className="flex items-start gap-3 px-4 py-2.5 text-[13px]">
+                <span className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", f.high ? "bg-[#dc2626]" : "bg-[#b45309]")} />
+                <span className="min-w-0 flex-1"><strong className="font-semibold">{f.person}</strong> · <span className={cn("font-medium", f.high ? "text-[#dc2626]" : "text-[#b45309]")}>{f.reason}</span><span className="block text-[12px] text-muted-foreground">{f.detail}</span></span>
+                <span className="shrink-0 text-[11.5px] text-muted-foreground">{ago(f.at)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </motion.section>
+    </GlassPage>
+  );
+}
+
 // ───────── Activity ─────────
 
 type Ev = { id: number; action: string; createdAt: string; meta: any; user: { firstName: string; lastName: string } | null; member: { firstName: string; lastName: string } | null; itemUid: string | null; vaultUid: string | null };
@@ -154,34 +215,7 @@ export function ActivityView() {
   const maxActive = Math.max(1, ...mostActive.map((x) => x.c));
   const ownedShared = vaults.filter((v) => v.role === "owner" && v.kind === "shared");
 
-  // ── unusual activity: anomalies flagged from the (non-secret) event log, in the browser ──
-  const unusual = useMemo(() => {
-    type Flag = { id: string; person: string; reason: string; detail: string; at: string; high: boolean };
-    const flags: Flag[] = [];
-    const SENS = ["revealed", "copied", "exported"];
-    const byUser = new Map<string, Ev[]>();
-    for (const e of data) { const n = name(e.user); byUser.set(n, [...(byUser.get(n) ?? []), e]); }
-    for (const [person, evs] of byUser) {
-      const sorted = [...evs].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
-      const sens = sorted.filter((e) => SENS.includes(e.action));
-      // 1. a burst of secrets opened in 10 minutes
-      for (let i = 0; i < sens.length; ) {
-        const t0 = +new Date(sens[i]!.createdAt);
-        let j = i; while (j < sens.length && +new Date(sens[j]!.createdAt) - t0 <= 10 * 60000) j++;
-        if (j - i >= 8) { flags.push({ id: `burst-${person}-${i}`, person, reason: "Many secrets opened fast", detail: `${j - i} reveals/copies/exports within 10 minutes`, at: sens[i]!.createdAt, high: true }); i = j; } else i++;
-      }
-      // 2. bulk export
-      const exp = sorted.filter((e) => e.action === "exported");
-      if (exp.length >= 3) flags.push({ id: `exp-${person}`, person, reason: "Bulk export", detail: `${exp.length} items exported`, at: exp[exp.length - 1]!.createdAt, high: true });
-      // 3. late-night access
-      const odd = sens.filter((e) => { const h = new Date(e.createdAt).getHours(); return h >= 1 && h < 5; });
-      if (odd.length >= 3) flags.push({ id: `odd-${person}`, person, reason: "Late-night access", detail: `${odd.length} secrets opened between 1–5 AM`, at: odd[odd.length - 1]!.createdAt, high: false });
-      // 4. repeated blocked attempts (use-only tried to show / copy / export)
-      const blk = sorted.filter((e) => e.action === "blocked" || !!e.meta?.tried);
-      if (blk.length >= 3) flags.push({ id: `blk-${person}`, person, reason: "Repeated blocked attempts", detail: `${blk.length} tries to show/copy/export without permission`, at: blk[blk.length - 1]!.createdAt, high: true });
-    }
-    return flags.sort((a, b) => (a.high === b.high ? 0 : a.high ? -1 : 1) || +new Date(b.at) - +new Date(a.at));
-  }, [data]);
+  const unusual = useMemo(() => unusualFlags(data), [data]);
 
   return (
     <GlassPage title="Activity" hint="Who did what, and when. Secrets themselves are never logged — only which item, and the action.">
