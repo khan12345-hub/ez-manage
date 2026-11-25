@@ -98,6 +98,20 @@ body[data-view="list"]{width:720px}
 .ap-item{all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;font-size:13px;font-weight:600}
 .ap-item:hover{background:#f1f5f1}
 .ap-item.danger{color:var(--red)}
+
+/* inline SVG icons — crisp, sized per context */
+svg{display:block}
+.i{display:inline-flex;align-items:center;justify-content:center;line-height:0}
+.icon,.icon2{line-height:0}
+.icon svg,.icon2 svg{width:19px;height:19px}
+.icon2.plus svg{width:20px;height:20px;stroke-width:2.4}
+.acct-caret svg{width:15px;height:15px}
+.scope-caret svg{width:14px;height:14px}
+.scope-ico svg{width:17px;height:17px;opacity:.75}
+.ap-item .i{width:20px}.ap-item .i svg{width:17px;height:17px}
+.wt-ico svg{width:18px;height:18px}
+.wt-arrow svg{width:18px;height:18px;transform:rotate(-90deg)}
+#dt-menu-btn svg{width:18px;height:18px}
 .lv-body{display:grid;grid-template-columns:272px 1fr;gap:12px;align-items:start}
 .col{max-height:430px;overflow-y:auto;padding-right:2px;gap:2px}
 /* flat, 1Password-style rows (no per-row card) */

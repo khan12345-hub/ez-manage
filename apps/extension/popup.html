@@ -11,26 +11,26 @@
     <button id="acct-btn" class="acctbtn" type="button" aria-haspopup="true" aria-label="Account">
       <span class="mark" aria-hidden="true"></span>
       <span class="brand" id="acct-brand">EZ Vault</span>
-      <span class="acct-caret" aria-hidden="true">⌄</span>
+      <span class="acct-caret i" data-icon="chevron" aria-hidden="true"></span>
     </button>
     <span class="grow"></span>
-    <button id="btn-gen" class="icon" title="Password generator" aria-label="Password generator" hidden>⚄</button>
-    <button id="btn-settings" class="icon" title="Settings" aria-label="Settings">⚙</button>
-    <button id="btn-lock" class="icon" title="Lock" aria-label="Lock" hidden>🔒</button>
+    <button id="btn-gen" class="icon i" data-icon="key" title="Password generator" aria-label="Password generator" hidden></button>
+    <button id="btn-settings" class="icon i" data-icon="settings" title="Settings" aria-label="Settings"></button>
+    <button id="btn-lock" class="icon i" data-icon="lock" title="Lock" aria-label="Lock" hidden></button>
   </header>
 
   <!-- account panel: slides in from the left (accounts + Watchtower + actions) -->
   <aside id="acct-panel" class="acctpanel" aria-label="Account">
-    <div class="ap-head"><b>Account</b><button id="ap-close" class="icon2 ghost" type="button" aria-label="Close">✕</button></div>
+    <div class="ap-head"><b>Account</b><button id="ap-close" class="icon2 ghost i" data-icon="x" type="button" aria-label="Close"></button></div>
     <div class="ap-card"><div class="ap-ava" id="ap-ava">EZ</div><div class="ap-mid"><div class="ap-name" id="ap-name">EZ Vault</div><div class="ap-email" id="ap-email"></div></div></div>
     <div class="ap-sec">Watchtower</div>
     <button class="ap-row" id="ap-weak" type="button"><span class="ap-dot red"></span><span class="ap-rowmid"><b id="ap-weak-n">0 weak passwords</b><span>Too easy to guess</span></span><span class="ap-arrow">›</span></button>
     <button class="ap-row" id="ap-reuse" type="button"><span class="ap-dot amber"></span><span class="ap-rowmid"><b id="ap-reuse-n">0 reused</b><span>Used on more than one item</span></span><span class="ap-arrow">›</span></button>
     <div class="ap-div"></div>
-    <button class="ap-item" id="ap-lock" type="button">🔒 Lock EZ Vault</button>
-    <button class="ap-item" id="ap-settings" type="button">⚙ Settings</button>
-    <button class="ap-item" id="ap-web" type="button">↗ Open EZ Vault</button>
-    <button class="ap-item danger" id="ap-signout" type="button">Sign out of this browser</button>
+    <button class="ap-item" id="ap-lock" type="button"><span class="i" data-icon="lock"></span> Lock EZ Vault</button>
+    <button class="ap-item" id="ap-settings" type="button"><span class="i" data-icon="settings"></span> Settings</button>
+    <button class="ap-item" id="ap-web" type="button"><span class="i" data-icon="external"></span> Open EZ Vault</button>
+    <button class="ap-item danger" id="ap-signout" type="button"><span class="i" data-icon="x"></span> Sign out of this browser</button>
   </aside>
 
   <!-- connect -->
@@ -64,12 +64,12 @@
   <section id="v-list" class="view listview" hidden>
     <div class="lv-bar">
       <input id="i-search" class="search" type="search" placeholder="Search EZ Vault" aria-label="Search" />
-      <button id="btn-gen2" class="icon2" title="Password generator" aria-label="Password generator">⚿</button>
-      <button id="btn-new" class="icon2 plus" title="New item (opens EZ Vault on the web)" aria-label="New item">＋</button>
+      <button id="btn-gen2" class="icon2 i" data-icon="key" title="Password generator" aria-label="Password generator"></button>
+      <button id="btn-new" class="icon2 plus i" data-icon="plus" title="New item (opens EZ Vault on the web)" aria-label="New item"></button>
     </div>
     <div class="scope">
       <button id="scope-btn" class="scope-btn" type="button" aria-haspopup="true" aria-expanded="false">
-        <span class="scope-ico" aria-hidden="true">▤</span><span id="scope-label">All Items</span><span class="scope-caret" aria-hidden="true">⌄</span>
+        <span class="scope-ico i" data-icon="list" aria-hidden="true"></span><span id="scope-label">All Items</span><span class="scope-caret i" data-icon="chevron" aria-hidden="true"></span>
       </button>
       <ul id="scope-menu" class="menu scope-menu" hidden>
         <li data-f="all" class="is-on">All Items</li>
@@ -118,8 +118,8 @@
 
   <!-- password generator: slides in from the right -->
   <aside id="gen-panel" class="genpanel" aria-label="Password Generator">
-    <div class="gp-head"><b>Password Generator</b><button id="gp-close" class="icon2 ghost" type="button" aria-label="Close">✕</button></div>
-    <div class="gp-actions"><button id="gp-copy" class="mini" type="button">Copy</button><button id="gp-regen" class="icon2" type="button" title="Regenerate" aria-label="Regenerate">↻</button><span class="grow"></span><button id="gp-autofill" class="pri small" type="button">Autofill</button></div>
+    <div class="gp-head"><b>Password Generator</b><button id="gp-close" class="icon2 ghost i" data-icon="x" type="button" aria-label="Close"></button></div>
+    <div class="gp-actions"><button id="gp-copy" class="mini" type="button">Copy</button><button id="gp-regen" class="icon2 i" data-icon="refresh" type="button" title="Regenerate" aria-label="Regenerate"></button><span class="grow"></span><button id="gp-autofill" class="pri small" type="button">Autofill</button></div>
     <div class="gp-out"><code id="gp-value"></code></div>
     <label class="gp-row"><span>Type</span>
       <select id="gp-type"><option value="random">Random Password</option><option value="memorable">Memorable Password</option><option value="pin">PIN Code</option></select>

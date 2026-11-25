@@ -4,6 +4,23 @@ import { generatePassword, generatePassphrase, sameSite, hostOf } from "./vault-
 const $ = (id) => document.getElementById(id);
 const send = (msg) => chrome.runtime.sendMessage(msg).catch((e) => ({ ok: false, error: e.message }));
 const views = ["connect", "unlock", "list", "gen", "settings"];
+
+// Crisp inline SVG icons (Lucide-style) — no external library (extension CSP blocks that).
+const svg = (body, fill) => `<svg viewBox="0 0 24 24" fill="${fill ? "currentColor" : "none"}" stroke="${fill ? "none" : "currentColor"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+const ICON = {
+  settings: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>'),
+  lock: svg('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
+  key: svg('<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>'),
+  plus: svg('<path d="M12 5v14M5 12h14"/>'),
+  list: svg('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
+  chevron: svg('<path d="m6 9 6 6 6-6"/>'),
+  more: svg('<circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>', true),
+  x: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
+  refresh: svg('<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>'),
+  external: svg('<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'),
+  shield: svg('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>'),
+};
+function paintIcons(root = document) { for (const el of root.querySelectorAll("[data-icon]")) el.innerHTML = ICON[el.dataset.icon] || ""; }
 let state = null;
 let items = [];
 let pageUrl = "";
@@ -122,9 +139,9 @@ function renderDetail(it, count) {
     <div class="dt-head">
       <div class="dt-ico" id="dt-ico">${host && state?.showIcons !== false ? `<img id="dt-ico-img" src="https://${esc(host)}/favicon.ico" referrerpolicy="no-referrer" alt="">` : esc(letter)}</div>
       <div style="min-width:0;flex:1"><div class="dt-title">${esc(it.title || "Login")}</div><div class="dt-sub">${esc(it.username || host || "")}</div></div>
-      <div class="dt-menu-wrap"><button class="icon2" id="dt-menu-btn" title="More" aria-label="More">⋮</button></div>
+      <div class="dt-menu-wrap"><button class="icon2 i" id="dt-menu-btn" title="More" aria-label="More">${ICON.more}</button></div>
     </div>
-    ${issue ? `<button class="wt-banner" id="dt-wt"><span class="wt-ico">◍</span><span class="wt-mid"><b>${esc(issue.label)}</b><span>${esc(issue.desc)}</span></span><span class="wt-arrow">›</span></button>` : ""}
+    ${issue ? `<button class="wt-banner" id="dt-wt"><span class="wt-ico i">${ICON.shield}</span><span class="wt-mid"><b>${esc(issue.label)}</b><span>${esc(issue.desc)}</span></span><span class="wt-arrow i">${ICON.chevron}</span></button>` : ""}
     ${forHere ? `<div class="dt-primary"><button class="pri" id="dt-fill">Fill on this page</button></div>` : hasSite ? `<div class="dt-primary"><button class="pri" id="dt-fill">Open &amp; fill</button></div>` : ""}
     <div class="dt-fields">
       ${it.username ? `<div class="field"><div class="k">Username</div><div class="v"><span class="val">${esc(it.username)}</span><button class="mini" id="dt-copy-user">Copy</button></div></div>` : ""}
@@ -290,4 +307,5 @@ $("f-settings").addEventListener("submit", async (e) => {
 $("s-back").addEventListener("click", boot);
 $("btn-signout").addEventListener("click", async () => { await send({ type: "signout" }); state = null; boot(); });
 
+paintIcons();   // fill every [data-icon] with its SVG
 boot();
