@@ -57,6 +57,7 @@ export class TrackerController {
   @Post(':ws/people') addPeople(@Param('ws') ws: string, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.addMembers(ws, u.id, b); }
   @Delete(':ws/people/:userId') removePerson(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @CurrentUser() u: SessionUser) { return this.t.removeMember(ws, u.id, target); }
   @Patch(':ws/people/:userId/role') role(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.setRole(ws, u.id, target, String(b?.role ?? '')); }
+  @Get(':ws/teams') teams(@Param('ws') ws: string, @CurrentUser() u: SessionUser) { return this.t.teams(ws, u.id); }
   @Get(':ws/people/:userId/team') teamOf(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @CurrentUser() u: SessionUser) { return this.t.teamOf(ws, u.id, target); }
   @Put(':ws/people/:userId/team') setTeam(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.setTeam(ws, u.id, target, b); }
   @Delete(':ws/devices/:id') revokeAs(@Param('ws') ws: string, @Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.t.revokeDeviceAs(ws, u.id, id); }

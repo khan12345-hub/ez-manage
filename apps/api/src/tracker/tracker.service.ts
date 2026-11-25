@@ -830,6 +830,20 @@ export class TrackerService {
     return { managed: valid };
   }
 
+  /** admin: the whole team structure — each manager and the people assigned to them */
+  async teams(ws: string, userId: number) {
+    const c = await this.ctx(ws, userId);
+    this.needAdmin(c);
+    const rows = await this.prisma.trackerManages.findMany({ where: { orgId: c.orgId }, select: { managerId: true, memberId: true } });
+    const users = await this.people([...new Set(rows.flatMap((r) => [r.managerId, r.memberId]))]);
+    const byManager = new Map<number, number[]>();
+    for (const r of rows) { const a = byManager.get(r.managerId) ?? []; a.push(r.memberId); byManager.set(r.managerId, a); }
+    return [...byManager.entries()]
+      .map(([mid, members]) => ({ manager: users.get(mid) ?? null, members: members.map((id) => users.get(id)).filter(Boolean) }))
+      .filter((x) => x.manager)
+      .sort((a, b) => (a.manager as any).firstName?.localeCompare((b.manager as any).firstName ?? "") ?? 0);
+  }
+
   /** tracking on / off for one person (paused without removing them) */
   async setTracking(ws: string, userId: number, target: number, on: boolean) {
     const c = await this.ctx(ws, userId);
