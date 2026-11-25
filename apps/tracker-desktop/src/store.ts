@@ -20,9 +20,11 @@ export type QueuedShot = { kind: 'shot'; acct?: string; clientId: string; slotCl
 const dir = () => app.getPath('userData');
 const qdir = () => { const d = join(dir(), 'queue'); mkdirSync(d, { recursive: true }); return d; };
 const cfgFile = () => join(dir(), 'config.json');
-// server address baked in at build time (scripts/copy-static.mjs writes dist/build-config.json from EZT_DEFAULT_API)
-const baked = (() => { try { return JSON.parse(readFileSync(join(__dirname, 'build-config.json'), 'utf8')).apiBase as string | undefined; } catch { return undefined; } })();
-export const DEFAULT_API = process.env.EZ_TRACKER_API ?? baked ?? 'http://localhost:3010/api';
+// baked in at build time (scripts/copy-static.mjs writes dist/build-config.json from EZT_DEFAULT_API / EZT_SILENT)
+const baked = (() => { try { return JSON.parse(readFileSync(join(__dirname, 'build-config.json'), 'utf8')) as { apiBase?: string; silent?: boolean }; } catch { return {}; } })();
+export const DEFAULT_API = process.env.EZ_TRACKER_API ?? baked.apiBase ?? 'http://localhost:3010/api';
+/** a build made with EZT_SILENT=1 runs unattended by default (no window/tray, auto-track on login) */
+export const DEFAULT_SILENT = baked.silent === true;
 
 export function loadConfig(): Config {
   let c: Config;

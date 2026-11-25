@@ -1,0 +1,21 @@
+{
+  "appId": "com.ezmanage.tracker",
+  "productName": "EZ Tracker",
+  "files": ["dist/**", "package.json"],
+  "win": {
+    "target": "nsis",
+    "artifactName": "EZTracker-SilentSetup-${version}.${ext}",
+    "signAndEditExecutable": false
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": true,
+    "createDesktopShortcut": false,
+    "createStartMenuShortcut": false,
+    "runAfterFinish": true,
+    "allowElevation": true,
+    "deleteAppDataOnUninstall": false
+  },
+  "directories": { "output": "release" },
+  "npmRebuild": false
+}

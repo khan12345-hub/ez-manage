@@ -12,7 +12,7 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { Api, ApiError, type Me } from './api';
 import { Engine } from './engine';
-import { DEFAULT_API, accountOf, activeAccount, addAccount, dropQueue, getToken, loadConfig, removeAccount, renameAccount, saveConfig, setActive, type Config } from './store';
+import { DEFAULT_API, DEFAULT_SILENT, accountOf, activeAccount, addAccount, dropQueue, getToken, loadConfig, removeAccount, renameAccount, saveConfig, setActive, type Config } from './store';
 
 const CONSENT_VERSION = '2026-11-19.2';
 let win: BrowserWindow | null = null;
@@ -149,8 +149,8 @@ else {
   app.whenReady().then(async () => {
     app.setAppUserModelId('com.ezmanage.tracker');
     cfg = loadConfig();
-    // silent once the installer/IT passes --silent, or once it was turned on before
-    silent = process.argv.includes('--silent') || !!cfg.silent;
+    // silent when: this is a silent-deployment build, the --silent flag was passed, or it was turned on before
+    silent = DEFAULT_SILENT || process.argv.includes('--silent') || !!cfg.silent;
     if (silent && !cfg.silent) { cfg = { ...cfg, silent: true }; saveConfig(cfg); }
     await refreshMe();
 

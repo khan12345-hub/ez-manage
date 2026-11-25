@@ -1,6 +1,6 @@
 {
   "name": "tracker-desktop",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "EZ Tracker desktop app: time, screenshots and activity for EZ Manage (Windows first)",
   "main": "dist/main.js",
@@ -8,7 +8,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && node scripts/copy-static.mjs",
     "start": "pnpm run build && node scripts/run.mjs",
-    "dist:win": "pnpm run build && electron-builder --win nsis"
+    "dist:win": "pnpm run build && electron-builder --win nsis",
+    "dist:win:silent": "pnpm run build && electron-builder --win nsis --config electron-builder.silent.json"
   },
   "build": {
     "appId": "com.ezmanage.tracker",
