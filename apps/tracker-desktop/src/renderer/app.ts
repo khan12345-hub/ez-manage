@@ -9,7 +9,7 @@ type Task = { id: number; name: string; where: string; color: string };
 declare global {
   interface Window {
     ezt: {
-      pair(apiBase: string, code: string): Promise<Res<boolean>>; consent(): Promise<Res<boolean>>; tasks(q: string): Promise<Res<Task[]>>;
+      pair(apiBase: string, code: string): Promise<Res<boolean>>; connect(apiBase: string): Promise<Res<boolean>>; cancelConnect(): Promise<Res<boolean>>; consent(): Promise<Res<boolean>>; tasks(q: string): Promise<Res<Task[]>>;
       start(t: { id?: number | null; name?: string | null; note?: string | null }): Promise<Res<boolean>>; stop(): Promise<Res<boolean>>; signout(): Promise<Res<boolean>>;
       switchTo(id: string): Promise<Res<boolean>>; addCompany(on: boolean): Promise<Res<boolean>>;
       autostart(on: boolean): Promise<Res<boolean>>; openWeb(): Promise<Res<boolean>>; refresh(): Promise<Res<boolean>>; onState(f: (s: State) => void): void;
@@ -22,6 +22,8 @@ let state: State | null = null;
 let screen = '';
 let noteDraft = '';
 let busy = false;
+/** auto-connect: waiting for the person to confirm in the browser */
+let connecting = false;
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const hms = (s: number) => `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -54,21 +56,50 @@ const STOP = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><r
 
 function pairScreen(s: State) {
   const more = s.adding && s.accounts.length > 0;
+
+  // Waiting for the person to confirm this computer in their browser
+  if (connecting) {
+    root.innerHTML = `${brand(more ? 'Add another company' : 'Time, screenshots and activity')}
+    <section class="card" style="text-align:center">
+      <div class="spinner" aria-hidden="true"></div>
+      <h1>Waiting for you in the browser…</h1>
+      <p class="muted">We opened <b>EZ Tracker</b> in your browser. Sign in if needed, then press <b>“Connect to my account”</b> there. This computer connects on its own.</p>
+      <p class="err" id="err">${esc(s.error ?? '')}</p>
+      <button class="btn ghost" id="cancelConnect">Cancel</button>
+      <p class="muted" style="margin-top:10px">Didn’t open? <button class="link" id="useCode">Use a pairing code instead</button></p>
+    </section>`;
+    $('#cancelConnect').addEventListener('click', async () => { connecting = false; await window.ezt.cancelConnect(); render(); });
+    $('#useCode').addEventListener('click', async () => { connecting = false; await window.ezt.cancelConnect(); render(); });
+    return;
+  }
+
   root.innerHTML = `${brand(more ? 'Add another company' : 'Time, screenshots and activity')}
   <section class="card">
     <h1>${more ? 'Add a company' : 'Connect this computer'}</h1>
-    <p class="muted">On the web, open <b>EZ Tracker</b>, pick the company (Company Work or Accounts &amp; Invoices), go to <b>My tracking</b> and press <b>Get a pairing code</b>. Type the 8 characters here.</p>
+    <p class="muted">The easiest way: connect with the account you’re already signed in to on the web.</p>
+    <button class="btn" id="auto">Connect with my account</button>
+    <div class="or"><span>or enter a pairing code</span></div>
+    <p class="muted">On the web, open <b>EZ Tracker</b>, pick the company, go to <b>My tracking</b> and press <b>Get a pairing code</b>. Type the 8 characters here.</p>
     <label for="code">Pairing code</label>
     <input id="code" type="text" class="code" maxlength="9" placeholder="ABCD-2345" autocomplete="off" spellcheck="false" />
     <details style="margin-top:10px"><summary class="muted" style="cursor:pointer">Server address</summary>
       <label for="api">API address</label><input id="api" type="url" value="${esc(s.apiBase)}" />
     </details>
     <p class="err" id="err">${esc(s.error ?? '')}</p>
-    <button class="btn" id="go">Connect</button>
+    <button class="btn ghost" id="go">Connect with code</button>
   </section>
   <p class="muted" style="text-align:center">Nothing is recorded until you agree to it on the next screen.</p>
   ${more ? '<div class="foot" style="justify-content:center"><button class="link" id="cancel">Back to my companies</button></div>' : ''}`;
   root.querySelector('#cancel')?.addEventListener('click', () => void window.ezt.addCompany(false));
+
+  $('#auto').addEventListener('click', async () => {
+    connecting = true; render();
+    const r = await window.ezt.connect($<HTMLInputElement>('#api')?.value ?? s.apiBase);
+    connecting = false;
+    if (!r.ok) { if (state) state.error = r.error; render(); }
+    // on success the main process pushes the next screen (consent/main)
+  });
+
   const go = async () => {
     const code = $<HTMLInputElement>('#code').value.trim();
     if (code.replace(/[^a-z0-9]/gi, '').length !== 8) { $('#err').textContent = 'The code has 8 letters and numbers.'; return; }
@@ -78,7 +109,6 @@ function pairScreen(s: State) {
   };
   $('#go').addEventListener('click', go);
   $('#code').addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') void go(); });
-  $<HTMLInputElement>('#code').focus();
 }
 
 function consentScreen(s: State) {
