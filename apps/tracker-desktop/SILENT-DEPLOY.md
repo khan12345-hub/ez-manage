@@ -32,6 +32,24 @@ Add/Remove Programs and Task Manager**. In the web app, turn **tracking on** for
 add them). The first launch shows the Pair screen **once** (enter the pairing code), then it is
 headless forever.
 
+### A2. Zero-touch — a per-person deploy code (no pair screen at all)
+
+To skip even the one-time pair screen, bake a **deploy code** into the person's installer:
+
+1. In the web app: **My tracking → Silent (unattended) setup → Zero-touch deploy code** → pick the
+   person → **Generate**. You get a long-lived `ezd_…` code (revocable).
+2. Build *that person's* silent installer with the code (the web shows the exact line):
+   ```
+   EZT_DEPLOY_CODE=ezd_… EZT_SILENT=1 EZT_DEFAULT_API=https://apimanage.ezify.pk/api pnpm --filter ./apps/tracker-desktop dist:win:silent
+   ```
+3. Run it on that person's computer. On first launch it exchanges the code for **that person's**
+   device token and goes headless immediately — **no pair screen, nothing to type.** (If the
+   computer is offline at install, it keeps retrying every minute until it connects.)
+
+The code identifies the person (the server maps code → user), so each person gets their own installer.
+Revoke a code any time from the same screen; existing devices keep working, but the code can't pair
+new ones. A baked code is a secret — treat the installer as sensitive and revoke if it leaks.
+
 ### B. Normal installer + `--silent` flag
 
 1. **Install** EZ Tracker (`EZTrackerSetup-<version>.exe`). Turn **tracking on** for the person in the web app.

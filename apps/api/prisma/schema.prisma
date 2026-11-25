@@ -2996,6 +2996,7 @@ model TrackerOrg {
   consents  TrackerConsent[]
   sessions  TrackerSession[]
   codes     TrackerPairCode[]
+  deployCodes TrackerDeployCode[]
   members   TrackerMember[]
   reminders TrackerReminder[]
 
@@ -3034,6 +3035,26 @@ model TrackerPairCode {
 
   @@index([userId])
   @@map("tracker_pair_codes")
+}
+
+/// A long-lived, revocable deployment code ("ezd_…") for zero-touch silent install: baked into a
+/// person's installer and exchanged once on first run for that person's device token. Only the
+/// SHA-256 is stored; reusable (re-deploys) until an admin revokes it.
+model TrackerDeployCode {
+  id          Int       @id @default(autoincrement())
+  orgId       Int
+  userId      Int
+  codeHash    String    @unique
+  createdById Int
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  org TrackerOrg @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([orgId])
+  @@map("tracker_deploy_codes")
 }
 
 /// a paired desktop app ("Authorization: Bearer ezt_…", only the SHA-256 is stored)

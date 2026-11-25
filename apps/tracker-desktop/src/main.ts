@@ -12,7 +12,7 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { Api, ApiError, type Me } from './api';
 import { Engine } from './engine';
-import { DEFAULT_API, DEFAULT_SILENT, accountOf, activeAccount, addAccount, dropQueue, getToken, loadConfig, removeAccount, renameAccount, saveConfig, setActive, type Config } from './store';
+import { DEFAULT_API, DEFAULT_SILENT, DEPLOY_CODE, accountOf, activeAccount, addAccount, dropQueue, getToken, loadConfig, removeAccount, renameAccount, saveConfig, setActive, type Config } from './store';
 
 const CONSENT_VERSION = '2026-11-19.2';
 let win: BrowserWindow | null = null;
@@ -80,6 +80,7 @@ function push() {
 }
 
 function updateTray() {
+  if (silent) { if (tray) { tray.destroy(); tray = null; } return; } // unattended: no tray at all
   const st = engine.state();
   if (!tray) { tray = new Tray(icon(32, st.running)); tray.on('click', () => { win?.show(); win?.focus(); }); }
   tray.setImage(icon(32, st.running));
@@ -115,6 +116,16 @@ async function quit() {
   if (engine.state().running) { await engine.stop(); }
   quitting = true;
   app.quit();
+}
+
+/** zero-touch deploy: exchange the baked deploy code for this person's device token (no pair screen) */
+async function tryDeploy() {
+  if (getToken(cfg) || !DEPLOY_CODE) return;
+  try {
+    const r = await new Api(DEFAULT_API, null).deploy(DEPLOY_CODE, hostname().slice(0, 80), `${platform()} ${release()}`, app.getVersion());
+    cfg = addAccount(cfg, { id: `d${r.deviceId}`, name: r.workspace?.name ?? 'Company', source: r.workspace?.source, apiBase: DEFAULT_API, token: r.token });
+    await refreshMe();
+  } catch { /* offline / revoked: stay unpaired; the 60s interval retries, or the pair screen takes over */ }
 }
 
 /** unattended mode: accept the organisation's monitoring policy, then keep tracking running */
@@ -158,13 +169,17 @@ else {
       // unattended: auto-start on login; auto-start tracking; no window or tray once set up
       app.setLoginItemSettings({ openAtLogin: true, args: ['--silent'] });
       if (!getToken(cfg)) {
-        // not paired yet: show the pair screen THIS ONCE so it can be set up in a single launch;
-        // the moment it's paired the window is removed and it never shows again.
-        createWindow();
+        // zero-touch: a baked deploy code connects this computer to its person with no screen at all
+        if (DEPLOY_CODE) await tryDeploy();
+        if (getToken(cfg)) await ensureSilent();
+        // no deploy code (or it failed): show the pair screen THIS ONCE so it can be set up in a single
+        // launch; the moment it's paired the window is removed and it never shows again.
+        else createWindow();
       } else {
         await ensureSilent();
       }
       setInterval(() => void refreshMe().then(async () => {
+        if (!getToken(cfg)) await tryDeploy();                 // offline at install? keep trying to connect
         if (getToken(cfg)) { if (win) { win.destroy(); win = null; } await ensureSilent(); }
       }), 60_000);
     } else {

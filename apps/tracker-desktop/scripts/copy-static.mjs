@@ -7,11 +7,14 @@ for (const f of readdirSync(src)) if (/\.(html|css)$/.test(f)) copyFileSync(join
 // baked at build time into dist/build-config.json:
 //  EZT_DEFAULT_API=https://…/api  → the server the installed app talks to
 //  EZT_SILENT=1                   → this build runs unattended (no window/tray, auto-track on login)
+//  EZT_DEPLOY_CODE=ezd_…          → zero-touch: connect to that person on first run, no pair screen
 const api = process.env.EZT_DEFAULT_API?.trim();
 const silent = /^(1|true|yes|on)$/i.test(process.env.EZT_SILENT ?? '');
+const deployCode = process.env.EZT_DEPLOY_CODE?.trim();
 const baked = {};
 if (api) baked.apiBase = api.replace(/\/$/, '');
 if (silent) baked.silent = true;
+if (deployCode) baked.deployCode = deployCode;
 if (Object.keys(baked).length) { writeFileSync('dist/build-config.json', JSON.stringify(baked)); console.log('baked in:', baked); }
 else rmSync('dist/build-config.json', { force: true });
 console.log('static copied');

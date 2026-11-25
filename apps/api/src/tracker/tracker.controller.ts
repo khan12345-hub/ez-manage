@@ -28,6 +28,10 @@ export class TrackerController {
   @Post(':ws/pair-codes') pairCode(@Param('ws') ws: string, @CurrentUser() u: SessionUser) { return this.t.pairCode(ws, u.id); }
   @Throttle({ auth: { ttl: 60_000, limit: 20 } })
   @Post('connect') connect(@Body() b: any, @CurrentUser() u: SessionUser) { return this.t.connectStart(u.id, String(b?.nonce ?? '')); }
+  @Get(':ws/deploy-codes') deployCodes(@Param('ws') ws: string, @CurrentUser() u: SessionUser) { return this.t.deployCodes(ws, u.id); }
+  @Throttle({ auth: { ttl: 60_000, limit: 20 } })
+  @Post(':ws/deploy-codes') createDeployCode(@Param('ws') ws: string, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.createDeployCode(ws, u.id, b); }
+  @Delete(':ws/deploy-codes/:id') revokeDeployCode(@Param('ws') ws: string, @Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.t.revokeDeployCode(ws, u.id, id); }
   @Get(':ws/devices') devices(@Param('ws') ws: string, @CurrentUser() u: SessionUser) { return this.t.devices(ws, u.id); }
   @Delete('devices/:id') revoke(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.t.revokeDevice(id, u.id); }
 
@@ -69,6 +73,10 @@ export class TrackerDesktopController {
   /** Auto-connect: the desktop polls with its secret nonce until the signed-in web user confirms. */
   @Throttle({ default: { ttl: 60_000, limit: 120 } })
   @Post('connect/exchange') connectExchange(@Body() b: any) { return this.t.connectExchange(b); }
+
+  /** Zero-touch: a silent-deployed desktop exchanges its baked deploy code for the person's token. */
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @Post('deploy') deploy(@Body() b: any) { return this.t.deployExchange(b); }
 
   @UseGuards(TrackerDeviceGuard) @Get('me') me(@Device() d: TrackerDeviceCaller) { return this.t.desktopMe(d); }
   @UseGuards(TrackerDeviceGuard) @Post('consent') consent(@Device() d: TrackerDeviceCaller, @Body() b: any, @Ip() ip: string, @Headers('user-agent') ua: string) {

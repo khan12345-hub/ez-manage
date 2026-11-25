@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Activity, CalendarCheck, Check, Clock4, Copy, Download, Laptop, Loader2, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
-import { CONSENT_VERSION, hm, trackerApi } from "@/services/tracker.api";
+import { CONSENT_VERSION, hm, trackerApi, userName } from "@/services/tracker.api";
 import { keyOf, todayKey, useTrackerWs, weekStart } from "../../_lib/tracker";
 import { glass } from "../../_components/bits";
 import { BarLegend, HoursBars, Ring, StatTile, fade, stagger } from "../../_components/charts";
@@ -21,6 +21,61 @@ function Countdown({ until }: { until: string }) {
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   const s = Math.max(0, Math.round((new Date(until).getTime() - now) / 1000));
   return <>{s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "expired"}</>;
+}
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://staging-apimanage.ezify.pk/api";
+
+/** Managers: make a zero-touch deploy code for one person — bake it into their silent installer so it
+ *  connects to them on first run, with no pair screen. The code is long-lived and revocable. */
+function DeployCodes({ ws }: { ws: string }) {
+  const qc = useQueryClient();
+  const { data: people = [] } = useQuery({ queryKey: ["tracker", ws, "people"], queryFn: () => trackerApi.people(ws), enabled: !!ws });
+  const { data: codes = [] } = useQuery({ queryKey: ["tracker", ws, "deploy-codes"], queryFn: () => trackerApi.deployCodes(ws), enabled: !!ws });
+  const [picked, setPicked] = useState<string>("");
+  const [made, setMade] = useState<{ name: string; code: string } | null>(null);
+  const [copied, setCopied] = useState("");
+  const gen = useMutation({
+    mutationFn: (userId: number) => trackerApi.createDeployCode(ws, userId),
+    onSuccess: (r, userId) => { setMade({ name: userName(people.find((p) => p.user.id === userId)?.user ?? null), code: r.code }); qc.invalidateQueries({ queryKey: ["tracker", ws, "deploy-codes"] }); },
+    onError: (e) => err(e, "Couldn't make a deploy code."),
+  });
+  const revoke = useMutation({ mutationFn: (id: number) => trackerApi.revokeDeployCode(ws, id), onSuccess: () => qc.invalidateQueries({ queryKey: ["tracker", ws, "deploy-codes"] }) });
+  const copy = (text: string, k: string) => { navigator.clipboard?.writeText(text).then(() => { setCopied(k); setTimeout(() => setCopied(""), 1500); }).catch(() => null); };
+  const buildCmd = (code: string) => `EZT_DEPLOY_CODE=${code} EZT_SILENT=1 EZT_DEFAULT_API=${API_BASE} pnpm --filter ./apps/tracker-desktop dist:win:silent`;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-dashed border-border bg-black/[0.015] p-4 dark:bg-white/[0.02]">
+      <h3 className="text-[14px] font-semibold">Zero-touch deploy code <span className="ml-1 rounded bg-[#334155]/10 px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">no pair screen</span></h3>
+      <p className="mt-1 text-[12.5px] text-muted-foreground">Make a code for one person and bake it into their silent installer — it connects to <b>them</b> on first run, with nothing to type on the computer. The code is long-lived; revoke it any time.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <select value={picked} onChange={(e) => setPicked(e.target.value)} aria-label="Person" className="h-9 min-w-[180px] rounded-xl border border-border bg-background px-2 text-[13px]">
+          <option value="">Choose a person…</option>
+          {people.map((p) => <option key={p.user.id} value={p.user.id}>{userName(p.user)} · {p.user.email}</option>)}
+        </select>
+        <button type="button" disabled={!picked || gen.isPending} onClick={() => gen.mutate(Number(picked))} className="flex h-9 items-center gap-1.5 rounded-xl bg-[#334155] px-3 text-[13px] font-semibold text-white disabled:opacity-50">{gen.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Generate</button>
+      </div>
+
+      {made && (
+        <div className="mt-3 rounded-xl border border-[#334155]/25 bg-[#334155]/[0.05] p-3">
+          <p className="text-[12.5px]">Deploy code for <b>{made.name}</b> (shown once — keep it safe):</p>
+          <div className="mt-1.5 flex items-center gap-2"><code className="min-w-0 flex-1 truncate rounded-lg bg-background px-2.5 py-1.5 font-mono text-[12.5px]">{made.code}</code><button type="button" onClick={() => copy(made.code, "code")} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-[12px] hover:bg-accent">{copied === "code" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button></div>
+          <p className="mt-2.5 text-[12px] text-muted-foreground">Build that person's silent installer (on a dev machine):</p>
+          <div className="mt-1 flex items-start gap-2"><code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-background px-2.5 py-2 font-mono text-[11.5px]">{buildCmd(made.code)}</code><button type="button" onClick={() => copy(buildCmd(made.code), "cmd")} className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-border px-2 text-[12px] hover:bg-accent">{copied === "cmd" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button></div>
+        </div>
+      )}
+
+      {codes.length > 0 && (
+        <ul className="mt-3 divide-y divide-border/70 rounded-xl border border-border">
+          {codes.map((c) => (
+            <li key={c.id} className="flex items-center gap-2 px-3 py-2 text-[12.5px]">
+              <span className="min-w-0 flex-1"><span className="font-medium">{userName(c.user)}</span><span className="block text-[11px] text-muted-foreground">{c.lastUsedAt ? `last deployed ${new Date(c.lastUsedAt).toLocaleDateString()}` : "not used yet"}</span></span>
+              <button type="button" onClick={() => revoke.mutate(c.id)} className="rounded-lg border border-border px-2 py-1 text-[11.5px] text-[#dc2626] hover:bg-[#dc2626]/[0.06]">Revoke</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 /** my own hours: ring + today/week/month + last-7-days bars (built from my timesheet) */
@@ -179,6 +234,7 @@ export default function TrackerMe() {
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">3</span>
               <span className="min-w-0 flex-1">The Pair screen shows <b>this one time</b> — press “Connect with my account” or paste a pairing code. The moment it's paired the window closes for good; after that it auto-starts on login, auto-accepts the monitoring policy and tracks on its own.</span></li>
           </ol>
+          <DeployCodes ws={ws} />
           <p className="mt-3 rounded-xl bg-[#b45309]/[0.07] px-3.5 py-2.5 text-[12px] text-[#92400e] dark:text-[#fbbf24]">It is <b>not covert</b> — it keeps the “EZ Tracker” name in the process list, Installed Programs and the Windows start-up list. Only use it for people who have been told their work activity is monitored.</p>
         </motion.section>
       )}

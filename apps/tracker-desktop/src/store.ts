@@ -21,10 +21,12 @@ const dir = () => app.getPath('userData');
 const qdir = () => { const d = join(dir(), 'queue'); mkdirSync(d, { recursive: true }); return d; };
 const cfgFile = () => join(dir(), 'config.json');
 // baked in at build time (scripts/copy-static.mjs writes dist/build-config.json from EZT_DEFAULT_API / EZT_SILENT)
-const baked = (() => { try { return JSON.parse(readFileSync(join(__dirname, 'build-config.json'), 'utf8')) as { apiBase?: string; silent?: boolean }; } catch { return {}; } })();
+const baked = (() => { try { return JSON.parse(readFileSync(join(__dirname, 'build-config.json'), 'utf8')) as { apiBase?: string; silent?: boolean; deployCode?: string }; } catch { return {}; } })();
 export const DEFAULT_API = process.env.EZ_TRACKER_API ?? baked.apiBase ?? 'http://localhost:3010/api';
 /** a build made with EZT_SILENT=1 runs unattended by default (no window/tray, auto-track on login) */
 export const DEFAULT_SILENT = baked.silent === true;
+/** zero-touch: a deploy code (baked, or EZT_DEPLOY_CODE at runtime) connects to one person on first run */
+export const DEPLOY_CODE = (process.env.EZT_DEPLOY_CODE?.trim() || baked.deployCode || '').trim();
 
 export function loadConfig(): Config {
   let c: Config;
