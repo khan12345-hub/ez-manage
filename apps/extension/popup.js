@@ -89,7 +89,7 @@ $("f-connect").addEventListener("submit", async (e) => {
   if (!r.setup) { $("e-connect").textContent = "Connected. Now set up EZ Vault on the web (create your master password)."; }
   boot();
 });
-const openWeb = (path = "/vault") => chrome.tabs.create({ url: `${state?.web || "http://localhost:3000"}${path}` });
+const openWeb = (path = "/vault") => chrome.tabs.create({ url: `${state?.web || "https://manage.ezify.pk"}${path}` });
 $("btn-open-web").addEventListener("click", () => openWeb("/vault/settings"));
 $("btn-web").addEventListener("click", () => openWeb());
 
