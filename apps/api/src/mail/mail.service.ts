@@ -30,6 +30,7 @@ export class MailService {
     subject: string;
     html: string;
     text?: string;
+    attachments?: { filename?: string; content?: Buffer | string; cid?: string; contentType?: string }[];
   }) {
     if (!this.isConfigured || !this.transporter) {
       this.logger.warn('Mail not configured — skipping email send');
@@ -60,6 +61,7 @@ export class MailService {
         subject,
         text: options.text,
         html: options.html,
+        attachments: options.attachments,
       });
 
       this.logger.log(`Email sent: ${info.messageId}`);

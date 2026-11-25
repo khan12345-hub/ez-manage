@@ -24,6 +24,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { BoardMemberRole, WorkspaceMemberRole } from 'generated/prisma/enums';
 import { MailService } from 'src/mail/mail.service';
+import { emergencyKitTemplate } from 'src/mail/templates/emergency-kit.template';
 import { MfaService } from './mfa/mfa.service';
 
 function workspaceToBoardRole(role: WorkspaceMemberRole): BoardMemberRole {
@@ -453,23 +454,38 @@ export class AuthService {
     return crypto.createHash('sha256').update(String(key).replace(/[^A-Za-z0-9]/g, '').toUpperCase()).digest('hex');
   }
 
-  /** generate the account's recovery key, store its hash, and email the "Account Kit" */
+  /** generate the account's recovery key, store its hash, and email the branded "Emergency Kit" */
   private async issueAccountKit(user: { id: number; email: string; firstName: string }) {
     const key = this.genRecoveryKey();
     await this.prisma.user.update({ where: { id: user.id }, data: { recoveryKeyHash: this.hashRecoveryKey(key) } });
-    const esc = (t: string) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const recoverUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/recover`;
+    const base = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const recoverUrl = `${base}/recover`;
+    // QR = a setup shortcut (open sign-in with the email prefilled). It never carries the recovery key.
+    const setupUrl = `${base}/login?email=${encodeURIComponent(user.email)}`;
+    let attachments: { filename: string; content: Buffer; cid: string; contentType: string }[] | undefined;
+    let qrCid: string | null = null;
+    try {
+      const QRCode = (await import('qrcode')).default;
+      const png = await QRCode.toBuffer(setupUrl, { type: 'png', width: 300, margin: 1, errorCorrectionLevel: 'M' });
+      qrCid = 'ezkit-qr';
+      attachments = [{ filename: 'setup-code.png', content: png, cid: qrCid, contentType: 'image/png' }];
+    } catch { /* QR is optional; the kit still sends without it */ }
+    const kit = emergencyKitTemplate({
+      firstName: user.firstName || 'you',
+      email: user.email,
+      recoveryKey: key,
+      signInUrl: `${base}/login`,
+      recoverUrl,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@ezmanage.com',
+      qrCid,
+    });
     try {
       await this.mailService.sendMail({
         to: user.email,
-        subject: 'Your EZ Manage Account Kit — keep this safe',
-        html: `<p>Hi ${esc(user.firstName || '')},</p>
-<p>Welcome to EZ Manage. This is your <b>Account Kit</b> — keep it somewhere safe (print it or save it offline). You'll need it if you ever forget your password.</p>
-<table style="border-collapse:collapse;margin:16px 0"><tr><td style="padding:6px 10px;color:#555">Sign-in email</td><td style="padding:6px 10px;font-weight:600">${esc(user.email)}</td></tr>
-<tr><td style="padding:6px 10px;color:#555">Account Recovery Key</td><td style="padding:6px 10px;font-weight:700;font-family:monospace;font-size:15px;letter-spacing:1px">${esc(key)}</td></tr></table>
-<p>If you forget your password, go to <a href="${recoverUrl}">${recoverUrl}</a> and enter your email and this key to set a new one.</p>
-<p style="color:#888;font-size:13px">Anyone with this key and your email can reset your password — do not share it. EZ Manage will never ask you for it.</p>`,
-        text: `Hi ${user.firstName || ''},\n\nWelcome to EZ Manage. Keep this Account Kit safe — you'll need it if you forget your password.\n\nSign-in email: ${user.email}\nAccount Recovery Key: ${key}\n\nForgot your password? Go to ${recoverUrl} and enter your email and this key.\n\nAnyone with this key and your email can reset your password — do not share it.`,
+        subject: 'Your EZ Manage Emergency Kit — keep this safe',
+        html: kit.html,
+        text: kit.text,
+        attachments,
       });
     } catch (e: any) { /* email failure must not block sign-up */ }
     return key;
