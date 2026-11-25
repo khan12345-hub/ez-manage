@@ -1,0 +1,35 @@
+{
+  "name": "ez-manage-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EZ Manage desktop — all products (Boards, Work, EZ Tracker, EZ Vault, EZ Sales, CEO Tower) in one app",
+  "main": "dist/main.js",
+  "author": "EZ Manage",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-static.mjs",
+    "start": "pnpm run build && electron .",
+    "dist:win": "pnpm run build && electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.ezmanage.app",
+    "productName": "EZ Manage",
+    "files": ["dist/**", "package.json"],
+    "win": {
+      "target": "nsis",
+      "artifactName": "EZManageSetup-${version}.${ext}",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "directories": { "output": "release" },
+    "npmRebuild": false
+  },
+  "devDependencies": {
+    "electron": "33",
+    "electron-builder": "25",
+    "typescript": "5.9.2"
+  }
+}
