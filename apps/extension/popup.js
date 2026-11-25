@@ -131,8 +131,12 @@ function toggleMenu(it) {
   const open = wrap.querySelector(".menu"); if (open) { open.remove(); return; }
   const m = document.createElement("ul"); m.className = "menu";
   const add = (label, fn, cls) => { const li = document.createElement("li"); if (cls) li.className = cls; li.textContent = label; li.addEventListener("click", () => { m.remove(); fn(); }); m.appendChild(li); };
+  const sep = () => { const li = document.createElement("li"); li.className = "sep"; m.appendChild(li); };
+  const site = (it.urls || []).find(Boolean);
   add("Edit on the web", () => openWeb(`/vault?item=${encodeURIComponent(it.uid)}`));
-  const site = (it.urls || []).find(Boolean); if (site) add("Open website", () => chrome.tabs.create({ url: site }));
+  add("Change password", () => openWeb(`/vault?item=${encodeURIComponent(it.uid)}`));
+  if (site) { sep(); add("Open in new window", () => chrome.tabs.create({ url: site })); add("Copy website", () => copy(site, "Website")); }
+  sep();
   add("Open EZ Vault", () => openWeb("/vault"));
   wrap.appendChild(m);
   const off = (e) => { if (!wrap.contains(e.target)) { m.remove(); document.removeEventListener("click", off); } };
@@ -171,11 +175,45 @@ $("f-unlock").addEventListener("submit", async (e) => {
 
 $("i-search").addEventListener("input", render);
 $("btn-lock").addEventListener("click", async () => { await send({ type: "lock" }); state.unlocked = false; boot(); });
-// filter tabs (This site / All / Favorites)
-for (const t of document.querySelectorAll(".lv-filter .tab")) t.addEventListener("click", () => { filter = t.dataset.f; for (const x of document.querySelectorAll(".lv-filter .tab")) x.classList.toggle("is-on", x === t); render(); });
-// new item + generator open on the web / the generator view
+// "All Items" scope dropdown (All Items / Suggestions / Favorites / Logins)
+const scopeMenu = $("scope-menu");
+$("scope-btn").addEventListener("click", (e) => { e.stopPropagation(); scopeMenu.hidden = !scopeMenu.hidden; $("scope-btn").setAttribute("aria-expanded", String(!scopeMenu.hidden)); });
+for (const li of scopeMenu.querySelectorAll("li[data-f]")) li.addEventListener("click", () => {
+  filter = li.dataset.f; $("scope-label").textContent = li.textContent;
+  for (const x of scopeMenu.querySelectorAll("li[data-f]")) x.classList.toggle("is-on", x === li);
+  scopeMenu.hidden = true; $("scope-btn").setAttribute("aria-expanded", "false"); render();
+});
+document.addEventListener("click", (e) => { const s = document.querySelector(".scope"); if (s && !s.contains(e.target) && !scopeMenu.hidden) { scopeMenu.hidden = true; $("scope-btn").setAttribute("aria-expanded", "false"); } });
+
 $("btn-new")?.addEventListener("click", () => openWeb("/vault?new=login"));
-$("btn-gen2")?.addEventListener("click", () => { gen(); show("gen"); });
+
+// ── password generator (slide-over panel, 1Password-style) ──
+const gp = $("gen-panel");
+let genValue = "";
+const colorize = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])).replace(/\d+/g, (m) => `<span class="d">${m}</span>`).replace(/[-_!@#$%^*+=?.~]/g, (m) => `<span class="s">${m}</span>`);
+function gpRegen() {
+  const t = $("gp-type").value;
+  if (t === "memorable") genValue = generatePassphrase({ words: Number($("gp-words").value) });
+  else if (t === "pin") genValue = Array.from({ length: Number($("gp-pin").value) }, () => Math.floor(Math.random() * 10)).join("");
+  else genValue = generatePassword({ length: Number($("gp-len").value), digits: $("gp-digits").checked, symbols: $("gp-symbols").checked });
+  $("gp-value").innerHTML = colorize(genValue);
+  $("gp-len-v").textContent = $("gp-len").value; $("gp-words-v").textContent = $("gp-words").value; $("gp-pin-v").textContent = $("gp-pin").value;
+}
+function gpType() { const t = $("gp-type").value; $("gp-opt-random").hidden = t !== "random"; $("gp-opt-memorable").hidden = t !== "memorable"; $("gp-opt-pin").hidden = t !== "pin"; gpRegen(); }
+const openGenPanel = () => { gpType(); gp.classList.add("open"); };
+const closeGenPanel = () => gp.classList.remove("open");
+$("gp-close").addEventListener("click", closeGenPanel);
+$("gp-regen").addEventListener("click", gpRegen);
+$("gp-copy").addEventListener("click", () => copy(genValue, "Password"));
+$("gp-type").addEventListener("change", gpType);
+for (const id of ["gp-len", "gp-digits", "gp-symbols", "gp-words", "gp-pin"]) $(id).addEventListener("input", gpRegen);
+$("gp-autofill").addEventListener("click", async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return toast("Open a page first");
+  try { const r = await chrome.tabs.sendMessage(tab.id, { type: "doFillPassword", password: genValue }); if (r?.ok) { toast("Filled"); closeGenPanel(); } else toast("Click a password box on the page first"); }
+  catch { toast("Open a page with a password field"); }
+});
+$("btn-gen2")?.addEventListener("click", openGenPanel);
 
 // ── generator ──
 function gen() {
@@ -183,7 +221,7 @@ function gen() {
   $("gen-out").textContent = words ? generatePassphrase({ words: Math.max(3, Math.round(Number($("gen-len").value) / 5)) }) : generatePassword({ length: Number($("gen-len").value), digits: $("gen-digits").checked, symbols: $("gen-symbols").checked });
   $("gen-len-v").textContent = $("gen-len").value;
 }
-$("btn-gen").addEventListener("click", () => { gen(); show("gen"); });
+$("btn-gen").addEventListener("click", openGenPanel); // header key → the slide-over panel
 for (const id of ["gen-len", "gen-digits", "gen-symbols", "gen-words"]) $(id).addEventListener("input", gen);
 $("gen-new").addEventListener("click", gen);
 $("gen-copy").addEventListener("click", () => copy($("gen-out").textContent, "Password"));
