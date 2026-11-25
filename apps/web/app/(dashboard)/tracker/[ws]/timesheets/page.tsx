@@ -4,8 +4,9 @@ import Link from "next/link";
 import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
-import { Activity, BarChart3, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock4, Users } from "lucide-react";
+import { Activity, BarChart3, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock4, Download, Printer, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { downloadCsv, printReport } from "@/lib/report";
 import { hm, trackerApi, userName } from "@/services/tracker.api";
 import { keyOf, todayKey, useTrackerWs, weekStart } from "../../_lib/tracker";
 import { Avatar, InstallHint, glass } from "../../_components/bits";
@@ -57,6 +58,18 @@ export default function TrackerTimesheets() {
   const ranked = [...data].sort((a, b) => b.total - a.total);
   const dayTotals = days.map((d) => data.reduce((n, r) => n + (r.days[keyOf(d)]?.seconds ?? 0), 0));
 
+  // CSV / printable report: one row per person, one column per day (hours), plus totals & activity
+  const h = (sec: number) => (sec / 3600).toFixed(2);
+  const reportHeaders = ["Person", "Email", ...days.map((d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" })), "Total (h)", "Active (h)", "Activity"];
+  const reportRows = () => ranked.map((r) => [
+    userName(r.user), r.user.email,
+    ...days.map((d) => h(r.days[keyOf(d)]?.seconds ?? 0)),
+    h(r.total), h(r.activeTotal), r.total ? `${Math.round((r.activeTotal / r.total) * 100)}%` : "0%",
+  ]);
+  const reportTitle = `EZ Tracker timesheet — ${label}`;
+  const exportCsv = () => downloadCsv(reportTitle, reportHeaders, reportRows());
+  const printPdf = () => printReport({ title: "EZ Tracker — Timesheet", subtitle: `${label} · ${hm(grand)} tracked · ${avgActivity}% avg activity`, headers: reportHeaders, rows: reportRows(), footer: "Hours are decimal (1.50 = 1h 30m). Active time has idle removed." });
+
   return (
     <motion.div initial={reduced ? false : "hidden"} animate="show" variants={stagger} className="space-y-4">
       <motion.div variants={fade} className="flex flex-wrap items-center gap-2">
@@ -64,6 +77,10 @@ export default function TrackerTimesheets() {
           {(["week", "month"] as const).map((p) => (
             <button key={p} type="button" aria-pressed={period === p} onClick={() => setPer(p)} className={cn("rounded-lg px-3 py-1.5 font-medium capitalize", period === p ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>{p}</button>
           ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={exportCsv} disabled={!grand} title="Download as CSV (opens in Excel)" className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-40"><Download className="h-4 w-4" /> CSV</button>
+          <button type="button" onClick={printPdf} disabled={!grand} title="Print or save as PDF" className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-40"><Printer className="h-4 w-4" /> PDF</button>
         </div>
         <span className="flex-1 sm:flex-none" />
         <div className="flex items-center gap-2">

@@ -6,9 +6,10 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, ChevronDown, Clock, Copy, Download, Eye, History, KeyRound, Loader2, ShieldAlert, ShieldCheck, Users, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Clock, Copy, Download, Eye, History, KeyRound, Loader2, Printer, ShieldAlert, ShieldCheck, Users, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { downloadCsv, printReport } from "@/lib/report";
 import { errMsg, useVault } from "../_lib/session";
 import { ago } from "./bits";
 import { fade, GLASS, GlassPage, stagger, TILE } from "./ui";
@@ -86,6 +87,17 @@ export function TeamView() {
   const rows = data?.people ?? [];
   const flagged = rows.filter((r) => r.flags.length).length;
 
+  const repHeaders = ["Person", "Email", "Admin", "Vaults", "Opened", "Copied", "Exported", "Total", "Last active", "Flags"];
+  const repRows = () => rows.map((r) => [
+    fullName(r.user), r.user.email, r.admin ? "yes" : "", r.vaults,
+    r.counts.viewed ?? 0, (r.counts.copied ?? 0) + (r.counts.revealed ?? 0), r.counts.exported ?? 0, r.total,
+    r.lastActiveAt ? new Date(r.lastActiveAt).toLocaleString() : "no activity",
+    r.flags.map((f) => FLAG[f]?.label ?? f).join("; "),
+  ]);
+  const repTitle = `EZ Vault team — ${co?.name ?? ""} (last ${days} days)`;
+  const exportCsv = () => downloadCsv(repTitle, repHeaders, repRows());
+  const printPdf = () => printReport({ title: "EZ Vault — Team activity", subtitle: `${co?.name ?? ""} · last ${days} days · ${flagged} to check`, headers: repHeaders, rows: repRows(), footer: "Activity counts only — secrets are never shown." });
+
   return (
     <GlassPage title="Team" hint="Watch your company's vault activity — who opened, copied or exported which login, and when. Secrets themselves are never shown; this is the (non-secret) event log, so you can see who to check on.">
       <motion.div variants={fade} className={cn(TILE, "mb-4 flex flex-wrap items-center gap-2 p-3")}>
@@ -97,6 +109,10 @@ export function TeamView() {
           <option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
         </select>
         <span className="ml-auto text-[12.5px] text-muted-foreground">{data?.companyVaults ?? 0} company vault{(data?.companyVaults ?? 0) === 1 ? "" : "s"} · <span className={cn(flagged && "font-semibold text-[#dc2626]")}>{flagged} to check</span></span>
+        <div className="flex items-center gap-1.5">
+          <button type="button" onClick={exportCsv} disabled={!rows.length} title="Download as CSV" className="flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-40"><Download className="h-3.5 w-3.5" /> CSV</button>
+          <button type="button" onClick={printPdf} disabled={!rows.length} title="Print or save as PDF" className="flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-40"><Printer className="h-3.5 w-3.5" /> PDF</button>
+        </div>
       </motion.div>
 
       {loadingCos || isLoading ? <div className={cn(GLASS, "h-72 animate-pulse")} /> :

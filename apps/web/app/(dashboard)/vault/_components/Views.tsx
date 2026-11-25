@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Activity, AlertTriangle, CheckCircle2, Clock, Copy, Download, KeyRound, Laptop, Repeat, RotateCcw, Search, ShieldAlert, ShieldCheck, TrendingUp, Trash2, Users } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Clock, Copy, Download, KeyRound, Laptop, Printer, Repeat, RotateCcw, Search, ShieldAlert, ShieldCheck, TrendingUp, Trash2, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { downloadCsv, printReport } from "@/lib/report";
 import * as C from "@/lib/vault/vault-crypto";
 import { canReveal, canWrite, errMsg, lockMinutes, setLockMinutes, typeLabel, useVault, type Item } from "../_lib/session";
 import { ago, copySecret, ItemIcon, StrengthBar } from "./bits";
@@ -217,6 +218,15 @@ export function ActivityView() {
 
   const unusual = useMemo(() => unusualFlags(data), [data]);
 
+  const whoLabel = vault ? `Everyone in ${ownedShared.find((v) => v.uid === vault)?.name ?? "vault"}` : "My activity";
+  const repHeaders = ["When", "Who", "Action", "Item", "Via"];
+  const repRows = () => filtered.map((e) => [
+    new Date(e.createdAt).toLocaleString(), name(e.user), ACTION[e.action] ?? e.action,
+    e.itemUid ? (title(e.itemUid) ?? "an item") : "", e.meta?.via === "extension" ? "extension" : "web",
+  ]);
+  const exportCsv = () => downloadCsv(`EZ Vault activity — ${whoLabel}`, repHeaders, repRows());
+  const printPdf = () => printReport({ title: "EZ Vault — Activity", subtitle: `${whoLabel} · ${filtered.length} events`, headers: repHeaders, rows: repRows(), footer: "Secrets are never logged — only which item and the action." });
+
   return (
     <GlassPage title="Activity" hint="Who did what, and when. Secrets themselves are never logged — only which item, and the action.">
       {/* scope + filters */}
@@ -230,6 +240,8 @@ export function ActivityView() {
         {vault && people.length > 1 && <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="Who" className="h-9 rounded-lg border border-border bg-background px-2 text-[13px]"><option value="">Everyone</option>{people.map(([n]) => <option key={n} value={n}>{n}</option>)}</select>}
         <select value={range} onChange={(e) => setRange(e.target.value)} aria-label="When" className="h-9 rounded-lg border border-border bg-background px-2 text-[13px]">{RANGE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <label className="ml-auto flex h-9 min-w-[160px] flex-1 items-center gap-2 rounded-lg border border-border bg-background px-2.5 sm:max-w-[240px]"><Search className="h-3.5 w-3.5 text-muted-foreground" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search activity" aria-label="Search activity" className="w-full bg-transparent text-[13px] outline-none" /></label>
+        <button type="button" onClick={exportCsv} disabled={!filtered.length} title="Download as CSV" className="flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-40"><Download className="h-3.5 w-3.5" /> CSV</button>
+        <button type="button" onClick={printPdf} disabled={!filtered.length} title="Print or save as PDF" className="flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-40"><Printer className="h-3.5 w-3.5" /> PDF</button>
       </motion.div>
 
       {/* unusual activity */}

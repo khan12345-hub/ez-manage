@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
-import { AlarmClock, CalendarDays, ChevronLeft, ChevronRight, LogIn, Users } from "lucide-react";
+import { AlarmClock, CalendarDays, ChevronLeft, ChevronRight, Download, LogIn, Printer, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { downloadCsv, printReport } from "@/lib/report";
 import { hm, trackerApi, userName, type TrackerAttendanceRow } from "@/services/tracker.api";
 import { fmtDay, fmtTime, keyOf, useTrackerWs, weekStart } from "../../_lib/tracker";
 import { Avatar, InstallHint, glass } from "../../_components/bits";
@@ -31,6 +32,17 @@ export default function TrackerAttendance() {
   }, [rows]);
   const maxCell = Math.max(1, ...rows.map((r) => r.seconds));
 
+  const weekLabel = `Week of ${start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+  const repHeaders = ["Day", "Person", "Email", "Started", "Stopped", "Tracked (h)", "Late (min)"];
+  const repRows = () => rows.map((r) => [
+    r.day, userName(r.user), r.user.email,
+    new Date(r.firstStart).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+    r.lastEnd ? new Date(r.lastEnd).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "",
+    (r.seconds / 3600).toFixed(2), r.late ? r.lateMinutes : 0,
+  ]);
+  const exportCsv = () => downloadCsv(`EZ Tracker attendance — ${weekLabel}`, repHeaders, repRows());
+  const printPdf = () => printReport({ title: "EZ Tracker — Attendance", subtitle: `${weekLabel} · ${rows.length} person-days · ${late.length} late`, headers: repHeaders, rows: repRows(), footer: "Started = first Start of the day. Hours are decimal (1.50 = 1h 30m)." });
+
   return (
     <motion.div initial={reduced ? false : "hidden"} animate="show" variants={stagger} className="space-y-4">
       <motion.div variants={fade} className="flex flex-wrap items-center gap-2">
@@ -39,7 +51,9 @@ export default function TrackerAttendance() {
         <button type="button" aria-label="Next week" disabled={thisWeek} onClick={() => shift(1)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card hover:bg-accent disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
         {!thisWeek && <button type="button" onClick={() => setStart(weekStart())} className="h-9 rounded-xl border border-border bg-card px-3 text-[12.5px] font-semibold hover:bg-accent">This week</button>}
         <span className="flex-1" />
-        {data && <span className="text-[12.5px] text-muted-foreground">Day starts at <b className="text-foreground">{data.dayStart}</b> · late after 5 minutes</span>}
+        {data && <span className="hidden text-[12.5px] text-muted-foreground sm:inline">Day starts at <b className="text-foreground">{data.dayStart}</b> · late after 5 minutes</span>}
+        <button type="button" onClick={exportCsv} disabled={!rows.length} title="Download as CSV" className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-40"><Download className="h-4 w-4" /> CSV</button>
+        <button type="button" onClick={printPdf} disabled={!rows.length} title="Print or save as PDF" className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-40"><Printer className="h-4 w-4" /> PDF</button>
       </motion.div>
 
       <motion.div variants={stagger} className="grid grid-cols-3 gap-3">
