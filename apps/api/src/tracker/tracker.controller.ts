@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, Ip, NotFoundException, Param, ParseIntPipe, Patch, Post, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Ip, NotFoundException, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
@@ -57,6 +57,8 @@ export class TrackerController {
   @Post(':ws/people') addPeople(@Param('ws') ws: string, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.addMembers(ws, u.id, b); }
   @Delete(':ws/people/:userId') removePerson(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @CurrentUser() u: SessionUser) { return this.t.removeMember(ws, u.id, target); }
   @Patch(':ws/people/:userId/role') role(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.setRole(ws, u.id, target, String(b?.role ?? '')); }
+  @Get(':ws/people/:userId/team') teamOf(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @CurrentUser() u: SessionUser) { return this.t.teamOf(ws, u.id, target); }
+  @Put(':ws/people/:userId/team') setTeam(@Param('ws') ws: string, @Param('userId', ParseIntPipe) target: number, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.setTeam(ws, u.id, target, b); }
   @Delete(':ws/devices/:id') revokeAs(@Param('ws') ws: string, @Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.t.revokeDeviceAs(ws, u.id, id); }
 
   @Delete('shots/:id') deleteShot(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.t.deleteShot(id, u.id); }

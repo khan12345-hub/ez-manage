@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowUpRight, BellRing, Briefcase, CheckCircle2, CircleDashed, Clock, Crown, Images, Loader2, Mail, Monitor, MonitorOff, MoreHorizontal, Phone, Search, ShieldAlert, ShieldCheck, UserMinus, UserPlus, X } from "lucide-react";
+import { ArrowUpRight, BellRing, Briefcase, CheckCircle2, CircleDashed, Clock, Crown, Images, Loader2, Mail, Monitor, MonitorOff, MoreHorizontal, Phone, Search, ShieldAlert, ShieldCheck, UserMinus, UserPlus, UsersRound, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -124,8 +124,44 @@ function PeriodCard({ label, tracked, active }: { label: string; tracked: number
   );
 }
 
+/** Admin: pick the people this person may monitor (their scoped team). Empty = only their own data. */
+function TeamAssign({ ws, managerId }: { ws: string; managerId: number }) {
+  const qc = useQueryClient();
+  const { data: people = [] } = useQuery({ queryKey: ["tracker", ws, "people"], queryFn: () => trackerApi.people(ws) });
+  const { data: team = [], isLoading } = useQuery({ queryKey: ["tracker", ws, "team", managerId], queryFn: () => trackerApi.teamOf(ws, managerId) });
+  const [sel, setSel] = useState<Set<number> | null>(null);
+  const current = sel ?? new Set(team);
+  const save = useMutation({ mutationFn: (ids: number[]) => trackerApi.setTeam(ws, managerId, ids), onSuccess: () => { toast.success("Team saved"); setSel(null); qc.invalidateQueries({ queryKey: ["tracker", ws, "team", managerId] }); }, onError: (e) => err(e, "Couldn't save the team.") });
+  const others = people.filter((p) => p.user.id !== managerId);
+  const toggle = (id: number) => { const n = new Set(current); n.has(id) ? n.delete(id) : n.add(id); setSel(n); };
+  const dirty = sel !== null;
+  return (
+    <section>
+      <h3 className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground"><UsersRound className="h-3.5 w-3.5" /> Monitors these people</h3>
+      <p className="mb-2 text-[11.5px] text-muted-foreground">Give this person a team to watch — they'll see only these people's Live, hours, screenshots and attendance, not the whole org. Leave empty = they see only their own.</p>
+      {isLoading ? <div className="h-20 animate-pulse rounded-xl bg-muted" /> : (
+        <>
+          <div className="grid max-h-48 grid-cols-1 gap-1 overflow-y-auto rounded-xl border border-border/60 bg-card p-2 sm:grid-cols-2">
+            {others.length ? others.map((p) => (
+              <label key={p.user.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] hover:bg-accent/60">
+                <input type="checkbox" checked={current.has(p.user.id)} onChange={() => toggle(p.user.id)} className="h-4 w-4 accent-[#0369a1]" />
+                <span className="truncate">{userName(p.user)}</span>
+              </label>
+            )) : <p className="px-2 py-3 text-[12px] text-muted-foreground">No one else in EZ Tracker yet.</p>}
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <button type="button" disabled={!dirty || save.isPending} onClick={() => save.mutate([...current])} className="flex h-9 items-center gap-1.5 rounded-xl bg-[#0369a1] px-3 text-[12.5px] font-semibold text-white disabled:opacity-50">{save.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Save team</button>
+            {dirty && <button type="button" onClick={() => setSel(null)} className="text-[12px] text-muted-foreground hover:text-foreground">Reset</button>}
+            <span className="ml-auto text-[11.5px] text-muted-foreground">{current.size} selected</span>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 /** full admin profile for one person */
-function PersonProfile({ ws, row, status, activity, awaySince, onClose }: { ws: string; row: TrackerPerson; status: Status; activity: number; awaySince: string | null; onClose: () => void }) {
+function PersonProfile({ ws, row, status, activity, awaySince, onClose, admin }: { ws: string; row: TrackerPerson; status: Status; activity: number; awaySince: string | null; onClose: () => void; admin: boolean }) {
   const qc = useQueryClient();
   const uid = row.user.id;
   const { data, isLoading } = useQuery({ queryKey: ["tracker", ws, "person", uid], queryFn: () => trackerApi.person(ws, uid) });
@@ -179,9 +215,9 @@ function PersonProfile({ ws, row, status, activity, awaySince, onClose }: { ws: 
           {/* actions */}
           <div className="flex flex-wrap gap-2">
             <Link href={`/tracker/${ws}/screenshots?user=${uid}`} className="flex h-9 items-center gap-1.5 rounded-xl bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground"><Images className="h-4 w-4" /> Day timeline & screenshots</Link>
-            <button type="button" onClick={() => setRole.mutate(isAdmin ? "member" : "admin")} disabled={setRole.isPending} className="flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-[12.5px] font-medium hover:bg-accent disabled:opacity-50"><ShieldCheck className="h-4 w-4 text-[#0369a1]" />{isAdmin ? "Make a member" : "Make Tracker admin"}</button>
+            {admin && <button type="button" onClick={() => setRole.mutate(isAdmin ? "member" : "admin")} disabled={setRole.isPending} className="flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-[12.5px] font-medium hover:bg-accent disabled:opacity-50"><ShieldCheck className="h-4 w-4 text-[#0369a1]" />{isAdmin ? "Make a member" : "Make Tracker admin"}</button>}
             {(!row.installed || row.consent.state !== "agreed") && <button type="button" onClick={() => remind.mutate()} disabled={remind.isPending} className="flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-[12.5px] font-medium hover:bg-accent disabled:opacity-50"><BellRing className="h-4 w-4" /> Remind to set up</button>}
-            <button type="button" onClick={() => { if (window.confirm(`Remove ${userName(row.user)} from EZ Tracker? Their computers are signed out; their tracked history stays.`)) removeP.mutate(); }} disabled={removeP.isPending} className="flex h-9 items-center gap-1.5 rounded-xl border border-destructive/30 px-3 text-[12.5px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"><UserMinus className="h-4 w-4" /> Remove</button>
+            {admin && <button type="button" onClick={() => { if (window.confirm(`Remove ${userName(row.user)} from EZ Tracker? Their computers are signed out; their tracked history stays.`)) removeP.mutate(); }} disabled={removeP.isPending} className="flex h-9 items-center gap-1.5 rounded-xl border border-destructive/30 px-3 text-[12.5px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"><UserMinus className="h-4 w-4" /> Remove</button>}
           </div>
 
           {/* devices + consent */}
@@ -237,6 +273,9 @@ function PersonProfile({ ws, row, status, activity, awaySince, onClose }: { ws: 
             )}
             <p className="mt-1.5 text-[11px] text-muted-foreground">Active time excludes idle / off-seat blocks (no keyboard or mouse for {data?.idleMinutes ?? 15}+ min). Today activity now: <b className="font-semibold text-foreground">{activity}%</b>.</p>
           </section>
+
+          {/* scoped team: who this person may monitor (full admins only) */}
+          {admin && <TeamAssign ws={ws} managerId={uid} />}
         </div>
       </DialogContent>
     </Dialog>
@@ -295,7 +334,7 @@ export default function TrackerPeople() {
         </div>
         <span className="flex-1" />
         <label className="flex h-9 w-full items-center gap-2 rounded-xl border border-border bg-card px-3 sm:w-[220px]"><Search className="h-4 w-4 text-muted-foreground" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a person" aria-label="Find a person" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none" /></label>
-        <button type="button" onClick={() => setAdding(true)} className="flex h-9 items-center gap-1.5 rounded-xl bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground"><UserPlus className="h-4 w-4" /> Add people</button>
+        {ov?.isAdmin && <button type="button" onClick={() => setAdding(true)} className="flex h-9 items-center gap-1.5 rounded-xl bg-forest px-3 text-[12.5px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground"><UserPlus className="h-4 w-4" /> Add people</button>}
       </div>
 
       {isLoading ? <div className="h-64 animate-pulse rounded-[24px] bg-muted" /> : isError ? <p className={cn(glass, "px-6 py-10 text-center text-[13px] text-muted-foreground")}>Couldn&apos;t load the people.</p> : !rows.length ? (
@@ -375,7 +414,7 @@ export default function TrackerPeople() {
       )}
       <p className="text-[11.5px] text-muted-foreground">Only the people listed here are in EZ Tracker. Members see only their own My tracking — never their own screenshots or apps. Click a person for their full profile.</p>
       {adding && <AddPeople ws={ws} onClose={() => setAdding(false)} />}
-      {profile && <PersonProfile ws={ws} row={profile} status={statusOf(profile.user.id)} activity={liveBy.get(profile.user.id)?.todayActivity ?? 0} awaySince={liveBy.get(profile.user.id)?.awaySince ?? null} onClose={() => setProfile(null)} />}
+      {profile && <PersonProfile ws={ws} row={profile} status={statusOf(profile.user.id)} activity={liveBy.get(profile.user.id)?.todayActivity ?? 0} awaySince={liveBy.get(profile.user.id)?.awaySince ?? null} onClose={() => setProfile(null)} admin={!!ov?.isAdmin} />}
     </div>
   );
 }
