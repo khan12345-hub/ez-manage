@@ -90,7 +90,7 @@ export function MemberFullProfile({ userId, onClose, onTaskClick, onBack }: Prop
           ) : data && (
             <>
               {/* Stats grid */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { label: "Total", value: data.stats.totalTasks, color: "text-foreground", bg: "bg-muted/50" },
                   { label: "Done", value: data.stats.doneTasks, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30" },

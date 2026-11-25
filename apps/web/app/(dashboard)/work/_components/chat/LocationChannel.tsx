@@ -399,7 +399,7 @@ export function LocationTeam({ src }: { src: LocSrc }) {
               <span className="font-serif text-[22px]">{p.progress}%</span>
             </div>
             <Bar value={p.progress} className="mt-3" />
-            <dl className="mt-3 grid grid-cols-4 gap-1 text-center">
+            <dl className="mt-3 grid grid-cols-2 gap-1 text-center sm:grid-cols-4">
               {([["Open", p.open, ""], ["Working on", p.active.length, ""], ["Overdue", p.overdue.length, p.overdue.length ? "text-destructive" : ""], ["Done 7d", p.doneWeek, "text-primary"]] as const).map(([l, v, c]) => (
                 <div key={l}><dt className="font-mono text-[9.5px] uppercase tracking-wide text-muted-foreground">{l}</dt><dd className={cn("text-[16px] font-semibold", c)}>{v}</dd></div>
               ))}

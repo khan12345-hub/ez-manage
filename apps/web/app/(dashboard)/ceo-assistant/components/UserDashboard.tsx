@@ -251,7 +251,7 @@ export function UserDashboard({ userId, onBack, onTaskClick, onMemberClick, onWo
       <div className="mx-auto max-w-5xl px-4 pb-10 sm:px-6 mt-5 space-y-5">
         {isLoading ? (
           <>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
             </div>
             <Skeleton className="h-64 rounded-xl" />
