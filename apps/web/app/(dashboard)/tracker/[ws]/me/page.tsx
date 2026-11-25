@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Activity, CalendarCheck, Check, Clock4, Copy, Download, Laptop, Loader2, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
-import { CONSENT_VERSION, hm, trackerApi, userName } from "@/services/tracker.api";
+import { CONSENT_VERSION, hm, trackerApi, userName, type TrackerUser } from "@/services/tracker.api";
 import { keyOf, todayKey, useTrackerWs, weekStart } from "../../_lib/tracker";
 import { glass } from "../../_components/bits";
 import { BarLegend, HoursBars, Ring, StatTile, fade, stagger } from "../../_components/charts";
@@ -36,8 +36,8 @@ function DeployCodes({ ws }: { ws: string }) {
   const [made, setMade] = useState<{ name: string; code: string } | null>(null);
   const [copied, setCopied] = useState("");
   const gen = useMutation({
-    mutationFn: (userId: number) => trackerApi.createDeployCode(ws, userId),
-    onSuccess: (r, userId) => { setMade({ name: userName(people.find((p) => p.user.id === userId)?.user ?? null), code: r.code }); qc.invalidateQueries({ queryKey: ["tracker", ws, "deploy-codes"] }); },
+    mutationFn: (userId?: number) => trackerApi.createDeployCode(ws, userId),
+    onSuccess: (r, userId) => { setMade({ name: userId ? userName(people.find((p) => p.user.id === userId)?.user ?? null) : "your organization — assign each computer to a person later", code: r.code }); qc.invalidateQueries({ queryKey: ["tracker", ws, "deploy-codes"] }); },
     onError: (e) => err(e, "Couldn't make a deploy code."),
   });
   const revoke = useMutation({ mutationFn: (id: number) => trackerApi.revokeDeployCode(ws, id), onSuccess: () => qc.invalidateQueries({ queryKey: ["tracker", ws, "deploy-codes"] }) });
@@ -55,7 +55,9 @@ function DeployCodes({ ws }: { ws: string }) {
           <option value="">Choose a person…</option>
           {people.map((p) => <option key={p.user.id} value={p.user.id}>{userName(p.user)} · {p.user.email}</option>)}
         </select>
-        <button type="button" disabled={!picked || gen.isPending} onClick={() => gen.mutate(Number(picked))} className="flex h-9 items-center gap-1.5 rounded-xl bg-[#334155] px-3 text-[13px] font-semibold text-white disabled:opacity-50">{gen.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Generate</button>
+        <button type="button" disabled={!picked || gen.isPending} onClick={() => gen.mutate(Number(picked))} className="flex h-9 items-center gap-1.5 rounded-xl bg-[#334155] px-3 text-[13px] font-semibold text-white disabled:opacity-50">{gen.isPending && <Loader2 className="h-4 w-4 animate-spin" />} For this person</button>
+        <span className="text-[12px] text-muted-foreground">or</span>
+        <button type="button" disabled={gen.isPending} onClick={() => gen.mutate(undefined)} title="One installer for everyone — assign each computer to a person afterwards (Hubstaff-style)" className="flex h-9 items-center gap-1.5 rounded-xl border border-[#334155]/40 px-3 text-[13px] font-semibold text-[#334155] disabled:opacity-50 dark:text-[#cbd5e1]">Organization token</button>
       </div>
 
       {made && (
@@ -74,12 +76,43 @@ function DeployCodes({ ws }: { ws: string }) {
         <ul className="mt-3 divide-y divide-border/70 rounded-xl border border-border">
           {codes.map((c) => (
             <li key={c.id} className="flex items-center gap-2 px-3 py-2 text-[12.5px]">
-              <span className="min-w-0 flex-1"><span className="font-medium">{userName(c.user)}</span><span className="block text-[11px] text-muted-foreground">{c.lastUsedAt ? `last deployed ${new Date(c.lastUsedAt).toLocaleDateString()}` : "not used yet"}</span></span>
+              <span className="min-w-0 flex-1"><span className="font-medium">{c.org ? "Organization token" : userName(c.user)}</span><span className="block text-[11px] text-muted-foreground">{c.lastUsedAt ? `last deployed ${new Date(c.lastUsedAt).toLocaleDateString()}` : "not used yet"}</span></span>
               <button type="button" onClick={() => revoke.mutate(c.id)} className="rounded-lg border border-border px-2 py-1 text-[11.5px] text-[#dc2626] hover:bg-[#dc2626]/[0.06]">Revoke</button>
             </li>
           ))}
         </ul>
       )}
+
+      <UnassignedDevices ws={ws} people={people} />
+    </div>
+  );
+}
+
+/** Hubstaff-style: computers that enrolled with an org token, waiting to be assigned to a person. */
+function UnassignedDevices({ ws, people }: { ws: string; people: { user: TrackerUser }[] }) {
+  const qc = useQueryClient();
+  const { data: devices = [] } = useQuery({ queryKey: ["tracker", ws, "unassigned"], queryFn: () => trackerApi.unassignedDevices(ws), enabled: !!ws, refetchInterval: 15_000 });
+  const assign = useMutation({
+    mutationFn: ({ id, userId }: { id: number; userId: number }) => trackerApi.assignDevice(ws, id, userId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["tracker", ws, "unassigned"] }); toast.success("Computer assigned — it starts tracking within a minute."); },
+    onError: (e) => err(e, "Couldn't assign."),
+  });
+  if (!devices.length) return null;
+  return (
+    <div className="mt-3 rounded-xl border border-[#b45309]/30 bg-[#b45309]/[0.05] p-3">
+      <p className="text-[13px] font-semibold text-[#92400e] dark:text-[#fbbf24]">{devices.length} computer{devices.length === 1 ? "" : "s"} waiting to be assigned</p>
+      <p className="mt-0.5 text-[11.5px] text-muted-foreground">These enrolled with the organization token. Assign each one to a person — it starts tracking them within a minute.</p>
+      <ul className="mt-2.5 space-y-2">
+        {devices.map((d) => (
+          <li key={d.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-card px-3 py-2">
+            <span className="min-w-0 flex-1"><span className="flex items-center gap-1.5 text-[13px] font-medium"><Laptop className="h-3.5 w-3.5 text-muted-foreground" />{d.name}</span><span className="block text-[11px] text-muted-foreground">{[d.os, d.appVersion && `v${d.appVersion}`, d.lastSeenAt && `seen ${new Date(d.lastSeenAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`].filter(Boolean).join(" · ")}</span></span>
+            <select aria-label="Assign to" defaultValue="" onChange={(e) => { if (e.target.value) assign.mutate({ id: d.id, userId: Number(e.target.value) }); }} className="h-9 rounded-lg border border-border bg-background px-2 text-[13px]">
+              <option value="">Assign to…</option>
+              {people.map((p) => <option key={p.user.id} value={p.user.id}>{userName(p.user)}</option>)}
+            </select>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
