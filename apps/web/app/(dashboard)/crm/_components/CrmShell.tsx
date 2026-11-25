@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Building2, ChevronDown, CircleDollarSign, Contact, Home, ListTodo, Menu, Plus, Search, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppSwitcher } from "@/components/AppSwitcher";
+import { ProductUserMenu } from "@/components/ProductUserMenu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/providers/AuthProvider";
 import { contactName, crmApi, fmtMoney } from "@/services/crm.api";
@@ -148,9 +149,8 @@ export function CrmShell({ children }: { children: React.ReactNode }) {
       <p className="mb-1.5 mt-5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Sales</p>
       {nav}
       <div className="mt-auto pt-5">
-        <div className="flex items-center gap-2.5 rounded-2xl bg-white/60 p-2.5 ring-1 ring-black/[0.04] dark:bg-white/5">
-          {user && <Avatar user={{ id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email, avatarUrl: (user as any).avatarUrl ?? null }} size={32} />}
-          <span className="min-w-0"><span className="block truncate text-[13px] font-semibold leading-tight">{user?.firstName} {user?.lastName}</span><span className="block truncate text-[11px] capitalize text-muted-foreground">{ws?.role?.toLowerCase() ?? "…"}</span></span>
+        <div className="rounded-2xl bg-white/60 p-1.5 ring-1 ring-black/[0.04] dark:bg-white/5">
+          <ProductUserMenu subtitle={ws?.role ? ws.role.charAt(0) + ws.role.slice(1).toLowerCase() : undefined} />
         </div>
       </div>
     </div>

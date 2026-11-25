@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import * as C from "@/lib/vault/vault-crypto";
 import { AppSwitcher } from "@/components/AppSwitcher";
+import { ProductUserMenu } from "@/components/ProductUserMenu";
 import { canReveal, canWrite, errMsg, ROLE_LABEL, typeLabel, updateItem, useVault, vaultApi, type Item, type ItemType } from "../_lib/session";
 import { ItemHistory, RotationsPanel } from "./Team";
 import { AdminView } from "./Admin";
@@ -127,7 +128,9 @@ export function VaultMain() {
               {me?.isVaultAdmin && <NavBtn n={{ kind: "team" }} icon={Gauge} label="Team" active={nav.kind === "team"} />}
               {me?.isVaultAdmin && <NavBtn n={{ kind: "admin" }} icon={ShieldCheck} label="Vault admin" active={nav.kind === "admin"} />}
             </div>
-            {me && <p className="mt-3 truncate px-2.5 text-[11.5px] text-muted-foreground">{me.user.email}</p>}
+            <div className="mt-auto border-t border-black/[0.06] pt-2 dark:border-white/10">
+              <ProductUserMenu subtitle={me?.isVaultAdmin ? "Vault admin" : "Member"} />
+            </div>
           </div>
         </aside>
 
