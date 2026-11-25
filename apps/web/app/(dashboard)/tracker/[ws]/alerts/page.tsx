@@ -82,7 +82,7 @@ export default function TrackerAlerts() {
                     <span className="flex items-center gap-2 text-[13.5px]"><strong className="font-semibold">{userName(f.user)}</strong><span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", f.high ? "bg-[#dc2626]/10 text-[#dc2626]" : "bg-[#b45309]/10 text-[#b45309]")}><f.icon className="h-3 w-3" />{f.reason}</span></span>
                     <span className="mt-0.5 block text-[12px] text-muted-foreground">{f.detail}</span>
                   </span>
-                  <Link href={`/tracker/${ws}/people/${f.user.id}`} className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[12px] font-medium hover:bg-accent">View</Link>
+                  <Link href={`/tracker/${ws}/people?user=${f.user.id}`} className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[12px] font-medium hover:bg-accent">View</Link>
                 </li>
               ))}
             </ul>

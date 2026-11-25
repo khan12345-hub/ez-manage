@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowUpRight, BellRing, Briefcase, CheckCircle2, CircleDashed, Clock, Crown, Images, Loader2, Mail, Monitor, MonitorOff, MoreHorizontal, Phone, Search, ShieldAlert, ShieldCheck, UserMinus, UserPlus, UsersRound, X } from "lucide-react";
@@ -294,6 +294,13 @@ export default function TrackerPeople() {
   const liveBy = useMemo(() => new Map<number, TrackerLiveRow>(live.map((r) => [r.user.id, r])), [live]);
   const statusOf = (id: number): Status => (liveBy.get(id)?.status as Status) ?? "offline";
   const refresh = () => { qc.invalidateQueries({ queryKey: ["tracker"] }); };
+
+  // open a person's profile when linked with ?user=<id> (e.g. from Unusual activity)
+  useEffect(() => {
+    if (typeof window === "undefined" || !data.length) return;
+    const uid = Number(new URLSearchParams(window.location.search).get("user"));
+    if (uid) { const row = data.find((r) => r.user.id === uid); if (row) { setProfile(row); const u = new URL(window.location.href); u.searchParams.delete("user"); window.history.replaceState({}, "", u.toString()); } }
+  }, [data]);
 
   const tracking = useMutation({ mutationFn: (p: { row: TrackerPerson; on: boolean }) => trackerApi.setTracking(ws, p.row.user.id, p.on), onSuccess: (_, v) => { toast.success(v.on ? `Tracking on for ${userName(v.row.user)}` : `Tracking paused for ${userName(v.row.user)}`); refresh(); }, onError: (e) => err(e, "Couldn't change tracking.") });
   const remind = useMutation({ mutationFn: (row: TrackerPerson) => trackerApi.remind(ws, row.user.id), onSuccess: (_, row) => { toast.success(`Reminder sent to ${userName(row.user)}`); refresh(); }, onError: (e) => err(e, "Couldn't send the reminder.") });

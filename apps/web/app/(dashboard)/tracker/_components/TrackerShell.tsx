@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AppWindow, CalendarCheck, Clock4, Home, Images, Menu, Settings, ShieldCheck, Siren, UserRound, UsersRound } from "lucide-react";
+import { AppWindow, CalendarCheck, Clock4, Home, Images, Menu, Network, Settings, ShieldCheck, Siren, UserRound, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppSwitcher } from "@/components/AppSwitcher";
 import { useAuth } from "@/providers/AuthProvider";
@@ -20,6 +20,7 @@ const NAV = [
   { path: "alerts", label: "Unusual activity", icon: Siren, team: true },
   { path: "me", label: "My tracking", icon: UserRound, team: false },
   { path: "people", label: "People", icon: UsersRound, team: true },
+  { path: "team", label: "Teams", icon: Network, team: true, admin: true },
   { path: "settings", label: "Settings", icon: Settings, team: true },
 ] as const;
 
@@ -49,7 +50,7 @@ export function TrackerShell({ children }: { children: React.ReactNode }) {
       <AppSwitcher active="tracker" hrefs={{ tracker: base }} subtitle="Time & activity" />
       <p className="mb-1.5 mt-5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{ov?.canSeeOthers ? "Team" : "You"}</p>
       <nav aria-label="EZ Tracker" className="space-y-0.5">
-        {NAV.filter((n) => !n.team || ov?.isManager).map((n) => {
+        {NAV.filter((n) => (!n.team || ov?.isManager) && (!("admin" in n && (n as { admin?: boolean }).admin) || (ov as { isAdmin?: boolean } | undefined)?.isAdmin)).map((n) => {
           const on = isOn(n.path);
           return (
             <Link key={n.label} href={n.path ? `${base}/${n.path}` : base} aria-current={on ? "page" : undefined}
