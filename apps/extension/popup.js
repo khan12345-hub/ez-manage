@@ -10,6 +10,7 @@ let pageUrl = "";
 
 function show(v) {
   for (const x of views) $(`v-${x}`).hidden = x !== v;
+  document.body.dataset.view = v;              // widens the window for the two-pane list
   $("btn-lock").hidden = !state?.unlocked;
   $("btn-gen").hidden = !state?.connected;
 }
@@ -46,37 +47,95 @@ async function loadList() {
   setTimeout(() => $("i-search").focus(), 0);
 }
 
+let filter = "all";
+let selUid = null;
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const onSite = (i) => !!pageUrl && (i.urls || []).some((u) => sameSite(u, pageUrl));
+
+function strength(pw) {
+  if (!pw) return null;
+  let s = 0;
+  if (pw.length >= 8) s++; if (pw.length >= 12) s++; if (pw.length >= 16) s++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++; if (/\d/.test(pw)) s++; if (/[^A-Za-z0-9]/.test(pw)) s++;
+  return s >= 5 ? { cls: "good", label: "Strong" } : s >= 3 ? { cls: "ok", label: "Good" } : { cls: "weak", label: "Weak" };
+}
+
+/** one row in the left column (icon + title + sub); click selects it */
 function row(it) {
-  const li = document.createElement("li"); li.className = "item";
-  const fav = document.createElement("span"); fav.className = "fav"; fav.textContent = (it.title || "?").trim().charAt(0).toUpperCase();
+  const li = document.createElement("li"); li.className = "item" + (it.uid === selUid ? " is-sel" : "");
+  const host = hostOf((it.urls || [])[0] || "");
+  const letter = (it.title || "?").trim().charAt(0).toUpperCase();
+  const fav = document.createElement("span"); fav.className = "fav";
+  if (host) { const img = document.createElement("img"); img.src = `https://${host}/favicon.ico`; img.referrerPolicy = "no-referrer"; img.alt = ""; img.onerror = () => { img.remove(); fav.textContent = letter; }; fav.appendChild(img); }
+  else fav.textContent = letter;
   const mid = document.createElement("div"); mid.style.minWidth = "0";
   const t = document.createElement("div"); t.className = "t"; t.textContent = it.title || "Login";
-  const u = document.createElement("div"); u.className = "u"; u.textContent = it.username || hostOf((it.urls || [])[0] || "") || "";
+  const u = document.createElement("div"); u.className = "u"; u.textContent = it.username || host || "";
   mid.append(t, u);
-  const acts = document.createElement("div"); acts.className = "acts";
-  const btn = (label, title, fn, cls) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.title = title; b.setAttribute("aria-label", `${title}: ${it.title}`); if (cls) b.className = cls; b.addEventListener("click", fn); acts.append(b); };
-  const forHere = pageUrl && (it.urls || []).some((x) => sameSite(x, pageUrl));
-  const hasSite = (it.urls || []).some(Boolean);
-  if (forHere) btn("Fill", "Fill on this page", async () => { const r = await send({ type: "fillTab", uid: it.uid }); if (r.ok) window.close(); else toast(r.error || "Couldn't fill"); }, "fill");
-  else if (hasSite) btn("Open & fill", "Open the website and sign in", async () => { const r = await send({ type: "openAndFill", uid: it.uid }); if (r.ok) window.close(); else toast(r.error || "Couldn't open"); }, "fill");
-  if (it.username) btn("User", "Copy username", () => copy(it.username, "Username"));
-  if (it.useOnly) { const tag = document.createElement("span"); tag.className = "u"; tag.textContent = "use only"; tag.title = "You can sign in with this, but not see or copy the password"; acts.append(tag); }
-  // Privacy: the extension fills the password into the page but never copies the raw password to the clipboard.
-  if (it.totp) btn("Code", "Copy one-time code", async () => { const r = await send({ type: "totp", uid: it.uid }); if (r.totp) copy(r.totp.code, `Code (${r.totp.left}s left)`, it.uid); });
-  li.append(fav, mid, acts);
+  li.append(fav, mid);
+  li.addEventListener("click", () => { selUid = it.uid; render(); });
   return li;
 }
 
 function render() {
   const q = $("i-search").value.trim().toLowerCase();
   const hit = (i) => !q || `${i.title} ${i.username} ${(i.urls || []).join(" ")}`.toLowerCase().includes(q);
-  const here = pageUrl ? items.filter((i) => (i.urls || []).some((u) => sameSite(u, pageUrl)) && hit(i)) : [];
-  const rest = items.filter((i) => !here.includes(i) && hit(i)).sort((a, b) => (a.title || "").localeCompare(b.title || ""));
-  $("here").replaceChildren(...here.map(row));
-  $("all").replaceChildren(...rest.slice(0, 200).map(row));
-  $("here-label").hidden = !here.length;
-  $("all-label").hidden = !rest.length;
-  $("empty").hidden = !!(here.length || rest.length);
+  let rows = items.filter(hit);
+  if (filter === "site") rows = rows.filter(onSite);
+  else if (filter === "fav") rows = rows.filter((i) => i.favorite);
+  rows.sort((a, b) => (onSite(b) - onSite(a)) || (a.title || "").localeCompare(b.title || ""));
+  rows = rows.slice(0, 300);
+  if (!rows.some((i) => i.uid === selUid)) selUid = rows[0]?.uid ?? null;
+  const col = $("list-col"); col.replaceChildren(...rows.map(row));
+  renderDetail(rows.find((i) => i.uid === selUid) || null, rows.length);
+}
+
+/** the right pane: everything about the selected item (secrets stay here, never on the page) */
+function renderDetail(it, count) {
+  const d = $("detail");
+  if (!it) { d.innerHTML = `<p class="muted center detail-empty">${count === 0 ? "No items yet. Add them in EZ Vault on the web, or sign in to a site and choose Save." : "Select an item to see its details."}</p>`; return; }
+  const host = hostOf((it.urls || [])[0] || "");
+  const letter = (it.title || "?").trim().charAt(0).toUpperCase();
+  const forHere = onSite(it);
+  const hasSite = (it.urls || []).some(Boolean);
+  const siteUrl = (it.urls || []).find(Boolean) || "";
+  const st = it.useOnly ? null : strength(it.password);
+  d.innerHTML = `
+    <div class="dt-head">
+      <div class="dt-ico" id="dt-ico">${host ? `<img src="https://${esc(host)}/favicon.ico" referrerpolicy="no-referrer" alt="" onerror="this.remove();var e=document.getElementById('dt-ico');if(e)e.textContent='${esc(letter)}'">` : esc(letter)}</div>
+      <div style="min-width:0;flex:1"><div class="dt-title">${esc(it.title || "Login")}</div><div class="dt-sub">${esc(it.username || host || "")}</div></div>
+      <div class="dt-menu-wrap"><button class="icon2" id="dt-menu-btn" title="More" aria-label="More">⋮</button></div>
+    </div>
+    ${forHere ? `<div class="dt-primary"><button class="pri" id="dt-fill">Fill on this page</button></div>` : hasSite ? `<div class="dt-primary"><button class="pri" id="dt-fill">Open &amp; fill</button></div>` : ""}
+    <div class="dt-fields">
+      ${it.username ? `<div class="field"><div class="k">Username</div><div class="v"><span class="val">${esc(it.username)}</span><button class="mini" id="dt-copy-user">Copy</button></div></div>` : ""}
+      ${it.useOnly ? `<div class="field"><div class="k">Password</div><div class="v"><span class="val muted">Hidden — you can sign in, but not see or copy it</span></div></div>`
+        : it.password ? `<div class="field mono"><div class="k">Password</div><div class="v"><span class="val" id="dt-pw">••••••••••</span>${st ? `<span class="strength ${st.cls}">${st.label}</span>` : ""}<button class="mini" id="dt-reveal">Show</button><button class="mini" id="dt-copy-pw">Copy</button></div></div>` : ""}
+      ${it.totp ? `<div class="field"><div class="k">One-time code</div><div class="v"><span class="val" id="dt-totp">••• •••</span><button class="mini" id="dt-copy-totp">Copy</button></div></div>` : ""}
+      ${siteUrl ? `<div class="field"><div class="k">Website</div><div class="v"><a class="val" href="${esc(siteUrl)}" target="_blank" rel="noopener">${esc(host || siteUrl)}</a></div></div>` : ""}
+      ${(it.tags && it.tags.length) ? `<div class="field"><div class="k">Tags</div><div class="v"><span class="tags">${it.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</span></div></div>` : ""}
+      ${it.notes ? `<div class="field"><div class="k">Notes</div><div class="notes">${esc(it.notes)}</div></div>` : ""}
+    </div>`;
+  $("dt-fill")?.addEventListener("click", async () => { const r = await send({ type: forHere ? "fillTab" : "openAndFill", uid: it.uid }); if (r.ok) window.close(); else toast(r.error || "Couldn't do that"); });
+  $("dt-copy-user")?.addEventListener("click", () => copy(it.username, "Username"));
+  $("dt-copy-pw")?.addEventListener("click", () => copy(it.password, "Password", it.uid, "copied"));
+  $("dt-reveal")?.addEventListener("click", () => { const el = $("dt-pw"), b = $("dt-reveal"), on = b.dataset.on === "1"; el.textContent = on ? "••••••••••" : it.password; b.textContent = on ? "Show" : "Hide"; b.dataset.on = on ? "" : "1"; if (!on) send({ type: "logEvent", uid: it.uid, action: "revealed" }); });
+  $("dt-copy-totp")?.addEventListener("click", async () => { const r = await send({ type: "totp", uid: it.uid }); if (r.totp) copy(r.totp.code, `Code (${r.totp.left}s left)`, it.uid); });
+  if (it.totp) send({ type: "totp", uid: it.uid }).then((r) => { if (r?.totp && $("dt-totp")) $("dt-totp").textContent = String(r.totp.code).replace(/(\d{3})(\d{3})/, "$1 $2"); });
+  $("dt-menu-btn")?.addEventListener("click", (e) => { e.stopPropagation(); toggleMenu(it); });
+}
+
+function toggleMenu(it) {
+  const wrap = document.querySelector(".dt-menu-wrap"); if (!wrap) return;
+  const open = wrap.querySelector(".menu"); if (open) { open.remove(); return; }
+  const m = document.createElement("ul"); m.className = "menu";
+  const add = (label, fn, cls) => { const li = document.createElement("li"); if (cls) li.className = cls; li.textContent = label; li.addEventListener("click", () => { m.remove(); fn(); }); m.appendChild(li); };
+  add("Edit on the web", () => openWeb(`/vault?item=${encodeURIComponent(it.uid)}`));
+  const site = (it.urls || []).find(Boolean); if (site) add("Open website", () => chrome.tabs.create({ url: site }));
+  add("Open EZ Vault", () => openWeb("/vault"));
+  wrap.appendChild(m);
+  const off = (e) => { if (!wrap.contains(e.target)) { m.remove(); document.removeEventListener("click", off); } };
+  setTimeout(() => document.addEventListener("click", off), 0);
 }
 
 // ── connect ──
@@ -111,6 +170,11 @@ $("f-unlock").addEventListener("submit", async (e) => {
 
 $("i-search").addEventListener("input", render);
 $("btn-lock").addEventListener("click", async () => { await send({ type: "lock" }); state.unlocked = false; boot(); });
+// filter tabs (This site / All / Favorites)
+for (const t of document.querySelectorAll(".lv-filter .tab")) t.addEventListener("click", () => { filter = t.dataset.f; for (const x of document.querySelectorAll(".lv-filter .tab")) x.classList.toggle("is-on", x === t); render(); });
+// new item + generator open on the web / the generator view
+$("btn-new")?.addEventListener("click", () => openWeb("/vault?new=login"));
+$("btn-gen2")?.addEventListener("click", () => { gen(); show("gen"); });
 
 // ── generator ──
 function gen() {
