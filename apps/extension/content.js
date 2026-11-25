@@ -226,14 +226,36 @@
     }));
     document.documentElement.append(barHost);
   }
-  // "Open & fill": the popup sent us to this login's site — pull the credentials and fill them
+  // auto-login: after "Open & fill" filled the form, submit it (click the sign-in button, else
+  // submit the form, else press Enter). Runs a moment later so the page's own JS sees the input.
+  function submitForm(target) {
+    const form = target?.form || (target?.closest ? target.closest("form") : null);
+    const scope = form || document;
+    const btn = scope.querySelector('button[type="submit"], input[type="submit"]')
+      || [...scope.querySelectorAll('button, [role="button"], input[type="button"]')].find((b) => /log\s?in|sign\s?in|continue|next|submit|go|done/i.test((b.textContent || b.value || "").trim()));
+    setTimeout(() => {
+      try {
+        if (btn && visible(btn)) { btn.click(); return; }
+        if (form) { if (form.requestSubmit) form.requestSubmit(); else form.submit(); return; }
+        target?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, which: 13, bubbles: true }));
+        target?.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", keyCode: 13, which: 13, bubbles: true }));
+      } catch {}
+    }, 450);
+  }
+  // "Open & fill": the popup sent us to this login's site — pull the credentials, fill, then sign in
   (async () => {
     for (const wait of [0, 400, 1200]) {
       await new Promise((r) => setTimeout(r, wait));
       const r = await send({ type: "pendingFill" });
       if (r.ok && r.fill) {
-        const target = passwords()[0] || document.querySelector('input[type="email"], input[type="text"], input:not([type])');
+        const pwEl = passwords()[0];
+        const target = pwEl || document.querySelector('input[type="email"], input[type="text"], input:not([type])');
         if (target) fillInto(target, r.fill.username, r.fill.password);
+        if (r.fill.autoSubmit && target) {
+          const filledPw = passwords().find((p) => p.value);
+          if (filledPw) send({ type: "fillDone" });        // password is in — don't reuse on the next page
+          submitForm(filledPw || target);                  // sign in (or advance a multi-step login)
+        }
         return;
       }
     }

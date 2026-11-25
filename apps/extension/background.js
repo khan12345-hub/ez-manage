@@ -238,13 +238,15 @@ async function handle(msg, sender) {
       // but only if the page's own URL matches the item (so secrets never land on the wrong site)
       const tabId = sender?.tab?.id;
       const url = pageOf(sender);
-      if (!pendingFill || pendingFill.tabId !== tabId || Date.now() - pendingFill.at > 30_000) return { fill: null };
+      // kept alive (not cleared here) so a multi-step login — e.g. Google's email page then its
+      // password page — fills on both; the content script sends "fillDone" once the password is in.
+      if (!pendingFill || pendingFill.tabId !== tabId || Date.now() - pendingFill.at > 45_000) return { fill: null };
       const it = s.unlocked ? logins(s.items || []).find((i) => i.uid === pendingFill.uid) : null;
       if (!it || !url || !matchesUrl(it, url)) return { fill: null };
-      pendingFill = null;
-      await event(it.uid, "filled");
-      return { fill: { username: it.username || "", password: it.password || "" } };
+      if (!pendingFill.logged) { pendingFill.logged = true; await event(it.uid, "filled"); }
+      return { fill: { username: it.username || "", password: it.password || "", autoSubmit: true } };
     }
+    case "fillDone": { pendingFill = null; return { ok: true }; } // the password step was filled — stop reusing
     case "submitted": {
       const url = pageOf(sender);
       if (!url || !msg.password) return { action: "none" };
