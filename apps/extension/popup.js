@@ -102,7 +102,7 @@ function renderDetail(it, count) {
   const st = it.useOnly ? null : strength(it.password);
   d.innerHTML = `
     <div class="dt-head">
-      <div class="dt-ico" id="dt-ico">${host ? `<img src="https://${esc(host)}/favicon.ico" referrerpolicy="no-referrer" alt="" onerror="this.remove();var e=document.getElementById('dt-ico');if(e)e.textContent='${esc(letter)}'">` : esc(letter)}</div>
+      <div class="dt-ico" id="dt-ico">${host ? `<img id="dt-ico-img" src="https://${esc(host)}/favicon.ico" referrerpolicy="no-referrer" alt="">` : esc(letter)}</div>
       <div style="min-width:0;flex:1"><div class="dt-title">${esc(it.title || "Login")}</div><div class="dt-sub">${esc(it.username || host || "")}</div></div>
       <div class="dt-menu-wrap"><button class="icon2" id="dt-menu-btn" title="More" aria-label="More">⋮</button></div>
     </div>
@@ -116,6 +116,7 @@ function renderDetail(it, count) {
       ${(it.tags && it.tags.length) ? `<div class="field"><div class="k">Tags</div><div class="v"><span class="tags">${it.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</span></div></div>` : ""}
       ${it.notes ? `<div class="field"><div class="k">Notes</div><div class="notes">${esc(it.notes)}</div></div>` : ""}
     </div>`;
+  const ico = $("dt-ico-img"); if (ico) ico.onerror = () => { ico.remove(); const e = $("dt-ico"); if (e) e.textContent = letter; };
   $("dt-fill")?.addEventListener("click", async () => { const r = await send({ type: forHere ? "fillTab" : "openAndFill", uid: it.uid }); if (r.ok) window.close(); else toast(r.error || "Couldn't do that"); });
   $("dt-copy-user")?.addEventListener("click", () => copy(it.username, "Username"));
   $("dt-copy-pw")?.addEventListener("click", () => copy(it.password, "Password", it.uid, "copied"));
