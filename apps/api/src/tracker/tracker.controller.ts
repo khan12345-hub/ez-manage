@@ -1,7 +1,9 @@
-import { Body, Controller, Delete, Get, Headers, Ip, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Ip, NotFoundException, Param, ParseIntPipe, Patch, Post, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
+import { createReadStream, existsSync, statSync } from 'node:fs';
+import { basename } from 'node:path';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { Public } from 'src/auth/decorators/public.decorator';
 import type { SessionUser } from 'src/auth/types/session-user.type';
@@ -69,6 +71,13 @@ export class TrackerDesktopController {
   @Post('pair') pair(@Body() b: any) { return this.t.pair(b); }
 
   @Get('config') config() { return this.t.publicConfig(); }
+
+  /** Public download of the Windows installer. Drop the .exe at TRACKER_INSTALLER_PATH on the server. */
+  @Get('download') download(): StreamableFile {
+    const p = process.env.TRACKER_INSTALLER_PATH;
+    if (!p || !existsSync(p)) throw new NotFoundException('The installer is not available yet. Ask your Tracker admin.');
+    return new StreamableFile(createReadStream(p), { type: 'application/octet-stream', disposition: `attachment; filename="${basename(p)}"`, length: statSync(p).size });
+  }
 
   /** Auto-connect: the desktop polls with its secret nonce until the signed-in web user confirms. */
   @Throttle({ default: { ttl: 60_000, limit: 120 } })
