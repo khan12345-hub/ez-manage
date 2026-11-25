@@ -39,8 +39,19 @@ export function useProductAccess() {
   const boardsHref = firstBoards ? `/workspace/${firstBoards.uid ?? firstBoards.id}` : undefined;
   const workHref = firstWork ? `/work/${firstWork.uid}` : undefined;
   const isSuperAdmin = user?.systemRole === "SUPER_ADMIN";
-  const loading = !user || mine.isLoading || boards.isLoading || work.isLoading || ceo.loading;
-  const hrefs = [hasBoards && boardsHref, hasWork && workHref, ceo.allowed && "/ceo"].filter(Boolean) as string[];
+  const loading = !user || mine.isLoading || boards.isLoading || work.isLoading || ceo.loading || tracker.isLoading || crm.isLoading;
+  // Every product the Home launcher shows must count, so /home only auto-opens when there is exactly
+  // ONE. Previously Vault, Tracker and Sales were ignored here, so e.g. a Vault+Work person counted
+  // as one product and got redirected straight into Work, never seeing Home.
+  const canCreateWorkNow = !off.has("work") && (isSuperAdmin || workWorkspaces.some((w: any) => ["OWNER", "ADMIN", "MEMBER"].includes(w.role)));
+  const hrefs = [
+    hasBoards && boardsHref,
+    (hasWork || canCreateWorkNow) && (hasWork ? workHref : "/work/create"),
+    ceo.allowed && "/ceo",
+    (!off.has("tracker") && trackerWorkspaces.length > 0) && (trackerWorkspaces[0] ? `/tracker/${trackerWorkspaces[0].key}` : "/tracker"),
+    (crmWorkspaces.length > 0 || !!crm.data?.canCreate) && (crmWorkspaces[0] ? `/crm/${crmWorkspaces[0].uid}` : "/crm"),
+    !off.has("vault") && "/vault",
+  ].filter(Boolean) as string[];
   return {
     loading,
     isSuperAdmin,
