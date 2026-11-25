@@ -28,6 +28,8 @@ export class Api {
   pair(code: string, name: string, os: string, appVersion: string) { return this.call<Me & { token: string; deviceId: number }>('POST', '/tracker/desktop/pair', { code, name, os, appVersion }); }
   /** where to send the person to confirm an auto-connect (the web app) */
   config() { return this.call<{ webUrl: string | null }>('GET', '/tracker/desktop/config'); }
+  /** zero-touch: exchange a baked deploy code for that person's device token (silent deployment) */
+  deploy(code: string, name: string, os: string, appVersion: string) { return this.call<Me & { token: string; deviceId: number }>('POST', '/tracker/desktop/deploy', { code, name, os, appVersion }); }
   /** auto-connect: returns the device token once the signed-in web user has confirmed, else { pending: true } */
   connectExchange(nonce: string, name: string, os: string, appVersion: string) {
     return this.call<(Me & { token: string; deviceId: number }) | { pending: true }>('POST', '/tracker/desktop/connect/exchange', { nonce, name, os, appVersion });

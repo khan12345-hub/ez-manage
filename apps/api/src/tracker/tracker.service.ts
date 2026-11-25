@@ -231,6 +231,51 @@ export class TrackerService {
   /** Public: where the desktop should send the person to confirm an auto-connect. */
   publicConfig() { return { webUrl: process.env.FRONTEND_URL ?? null }; }
 
+  // ───────── zero-touch deployment codes (ezd_…) ─────────
+
+  /** manager: list the deploy codes for a company's people (status only — the code is shown once) */
+  async deployCodes(ws: string, userId: number) {
+    const c = await this.ctx(ws, userId);
+    this.needManager(c);
+    const rows = await this.prisma.trackerDeployCode.findMany({ where: { orgId: c.orgId, revokedAt: null }, orderBy: { createdAt: 'desc' } });
+    const users = await this.prisma.user.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.userId))] } }, select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } });
+    return rows.map((r) => ({ id: r.id, user: users.find((u) => u.id === r.userId) ?? null, lastUsedAt: r.lastUsedAt, createdAt: r.createdAt }));
+  }
+
+  /** manager: make a long-lived, revocable deploy code for ONE person (bake it into their installer) */
+  async createDeployCode(ws: string, userId: number, b: any) {
+    const c = await this.ctx(ws, userId);
+    this.needManager(c);
+    const target = Number(b?.userId);
+    if (!Number.isInteger(target) || target <= 0) throw new BadRequestException('Pick a person.');
+    if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: target } }, select: { id: true } }))) throw new BadRequestException('Add them to EZ Tracker first.');
+    const code = `ezd_${randomBytes(24).toString('base64url')}`;
+    await this.prisma.trackerDeployCode.create({ data: { orgId: c.orgId, userId: target, codeHash: hashToken(code), createdById: c.userId } });
+    return { code };
+  }
+
+  async revokeDeployCode(ws: string, userId: number, id: number) {
+    const c = await this.ctx(ws, userId);
+    this.needManager(c);
+    await this.prisma.trackerDeployCode.updateMany({ where: { id, orgId: c.orgId, revokedAt: null }, data: { revokedAt: new Date() } });
+    return { ok: true };
+  }
+
+  /** Public: a silent-deployed desktop exchanges its baked deploy code for that person's device token. */
+  async deployExchange(b: any) {
+    const code = str(b?.code, 120).trim();
+    if (!/^ezd_[A-Za-z0-9_-]{20,80}$/.test(code)) throw new BadRequestException('Bad deploy code.');
+    const row = await this.prisma.trackerDeployCode.findUnique({ where: { codeHash: hashToken(code) } });
+    if (!row || row.revokedAt) throw new ForbiddenException('This deploy code is not valid anymore.');
+    if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: row.orgId, userId: row.userId } }, select: { id: true } }))) throw new ForbiddenException('That person is not in EZ Tracker anymore.');
+    await this.prisma.trackerDeployCode.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } });
+    const token = `ezt_${randomBytes(36).toString('base64url')}`;
+    const d = await this.prisma.trackerDevice.create({
+      data: { orgId: row.orgId, userId: row.userId, name: str(b?.name, 80) || 'Computer', os: str(b?.os, 40) || null, appVersion: str(b?.appVersion, 20) || null, tokenHash: hashToken(token), lastSeenAt: new Date() },
+    });
+    return { token, deviceId: d.id, ...(await this.desktopMe({ userId: row.userId, deviceId: d.id, orgId: row.orgId })) };
+  }
+
   async connectExchange(b: any) {
     const n = str(b?.nonce, 200).replace(/[^A-Za-z0-9_-]/g, '');
     if (n.length < 20) throw new BadRequestException('Bad connect code.');
