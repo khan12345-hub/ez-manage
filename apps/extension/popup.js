@@ -66,7 +66,7 @@ function row(it) {
   const host = hostOf((it.urls || [])[0] || "");
   const letter = (it.title || "?").trim().charAt(0).toUpperCase();
   const fav = document.createElement("span"); fav.className = "fav";
-  if (host) { const img = document.createElement("img"); img.src = `https://${host}/favicon.ico`; img.referrerPolicy = "no-referrer"; img.alt = ""; img.onerror = () => { img.remove(); fav.textContent = letter; }; fav.appendChild(img); }
+  if (host && state?.showIcons !== false) { const img = document.createElement("img"); img.src = `https://${host}/favicon.ico`; img.referrerPolicy = "no-referrer"; img.alt = ""; img.onerror = () => { img.remove(); fav.textContent = letter; }; fav.appendChild(img); }
   else fav.textContent = letter;
   const mid = document.createElement("div"); mid.style.minWidth = "0";
   const t = document.createElement("div"); t.className = "t"; t.textContent = it.title || "Login";
@@ -102,7 +102,7 @@ function renderDetail(it, count) {
   const st = it.useOnly ? null : strength(it.password);
   d.innerHTML = `
     <div class="dt-head">
-      <div class="dt-ico" id="dt-ico">${host ? `<img id="dt-ico-img" src="https://${esc(host)}/favicon.ico" referrerpolicy="no-referrer" alt="">` : esc(letter)}</div>
+      <div class="dt-ico" id="dt-ico">${host && state?.showIcons !== false ? `<img id="dt-ico-img" src="https://${esc(host)}/favicon.ico" referrerpolicy="no-referrer" alt="">` : esc(letter)}</div>
       <div style="min-width:0;flex:1"><div class="dt-title">${esc(it.title || "Login")}</div><div class="dt-sub">${esc(it.username || host || "")}</div></div>
       <div class="dt-menu-wrap"><button class="icon2" id="dt-menu-btn" title="More" aria-label="More">⋮</button></div>
     </div>
@@ -236,15 +236,8 @@ function setAdvanced(open) {
   $("s-adv-toggle").textContent = open ? "Hide advanced" : "Advanced…";
 }
 $("s-adv-toggle").addEventListener("click", () => setAdvanced($("s-advanced").hidden));
-$("btn-settings").addEventListener("click", async () => {
-  state = await send({ type: "state" });
-  $("s-api").value = state.api; $("s-web").value = state.web; $("s-lock").value = state.lockMinutes;
-  $("s-who").textContent = state.connected ? `Signed in as ${state.user?.name || ""} ${state.user?.email ? `(${state.user.email})` : ""}` : "Not connected.";
-  $("btn-signout").hidden = !state.connected;
-  $("s-msg").textContent = "";
-  setAdvanced(false);
-  show("settings");
-});
+// gear → the full-page settings (1Password-style), opened in its own tab
+$("btn-settings").addEventListener("click", () => { chrome.runtime.openOptionsPage(); window.close(); });
 $("f-settings").addEventListener("submit", async (e) => {
   e.preventDefault();
   await send({ type: "settings", api: $("s-api").value, web: $("s-web").value, lockMinutes: Number($("s-lock").value) });

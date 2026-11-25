@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EZ Vault settings</title>
+<link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="head">
+      <span class="logo" aria-hidden="true"></span>
+      <div><h1>EZ Vault extension settings</h1><p>Customize how the EZ Vault extension works in your browser. These settings are specific to this browser profile.</p></div>
+    </header>
+
+    <div class="cols">
+      <!-- sidebar -->
+      <nav class="side" aria-label="Settings sections">
+        <button class="nav is-on" data-s="general"><span class="ic ic-blue">⚙</span> General</button>
+        <button class="nav" data-s="security"><span class="ic ic-amber">🔒</span> Security &amp; privacy</button>
+        <button class="nav" data-s="autofill"><span class="ic ic-green">⎘</span> Autofill &amp; save</button>
+        <button class="nav" data-s="appearance"><span class="ic ic-purple">✎</span> Appearance</button>
+        <button class="nav" data-s="advanced"><span class="ic ic-slate">🖧</span> Advanced</button>
+        <button class="nav" data-s="about"><span class="ic ic-sky">ⓘ</span> About</button>
+        <button class="nav" data-s="help"><span class="ic ic-pink">?</span> Help</button>
+      </nav>
+
+      <!-- panels -->
+      <section class="panel" data-p="general">
+        <h2>General</h2>
+        <div class="acct" id="acct-row">
+          <div class="acct-ava" id="acct-ava">EZ</div>
+          <div class="acct-mid"><div class="acct-name" id="acct-name">Not connected</div><div class="acct-email" id="acct-email"></div></div>
+          <span class="dot" id="acct-dot"></span>
+        </div>
+        <div class="row"><div><div class="k">Open EZ Vault on the web</div><div class="d">Manage your vaults, items and sharing in the full app.</div></div><button class="btn" id="open-web">Open</button></div>
+        <div class="row"><div><div class="k">Sign out of this browser</div><div class="d">Removes this browser's connection. Your vault on the server is untouched.</div></div><button class="btn danger" id="signout">Sign out</button></div>
+      </section>
+
+      <section class="panel" data-p="security" hidden>
+        <h2>Security &amp; privacy</h2>
+        <div class="row"><div><div class="k">Automatically lock EZ Vault</div><div class="d">Lock after this many minutes with no activity. You'll re-enter your master password.</div></div>
+          <select id="lock"><option value="1">1 min</option><option value="5">5 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 hour</option><option value="240">4 hours</option><option value="480">8 hours</option></select></div>
+        <p class="note">Your master password is never stored — it only lives in this browser while unlocked, and is wiped on lock.</p>
+      </section>
+
+      <section class="panel" data-p="autofill" hidden>
+        <h2>Autofill &amp; save</h2>
+        <label class="row"><div><div class="k">Offer to save new logins</div><div class="d">When you sign in to a site that isn't in your vault, offer to save it.</div></div><span class="sw"><input type="checkbox" id="offerSave" /><span class="track"></span></span></label>
+        <label class="row"><div><div class="k">Sign in automatically after “Open &amp; fill”</div><div class="d">After filling the username and password, submit the form so you're signed in. Handles two-step logins (e.g. Google).</div></div><span class="sw"><input type="checkbox" id="autoSubmit" /><span class="track"></span></span></label>
+      </section>
+
+      <section class="panel" data-p="appearance" hidden>
+        <h2>Appearance</h2>
+        <label class="row"><div><div class="k">Show website icons</div><div class="d">Show each site's favicon next to its login. Turn off to use plain letter tiles (loads nothing from sites).</div></div><span class="sw"><input type="checkbox" id="showIcons" /><span class="track"></span></span></label>
+      </section>
+
+      <section class="panel" data-p="advanced" hidden>
+        <h2>Advanced</h2>
+        <p class="note">Only change these if EZ Manage runs on a different address (e.g. your own server). Most people never need to. The address is also set for you when you connect from the web.</p>
+        <div class="row stack"><div class="k">Server (API) address</div><input id="api" spellcheck="false" placeholder="https://apimanage.example.com" /></div>
+        <div class="row stack"><div class="k">Web app address</div><input id="web" spellcheck="false" placeholder="https://manage.example.com" /></div>
+        <button class="btn" id="save-adv">Save addresses</button>
+      </section>
+
+      <section class="panel" data-p="about" hidden>
+        <h2>About</h2>
+        <p class="about-v">EZ Vault browser extension <b id="ver">1.0.0</b></p>
+        <p class="note">Fill and save logins from your EZ Vault. End-to-end encrypted — your master password never leaves this browser.</p>
+      </section>
+
+      <section class="panel" data-p="help" hidden>
+        <h2>Help</h2>
+        <div class="row"><div><div class="k">Open EZ Vault on the web</div><div class="d">Create, edit and organise items; set up sharing and recovery.</div></div><button class="btn" id="help-web">Open</button></div>
+        <div class="row"><div><div class="k">Watchtower &amp; unusual activity</div><div class="d">Weak / reused / breached passwords and risky activity live in EZ Vault on the web.</div></div><button class="btn" id="help-wt">Open</button></div>
+      </section>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
