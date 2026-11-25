@@ -3037,6 +3037,23 @@ model TrackerPairCode {
   @@map("tracker_pair_codes")
 }
 
+/// A scoped team: one manager (managerId) monitors specific people (memberId). A person with any of
+/// these rows can see ONLY those members in EZ Tracker (not the whole org); full Tracker admins and
+/// the Administrator still see everyone. Managed by a full admin.
+model TrackerManages {
+  id        Int      @id @default(autoincrement())
+  orgId     Int
+  managerId Int
+  memberId  Int
+  createdById Int
+  createdAt DateTime @default(now())
+
+  @@unique([orgId, managerId, memberId])
+  @@index([orgId, managerId])
+  @@index([orgId, memberId])
+  @@map("tracker_manages")
+}
+
 /// A long-lived, revocable deployment code ("ezd_…") for zero-touch silent install: baked into a
 /// person's installer and exchanged once on first run for that person's device token. Only the
 /// SHA-256 is stored; reusable (re-deploys) until an admin revokes it.

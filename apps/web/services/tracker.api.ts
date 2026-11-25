@@ -15,7 +15,7 @@ export type TrackerWorkspace = { id: number; uid: string; name: string; color: s
 export type TrackerTask = { id: number; uid: string | null; name: string; source: TrackerSource; boardUid?: string | null };
 export type TrackerOverview = {
   workspace: { uid: string; name: string; color: string; source: TrackerSource; key: string } | null; role: string; isManager: boolean; isSystemAdmin: boolean; member: boolean; canSeeOthers: boolean;
-  settings: TrackerSettings; tracked: boolean; consent: { version: string; acceptedAt: string | null }; devices: number;
+  settings: TrackerSettings; tracked: boolean; consent: { version: string; acceptedAt: string | null }; devices: number; isAdmin?: boolean;
 };
 export type TrackerLiveRow = {
   user: TrackerUser; me: boolean; status: "working" | "away" | "offline"; since: string | null; awaySince: string | null;
@@ -68,6 +68,8 @@ export const trackerApi = {
   revokeDeployCode: async (ws: string, id: number) => (await api.delete(`/tracker/${ws}/deploy-codes/${id}`)).data,
   unassignedDevices: (ws: string) => get<{ id: number; name: string; os: string | null; appVersion: string | null; lastSeenAt: string | null; createdAt: string }[]>(`/tracker/${ws}/unassigned`),
   assignDevice: (ws: string, id: number, userId: number) => post<{ ok: true }>(`/tracker/${ws}/devices/${id}/assign`, { userId }),
+  teamOf: (ws: string, managerId: number) => get<number[]>(`/tracker/${ws}/people/${managerId}/team`),
+  setTeam: async (ws: string, managerId: number, memberIds: number[]) => (await api.put<{ managed: number[] }>(`/tracker/${ws}/people/${managerId}/team`, { memberIds })).data,
   devices: (ws: string) => get<TrackerDevice[]>(`/tracker/${ws}/devices`),
   revokeDevice: async (id: number) => (await api.delete(`/tracker/devices/${id}`)).data,
   liveAll: () => get<TrackerCompanyLive[]>(`/tracker/all/live?${qs({ offset: offset() })}`),

@@ -28,7 +28,7 @@ const MAX_SHOT = 3 * 1024 * 1024;
 const RETENTION = new Set([0, 30, 60, 90, 180]);
 
 export type Src = 'work' | 'boards' | 'org';
-type Ctx = { orgId: number; source: Src; workspaceId: number; userId: number; role: string; isManager: boolean; isSystemAdmin: boolean; member: { role: string; tracking: boolean } | null };
+type Ctx = { orgId: number; source: Src; workspaceId: number; userId: number; role: string; isManager: boolean; isAdmin: boolean; isSystemAdmin: boolean; managed: number[] | null; member: { role: string; tracking: boolean } | null };
 type TaskRef = { id: number; uid: string | null; name: string; source: Src; boardUid?: string | null };
 const BOARDS_ROLES = ['OWNER', 'ADMIN', 'MEMBER'] as const;
 /** route key of a company: "w-<uid>" (Company Work) or "b-<uid>" (Accounts & Invoices); a bare uid is an old Work link */
@@ -100,22 +100,37 @@ export class TrackerService {
     const m = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: org.id, userId } }, select: { role: true, tracking: true } });
     if (!m && !sys && !prodAdmin) throw new NotFoundException('EZ Tracker is not set up for you.');
     const member = m ?? null;
-    const isManager = sys || prodAdmin || member?.role === 'admin';
-    return { orgId: org.id, source: 'org', workspaceId: 0, userId, role: member?.role ?? 'administrator', isManager, isSystemAdmin: sys, member };
+    // full admin = system Administrator, EZ Tracker product admin, or a Tracker admin (role 'admin') — sees everyone
+    const isAdmin = sys || prodAdmin || member?.role === 'admin';
+    // team manager = given specific people to watch (even if their own role is 'member') — sees only those
+    const managed = isAdmin ? null : await this.managedIds(org.id, userId);
+    const isManager = isAdmin || (managed != null && managed.length > 0);
+    return { orgId: org.id, source: 'org', workspaceId: 0, userId, role: member?.role ?? 'administrator', isManager, isAdmin, isSystemAdmin: sys, managed, member };
   }
 
-  /** who this person may see: everyone (manager) or only themself */
+  /** the members a person has been given to monitor (empty = none) */
+  private async managedIds(orgId: number, managerId: number) {
+    const rows = await this.prisma.trackerManages.findMany({ where: { orgId, managerId }, select: { memberId: true } });
+    return rows.map((r) => r.memberId);
+  }
+
+  /** who this person may see: everyone (full admin), their team (team manager), or only themself */
   private async visibleIds(c: Ctx) {
-    if (c.isManager) return this.trackerIds(c.orgId);
+    if (c.isAdmin) return this.trackerIds(c.orgId);
+    if (c.managed && c.managed.length) return [...new Set([c.userId, ...c.managed])];
     return [c.userId];
   }
   private async canSee(c: Ctx, userId: number) {
     if (userId === c.userId) return true;
-    if (!c.isManager) return false;
-    return !!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId } }, select: { id: true } }));
+    if (c.isAdmin) return !!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId } }, select: { id: true } }));
+    if (c.managed) return c.managed.includes(userId);
+    return false;
   }
   private needManager(c: Ctx) {
-    if (!c.isManager) throw new ForbiddenException('Only Tracker admins and the Administrator can do this.');
+    if (!c.isManager) throw new ForbiddenException('Only Tracker admins, team managers and the Administrator can do this.');
+  }
+  private needAdmin(c: Ctx) {
+    if (!c.isAdmin) throw new ForbiddenException('Only Tracker admins and the Administrator can do this.');
   }
   private needMember(c: Ctx) {
     if (!c.member) throw new ForbiddenException('You are not in EZ Tracker. A Tracker admin can add you.');
@@ -154,14 +169,14 @@ export class TrackerService {
     const devices = await this.prisma.trackerDevice.count({ where: { userId, orgId: c.orgId, revokedAt: null } });
     return {
       workspace: { uid: 'org', name: 'Organization', color: '#0369a1', source: 'org' as Src, key: 'org' },
-      role: c.role, isManager: c.isManager, isSystemAdmin: c.isSystemAdmin, member: !!c.member, canSeeOthers: c.isManager,
+      role: c.role, isManager: c.isManager, isAdmin: c.isAdmin, isSystemAdmin: c.isSystemAdmin, member: !!c.member, canSeeOthers: c.isManager,
       settings, tracked: !!c.member?.tracking, consent: { version: CONSENT_VERSION, acceptedAt: consent?.acceptedAt ?? null }, devices,
     };
   }
 
   async updateSettings(ws: string, userId: number, b: any) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     const org = await this.prisma.trackerOrg.findUniqueOrThrow({ where: { id: c.orgId } });
     const cur = this.settingsOf(org.settings);
     const next = this.settingsOf({ ...cur, ...(b && typeof b === 'object' ? b : {}) });
@@ -236,7 +251,7 @@ export class TrackerService {
   /** manager: list the deploy codes for a company's people (status only — the code is shown once) */
   async deployCodes(ws: string, userId: number) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     const rows = await this.prisma.trackerDeployCode.findMany({ where: { orgId: c.orgId, revokedAt: null }, orderBy: { createdAt: 'desc' } });
     const ids = [...new Set(rows.map((r) => r.userId).filter((x): x is number => x != null))];
     const users = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } });
@@ -251,7 +266,7 @@ export class TrackerService {
    */
   async createDeployCode(ws: string, userId: number, b: any) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     const hasTarget = b?.userId !== undefined && b?.userId !== null && b?.userId !== '';
     let target: number | null = null;
     if (hasTarget) {
@@ -266,7 +281,7 @@ export class TrackerService {
 
   async revokeDeployCode(ws: string, userId: number, id: number) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     await this.prisma.trackerDeployCode.updateMany({ where: { id, orgId: c.orgId, revokedAt: null }, data: { revokedAt: new Date() } });
     return { ok: true };
   }
@@ -290,7 +305,7 @@ export class TrackerService {
   /** manager: computers enrolled with an org token but not yet assigned to a person */
   async unassignedDevices(ws: string, userId: number) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     return this.prisma.trackerDevice.findMany({
       where: { orgId: c.orgId, userId: null, revokedAt: null },
       select: { id: true, name: true, os: true, appVersion: true, lastSeenAt: true, createdAt: true },
@@ -301,7 +316,7 @@ export class TrackerService {
   /** manager: assign an enrolled computer to a person (it starts tracking them within a minute) */
   async assignDevice(ws: string, userId: number, deviceId: number, b: any) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     const target = Number(b?.userId);
     if (!Number.isInteger(target) || target <= 0) throw new BadRequestException('Pick a person.');
     if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: target } }, select: { id: true } }))) throw new BadRequestException('Add them to EZ Tracker first.');
@@ -723,7 +738,7 @@ export class TrackerService {
   /** company members who are not in EZ Tracker yet (for the "Add people" picker) */
   async candidates(ws: string, userId: number) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     const inTracker = await this.trackerIds(c.orgId);
     return this.prisma.user.findMany({ where: { deletedAt: null, status: 'ACTIVE', id: { notIn: inTracker.length ? inTracker : [0] } }, select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true }, orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }], take: 1000 });
   }
@@ -734,7 +749,7 @@ export class TrackerService {
    */
   async addMembers(ws: string, userId: number, b: any) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     const company = 'EZ Tracker';
     const ids = new Set<number>((Array.isArray(b?.userIds) ? b.userIds : []).map(Number).filter(Number.isInteger));
     const emails: string[] = (Array.isArray(b?.emails) ? b.emails : []).map((e: unknown) => str(e, 200).toLowerCase()).filter(Boolean).slice(0, 50);
@@ -769,7 +784,7 @@ export class TrackerService {
   /** remove from EZ Tracker for this company: their computers here are signed out, their history stays for admins */
   async removeMember(ws: string, userId: number, target: number) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     const m = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: target } } });
     if (!m) throw new NotFoundException('Person not found.');
     const open = await this.prisma.trackerSession.findMany({ where: { orgId: c.orgId, userId: target, endedAt: null }, select: { id: true, lastBeatAt: true, startedAt: true } });
@@ -783,7 +798,7 @@ export class TrackerService {
   /** member ↔ Tracker admin */
   async setRole(ws: string, userId: number, target: number, role: string) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     if (role !== 'admin' && role !== 'member') throw new BadRequestException('Role is member or admin.');
     const m = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: target } } });
     if (!m) throw new NotFoundException('Person not found.');
@@ -791,10 +806,34 @@ export class TrackerService {
     return { ok: true, role };
   }
 
+  /** the members a person is assigned to monitor (their scoped team). Admin, or the manager themself. */
+  async teamOf(ws: string, userId: number, managerId: number) {
+    const c = await this.ctx(ws, userId);
+    if (!c.isAdmin && c.userId !== managerId) throw new ForbiddenException('Only a Tracker admin can see this.');
+    return this.managedIds(c.orgId, managerId);
+  }
+
+  /** admin: set exactly which members a person monitors (empty list = they monitor no one) */
+  async setTeam(ws: string, userId: number, managerId: number, b: any) {
+    const c = await this.ctx(ws, userId);
+    this.needAdmin(c);
+    if (!Number.isInteger(managerId) || managerId <= 0) throw new BadRequestException('Pick a manager.');
+    if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: managerId } }, select: { id: true } }))) throw new BadRequestException('The manager has to be in EZ Tracker.');
+    const raw: any[] = Array.isArray(b?.memberIds) ? b.memberIds : [];
+    const wanted = [...new Set(raw.map((v) => Number(v)).filter((x) => Number.isInteger(x) && x > 0 && x !== managerId))].slice(0, 500);
+    const valid = wanted.length ? (await this.prisma.trackerMember.findMany({ where: { orgId: c.orgId, userId: { in: wanted } }, select: { userId: true } })).map((m) => m.userId) : [];
+    const current = await this.managedIds(c.orgId, managerId);
+    const remove = current.filter((x) => !valid.includes(x));
+    const add = valid.filter((x) => !current.includes(x));
+    if (remove.length) await this.prisma.trackerManages.deleteMany({ where: { orgId: c.orgId, managerId, memberId: { in: remove } } });
+    for (const memberId of add) await this.prisma.trackerManages.create({ data: { orgId: c.orgId, managerId, memberId, createdById: c.userId } });
+    return { managed: valid };
+  }
+
   /** tracking on / off for one person (paused without removing them) */
   async setTracking(ws: string, userId: number, target: number, on: boolean) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     const m = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: target } } });
     if (!m) throw new NotFoundException('Person not found.');
     await this.prisma.trackerMember.update({ where: { id: m.id }, data: { tracking: on } });
@@ -807,7 +846,9 @@ export class TrackerService {
     return this.peopleRows(c, offsetMin);
   }
   private async peopleRows(c: Ctx, offsetMin: number) {
-    const members = await this.prisma.trackerMember.findMany({ where: { orgId: c.orgId }, select: { userId: true, role: true, tracking: true, createdAt: true } });
+    // a team manager (not a full admin) sees only the people assigned to them
+    const scope = c.isAdmin ? null : new Set(await this.visibleIds(c));
+    const members = await this.prisma.trackerMember.findMany({ where: { orgId: c.orgId, ...(scope ? { userId: { in: [...scope] } } : {}) }, select: { userId: true, role: true, tracking: true, createdAt: true } });
     const ids = members.map((m) => m.userId);
     const [users, devices, consents, today, beats, reminders] = await Promise.all([
       this.people(ids),
@@ -885,7 +926,7 @@ export class TrackerService {
   /** a manager signs out someone's computer in this company */
   async revokeDeviceAs(ws: string, userId: number, deviceId: number) {
     const c = await this.ctx(ws, userId);
-    this.needManager(c);
+    this.needAdmin(c);
     const d = await this.prisma.trackerDevice.findUnique({ where: { id: deviceId }, select: { orgId: true, revokedAt: true } });
     if (!d || d.orgId !== c.orgId) throw new NotFoundException('Device not found.');
     if (!d.revokedAt) await this.prisma.trackerDevice.update({ where: { id: deviceId }, data: { revokedAt: new Date() } });
