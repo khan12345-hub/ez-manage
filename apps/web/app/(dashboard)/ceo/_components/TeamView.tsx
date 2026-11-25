@@ -128,7 +128,7 @@ export function PersonPanel({ person, companies, onClose }: { person: CeoPerson;
         <div className="px-6 py-4">
           {isLoading || !r ? <div className="h-40 animate-pulse rounded-lg bg-muted" /> : (
             <>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {([["Open", r.counts.open, ""], ["Working on", r.counts.inProgress, ""], ["Overdue", r.counts.overdue, r.counts.overdue ? "text-destructive" : ""], [`Done · ${days}d`, r.counts.doneInWindow, "text-primary"]] as const).map(([l, v, c]) => (
                   <div key={l} className="rounded-xl border border-border px-3 py-2"><p className="font-mono text-[9.5px] uppercase tracking-wide text-muted-foreground">{l}</p><p className={cn("font-serif text-[24px] leading-tight", c)}>{v}</p></div>
                 ))}

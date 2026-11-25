@@ -169,7 +169,7 @@ export function ManagerProfile({ managerId, onClose, onTaskClick, onMemberClick,
               {tab === "Tasks" && data && (
                 <div className="p-4 space-y-3">
                   {/* Mini stats grid */}
-                  <div className="grid grid-cols-5 gap-1.5">
+                  <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
                     {[
                       { l: "Total",    v: data.taskStats.totalTasks,    c: "text-foreground",  bg: "bg-muted/50",                                 border: "border-border" },
                       { l: "Done",     v: data.taskStats.doneTasks,     c: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30",         border: "border-emerald-200 dark:border-emerald-900" },

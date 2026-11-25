@@ -81,7 +81,7 @@ export default function CeoReportPage() {
               </Section>
 
               <Section title="At a glance">
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {([["Companies", o.kpis.companies], ["People", o.kpis.people], ["Open tasks", o.kpis.open], ["In progress", o.kpis.inProgress], ["Overdue", o.kpis.overdue], ["Done · 7 days", o.kpis.doneWeek], ["Progress", `${o.kpis.progress}%`], ["Unassigned", o.kpis.unassigned]] as const).map(([l, v]) => (
                     <div key={l} className="rounded-lg border border-border px-3 py-2 print:break-inside-avoid"><p className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted-foreground">{l}</p><p className="font-serif text-[20px]">{v}</p></div>
                   ))}

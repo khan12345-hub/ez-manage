@@ -69,7 +69,7 @@ export function ItemEditor({ item, defaultVault, defaultType, onClose, onSaved }
         <DialogTitle>{item ? `Edit ${typeLabel[type].toLowerCase()}` : "New item"}</DialogTitle>
         <DialogDescription className="sr-only">Everything here is encrypted in your browser before it is saved.</DialogDescription>
         {!item && (
-          <div className="grid grid-cols-5 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
             {TYPES.map((t) => <button key={t.type} type="button" aria-pressed={type === t.type} onClick={() => setType(t.type)} className={cn("flex flex-col items-center gap-1 rounded-lg border py-2 text-[11.5px] font-medium", type === t.type ? "border-product-vault bg-product-vault/8" : "border-border hover:bg-accent")}><t.icon className="h-4 w-4" />{typeLabel[t.type]}</button>)}
           </div>
         )}
