@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { AppSwitcher } from "@/components/AppSwitcher";
 import { useAuth } from "@/providers/AuthProvider";
 import { useTrackerWs } from "../_lib/tracker";
+import { ProductUserMenu } from "@/components/ProductUserMenu";
 import { Avatar } from "./bits";
 
 const NAV = [
@@ -66,9 +67,8 @@ export function TrackerShell({ children }: { children: React.ReactNode }) {
             <span className="min-w-0 flex-1 truncate font-medium">{ov.consent.acceptedAt ? "You agreed to tracking" : "Consent needed before tracking"}</span>
           </Link>
         )}
-        <div className="flex items-center gap-2.5 rounded-2xl bg-white/60 p-2.5 ring-1 ring-black/[0.04] dark:bg-white/5">
-          {user && <Avatar user={{ id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email, avatarUrl: (user as any).avatarUrl ?? null }} size={32} />}
-          <span className="min-w-0"><span className="block truncate text-[13px] font-semibold leading-tight">{user?.firstName} {user?.lastName}</span><span className="block truncate text-[11px] text-muted-foreground">{ov ? (ov.isSystemAdmin ? "Administrator" : ov.isManager ? "Tracker admin" : "Member") : "…"}</span></span>
+        <div className="rounded-2xl bg-white/60 p-1.5 ring-1 ring-black/[0.04] dark:bg-white/5">
+          <ProductUserMenu subtitle={ov ? (ov.isSystemAdmin ? "Administrator" : ov.isManager ? "Tracker admin" : "Member") : undefined} canManageAccess={!!ov?.isSystemAdmin} />
         </div>
       </div>
     </div>
