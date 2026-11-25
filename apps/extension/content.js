@@ -168,10 +168,17 @@
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); }, true);
 
   // popup "Fill" button
-  chrome.runtime.onMessage.addListener((msg) => {
+  chrome.runtime.onMessage.addListener((msg, _s, reply) => {
     if (msg?.type === "doFill") {
       const target = document.activeElement instanceof HTMLInputElement ? document.activeElement : passwords()[0] || document.querySelector("input");
       if (target) fillInto(target, msg.username, msg.password);
+    }
+    // Password generator "Autofill": drop the generated value into the focused (or first) password field
+    if (msg?.type === "doFillPassword") {
+      const a = document.activeElement;
+      const target = (a instanceof HTMLInputElement && (a.type === "password" || a.type === "text")) ? a : passwords()[0];
+      if (target) { setValue(target, msg.password); reply?.({ ok: true }); } else reply?.({ ok: false });
+      return true;
     }
   });
 

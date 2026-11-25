@@ -50,10 +50,17 @@
       <button id="btn-gen2" class="icon2" title="Password generator" aria-label="Password generator">⚿</button>
       <button id="btn-new" class="icon2 plus" title="New item (opens EZ Vault on the web)" aria-label="New item">＋</button>
     </div>
-    <div class="lv-filter" role="tablist">
-      <button class="tab" data-f="site" type="button">This site</button>
-      <button class="tab is-on" data-f="all" type="button">All items</button>
-      <button class="tab" data-f="fav" type="button">Favorites</button>
+    <div class="scope">
+      <button id="scope-btn" class="scope-btn" type="button" aria-haspopup="true" aria-expanded="false">
+        <span class="scope-ico" aria-hidden="true">▤</span><span id="scope-label">All Items</span><span class="scope-caret" aria-hidden="true">⌄</span>
+      </button>
+      <ul id="scope-menu" class="menu scope-menu" hidden>
+        <li data-f="all" class="is-on">All Items</li>
+        <li data-f="site">Suggestions</li>
+        <li data-f="fav">Favorites</li>
+        <li class="sep"></li>
+        <li data-f="all">Logins</li>
+      </ul>
     </div>
     <div class="lv-body">
       <ul id="list-col" class="items col" aria-label="Items"></ul>
@@ -91,6 +98,27 @@
     <p class="muted" id="s-who"></p>
     <button id="btn-signout" class="danger" type="button">Sign out of this browser</button>
   </section>
+
+  <!-- password generator: slides in from the right -->
+  <aside id="gen-panel" class="genpanel" aria-label="Password Generator">
+    <div class="gp-head"><b>Password Generator</b><button id="gp-close" class="icon2 ghost" type="button" aria-label="Close">✕</button></div>
+    <div class="gp-actions"><button id="gp-copy" class="mini" type="button">Copy</button><button id="gp-regen" class="icon2" type="button" title="Regenerate" aria-label="Regenerate">↻</button><span class="grow"></span><button id="gp-autofill" class="pri small" type="button">Autofill</button></div>
+    <div class="gp-out"><code id="gp-value"></code></div>
+    <label class="gp-row"><span>Type</span>
+      <select id="gp-type"><option value="random">Random Password</option><option value="memorable">Memorable Password</option><option value="pin">PIN Code</option></select>
+    </label>
+    <div id="gp-opt-random" class="gp-opts">
+      <label class="row">Length <input id="gp-len" type="range" min="8" max="64" value="20" /><span id="gp-len-v">20</span></label>
+      <label class="row"><input id="gp-digits" type="checkbox" checked /> Numbers</label>
+      <label class="row"><input id="gp-symbols" type="checkbox" checked /> Symbols</label>
+    </div>
+    <div id="gp-opt-memorable" class="gp-opts" hidden>
+      <label class="row">Words <input id="gp-words" type="range" min="3" max="8" value="4" /><span id="gp-words-v">4</span></label>
+    </div>
+    <div id="gp-opt-pin" class="gp-opts" hidden>
+      <label class="row">Digits <input id="gp-pin" type="range" min="4" max="12" value="6" /><span id="gp-pin-v">6</span></label>
+    </div>
+  </aside>
 
   <div id="toast" class="toast" role="status" hidden></div>
   <script type="module" src="popup.js"></script>
