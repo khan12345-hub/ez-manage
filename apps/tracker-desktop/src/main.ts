@@ -22,9 +22,18 @@ let lastError: string | null = null;
 let quitting = false;
 /** the pair screen was opened to add another company */
 let adding = false;
+/**
+ * Unattended ("silent") deployment, like Hubstaff's Silent App: no window or tray, auto-starts
+ * tracking on login. For organisation-managed computers where staff have been told monitoring is on
+ * (consent is handled by the organisation's policy, recorded on the server). The app is NOT disguised
+ * — it keeps its name in the process list, installed programs and the OS start-up list.
+ */
+let silent = false;
 
 const api = (acct?: string | null) => new Api(accountOf(cfg, acct)?.apiBase ?? cfg.apiBase, getToken(cfg, acct));
 const engine = new Engine(api, () => cfg.active ?? null, () => me, () => push(), async (minutes) => {
+  // silent mode has no UI to ask: keep the idle time (the slot still marks it as idle)
+  if (silent) return true;
   if (win) { win.show(); win.focus(); }
   const r = await dialog.showMessageBox({
     type: 'question', title: 'EZ Tracker', buttons: ['Keep the time', 'Discard it'], defaultId: 0, cancelId: 0, noLink: true,
@@ -103,6 +112,17 @@ async function quit() {
   app.quit();
 }
 
+/** unattended mode: accept the organisation's monitoring policy, then keep tracking running */
+async function ensureSilent() {
+  // the computer must be paired once (IT runs the app normally to pair, then deploys with --silent)
+  if (!getToken(cfg) || !me) return;
+  try {
+    if (!me.consent.acceptedAt) { await api().consent(me.consent.version ?? CONSENT_VERSION); await refreshMe(); }
+    const st = engine.state();
+    if (me.tracked && cfg.active && !st.running && !st.idlePrompt) await engine.start({ note: null });
+  } catch { /* offline or transient — the 60s interval retries */ }
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 420, height: 680, minWidth: 380, minHeight: 560, title: 'EZ Tracker', icon: icon(64, false), backgroundColor: '#f4f7f6', autoHideMenuBar: true,
@@ -124,16 +144,27 @@ else {
   app.whenReady().then(async () => {
     app.setAppUserModelId('com.ezmanage.tracker');
     cfg = loadConfig();
+    // silent once the installer/IT passes --silent, or once it was turned on before
+    silent = process.argv.includes('--silent') || !!cfg.silent;
+    if (silent && !cfg.silent) { cfg = { ...cfg, silent: true }; saveConfig(cfg); }
     await refreshMe();
-    createWindow();
-    updateTray();
-    // settings (screenshots, blur, idle…) are picked up within a minute
-    setInterval(() => void refreshMe().then(push), 60_000);
+
+    if (silent) {
+      // unattended: no window, no tray; auto-start on login; auto-start tracking
+      app.setLoginItemSettings({ openAtLogin: true, args: ['--silent'] });
+      await ensureSilent();
+      setInterval(() => void refreshMe().then(ensureSilent), 60_000);
+    } else {
+      createWindow();
+      updateTray();
+      // settings (screenshots, blur, idle…) are picked up within a minute
+      setInterval(() => void refreshMe().then(push), 60_000);
+    }
     // leftovers from last time (offline / crashed): upload them
     void engine.flush();
   });
   app.on('before-quit', (e) => { if (!quitting && engine.state().running) { e.preventDefault(); void quit(); } });
-  app.on('window-all-closed', () => { if (!engine.state().running) void quit(); });
+  app.on('window-all-closed', () => { if (!silent && !engine.state().running) void quit(); });
 }
 
 // ── renderer ↔ main ──
