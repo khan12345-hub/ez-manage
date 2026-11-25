@@ -155,7 +155,7 @@ export class AccessService {
     if (!userIds.length) return out;
     try {
       const rows = await this.prisma.trackerDevice.groupBy({ by: ['userId'], where: { userId: { in: userIds }, revokedAt: null }, _count: { _all: true } });
-      for (const r of rows) out.set(r.userId, r._count._all);
+      for (const r of rows) if (r.userId != null) out.set(r.userId, r._count._all);
     } catch { /* not there yet */ }
     return out;
   }

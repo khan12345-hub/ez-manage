@@ -238,17 +238,27 @@ export class TrackerService {
     const c = await this.ctx(ws, userId);
     this.needManager(c);
     const rows = await this.prisma.trackerDeployCode.findMany({ where: { orgId: c.orgId, revokedAt: null }, orderBy: { createdAt: 'desc' } });
-    const users = await this.prisma.user.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.userId))] } }, select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } });
-    return rows.map((r) => ({ id: r.id, user: users.find((u) => u.id === r.userId) ?? null, lastUsedAt: r.lastUsedAt, createdAt: r.createdAt }));
+    const ids = [...new Set(rows.map((r) => r.userId).filter((x): x is number => x != null))];
+    const users = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } });
+    // user null = an organisation token (assign devices later)
+    return rows.map((r) => ({ id: r.id, org: r.userId == null, user: r.userId == null ? null : users.find((u) => u.id === r.userId) ?? null, lastUsedAt: r.lastUsedAt, createdAt: r.createdAt }));
   }
 
-  /** manager: make a long-lived, revocable deploy code for ONE person (bake it into their installer) */
+  /**
+   * manager: make a long-lived, revocable deploy code and bake it into an installer.
+   *  - with a userId  → per-person: devices connect straight to that person
+   *  - without one    → an ORGANISATION token: devices enrol unassigned, an admin assigns them later
+   */
   async createDeployCode(ws: string, userId: number, b: any) {
     const c = await this.ctx(ws, userId);
     this.needManager(c);
-    const target = Number(b?.userId);
-    if (!Number.isInteger(target) || target <= 0) throw new BadRequestException('Pick a person.');
-    if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: target } }, select: { id: true } }))) throw new BadRequestException('Add them to EZ Tracker first.');
+    const hasTarget = b?.userId !== undefined && b?.userId !== null && b?.userId !== '';
+    let target: number | null = null;
+    if (hasTarget) {
+      target = Number(b.userId);
+      if (!Number.isInteger(target) || target <= 0) throw new BadRequestException('Pick a person.');
+      if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: target } }, select: { id: true } }))) throw new BadRequestException('Add them to EZ Tracker first.');
+    }
     const code = `ezd_${randomBytes(24).toString('base64url')}`;
     await this.prisma.trackerDeployCode.create({ data: { orgId: c.orgId, userId: target, codeHash: hashToken(code), createdById: c.userId } });
     return { code };
@@ -267,13 +277,38 @@ export class TrackerService {
     if (!/^ezd_[A-Za-z0-9_-]{20,80}$/.test(code)) throw new BadRequestException('Bad deploy code.');
     const row = await this.prisma.trackerDeployCode.findUnique({ where: { codeHash: hashToken(code) } });
     if (!row || row.revokedAt) throw new ForbiddenException('This deploy code is not valid anymore.');
-    if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: row.orgId, userId: row.userId } }, select: { id: true } }))) throw new ForbiddenException('That person is not in EZ Tracker anymore.');
+    // per-person code: the person must still be a member. Org token (userId null): device enrols unassigned.
+    if (row.userId != null && !(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: row.orgId, userId: row.userId } }, select: { id: true } }))) throw new ForbiddenException('That person is not in EZ Tracker anymore.');
     await this.prisma.trackerDeployCode.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } });
     const token = `ezt_${randomBytes(36).toString('base64url')}`;
     const d = await this.prisma.trackerDevice.create({
       data: { orgId: row.orgId, userId: row.userId, name: str(b?.name, 80) || 'Computer', os: str(b?.os, 40) || null, appVersion: str(b?.appVersion, 20) || null, tokenHash: hashToken(token), lastSeenAt: new Date() },
     });
     return { token, deviceId: d.id, ...(await this.desktopMe({ userId: row.userId, deviceId: d.id, orgId: row.orgId })) };
+  }
+
+  /** manager: computers enrolled with an org token but not yet assigned to a person */
+  async unassignedDevices(ws: string, userId: number) {
+    const c = await this.ctx(ws, userId);
+    this.needManager(c);
+    return this.prisma.trackerDevice.findMany({
+      where: { orgId: c.orgId, userId: null, revokedAt: null },
+      select: { id: true, name: true, os: true, appVersion: true, lastSeenAt: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** manager: assign an enrolled computer to a person (it starts tracking them within a minute) */
+  async assignDevice(ws: string, userId: number, deviceId: number, b: any) {
+    const c = await this.ctx(ws, userId);
+    this.needManager(c);
+    const target = Number(b?.userId);
+    if (!Number.isInteger(target) || target <= 0) throw new BadRequestException('Pick a person.');
+    if (!(await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: c.orgId, userId: target } }, select: { id: true } }))) throw new BadRequestException('Add them to EZ Tracker first.');
+    const dev = await this.prisma.trackerDevice.findFirst({ where: { id: deviceId, orgId: c.orgId, revokedAt: null }, select: { id: true, userId: true } });
+    if (!dev) throw new NotFoundException('Computer not found.');
+    await this.prisma.trackerDevice.update({ where: { id: dev.id }, data: { userId: target, assignedById: c.userId, assignedAt: new Date() } });
+    return { ok: true };
   }
 
   async connectExchange(b: any) {
@@ -307,6 +342,14 @@ export class TrackerService {
   async desktopMe(d: TrackerDeviceCaller) {
     const org = await this.prisma.trackerOrg.findUniqueOrThrow({ where: { id: d.orgId } });
     const settings = this.settingsOf(org.settings);
+    // enrolled with an org token but not assigned to a person yet: the app waits (no user, not tracked)
+    if (d.userId == null) {
+      return {
+        user: null, workspace: { uid: 'org', name: 'Organization', source: 'org', key: 'org' }, member: false, pending: true as const,
+        settings: { screenshotsPer10: settings.screenshotsPer10, blur: settings.blur, trackApps: settings.trackApps, trackUrls: settings.trackUrls, idleMinutes: settings.idleMinutes },
+        tracked: false, consent: { version: CONSENT_VERSION, acceptedAt: null }, today: 0, openSession: null, webUrl: process.env.FRONTEND_URL ?? null,
+      };
+    }
     const member = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: d.orgId, userId: d.userId } }, select: { role: true, tracking: true } });
     const u = await this.prisma.user.findUnique({ where: { id: d.userId }, select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } });
     const consent = await this.prisma.trackerConsent.findUnique({ where: { orgId_userId_version: { orgId: d.orgId, userId: d.userId, version: CONSENT_VERSION } }, select: { acceptedAt: true } });
@@ -320,16 +363,23 @@ export class TrackerService {
     };
   }
 
-  async desktopConsent(d: TrackerDeviceCaller, version: string, ip?: string, ua?: string) { return this.consent(d.orgId, d.userId, version, ip, ua); }
+  /** a device that hasn't been assigned to a person yet can't record — only poll /me */
+  private need(d: TrackerDeviceCaller): number {
+    if (d.userId == null) throw new ForbiddenException('This computer is waiting to be assigned to a person in EZ Tracker on the web.');
+    return d.userId;
+  }
+
+  async desktopConsent(d: TrackerDeviceCaller, version: string, ip?: string, ua?: string) { return this.consent(d.orgId, this.need(d), version, ip, ua); }
 
   /** can this device record right now? (still a Tracker member here, tracking on for them, agreed to the current text) */
   private async mayTrack(d: TrackerDeviceCaller) {
+    const uid = this.need(d);
     const org = await this.prisma.trackerOrg.findUniqueOrThrow({ where: { id: d.orgId } });
-    const member = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: d.orgId, userId: d.userId } }, select: { tracking: true } });
+    const member = await this.prisma.trackerMember.findUnique({ where: { orgId_userId: { orgId: d.orgId, userId: uid } }, select: { tracking: true } });
     if (!member) throw new ForbiddenException('You are not in EZ Tracker anymore.');
     const settings = this.settingsOf(org.settings);
     if (!member.tracking) throw new ForbiddenException('Time tracking is paused for you.');
-    const ok = await this.prisma.trackerConsent.findUnique({ where: { orgId_userId_version: { orgId: d.orgId, userId: d.userId, version: CONSENT_VERSION } }, select: { id: true } });
+    const ok = await this.prisma.trackerConsent.findUnique({ where: { orgId_userId_version: { orgId: d.orgId, userId: uid, version: CONSENT_VERSION } }, select: { id: true } });
     if (!ok) throw new ForbiddenException('Please read and accept what EZ Tracker records before you start.');
     return { org, settings };
   }
@@ -348,9 +398,10 @@ export class TrackerService {
   }
 
   async start(d: TrackerDeviceCaller, b: any) {
+    const uid = this.need(d);
     await this.mayTrack(d);
     const clientId = cid(b?.clientId);
-    const existing = await this.prisma.trackerSession.findUnique({ where: { userId_clientId: { userId: d.userId, clientId } } });
+    const existing = await this.prisma.trackerSession.findUnique({ where: { userId_clientId: { userId: uid, clientId } } });
     if (existing) return existing; // a retried start
     // system tracker: just time + screenshots + activity, plus an optional free-text note.
     // a fresh online start sends no time (the server stamps it); a queued / offline start sends when it
@@ -359,16 +410,16 @@ export class TrackerService {
     let startedAt = b?.startedAt ? iso(b.startedAt, 'startedAt') : new Date();
     if (startedAt.getTime() > now) startedAt = new Date(now);
     if (startedAt.getTime() < now - 7 * 86_400_000) throw new BadRequestException('That start time is too old to record.');
-    const open = await this.prisma.trackerSession.findMany({ where: { userId: d.userId, endedAt: null } });
+    const open = await this.prisma.trackerSession.findMany({ where: { userId: uid, endedAt: null } });
     for (const o of open) await this.finish(o.id, o.lastBeatAt ?? startedAt);
     return this.prisma.trackerSession.create({
-      data: { orgId: d.orgId, userId: d.userId, deviceId: d.deviceId, clientId, note: str(b?.note, 500) || str(b?.projectLabel, 120) || null, startedAt, lastBeatAt: new Date() },
+      data: { orgId: d.orgId, userId: uid, deviceId: d.deviceId, clientId, note: str(b?.note, 500) || str(b?.projectLabel, 120) || null, startedAt, lastBeatAt: new Date() },
     });
   }
 
   private async ownSession(d: TrackerDeviceCaller, id: number) {
     const s = await this.prisma.trackerSession.findUnique({ where: { id } });
-    if (!s || s.userId !== d.userId || s.orgId !== d.orgId) throw new NotFoundException('Session not found.');
+    if (!s || s.userId !== this.need(d) || s.orgId !== d.orgId) throw new NotFoundException('Session not found.');
     return s;
   }
 
@@ -440,6 +491,7 @@ export class TrackerService {
 
   /** slots arrive in batches (the app keeps them on disk while offline); a re-sent slot is ignored */
   async slots(d: TrackerDeviceCaller, b: any) {
+    const uid = this.need(d);
     const { settings } = await this.mayTrack(d);
     const s = await this.ownSession(d, Number(b?.sessionId));
     const list: any[] = Array.isArray(b?.slots) ? b.slots.slice(0, 200) : [];
@@ -447,7 +499,7 @@ export class TrackerService {
     let saved = 0, skipped = 0;
     for (const x of list) {
       const clientId = cid(x?.clientId);
-      const dup = await this.prisma.trackerSlot.findUnique({ where: { userId_clientId: { userId: d.userId, clientId } }, select: { id: true } });
+      const dup = await this.prisma.trackerSlot.findUnique({ where: { userId_clientId: { userId: uid, clientId } }, select: { id: true } });
       if (dup) { skipped++; continue; }
       const start = iso(x?.start, 'slot start');
       const aligned = new Date(Math.floor(start.getTime() / SLOT_MS) * SLOT_MS);
@@ -458,10 +510,10 @@ export class TrackerService {
       const apps: any[] = settings.trackApps && Array.isArray(x?.apps) ? x.apps.slice(0, 30) : [];
       await this.prisma.trackerSlot.create({
         data: {
-          sessionId: s.id, orgId: d.orgId, userId: d.userId, clientId, start: aligned, seconds,
+          sessionId: s.id, orgId: d.orgId, userId: uid, clientId, start: aligned, seconds,
           keyboard: int(x?.keyboard, 0, 100_000), mouse: int(x?.mouse, 0, 100_000),
           activityPct: seconds ? Math.round((active / seconds) * 100) : 0, idleDiscarded: !!x?.idleDiscarded,
-          apps: { create: apps.map((a) => ({ orgId: d.orgId, userId: d.userId, app: str(a?.app, 120) || 'Unknown', title: str(a?.title, 200) || null, url: settings.trackUrls ? str(a?.url, 300) || null : null, seconds: int(a?.seconds, 0, 600) })) },
+          apps: { create: apps.map((a) => ({ orgId: d.orgId, userId: uid, app: str(a?.app, 120) || 'Unknown', title: str(a?.title, 200) || null, url: settings.trackUrls ? str(a?.url, 300) || null : null, seconds: int(a?.seconds, 0, 600) })) },
         },
       });
       saved++;
@@ -472,6 +524,7 @@ export class TrackerService {
   }
 
   async shot(d: TrackerDeviceCaller, file: Express.Multer.File | undefined, b: any) {
+    const uid = this.need(d);
     const { settings } = await this.mayTrack(d);
     if (settings.screenshotsPer10 === 0) throw new ForbiddenException('Screenshots are turned off for this workspace.');
     if (!file?.buffer?.length) throw new BadRequestException('No screenshot received.');
@@ -479,16 +532,16 @@ export class TrackerService {
     const type = sniff(file.buffer);
     if (!type || !SHOT_TYPES.has(type)) throw new BadRequestException('A screenshot must be a JPEG, PNG or WebP image.');
     const clientId = cid(b?.clientId);
-    const dup = await this.prisma.trackerShot.findUnique({ where: { userId_clientId: { userId: d.userId, clientId } }, select: { id: true, url: true } });
+    const dup = await this.prisma.trackerShot.findUnique({ where: { userId_clientId: { userId: uid, clientId } }, select: { id: true, url: true } });
     if (dup) return dup;
-    const slot = await this.prisma.trackerSlot.findUnique({ where: { userId_clientId: { userId: d.userId, clientId: cid(b?.slotClientId, 'slotClientId') } }, select: { id: true, deletedAt: true } });
+    const slot = await this.prisma.trackerSlot.findUnique({ where: { userId_clientId: { userId: uid, clientId: cid(b?.slotClientId, 'slotClientId') } }, select: { id: true, deletedAt: true } });
     if (!slot) throw new ConflictException('Send the time slot first, then its screenshot.');
     if (slot.deletedAt) throw new BadRequestException('That time was deleted.');
-    const up = await this.storage.upload({ ...file, mimetype: type, originalname: `shot-${clientId}.${type.split('/')[1]}` } as Express.Multer.File, `tracker/${d.orgId}/${d.userId}`);
+    const up = await this.storage.upload({ ...file, mimetype: type, originalname: `shot-${clientId}.${type.split('/')[1]}` } as Express.Multer.File, `tracker/${d.orgId}/${uid}`);
     const url = this.storage.getUrl(up.storageKey);
-    const f = await this.prisma.file.create({ data: { fileName: up.fileName, mimeType: up.mimeType, fileSize: up.fileSize, storageKey: up.storageKey, url, uploadedById: d.userId } });
+    const f = await this.prisma.file.create({ data: { fileName: up.fileName, mimeType: up.mimeType, fileSize: up.fileSize, storageKey: up.storageKey, url, uploadedById: uid } });
     return this.prisma.trackerShot.create({
-      data: { slotId: slot.id, orgId: d.orgId, userId: d.userId, clientId, fileId: f.id, url, takenAt: b?.takenAt ? iso(b.takenAt, 'takenAt') : new Date(), screen: int(b?.screen, 0, 8), blurred: String(b?.blurred) === 'true' || b?.blurred === true },
+      data: { slotId: slot.id, orgId: d.orgId, userId: uid, clientId, fileId: f.id, url, takenAt: b?.takenAt ? iso(b.takenAt, 'takenAt') : new Date(), screen: int(b?.screen, 0, 8), blurred: String(b?.blurred) === 'true' || b?.blurred === true },
       select: { id: true, url: true },
     });
   }

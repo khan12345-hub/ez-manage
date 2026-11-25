@@ -50,6 +50,12 @@ The code identifies the person (the server maps code → user), so each person g
 Revoke a code any time from the same screen; existing devices keep working, but the code can't pair
 new ones. A baked code is a secret — treat the installer as sensitive and revoke if it leaks.
 
+**One installer for everyone — assign later (Hubstaff-style).** Instead of a per-person code, click
+**Organization token**: one code for a *single* installer you deploy to every computer. On first run
+each computer **enrols unassigned**; it shows up under **My tracking → … → "computers waiting to be
+assigned"**, where an admin assigns it to a person. It starts tracking that person within a minute —
+no per-person builds.
+
 ### B. Normal installer + `--silent` flag
 
 1. **Install** EZ Tracker (`EZTrackerSetup-<version>.exe`). Turn **tracking on** for the person in the web app.

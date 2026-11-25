@@ -2,7 +2,8 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, creat
 import { createHash } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 
-export type TrackerDeviceCaller = { userId: number; deviceId: number; orgId: number };
+/** userId is null while a device is enrolled with an org token but not yet assigned to a person */
+export type TrackerDeviceCaller = { userId: number | null; deviceId: number; orgId: number };
 
 export const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
 
@@ -20,8 +21,11 @@ export class TrackerDeviceGuard implements CanActivate {
     if (!m) throw new UnauthorizedException('This app is not connected. Pair it again from EZ Tracker on the web.');
     const d = await this.prisma.trackerDevice.findUnique({ where: { tokenHash: hashToken(m[1]!) }, select: { id: true, userId: true, orgId: true, revokedAt: true, lastSeenAt: true } });
     if (!d || d.revokedAt) throw new UnauthorizedException('This computer was signed out. Pair it again from EZ Tracker on the web.');
-    const user = await this.prisma.user.findUnique({ where: { id: d.userId }, select: { id: true, deletedAt: true } });
-    if (!user || user.deletedAt) throw new UnauthorizedException('Not signed in.');
+    // d.userId null = enrolled (org token) but not assigned yet — allowed (the app polls /me until assigned)
+    if (d.userId != null) {
+      const user = await this.prisma.user.findUnique({ where: { id: d.userId }, select: { id: true, deletedAt: true } });
+      if (!user || user.deletedAt) throw new UnauthorizedException('Not signed in.');
+    }
     if (!d.lastSeenAt || Date.now() - d.lastSeenAt.getTime() > 60_000) await this.prisma.trackerDevice.update({ where: { id: d.id }, data: { lastSeenAt: new Date() } });
     req.trackerDevice = { userId: d.userId, deviceId: d.id, orgId: d.orgId } satisfies TrackerDeviceCaller;
     return true;

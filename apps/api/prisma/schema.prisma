@@ -3043,7 +3043,8 @@ model TrackerPairCode {
 model TrackerDeployCode {
   id          Int       @id @default(autoincrement())
   orgId       Int
-  userId      Int
+  /// null = an ORGANISATION token (devices enrol unassigned, an admin assigns them); set = per-person
+  userId      Int?
   codeHash    String    @unique
   createdById Int
   lastUsedAt  DateTime?
@@ -3061,13 +3062,17 @@ model TrackerDeployCode {
 model TrackerDevice {
   id         Int       @id @default(autoincrement())
   orgId      Int
-  userId     Int
+  /// null = enrolled with an organisation token but not yet assigned to a person (Hubstaff-style)
+  userId     Int?
   name       String
   os         String?
   appVersion String?
   tokenHash  String    @unique
   lastSeenAt DateTime?
   revokedAt  DateTime?
+  /// who assigned this computer to its person, and when (for org-token enrollments)
+  assignedById Int?
+  assignedAt   DateTime?
   createdAt  DateTime  @default(now())
 
   @@index([userId])

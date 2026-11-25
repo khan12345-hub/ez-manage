@@ -34,6 +34,8 @@ export class TrackerController {
   @Throttle({ auth: { ttl: 60_000, limit: 20 } })
   @Post(':ws/deploy-codes') createDeployCode(@Param('ws') ws: string, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.createDeployCode(ws, u.id, b); }
   @Delete(':ws/deploy-codes/:id') revokeDeployCode(@Param('ws') ws: string, @Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.t.revokeDeployCode(ws, u.id, id); }
+  @Get(':ws/unassigned') unassigned(@Param('ws') ws: string, @CurrentUser() u: SessionUser) { return this.t.unassignedDevices(ws, u.id); }
+  @Post(':ws/devices/:id/assign') assignDevice(@Param('ws') ws: string, @Param('id', ParseIntPipe) id: number, @Body() b: any, @CurrentUser() u: SessionUser) { return this.t.assignDevice(ws, u.id, id, b); }
   @Get(':ws/devices') devices(@Param('ws') ws: string, @CurrentUser() u: SessionUser) { return this.t.devices(ws, u.id); }
   @Delete('devices/:id') revoke(@Param('id', ParseIntPipe) id: number, @CurrentUser() u: SessionUser) { return this.t.revokeDevice(id, u.id); }
 
