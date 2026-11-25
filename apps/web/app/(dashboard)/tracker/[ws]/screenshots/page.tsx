@@ -148,6 +148,8 @@ function Screenshots() {
   }, [data]);
   const kept = (data?.slots ?? []).filter((s) => !s.idleDiscarded);
   const avg = kept.length ? Math.round(kept.reduce((n, s) => n + s.activityPct * s.seconds, 0) / Math.max(1, kept.reduce((n, s) => n + s.seconds, 0))) : 0;
+  const kbTotal = (data?.slots ?? []).reduce((n, s) => n + (s.keyboard ?? 0), 0);
+  const msTotal = (data?.slots ?? []).reduce((n, s) => n + (s.mouse ?? 0), 0);
 
   const del = useMutation({
     mutationFn: (s: TrackerShot) => trackerApi.deleteShot(s.id),
@@ -170,9 +172,11 @@ function Screenshots() {
         {data?.user && <span className="flex items-center gap-2 text-[13px]"><Avatar user={data.user} size={26} /><b className="font-semibold">{userName(data.user)}</b></span>}
       </motion.div>
 
-      <motion.div variants={stagger} className="grid grid-cols-3 gap-3">
+      <motion.div variants={stagger} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatTile icon={Clock4} label="Tracked" value={hm(data?.totalSeconds ?? 0)} sub={fmtDay(day, { weekday: "long", month: "short", day: "numeric" })} />
         <StatTile icon={Gauge} label="Activity" value={`${avg}%`} sub="average this day" tone="#2563eb" />
+        <StatTile icon={Keyboard} label="Keyboard" value={kbTotal.toLocaleString()} sub="key presses" tone="#0b6b4f" />
+        <StatTile icon={Mouse} label="Mouse" value={msTotal.toLocaleString()} sub="clicks & moves" tone="#9333ea" />
         <StatTile icon={ImagePlay} label="Screenshots" value={flat.length} sub={ov?.settings.blur ? "blurred for privacy" : `${kept.length} blocks of 10 min`} tone="#b45309" />
       </motion.div>
 
