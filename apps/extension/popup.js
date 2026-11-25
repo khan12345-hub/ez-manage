@@ -28,6 +28,7 @@ async function boot() {
   state = await send({ type: "state" });
   const tab = await send({ type: "activeUrl" });
   pageUrl = tab.url || "";
+  $("acct-brand").textContent = state?.connected ? (state.user?.name?.split(" ")[0] || "EZ Vault") : "EZ Vault";
   if (!state.connected) return show("connect");
   if (!state.unlocked) {
     $("who").textContent = state.user ? `${state.user.name} · ${state.user.email}` : "";
@@ -58,6 +59,22 @@ function strength(pw) {
   if (pw.length >= 8) s++; if (pw.length >= 12) s++; if (pw.length >= 16) s++;
   if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++; if (/\d/.test(pw)) s++; if (/[^A-Za-z0-9]/.test(pw)) s++;
   return s >= 5 ? { cls: "good", label: "Strong" } : s >= 3 ? { cls: "ok", label: "Good" } : { cls: "weak", label: "Weak" };
+}
+// Watchtower: how many items share each password (reuse), computed from what the popup holds
+function reusedMap() { const m = new Map(); for (const i of items) if (i.password && !i.useOnly) m.set(i.password, (m.get(i.password) || 0) + 1); return m; }
+function issuesFor(it, reused) {
+  const out = [];
+  if (it.useOnly || !it.password) return out;
+  if (strength(it.password)?.cls === "weak") out.push({ label: "Weak password", desc: "This password is too easy to guess. Change it to something stronger." });
+  if ((reused.get(it.password) || 0) > 1) out.push({ label: "Reused password", desc: "You're using this password on more than one item." });
+  if (it.passwordUpdatedAt && (Date.now() - new Date(it.passwordUpdatedAt).getTime()) / 864e5 > 365) out.push({ label: "Old password", desc: "This password is over a year old. Consider changing it." });
+  return out;
+}
+// whole-vault Watchtower tallies (for the account panel)
+function watchtower() {
+  const reused = reusedMap(); let weak = 0, reuse = 0;
+  for (const i of items) { if (i.useOnly || !i.password) continue; if (strength(i.password)?.cls === "weak") weak++; if ((reused.get(i.password) || 0) > 1) reuse++; }
+  return { weak, reuse };
 }
 
 /** one row in the left column (icon + title + sub); click selects it */
@@ -100,12 +117,14 @@ function renderDetail(it, count) {
   const hasSite = (it.urls || []).some(Boolean);
   const siteUrl = (it.urls || []).find(Boolean) || "";
   const st = it.useOnly ? null : strength(it.password);
+  const issue = issuesFor(it, reusedMap())[0];
   d.innerHTML = `
     <div class="dt-head">
       <div class="dt-ico" id="dt-ico">${host && state?.showIcons !== false ? `<img id="dt-ico-img" src="https://${esc(host)}/favicon.ico" referrerpolicy="no-referrer" alt="">` : esc(letter)}</div>
       <div style="min-width:0;flex:1"><div class="dt-title">${esc(it.title || "Login")}</div><div class="dt-sub">${esc(it.username || host || "")}</div></div>
       <div class="dt-menu-wrap"><button class="icon2" id="dt-menu-btn" title="More" aria-label="More">⋮</button></div>
     </div>
+    ${issue ? `<button class="wt-banner" id="dt-wt"><span class="wt-ico">◍</span><span class="wt-mid"><b>${esc(issue.label)}</b><span>${esc(issue.desc)}</span></span><span class="wt-arrow">›</span></button>` : ""}
     ${forHere ? `<div class="dt-primary"><button class="pri" id="dt-fill">Fill on this page</button></div>` : hasSite ? `<div class="dt-primary"><button class="pri" id="dt-fill">Open &amp; fill</button></div>` : ""}
     <div class="dt-fields">
       ${it.username ? `<div class="field"><div class="k">Username</div><div class="v"><span class="val">${esc(it.username)}</span><button class="mini" id="dt-copy-user">Copy</button></div></div>` : ""}
@@ -117,6 +136,7 @@ function renderDetail(it, count) {
       ${it.notes ? `<div class="field"><div class="k">Notes</div><div class="notes">${esc(it.notes)}</div></div>` : ""}
     </div>`;
   const ico = $("dt-ico-img"); if (ico) ico.onerror = () => { ico.remove(); const e = $("dt-ico"); if (e) e.textContent = letter; };
+  $("dt-wt")?.addEventListener("click", () => openWeb(`/vault?item=${encodeURIComponent(it.uid)}`));
   $("dt-fill")?.addEventListener("click", async () => { const r = await send({ type: forHere ? "fillTab" : "openAndFill", uid: it.uid }); if (r.ok) window.close(); else toast(r.error || "Couldn't do that"); });
   $("dt-copy-user")?.addEventListener("click", () => copy(it.username, "Username"));
   $("dt-copy-pw")?.addEventListener("click", () => copy(it.password, "Password", it.uid, "copied"));
@@ -214,6 +234,30 @@ $("gp-autofill").addEventListener("click", async () => {
   catch { toast("Open a page with a password field"); }
 });
 $("btn-gen2")?.addEventListener("click", openGenPanel);
+
+// ── account panel (accounts + Watchtower + Lock/Settings/Sign out) ──
+const ap = $("acct-panel");
+function openAcct() {
+  const name = state?.user?.name || "EZ Vault", email = state?.user?.email || "";
+  $("ap-name").textContent = name;
+  $("ap-email").textContent = email || (state?.connected ? "" : "Not connected");
+  $("ap-ava").textContent = (name || email || "EZ").trim().charAt(0).toUpperCase();
+  const w = watchtower();
+  $("ap-weak-n").textContent = `${w.weak} weak password${w.weak === 1 ? "" : "s"}`;
+  $("ap-reuse-n").textContent = `${w.reuse} reused`;
+  $("ap-weak").hidden = !w.weak; $("ap-reuse").hidden = !w.reuse;
+  ap.classList.add("open");
+}
+const closeAcct = () => ap.classList.remove("open");
+$("acct-btn").addEventListener("click", (e) => { e.stopPropagation(); ap.classList.contains("open") ? closeAcct() : openAcct(); });
+$("ap-close").addEventListener("click", closeAcct);
+$("ap-lock").addEventListener("click", async () => { closeAcct(); await send({ type: "lock" }); if (state) state.unlocked = false; boot(); });
+$("ap-settings").addEventListener("click", () => { chrome.runtime.openOptionsPage(); window.close(); });
+$("ap-web").addEventListener("click", () => openWeb("/vault"));
+$("ap-weak").addEventListener("click", () => openWeb("/vault"));
+$("ap-reuse").addEventListener("click", () => openWeb("/vault"));
+$("ap-signout").addEventListener("click", async () => { closeAcct(); await send({ type: "signout" }); state = null; boot(); });
+document.addEventListener("click", (e) => { if (ap.classList.contains("open") && !ap.contains(e.target) && !$("acct-btn").contains(e.target)) closeAcct(); });
 
 // ── generator ──
 function gen() {
