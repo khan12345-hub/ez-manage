@@ -11,20 +11,22 @@ Installed Programs, and in the Windows start-up list. It does not hide, disguise
 Task Manager. Do not use it to monitor anyone who has not been informed — that is unlawful in most
 places and the app is not built to support it.
 
-## How IT deploys it
+## How IT deploys it — one time
 
-1. **Install** EZ Tracker on the computer (`EZTrackerSetup-0.4.0.exe`).
-2. **Pair it once** — run the app normally; on the Pair screen enter the code from the EZ Tracker
-   web app (People → add the person → their pairing code). The admin must also have **tracking turned
-   on** for that person in the web app.
-3. **Switch it to silent** — launch the app once with the `--silent` flag, e.g. a shortcut to:
+1. **Install** EZ Tracker on the computer (`EZTrackerSetup-0.4.0.exe`). In the web app, make sure
+   **tracking is turned on** for that person (People → add them).
+2. **Launch once with `--silent`**, e.g. a shortcut to:
    `"C:\Program Files\EZ Tracker\EZ Tracker.exe" --silent`
-   From then on it:
-   - saves `silent: true` in its config,
-   - registers itself to **auto-start on login with `--silent`**, and
-   - **auto-accepts the organisation monitoring policy** and **auto-starts tracking** each launch.
+   - If the computer isn't paired yet, the Pair screen appears **this one time** — enter the code from
+     the web app (People → the person → pairing code).
+   - The moment it's paired, the window closes for good. From then on the app:
+     - saves `silent: true`,
+     - **auto-starts on login with `--silent`**,
+     - **auto-accepts the organisation monitoring policy**, and
+     - **auto-starts tracking** every time.
 
-After step 3 the window and tray never appear again; the computer tracks automatically on every login.
+That's the whole setup — **once**. The window and tray never appear again, and it never asks to pair
+or sign in again (a transient server error won't un-pair it).
 
 ## Turning it off
 

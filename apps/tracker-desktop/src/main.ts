@@ -97,7 +97,9 @@ async function refreshMe() {
     me = await api().me(); lastError = null; engine.todayBase = me.today; engine.offline = false;
     if (cfg.active && me.workspace) cfg = renameAccount(cfg, cfg.active, me.workspace.name, me.workspace.source);
   } catch (e) {
-    if (e instanceof ApiError && e.status === 401 && cfg.active && !engine.state().running) {
+    // in silent/unattended mode never un-pair on a 401 (a transient server blip would otherwise force
+    // a human to pair again) — just go offline and let the interval retry; one-time pairing stays.
+    if (!silent && e instanceof ApiError && e.status === 401 && cfg.active && !engine.state().running) {
       const gone = activeAccount(cfg)?.name || 'this company';
       dropQueue(cfg.active); cfg = removeAccount(cfg, cfg.active); me = null;
       lastError = `This computer was signed out of ${gone}. Pair it again with a new code.`;
@@ -150,10 +152,18 @@ else {
     await refreshMe();
 
     if (silent) {
-      // unattended: no window, no tray; auto-start on login; auto-start tracking
+      // unattended: auto-start on login; auto-start tracking; no window or tray once set up
       app.setLoginItemSettings({ openAtLogin: true, args: ['--silent'] });
-      await ensureSilent();
-      setInterval(() => void refreshMe().then(ensureSilent), 60_000);
+      if (!getToken(cfg)) {
+        // not paired yet: show the pair screen THIS ONCE so it can be set up in a single launch;
+        // the moment it's paired the window is removed and it never shows again.
+        createWindow();
+      } else {
+        await ensureSilent();
+      }
+      setInterval(() => void refreshMe().then(async () => {
+        if (getToken(cfg)) { if (win) { win.destroy(); win = null; } await ensureSilent(); }
+      }), 60_000);
     } else {
       createWindow();
       updateTray();
@@ -178,6 +188,8 @@ ipcMain.handle('pair', (_e, b: { apiBase: string; code: string }) => ok((async (
   cfg = addAccount(cfg, { id: `d${r.deviceId}`, name: r.workspace?.name ?? 'Company', source: r.workspace?.source, apiBase: base, token: r.token });
   adding = false; lastError = null;
   await refreshMe();
+  // silent/unattended: paired now — drop the window and go fully headless + auto-track
+  if (silent) { if (win) { win.destroy(); win = null; } await ensureSilent(); return true; }
   push();
   return true;
 })()));
