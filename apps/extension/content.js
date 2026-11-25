@@ -7,7 +7,7 @@
   const send = (msg) => new Promise((res) => { try { chrome.runtime.sendMessage(msg, (r) => res(chrome.runtime.lastError ? { ok: false } : r || { ok: false })); } catch { res({ ok: false }); } });
 
   // ── connect from the EZ Vault web page ──
-  const WEB_ORIGINS = ["http://localhost:3000", "https://manage.ezify.pk"];
+  const WEB_ORIGINS = ["https://manage.ezify.pk", "https://staging-manage.ezify.pk", "http://localhost:3000"];
   window.addEventListener("message", (e) => {
     if (e.source !== window || e.origin !== location.origin || !WEB_ORIGINS.includes(location.origin)) return;
     const d = e.data;

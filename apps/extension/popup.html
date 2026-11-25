@@ -19,13 +19,17 @@
   <!-- connect -->
   <section id="v-connect" class="view" hidden>
     <h1>Connect this browser</h1>
-    <p class="muted">In EZ Vault on the web open <b>Settings → Browser extension</b> and click <b>Connect this browser</b>, or copy the connect code and paste it here.</p>
-    <form id="f-connect">
-      <label>Connect code<input id="i-token" autocomplete="off" spellcheck="false" placeholder="ezv_…" /></label>
-      <button class="pri" type="submit">Connect</button>
-      <p id="e-connect" class="err" role="alert"></p>
-    </form>
-    <button id="btn-open-web" class="link" type="button">Open EZ Vault on the web</button>
+    <p class="muted">Sign in to EZ Vault on the web and this browser connects by itself — no code to type.</p>
+    <button id="btn-connect-web" class="pri" type="button">Connect with my account</button>
+    <p id="e-connect" class="err" role="alert"></p>
+    <details id="manual-connect">
+      <summary class="muted">or enter a connect code</summary>
+      <p class="muted">On the web open <b>Settings → Browser extension → Connect this browser</b>, then paste the code shown:</p>
+      <form id="f-connect">
+        <label>Connect code<input id="i-token" autocomplete="off" spellcheck="false" placeholder="ezv_…" /></label>
+        <button class="pri" type="submit">Connect</button>
+      </form>
+    </details>
   </section>
 
   <!-- unlock -->

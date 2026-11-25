@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -376,6 +376,25 @@ export function SettingsView() {
   };
   const revoke = async (id: number) => { await api.delete(`/vault/tokens/${id}`).catch(() => null); await qc.invalidateQueries({ queryKey: ["vault", "tokens"] }); };
 
+  // One-click from the extension: it opens this page with ?connect=extension after you sign in — if the
+  // extension is on the page, connect it automatically (no code to type), then clean the URL.
+  const [extHere, setExtHere] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setExtHere(document.documentElement.dataset.ezvaultExtension === "1");
+    const onConnected = (e: MessageEvent) => { if (e?.data?.type === "EZVAULT_CONNECTED") { if (e.data.ok) toast.success("This browser is connected."); else if (e.data.error) toast.error(String(e.data.error)); } };
+    window.addEventListener("message", onConnected);
+    const p = new URLSearchParams(window.location.search);
+    let t: ReturnType<typeof setTimeout> | undefined;
+    if (p.get("connect") === "extension") {
+      const url = new URL(window.location.href); url.searchParams.delete("connect"); window.history.replaceState({}, "", url.toString());
+      // give the content script a moment to mark itself present on first load
+      t = setTimeout(() => { if (document.documentElement.dataset.ezvaultExtension === "1") connect(); else toast.message("Install the EZ Vault extension, then press “Connect this browser”."); }, 500);
+    }
+    return () => { window.removeEventListener("message", onConnected); if (t) clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const change = async () => {
     if (!me?.keys || nw !== nw2 || nw.length < 10) return;
     setBusy(true);
@@ -405,8 +424,9 @@ export function SettingsView() {
     <GlassPage title="Settings" max="max-w-3xl">
       <motion.section variants={fade} className={cn(GLASS, "p-5")}>
         <h2 className="flex items-center gap-2 text-[15px] font-semibold"><Laptop className="h-4 w-4 text-product-vault" /> Browser extension</h2>
-        <p className="mt-1 text-[13px] text-muted-foreground">The EZ Vault extension fills in logins on websites and offers to save new ones. Install it, then connect it here.</p>
-        <button type="button" onClick={connect} className="mt-3 h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground">Connect this browser</button>
+        <p className="mt-1 text-[13px] text-muted-foreground">The EZ Vault extension fills in logins on websites and offers to save new ones. {extHere ? "It's installed here — connect it in one click." : "Install it, then connect it here."}</p>
+        <button type="button" onClick={connect} className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground dark:bg-primary dark:text-primary-foreground">{extHere && <CheckCircle2 className="h-4 w-4" />} Connect this browser</button>
+        {extHere && <span className="ml-2 text-[12px] text-[#0b6b4f] dark:text-[#34d399]">Extension detected — it connects by itself.</span>}
         {code && (
           <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
             <p className="text-[12px] text-muted-foreground">Connect code (shown once). If the extension didn&apos;t connect by itself, paste this into it:</p>
