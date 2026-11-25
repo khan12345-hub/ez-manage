@@ -349,6 +349,74 @@ export class VaultService {
     return this.prisma.user.findMany({ where: { id: { in: ids }, deletedAt: null }, select: USER_MINI, orderBy: { firstName: 'asc' }, take: 500 });
   }
 
+  /**
+   * Team monitoring for a manager (Vault admin of the company): each person in the company with a
+   * summary of their vault ACTIVITY — never any secret. VaultEvent holds no plaintext; titles are not
+   * returned, so a manager who isn't a vault member still can't read what the item is. Also computes a
+   * few metadata-only risk flags so the manager can spot who to look at.
+   */
+  async teamActivity(c: VaultCaller, b: any) {
+    const { source, workspaceId } = this.company(b);
+    if (!(await this.canAdminCompany(c.userId, source, workspaceId))) throw new ForbiddenException('Only a Vault admin of this company can see this.');
+    const days = Math.min(90, Math.max(7, Number(b?.days) || 30));
+    const since = new Date(Date.now() - days * 864e5);
+    const memberIds = [...(await this.companyMemberIds(source, workspaceId))];
+    const [people, vaults, adminRows] = await Promise.all([
+      this.prisma.user.findMany({ where: { id: { in: memberIds }, deletedAt: null }, select: USER_MINI }),
+      this.prisma.vault.findMany({ where: { companySource: source, companyWorkspaceId: workspaceId, deletedAt: null }, select: { id: true } }),
+      this.prisma.vaultAdmin.findMany({ where: { source, workspaceId }, select: { userId: true } }),
+    ]);
+    const vaultIds = vaults.map((v) => v.id);
+    const adminSet = new Set(adminRows.map((a) => a.userId));
+    const empty = { days, companyVaults: vaultIds.length, people: people.map((u) => ({ user: u, admin: adminSet.has(u.id), vaults: 0, total: 0, counts: {} as Record<string, number>, lastActiveAt: null as Date | null, flags: [] as string[] })).sort((x, y) => (x.user.firstName ?? '').localeCompare(y.user.firstName ?? '')) };
+    if (!vaultIds.length) return empty;
+    const [events, memberships] = await Promise.all([
+      this.prisma.vaultEvent.findMany({ where: { vaultId: { in: vaultIds }, createdAt: { gte: since }, userId: { in: memberIds } }, select: { userId: true, action: true, createdAt: true, itemId: true }, orderBy: { createdAt: 'desc' }, take: 20000 }),
+      this.prisma.vaultMember.groupBy({ by: ['userId'], where: { vaultId: { in: vaultIds }, userId: { in: memberIds } }, _count: { _all: true } }),
+    ]);
+    const vaultsByUser = new Map(memberships.map((m) => [m.userId, m._count._all]));
+    type Agg = { counts: Record<string, number>; total: number; last: Date | null; secretsByDay: Map<string, Set<number>>; night: number; blocked: number };
+    const byUser = new Map<number, Agg>();
+    const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+    for (const e of events) {
+      let a = byUser.get(e.userId);
+      if (!a) { a = { counts: {}, total: 0, last: null, secretsByDay: new Map(), night: 0, blocked: 0 }; byUser.set(e.userId, a); }
+      a.counts[e.action] = (a.counts[e.action] || 0) + 1; a.total++;
+      if (!a.last || e.createdAt > a.last) a.last = e.createdAt;
+      if (e.action === 'blocked') a.blocked++;
+      if ((e.action === 'revealed' || e.action === 'copied' || e.action === 'exported') && e.itemId) {
+        const k = dayKey(e.createdAt); let s = a.secretsByDay.get(k); if (!s) { s = new Set(); a.secretsByDay.set(k, s); } s.add(e.itemId);
+      }
+      const h = e.createdAt.getUTCHours(); if (h < 5 || h >= 22) a.night++; // off-hours is a hint (server time), not proof
+    }
+    const result = people.map((u) => {
+      const a = byUser.get(u.id);
+      const counts = a?.counts ?? {};
+      const maxSecretsDay = a ? Math.max(0, ...[...a.secretsByDay.values()].map((s) => s.size)) : 0;
+      const flags: string[] = [];
+      if ((a?.blocked ?? 0) > 0) flags.push('blocked');
+      if (maxSecretsDay >= 15) flags.push('bulk');
+      if ((counts['exported'] ?? 0) > 0) flags.push('exported');
+      if ((a?.night ?? 0) >= 5) flags.push('off_hours');
+      return { user: u, admin: adminSet.has(u.id), vaults: vaultsByUser.get(u.id) ?? 0, total: a?.total ?? 0, counts, lastActiveAt: a?.last ?? null, flags };
+    }).sort((x, y) => (y.flags.length - x.flags.length) || (y.total - x.total) || (x.user.firstName ?? '').localeCompare(y.user.firstName ?? ''));
+    return { days, companyVaults: vaultIds.length, people: result };
+  }
+
+  /** one team member's recent vault activity, within this company's vaults (metadata only). */
+  async teamMemberEvents(c: VaultCaller, b: any) {
+    const { source, workspaceId } = this.company(b);
+    if (!(await this.canAdminCompany(c.userId, source, workspaceId))) throw new ForbiddenException('Only a Vault admin of this company can see this.');
+    const userId = Number(b?.userId);
+    if (!Number.isInteger(userId) || userId <= 0) throw new BadRequestException('Pick a person.');
+    const vaults = await this.prisma.vault.findMany({ where: { companySource: source, companyWorkspaceId: workspaceId, deletedAt: null }, select: { id: true, uid: true } });
+    if (!vaults.length) return [];
+    const rows = await this.prisma.vaultEvent.findMany({ where: { vaultId: { in: vaults.map((v) => v.id) }, userId }, orderBy: { createdAt: 'desc' }, take: 300 });
+    const items = await this.prisma.vaultItem.findMany({ where: { id: { in: rows.map((r) => r.itemId).filter((x): x is number => !!x) } }, select: { id: true, uid: true } });
+    const vaultByUid = new Map(vaults.map((v) => [v.id, v.uid]));
+    return rows.map((r) => ({ id: r.id, action: r.action, createdAt: r.createdAt, meta: r.meta, itemUid: items.find((i) => i.id === r.itemId)?.uid ?? null, vaultUid: vaultByUid.get(r.vaultId ?? -1) ?? null }));
+  }
+
   async setVaultAdmin(c: VaultCaller, b: any, on: boolean) {
     const { source, workspaceId } = this.company(b);
     if (!(await this.canAdminCompany(c.userId, source, workspaceId))) throw new ForbiddenException('Only a Vault admin of this company can change this.');
