@@ -12,7 +12,7 @@ export type AccessEvent = {
   product: Product | 'system';
   workspaceId?: number | null;
   workspaceName?: string | null;
-  action: 'invited' | 'added' | 'joined' | 'role_changed' | 'removed' | 'product_on' | 'product_off' | 'disabled' | 'enabled' | 'refused' | 'promoted' | 'demoted' | 'manager_set' | 'manager_removed' | 'product_admin_set' | 'product_admin_removed';
+  action: 'invited' | 'added' | 'joined' | 'role_changed' | 'removed' | 'product_on' | 'product_off' | 'disabled' | 'enabled' | 'refused' | 'promoted' | 'demoted' | 'manager_set' | 'manager_removed' | 'product_admin_set' | 'product_admin_removed' | 'password_reset' | 'profile_edited';
   fromRole?: string | null;
   toRole?: string | null;
   via?: 'product' | 'access_center' | 'invite_link' | 'invite_accept' | 'sign_up';
@@ -84,6 +84,8 @@ export class AccessAuditService {
       manager_removed: `${who} removed ${whom}'s Access Manager role.`,
       product_admin_set: `${who} made ${whom} the ${e.toRole ?? ''} Administrator.`,
       product_admin_removed: `${who} removed ${whom}'s ${e.toRole ?? ''} Administrator role.`,
+      password_reset: `${who} reset ${whom}'s password.`,
+      profile_edited: `${who} edited ${whom}'s profile.`,
     };
     for (const a of admins) {
       if (a.id === e.actorId) continue;

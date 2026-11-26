@@ -162,6 +162,7 @@ export function UserDrawer({ id, me, companies, onClose }: { id: number | null; 
                       </Card>
                     )}
                     {!isAdminUser && <ManagerScopes userId={u.id} scopes={u.managerScopes ?? []} companies={companies} />}
+                    <AdminUserActions user={u} />
                     <Card>
                       <div className="flex items-center gap-3">
                         <span className={cn("flex h-8 w-8 items-center justify-center rounded-lg text-white", disabled ? "bg-[#047857]" : "bg-[#dc2626]")}>{disabled ? <CheckCircle2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}</span>
@@ -302,6 +303,39 @@ function ManagerScopes({ userId, scopes, companies }: { userId: number; scopes: 
         <button type="button" disabled={!ws} onClick={() => { setList((x) => [...x, { product, workspaceId: Number(ws), source: null, mayGrantAdmin: false }]); setWs(""); }} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-[12.5px] font-semibold disabled:opacity-40"><Plus className="h-3.5 w-3.5" /> Add</button>
         <span className="flex-1" />
         <button type="button" disabled={!dirty || save.isPending} onClick={() => save.mutate()} className="h-8 rounded-lg bg-forest px-3 text-[12.5px] font-semibold text-white disabled:opacity-40 dark:bg-primary">Save</button>
+      </div>
+    </Card>
+  );
+}
+
+/** Administrator: edit a person's name / email, and set a new password for them. */
+function AdminUserActions({ user }: { user: { id: number; firstName: string; lastName: string; email: string } }) {
+  const qc = useQueryClient();
+  const [first, setFirst] = useState(user.firstName);
+  const [last, setLast] = useState(user.lastName);
+  const [email, setEmail] = useState(user.email);
+  const [pw, setPw] = useState("");
+  const inp = "h-9 rounded-lg border border-border bg-background px-2.5 text-[13px] outline-none focus:border-primary/50";
+  const changed = first !== user.firstName || last !== user.lastName || email.trim().toLowerCase() !== user.email.toLowerCase();
+  const edit = useMutation({ mutationFn: () => accessApi.editUser(user.id, { firstName: first.trim(), lastName: last.trim(), email: email.trim() }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["access"] }); toast.success("Profile updated."); }, onError: (e) => toast.error(errText(e)) });
+  const reset = useMutation({ mutationFn: () => accessApi.resetPassword(user.id, pw.trim()), onSuccess: () => { setPw(""); toast.success("Password set — they must sign in again."); }, onError: (e) => toast.error(errText(e)) });
+  return (
+    <Card>
+      <p className="text-[14px] font-semibold">Edit profile</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <input value={first} onChange={(e) => setFirst(e.target.value)} placeholder="First name" aria-label="First name" className={inp} />
+        <input value={last} onChange={(e) => setLast(e.target.value)} placeholder="Last name" aria-label="Last name" className={inp} />
+        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email" aria-label="Email" className={cn(inp, "sm:col-span-2")} />
+      </div>
+      <button type="button" disabled={!changed || !first.trim() || edit.isPending} onClick={() => edit.mutate()} className="mt-2 flex h-8 items-center gap-1.5 rounded-lg bg-forest px-3 text-[12.5px] font-semibold text-white disabled:opacity-40 dark:bg-primary dark:text-primary-foreground">{edit.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save changes</button>
+
+      <div className="mt-3 border-t border-border pt-3">
+        <p className="text-[14px] font-semibold">Reset password</p>
+        <p className="mt-0.5 text-[11.5px] text-muted-foreground">Set a new password for them. They are signed out everywhere and must use it next time.</p>
+        <div className="mt-2 flex gap-2">
+          <input value={pw} onChange={(e) => setPw(e.target.value)} type="text" placeholder="New password (min 8 characters)" aria-label="New password" className={cn(inp, "min-w-0 flex-1")} />
+          <button type="button" disabled={pw.trim().length < 8 || reset.isPending} onClick={() => reset.mutate()} className="h-9 shrink-0 rounded-lg border border-border px-3 text-[12.5px] font-semibold hover:bg-accent disabled:opacity-40">{reset.isPending ? "Setting…" : "Reset"}</button>
+        </div>
       </div>
     </Card>
   );

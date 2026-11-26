@@ -67,6 +67,8 @@ export const accessApi = {
   systemRole: async (id: number, role: "SUPER_ADMIN" | "USER") => (await api.post(`${A}/users/${id}/system-role`, { role })).data,
   setProductAdmin: async (id: number, product: AdminProduct, on: boolean) => (await api.post<AccessUser & { history: AccessRow[] }>(`${A}/users/${id}/product-admin`, { product, on })).data,
   setScopes: async (id: number, scopes: ManagerScope[]) => (await api.post(`${A}/users/${id}/manager-scopes`, { scopes })).data,
+  editUser: async (id: number, b: { firstName?: string; lastName?: string; email?: string }) => (await api.patch<AccessUser & { history: AccessRow[] }>(`${A}/users/${id}/profile`, b)).data,
+  resetPassword: async (id: number, password: string) => (await api.post<{ success: boolean }>(`${A}/users/${id}/reset-password`, { password })).data,
   disable: async (id: number) => (await api.post<{ disabled: boolean; leftSharedVaults: number; keptAsOnlyOwner: number }>(`${A}/users/${id}/disable`)).data,
   enable: async (id: number) => (await api.post(`${A}/users/${id}/enable`)).data,
 };
