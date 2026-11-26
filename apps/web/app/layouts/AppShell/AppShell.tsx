@@ -4,8 +4,10 @@ import { WorkRail } from "./Sidebar/WorkRail";
 
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Phone, PhoneOff, Video, X } from "lucide-react";
+import { Bell, LayoutGrid, Phone, PhoneOff, Video, X } from "lucide-react";
+import { ProductUserMenu } from "@/components/ProductUserMenu";
 import { SecondarySidebar } from "./Sidebar/SecondarySidebar";
 import { WorkSidebar } from "./Sidebar/WorkSidebar";
 import { TopNavbar } from "./TopNavbar/TopNavbar";
@@ -254,6 +256,10 @@ export function AppShell({ children }: AppShellProps) {
   const isWorkPage = /^\/work(\/|$)/.test(pathname ?? "");
   // These products are full-screen with their own header + sidebar (no Accounts shell around them)
   const isCeoPage = /^\/(ceo|vault|tracker|access|crm)(\/|$)/.test(pathname ?? "");
+  // Account-wide pages (profile, system settings) belong to no single product — show a neutral
+  // shell with just "All products" + the account menu, so a person who doesn't have Accounts &
+  // Invoices isn't dropped into the Boards sidebar to edit their own profile.
+  const isAccountPage = /^\/(settings|system-settings)(\/|$)/.test(pathname ?? "");
 
   return (
     <div className={cn("relative flex h-screen w-screen overflow-hidden bg-background text-foreground antialiased font-sans", isWorkPage && "work-ui")}>
@@ -266,6 +272,17 @@ export function AppShell({ children }: AppShellProps) {
               <WorkCallLayer />
               {isCeoPage ? (
                 <main className="flex-1 overflow-auto bg-background ez-page-surface">{children}</main>
+              ) : isAccountPage ? (
+                <div className="flex flex-1 flex-col overflow-hidden">
+                  <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
+                    <Link href="/home" className="flex items-center gap-2 text-[14px] font-semibold text-foreground">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary"><LayoutGrid className="h-4 w-4" /></span>
+                      All products
+                    </Link>
+                    <ProductUserMenu placement="down" />
+                  </header>
+                  <main className="flex-1 overflow-auto bg-background ez-page-surface">{children}</main>
+                </div>
               ) : (
               <>
               {!isWorkPage && <OnboardingTour />}
