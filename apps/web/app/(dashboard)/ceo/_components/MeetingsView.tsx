@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { BellRing, CalendarClock, CalendarPlus, Check, Copy, ExternalLink, Pencil, Share2, Video, XCircle } from "lucide-react";
+import { BellRing, CalendarClock, CalendarPlus, Check, Clock, Copy, Crown, ExternalLink, Mail, Pencil, Plus, Search, Share2, UserPlus, Users, Video, X, XCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/providers/AuthProvider";
 import { ceoApi, type CeoMeeting } from "@/services/ceo-tower.api";
 import { Avatar } from "../../work/_components/primitives";
-import { PeoplePicker } from "./PeoplePicker";
 
 const when = (iso: string) => new Date(iso).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
@@ -103,6 +103,88 @@ export function MeetingsView() {
   );
 }
 
+/** quick date/time presets so you don't have to fiddle with the picker */
+function presetDate(kind: "1h" | "tomAM" | "tomPM" | "mon"): Date {
+  const d = new Date();
+  if (kind === "1h") d.setHours(d.getHours() + 1, 0, 0, 0);
+  else if (kind === "tomAM") { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
+  else if (kind === "tomPM") { d.setDate(d.getDate() + 1); d.setHours(14, 0, 0, 0); }
+  else { d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); d.setHours(10, 0, 0, 0); }
+  return d;
+}
+const PRESETS: { key: "1h" | "tomAM" | "tomPM" | "mon"; label: string }[] = [
+  { key: "1h", label: "In 1 hour" }, { key: "tomAM", label: "Tomorrow 9 AM" }, { key: "tomPM", label: "Tomorrow 2 PM" }, { key: "mon", label: "Mon 10 AM" },
+];
+
+/**
+ * One clean control to invite people: search a teammate or type an email — picked people and
+ * external emails show as chips. Bulk "groups" are tucked behind a toggle so the common case
+ * (add a couple of people) stays simple.
+ */
+function InvitePeople({ people, setPeople, emails, setEmails, lockTeammates }: {
+  people: number[]; setPeople: (ids: number[]) => void;
+  emails: { email: string; name?: string }[]; setEmails: (e: { email: string; name?: string }[]) => void;
+  lockTeammates?: boolean;
+}) {
+  const { user } = useAuth();
+  const { data: team = [] } = useQuery({ queryKey: ["ceo-tower", "team", "all", null], queryFn: () => ceoApi.team("all"), enabled: !lockTeammates });
+  const { data: aud } = useQuery({ queryKey: ["ceo-tower", "audiences"], queryFn: ceoApi.audiences, enabled: !lockTeammates });
+  const [q, setQ] = useState("");
+  const [showGroups, setShowGroups] = useState(false);
+  const allPeople = useMemo(() => team.map((t) => t.user).filter((u) => u.id !== user?.id), [team, user?.id]);
+  const byId = useMemo(() => new Map(allPeople.map((p) => [p.id, p])), [allPeople]);
+  const qq = q.trim().toLowerCase();
+  const isEmail = /.+@.+\..+/.test(q.trim());
+  const emailTaken = emails.some((e) => e.email.toLowerCase() === q.trim().toLowerCase());
+  const matches = allPeople.filter((p) => !people.includes(p.id) && (!qq || `${p.firstName} ${p.lastName}`.toLowerCase().includes(qq))).slice(0, 6);
+  const addEmail = (raw: string) => { const v = raw.trim(); if (/.+@.+\..+/.test(v) && !emails.some((x) => x.email.toLowerCase() === v.toLowerCase())) setEmails([...emails, { email: v }]); setQ(""); };
+  const addPerson = (id: number) => { setPeople([...new Set([...people, id])]); setQ(""); };
+  const total = people.length + emails.length;
+  const hasGroups = !!aud && (aud.management.length > 0 || (aud.teams?.length ?? 0) > 0 || (aud.companies?.length ?? 0) > 0);
+
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[12px] font-medium text-muted-foreground">Invite{total > 0 && <span className="text-foreground"> · {total}</span>}</span>
+        {!lockTeammates && hasGroups && <button type="button" onClick={() => setShowGroups((s) => !s)} className="flex items-center gap-1 text-[11.5px] font-medium text-primary hover:underline"><Users className="h-3 w-3" /> {showGroups ? "Hide groups" : "Add a group"}</button>}
+      </div>
+      {total > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {people.map((id) => { const p = byId.get(id); return (
+            <span key={`p${id}`} className="flex items-center gap-1 rounded-full bg-primary/10 py-0.5 pl-0.5 pr-1.5 text-[12px] font-medium">
+              {p ? <Avatar user={p as any} size={18} /> : <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-muted text-[9px]">·</span>}
+              {p ? `${p.firstName} ${p.lastName}` : `#${id}`}
+              <button type="button" aria-label="Remove" onClick={() => setPeople(people.filter((x) => x !== id))} className="rounded-full p-0.5 hover:bg-primary/20"><X className="h-3 w-3" /></button>
+            </span>
+          ); })}
+          {emails.map((e) => (
+            <span key={`e${e.email}`} className="flex items-center gap-1 rounded-full bg-accent py-0.5 pl-2 pr-1.5 text-[12px] font-medium"><Mail className="h-3 w-3 text-muted-foreground" />{e.name || e.email}
+              <button type="button" aria-label="Remove" onClick={() => setEmails(emails.filter((x) => x.email !== e.email))} className="rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10"><X className="h-3 w-3" /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <label className="flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-2.5"><Search className="h-4 w-4 text-muted-foreground" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && isEmail) { e.preventDefault(); addEmail(q); } }} placeholder={lockTeammates ? "Type an email to invite…" : "Search teammates or type an email…"} aria-label="Invite people" className="w-full bg-transparent text-[13px] outline-none" />
+      </label>
+      {(qq.length > 0 || isEmail) && (
+        <div className="mt-1 overflow-hidden rounded-lg border border-border">
+          {isEmail && !emailTaken && <button type="button" onClick={() => addEmail(q)} className="flex w-full items-center gap-2 bg-primary/5 px-2.5 py-2 text-left text-[13px] hover:bg-primary/10"><UserPlus className="h-4 w-4 text-primary" /> Invite <b className="font-semibold">{q.trim()}</b> by email</button>}
+          {!lockTeammates && matches.map((p) => <button key={p.id} type="button" onClick={() => addPerson(p.id)} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] hover:bg-accent"><Avatar user={p as any} size={20} /><span className="flex-1 truncate">{p.firstName} {p.lastName}</span><Plus className="h-3.5 w-3.5 text-muted-foreground" /></button>)}
+          {!lockTeammates && !matches.length && !isEmail && <p className="px-2.5 py-2 text-[12px] text-muted-foreground">No teammate matches. Type a full email to invite someone outside.</p>}
+        </div>
+      )}
+      {showGroups && !lockTeammates && aud && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {aud.management.length > 0 && <button type="button" onClick={() => setPeople([...new Set([...people, ...aud.management])])} className="flex items-center gap-1 rounded-full border border-border px-2.5 py-0.5 text-[12px] hover:bg-accent"><Crown className="h-3 w-3 text-[#b08d57]" /> Management ({aud.management.length})</button>}
+          {aud.teams?.map((t) => <button key={t.id} type="button" onClick={() => setPeople([...new Set([...people, ...t.people])])} className="flex items-center gap-1 rounded-full border border-border px-2.5 py-0.5 text-[12px] hover:bg-accent"><Users className="h-3 w-3" /> {t.name} ({t.people.length})</button>)}
+          {aud.companies?.map((c) => <button key={c.key} type="button" onClick={() => setPeople([...new Set([...people, ...c.people])])} className="rounded-full border border-border px-2.5 py-0.5 text-[12px] hover:bg-accent">Everyone · {c.name}</button>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function MeetingDialog({ meeting, onClose, presetTitle, presetEmails, crm, lockPeople }: {
   meeting: CeoMeeting | null; onClose: () => void;
   presetTitle?: string;
@@ -119,8 +201,6 @@ export function MeetingDialog({ meeting, onClose, presetTitle, presetEmails, crm
   const [emails, setEmails] = useState<{ email: string; name?: string }[]>(
     meeting ? meeting.attendees.filter((a) => !a.user && a.email).map((a) => ({ email: a.email!, name: a.name || undefined })) : (presetEmails ?? []),
   );
-  const [emailDraft, setEmailDraft] = useState("");
-  const addEmail = () => { const e = emailDraft.trim(); if (/.+@.+\..+/.test(e) && !emails.some((x) => x.email.toLowerCase() === e.toLowerCase())) { setEmails([...emails, { email: e }]); setEmailDraft(""); } };
   const date = new Date(at);
   const ready = !!title.trim() && !isNaN(+date) && +date > Date.now() && (people.length > 0 || emails.length > 0);
   const save = useMutation({
@@ -139,9 +219,13 @@ export function MeetingDialog({ meeting, onClose, presetTitle, presetEmails, crm
         <div className="grid gap-3">
           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Weekly management review" aria-label="Meeting title" maxLength={255} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-[14px] font-medium outline-none focus:border-primary/50" />
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-[12px] font-medium text-muted-foreground">Date & time
-              <input type="datetime-local" aria-label="Date and time" value={at} min={toLocalInput(new Date())} onChange={(e) => setAt(e.target.value)} className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
-            </label>
+            <div>
+              <label className="text-[12px] font-medium text-muted-foreground" htmlFor="meet-at">Date & time</label>
+              <input id="meet-at" type="datetime-local" aria-label="Date and time" value={at} min={toLocalInput(new Date())} onChange={(e) => setAt(e.target.value)} className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {PRESETS.map((p) => <button key={p.key} type="button" onClick={() => setAt(toLocalInput(presetDate(p.key)))} className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"><Clock className="h-2.5 w-2.5" /> {p.label}</button>)}
+              </div>
+            </div>
             <div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[12px] font-medium text-muted-foreground">Video call link</span>
@@ -151,27 +235,11 @@ export function MeetingDialog({ meeting, onClose, presetTitle, presetEmails, crm
               <button type="button" onClick={() => setLink(`https://meet.jit.si/EZManage-${Math.random().toString(36).slice(2, 9)}`)} className="mt-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">or create an instant room — no account needed</button>
             </div>
           </div>
-          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Agenda (optional)" aria-label="Agenda" rows={3} className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary/50" />
-          {!lockPeople && <PeoplePicker value={people} onChange={setPeople} label="Invite teammates" />}
-          <div>
-            <label className="text-[12px] font-medium text-muted-foreground">{lockPeople ? "Invite by email" : "Or invite anyone by email"}</label>
-            {emails.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {emails.map((e) => (
-                  <span key={e.email} className="flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[12px]">{e.name || e.email}
-                    <button type="button" onClick={() => setEmails(emails.filter((x) => x.email !== e.email))} aria-label={`Remove ${e.email}`} className="leading-none text-muted-foreground hover:text-destructive">×</button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="mt-1.5 flex gap-2">
-              <input value={emailDraft} onChange={(e) => setEmailDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEmail(); } }} type="email" placeholder="name@company.com" aria-label="Invite by email" className="h-9 flex-1 rounded-lg border border-border bg-background px-2 text-[13px]" />
-              <button type="button" onClick={addEmail} disabled={!/.+@.+\..+/.test(emailDraft.trim())} className="h-9 rounded-lg border border-border px-3 text-[13px] font-medium hover:bg-accent disabled:opacity-40">Add</button>
-            </div>
-          </div>
+          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Agenda (optional)" aria-label="Agenda" rows={2} className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary/50" />
+          <InvitePeople people={people} setPeople={setPeople} emails={emails} setEmails={setEmails} lockTeammates={lockPeople} />
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[11.5px] text-muted-foreground">{ready ? "" : "Add a title, a future time and at least one person."}</span>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[11.5px] text-muted-foreground">{ready ? <>Scheduling for <b className="font-semibold text-foreground">{when(date.toISOString())}</b></> : "Add a title, a future time and at least one person."}</span>
           <button type="button" disabled={!ready || save.isPending} onClick={() => save.mutate()} className="h-9 rounded-lg bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-50 dark:bg-primary dark:text-primary-foreground">{meeting ? "Save changes" : "Schedule & invite"}</button>
         </div>
       </DialogContent>
