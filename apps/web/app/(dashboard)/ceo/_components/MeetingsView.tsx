@@ -232,7 +232,7 @@ export function MeetingDialog({ meeting, onClose, presetTitle, presetEmails, crm
                 <button type="button" onClick={() => { window.open("https://meet.google.com/new", "ezmeet", "width=1100,height=760,noopener"); toast.message("Google Meet opened in a new window — copy its link and paste it here."); }} className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-accent"><Video className="h-3 w-3" /> Create Google Meet</button>
               </div>
               <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste a Meet/Zoom/Teams link…" aria-label="Meeting link" className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
-              <button type="button" onClick={() => setLink(`https://meet.jit.si/EZManage-${Math.random().toString(36).slice(2, 9)}`)} className="mt-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">or create an instant room — no account needed</button>
+              <p className="mt-1 text-[11px] text-muted-foreground">Click <b>Create Google Meet</b>, then copy the link here. Optional.</p>
             </div>
           </div>
           <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Agenda (optional)" aria-label="Agenda" rows={2} className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary/50" />
