@@ -24,33 +24,21 @@ export class WorkspaceAccessService {
     userId: number,
     permission: WorkspacePermission,
   ): Promise<boolean> {
-    const workspace = await this.prisma.workspace.findUnique({
-      where: {
-        id: workspaceId,
-      },
-      select: {
-        members: {
-          where: {
-            userId,
-          },
-          select: {
-            role: true,
-            user: {
-              select: {
-                systemRole: true,
-              },
-            },
-          },
-          take: 1,
-        },
-      },
-    });
+    const [workspace, me] = await Promise.all([
+      this.prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { members: { where: { userId }, select: { role: true }, take: 1 } },
+      }),
+      // read the caller's system role directly — a global Administrator may not be a member of this
+      // workspace, so reading systemRole off the (empty) members list would miss them.
+      this.prisma.user.findUnique({ where: { id: userId }, select: { systemRole: true } }),
+    ]);
 
     if (!workspace) {
       throw new NotFoundException('Workspace not found.');
     }
 
-    const systemRole = workspace.members[0]?.user.systemRole;
+    const systemRole = me?.systemRole;
     const workspaceRole = workspace.members[0]
       ?.role as WorkspaceMemberRole | undefined;
 

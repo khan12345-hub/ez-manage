@@ -101,8 +101,10 @@ export class WorkPeopleService {
   async myWorkspaces(userId: number) {
     const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null }, select: { systemRole: true } });
     if (!user) return [];
-    // a Company Work product Administrator opens every company (full admin), even without a membership
-    if (this.productAdmin && (await this.productAdmin.is(userId, 'work'))) {
+    // the global Administrator (SUPER_ADMIN) and a Company Work product Administrator open every
+    // company (full admin), even without a membership
+    const seesAllWork = user.systemRole === 'SUPER_ADMIN' || (this.productAdmin ? await this.productAdmin.is(userId, 'work') : false);
+    if (seesAllWork) {
       const all = await this.prisma.workWorkspace.findMany({
         where: { deletedAt: null },
         select: { id: true, uid: true, name: true, color: true, avatarUrl: true },

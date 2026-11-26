@@ -40,9 +40,9 @@ export class WorkAccessService {
       this.prisma.workWorkspace.findFirst({ where: { id: workspaceId, deletedAt: null }, select: { id: true } }),
     ]);
     if (!user || !ws) return { role: null, superAdmin: false };
-    // a Company Work product Administrator is full admin of every Work company
-    if (await this.productAdmin.is(userId, 'work')) return { role: 'ADMIN', superAdmin: true };
-    // the platform/Boards system role grants nothing in Work — only Work membership counts
+    // the global Administrator (SUPER_ADMIN) and a Company Work product Administrator are full admins
+    // of every Work company, even without a membership
+    if (user.systemRole === 'SUPER_ADMIN' || (await this.productAdmin.is(userId, 'work'))) return { role: 'ADMIN', superAdmin: true };
     return { role: (member?.role as WorkRoleName) ?? null, superAdmin: false };
   }
 
