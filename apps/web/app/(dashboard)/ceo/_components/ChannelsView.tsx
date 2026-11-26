@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, ClipboardList, Hash, Lock, MessagesSquare, Plus, Search, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Hash, Lock, MessagesSquare, Plus, Search, Sparkles, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -23,6 +23,7 @@ import { WorkWsContext } from "../../work/_components/chat/useChat";
 import { PeoplePick } from "../../work/_components/chat/ChatTasks";
 import { useTaskPopup } from "./TaskPopup";
 import { BoardsChannelEmbed } from "./BoardsChannelEmbed";
+import { ChannelAiPanel } from "./ChannelAiPanel";
 import { createChannel as createBoardsChannel, getAllChatUsers } from "@/services/chat.api";
 import { getBoards, getBoardGroups } from "@/services/boards.api";
 import { boardsChatApi } from "@/services/chat-work.api";
@@ -259,6 +260,15 @@ export function ChannelsView({ companies, tab, onTab, source = "all", scope = nu
   const title = (c: (typeof all)[number]) => (c.kind === "channel" ? c.name ?? "channel" : c.people.map((p) => p.firstName).join(", ") || "Just you");
   const term = q.trim().toLowerCase();
 
+  // inline "Ask AI about this chat" panel, scoped to the open channel
+  const [aiOpen, setAiOpen] = useState(false);
+  const aiContext = selRow ? (() => {
+    const names = (selRow.people ?? []).map((p) => `${p.firstName}${p.lastName ? " " + p.lastName : ""}`).join(", ");
+    const product = (selRow.company.source ?? "work") === "boards" ? "Accounts & Invoices" : "Company Work";
+    return `The CEO is asking about ONE chat only: "${title(selRow)}" in ${selRow.company.name} (${product}). People in it: ${names || "just the CEO"}. Focus only on these people and this company — have they been active / replied, is the work the CEO gave done, who is behind. If the CEO asks to remind or re-send, propose a message to the people here.`;
+  })() : "";
+  const aiSuggest = ["Have the people here replied or been active lately?", "Is the work I gave in this chat done?", "Draft a reminder for whoever hasn't done their part."];
+
   return (
     <div className="grid gap-4 xl:grid-cols-[300px_1fr]">
       <aside aria-label="Channels" className="flex flex-col gap-3">
@@ -304,20 +314,30 @@ export function ChannelsView({ companies, tab, onTab, source = "all", scope = nu
       </aside>
 
       <section className="min-w-0">
-        <div role="tablist" aria-label="Channels views" className="mb-3 flex items-center gap-1 rounded-2xl bg-white/60 p-1 ring-1 ring-black/[0.04] dark:bg-white/5 sm:w-fit">
-          {([["chat", "Chat", MessagesSquare], ["assigned", "Assigned by me", ClipboardList]] as const).map(([id, label, Icon]) => (
-            <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => onTab(id)} className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3.5 py-1.5 text-[13px] font-semibold transition sm:flex-none", tab === id ? "bg-white text-foreground shadow-sm dark:bg-white/15" : "text-muted-foreground hover:text-foreground")}><Icon className="h-4 w-4" /> {label}</button>
-          ))}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div role="tablist" aria-label="Channels views" className="flex items-center gap-1 rounded-2xl bg-white/60 p-1 ring-1 ring-black/[0.04] dark:bg-white/5 sm:w-fit">
+            {([["chat", "Chat", MessagesSquare], ["assigned", "Assigned by me", ClipboardList]] as const).map(([id, label, Icon]) => (
+              <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => onTab(id)} className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3.5 py-1.5 text-[13px] font-semibold transition sm:flex-none", tab === id ? "bg-white text-foreground shadow-sm dark:bg-white/15" : "text-muted-foreground hover:text-foreground")}><Icon className="h-4 w-4" /> {label}</button>
+            ))}
+          </div>
+          {tab === "chat" && sel && <button type="button" onClick={() => setAiOpen((o) => !o)} aria-pressed={aiOpen} className={cn("flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-[13px] font-semibold transition", aiOpen ? "bg-forest text-white dark:bg-primary dark:text-primary-foreground" : "border border-border hover:bg-accent")}><Sparkles className="h-4 w-4" /> Ask AI</button>}
         </div>
         {tab === "assigned" ? <AssignedTable source={source} scope={scope} /> : sel ? (
-          <div className="h-[calc(100vh-210px)] min-h-[560px] overflow-hidden rounded-[24px] border border-white/70 bg-card shadow-[0_16px_48px_-28px_rgba(11,42,31,0.4)] dark:border-white/10">
-            {sel.source === "boards" && sel.wsId ? (
-              <BoardsChannelEmbed key={`b-${sel.uid}`} ws={sel.wsId} ch={Number(sel.uid)} isDm={selRow?.kind === "dm"}
-                title={selRow ? title(selRow) : "Chat"} onOpenTask={(t) => showTask("boards", t.id)} />
-            ) : (
-              <WorkWsContext.Provider value={sel.company}>
-                <ChannelView key={sel.uid} uid={sel.uid} hideHeaderExtras onOpenTask={(t) => showTask("work", t.id)} />
-              </WorkWsContext.Provider>
+          <div className="flex h-[calc(100vh-210px)] min-h-[560px] gap-3">
+            <div className="min-w-0 flex-1 overflow-hidden rounded-[24px] border border-white/70 bg-card shadow-[0_16px_48px_-28px_rgba(11,42,31,0.4)] dark:border-white/10">
+              {sel.source === "boards" && sel.wsId ? (
+                <BoardsChannelEmbed key={`b-${sel.uid}`} ws={sel.wsId} ch={Number(sel.uid)} isDm={selRow?.kind === "dm"}
+                  title={selRow ? title(selRow) : "Chat"} onOpenTask={(t) => showTask("boards", t.id)} />
+              ) : (
+                <WorkWsContext.Provider value={sel.company}>
+                  <ChannelView key={sel.uid} uid={sel.uid} hideHeaderExtras onOpenTask={(t) => showTask("work", t.id)} />
+                </WorkWsContext.Provider>
+              )}
+            </div>
+            {aiOpen && (
+              <div className="hidden w-[360px] shrink-0 overflow-hidden rounded-[24px] border border-white/70 bg-card shadow-[0_16px_48px_-28px_rgba(11,42,31,0.4)] lg:block dark:border-white/10">
+                <ChannelAiPanel key={sel.uid} context={aiContext} suggestions={aiSuggest} onClose={() => setAiOpen(false)} />
+              </div>
             )}
           </div>
         ) : (
