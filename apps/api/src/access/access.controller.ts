@@ -146,6 +146,16 @@ export class AccessController {
     return this.access.setScopes(a, id, Array.isArray(b.scopes) ? b.scopes.slice(0, 200) : []);
   }
 
+  @Patch('users/:id/profile')
+  editUser(@AccessActor() a: Actor, @Param('id', ParseIntPipe) id: number, @Body() b: { firstName?: string; lastName?: string; email?: string }) {
+    return this.access.editUser(a, id, b);
+  }
+
+  @Post('users/:id/reset-password')
+  resetPassword(@AccessActor() a: Actor, @Param('id', ParseIntPipe) id: number, @Body() b: { password: string }) {
+    return this.access.resetPassword(a, id, String(b.password ?? ''));
+  }
+
   @Post('users/:id/disable')
   disable(@AccessActor() a: Actor, @Param('id', ParseIntPipe) id: number) {
     return this.access.disable(a, id);

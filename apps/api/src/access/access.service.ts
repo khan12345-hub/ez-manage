@@ -1,6 +1,7 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { randomBytes } from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { Prisma, WorkspaceMemberRole } from 'generated/prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { InvitationsService } from 'src/invitations/invitations.service';
@@ -581,6 +582,43 @@ export class AccessService {
     // their sign-in carries the role: end it so the new role applies at once
     await this.prisma.$executeRaw`DELETE FROM sessions WHERE (sess::jsonb -> 'user' ->> 'id') = ${String(userId)}`;
     this.audit.record({ actorId: a.id, targetUserId: userId, product: 'system', action: role === 'SUPER_ADMIN' ? 'promoted' : 'demoted', fromRole: u.systemRole, toRole: role, via: 'access_center' });
+    return this.user(a, userId);
+  }
+
+  /** Administrator sets a new password for someone and signs them out everywhere. */
+  async resetPassword(a: Actor, userId: number, newPassword: string) {
+    this.needAdmin(a);
+    const pw = (newPassword ?? '').trim();
+    if (pw.length < 8) throw new BadRequestException('Password must be at least 8 characters.');
+    await this.target(userId);
+    const hash = await bcrypt.hash(pw, 12);
+    await this.prisma.user.update({ where: { id: userId }, data: { password: hash } });
+    // end their sessions so the new password takes effect at once
+    await this.prisma.$executeRaw`DELETE FROM sessions WHERE (sess::jsonb -> 'user' ->> 'id') = ${String(userId)}`;
+    this.audit.record({ actorId: a.id, targetUserId: userId, product: 'system', action: 'password_reset', via: 'access_center' });
+    return { success: true };
+  }
+
+  /** Administrator edits someone's name / email. */
+  async editUser(a: Actor, userId: number, b: { firstName?: string; lastName?: string; email?: string }) {
+    this.needAdmin(a);
+    const u = await this.target(userId);
+    const data: { firstName?: string; lastName?: string; email?: string } = {};
+    if (b.firstName !== undefined) { const v = b.firstName.trim(); if (!v) throw new BadRequestException('First name is required.'); data.firstName = v; }
+    if (b.lastName !== undefined) data.lastName = b.lastName.trim();
+    if (b.email !== undefined) {
+      const email = b.email.trim().toLowerCase();
+      if (!/.+@.+\..+/.test(email)) throw new BadRequestException('Enter a valid email address.');
+      if (email !== u.email) {
+        const taken = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+        if (taken && taken.id !== userId) throw new ConflictException('That email is already in use.');
+        data.email = email;
+      }
+    }
+    if (Object.keys(data).length) {
+      await this.prisma.user.update({ where: { id: userId }, data });
+      this.audit.record({ actorId: a.id, targetUserId: userId, product: 'system', action: 'profile_edited', via: 'access_center' });
+    }
     return this.user(a, userId);
   }
 
