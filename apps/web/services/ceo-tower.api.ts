@@ -130,6 +130,7 @@ export const ceoApi = {
   meetings: async (when: "upcoming" | "past") => (await api.get<CeoMeeting[]>(`/ceo-tower/meetings?when=${when}`)).data,
   crmMeetings: async (q: { workspaceId: number; contactId?: number; companyId?: number }) => (await api.get<CeoMeeting[]>(`/ceo-tower/meetings/crm?${new URLSearchParams(Object.entries(q).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))}`)).data,
   meetingGoogleStatus: async () => (await api.get<{ configured: boolean; connected: boolean }>("/ceo-tower/meetings/google-status")).data,
+  openDm: async (personId: number, via?: string) => (await api.post<{ source: "work" | "boards"; companyUid: string; wsId: number; uid: string; name: string }>("/ceo-tower/dm", { personId, ...(via ? { via } : {}) })).data,
   createMeeting: async (b: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds?: number[]; attendeeEmails?: ExternalInvitee[]; crmWorkspaceId?: number; crmContactId?: number; crmCompanyId?: number; addGoogleMeet?: boolean }) => (await api.post<CeoMeeting & { googleMeet?: "ok" | "off" | "not_connected" | "reconnect" }>("/ceo-tower/meetings", b)).data,
   updateMeeting: async (id: number, b: { title?: string; description?: string | null; meetingLink?: string | null; scheduledAt?: string; attendeeIds?: number[] }) => (await api.patch<CeoMeeting>(`/ceo-tower/meetings/${id}`, b)).data,
   cancelMeeting: async (id: number) => (await api.post(`/ceo-tower/meetings/${id}/cancel`)).data,

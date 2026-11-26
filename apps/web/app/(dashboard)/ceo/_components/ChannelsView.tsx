@@ -146,6 +146,16 @@ function NewChannelDialog({ companies, scope = null, onClose, onCreated }: { com
   const [company, setCompany] = useState(companies.find((c) => c.key === scope)?.uid ?? work[0]?.uid ?? acc[0]?.uid ?? "");
   const picked = companies.find((c) => c.uid === company);
   const isAcc = picked?.source === "boards";
+  const [mode, setMode] = useState<"channel" | "dm">("channel");
+  const [dmPerson, setDmPerson] = useState<number | null>(null);
+  const [dmQuery, setDmQuery] = useState("");
+  const { data: allTeam = [] } = useQuery({ queryKey: ["ceo-tower", "team", "all", null], queryFn: () => ceoApi.team("all"), enabled: mode === "dm" });
+  const dmPeople = allTeam.map((t) => t.user).filter((u) => u.id !== user?.id && (!dmQuery.trim() || `${u.firstName} ${u.lastName}`.toLowerCase().includes(dmQuery.trim().toLowerCase())));
+  const dm = useMutation({
+    mutationFn: () => ceoApi.openDm(dmPerson!),
+    onSuccess: (r) => { qc.invalidateQueries({ queryKey: ["ceo-tower", "channels"] }); toast.success(`Chat with ${r.name} opened`); onCreated({ uid: r.uid, company: r.companyUid, source: r.source, wsId: r.wsId }); },
+    onError: (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Couldn't open the chat."),
+  });
   const [chName, setChName] = useState("");
   const [isPrivate, setPrivate] = useState(true);
   const [memberIds, setMemberIds] = useState<number[]>([]);
@@ -179,8 +189,20 @@ function NewChannelDialog({ companies, scope = null, onClose, onCreated }: { com
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
-        <DialogTitle className="flex items-center gap-2"><MessagesSquare className="h-5 w-5 text-[#b08d57]" /> New channel</DialogTitle>
-        <DialogDescription>It is created inside the company you pick. Only the people you add see it — in their own {isAcc ? "Accounts & Invoices" : "Company Work"} chat.</DialogDescription>
+        <DialogTitle className="flex items-center gap-2"><MessagesSquare className="h-5 w-5 text-[#b08d57]" /> New {mode === "dm" ? "direct message" : "channel"}</DialogTitle>
+        <DialogDescription>{mode === "dm" ? "Message anyone in your companies directly — no company to pick. It opens a private chat with them." : `It is created inside the company you pick. Only the people you add see it — in their own ${isAcc ? "Accounts & Invoices" : "Company Work"} chat.`}</DialogDescription>
+        <div className="mb-3 flex gap-1 rounded-lg bg-muted/60 p-0.5 text-[12.5px]">
+          {(["channel", "dm"] as const).map((m) => <button key={m} type="button" onClick={() => setMode(m)} className={cn("flex-1 rounded-md py-1.5 font-medium transition", mode === m ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground")}>{m === "dm" ? "Direct message" : "Channel"}</button>)}
+        </div>
+        {mode === "dm" ? (
+          <div className="space-y-2 text-[13px]">
+            <label className="flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3"><Search className="h-4 w-4 text-muted-foreground" /><input autoFocus value={dmQuery} onChange={(e) => setDmQuery(e.target.value)} placeholder="Find a person" className="w-full bg-transparent outline-none" /></label>
+            <ul className="max-h-64 overflow-y-auto rounded-xl border border-border">
+              {dmPeople.map((u) => <li key={u.id}><button type="button" onClick={() => setDmPerson(u.id)} className={cn("flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent", dmPerson === u.id && "bg-accent font-semibold")}><Avatar user={mini(u)} size={24} /><span className="min-w-0 flex-1 truncate">{u.firstName} {u.lastName}</span>{dmPerson === u.id && <CheckCircle2 className="h-4 w-4 text-primary" />}</button></li>)}
+              {!dmPeople.length && <li className="px-3 py-3 text-[12.5px] text-muted-foreground">No one matches.</li>}
+            </ul>
+          </div>
+        ) : (
         <div className="space-y-3 text-[13px]">
           <label className="block"><span className="text-[12px] font-medium text-muted-foreground">Company</span>
             <select value={company} onChange={(e) => setCompany(e.target.value)} className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3">
@@ -226,9 +248,12 @@ function NewChannelDialog({ companies, scope = null, onClose, onCreated }: { com
             <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={isPrivate} onChange={(e) => setPrivate(e.target.checked)} className="accent-[var(--primary)]" /> <Lock className="h-3.5 w-3.5" /> Private — only the people added can see it</label>
           )}
         </div>
+        )}
         <div className="mt-2 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="h-9 rounded-xl px-3 text-[13px] text-muted-foreground hover:bg-accent">Cancel</button>
-          <button type="button" disabled={!company || !chName.trim() || create.isPending} onClick={() => create.mutate()} className="h-9 rounded-xl bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-40 dark:bg-primary dark:text-primary-foreground">Create channel</button>
+          {mode === "dm"
+            ? <button type="button" disabled={!dmPerson || dm.isPending} onClick={() => dm.mutate()} className="h-9 rounded-xl bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-40 dark:bg-primary dark:text-primary-foreground">Open chat</button>
+            : <button type="button" disabled={!company || !chName.trim() || create.isPending} onClick={() => create.mutate()} className="h-9 rounded-xl bg-forest px-4 text-[13px] font-semibold text-forest-foreground disabled:opacity-40 dark:bg-primary dark:text-primary-foreground">Create channel</button>}
         </div>
       </DialogContent>
     </Dialog>

@@ -68,6 +68,12 @@ export class CeoTowerController {
     return this.comms.email(u.id, b);
   }
 
+  /** open (or create) a direct-message chat with one person — no company picker needed */
+  @Post('dm')
+  openDm(@Body() b: { personId: number; via?: string }, @CurrentUser() u: SessionUser) {
+    return this.comms.openDm(u.id, Number(b.personId), b.via);
+  }
+
   // ---------- Executive AI ----------
 
   /** the CEO's brief: last 24 hours across all companies (AI-written when an engine is set up) */
