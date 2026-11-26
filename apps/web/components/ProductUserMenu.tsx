@@ -16,6 +16,10 @@ export function ProductUserMenu({ subtitle, canManageAccess, compact, placement 
   const { user } = useAuth();
   const logout = useLogout();
   const router = useRouter();
+  // Access Center is a global super-admin tool. Show it only to the global Administrator (SUPER_ADMIN),
+  // from every product shell (not only Accounts & Invoices). (canManageAccess kept for callers but
+  // intentionally not used to widen this beyond super admins.)
+  void canManageAccess;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -59,7 +63,7 @@ export function ProductUserMenu({ subtitle, canManageAccess, compact, placement 
           {compact && <div className="truncate border-b border-border px-2.5 pb-2 pt-1 text-[12px]"><span className="block truncate font-semibold">{name}</span>{subtitle && <span className="block truncate text-[11px] text-muted-foreground">{subtitle}</span>}</div>}
           <Item icon={User} label="My profile" onClick={() => go("/settings")} />
           <Item icon={LayoutGrid} label="All products" onClick={() => go("/home")} />
-          {canManageAccess && <Item icon={ShieldCheck} label="Access Center" onClick={() => go("/access")} />}
+          {isSuper && <Item icon={ShieldCheck} label="Access Center" onClick={() => go("/access")} />}
           {isSuper && <Item icon={Settings} label="System settings" onClick={() => go("/system-settings")} />}
           <div className="my-1 border-t border-border" />
           <Item icon={LogOut} label="Log out" danger onClick={() => { setOpen(false); logout.mutate(); }} />
