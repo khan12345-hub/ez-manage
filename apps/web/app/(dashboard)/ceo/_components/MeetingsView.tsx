@@ -174,13 +174,27 @@ function InvitePeople({ people, setPeople, emails, setEmails, lockTeammates }: {
           {!lockTeammates && !matches.length && !isEmail && <p className="px-2.5 py-2 text-[12px] text-muted-foreground">No teammate matches. Type a full email to invite someone outside.</p>}
         </div>
       )}
-      {showGroups && !lockTeammates && aud && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {aud.management.length > 0 && <button type="button" onClick={() => setPeople([...new Set([...people, ...aud.management])])} className="flex items-center gap-1 rounded-full border border-border px-2.5 py-0.5 text-[12px] hover:bg-accent"><Crown className="h-3 w-3 text-[#b08d57]" /> Management ({aud.management.length})</button>}
-          {aud.teams?.map((t) => <button key={t.id} type="button" onClick={() => setPeople([...new Set([...people, ...t.people])])} className="flex items-center gap-1 rounded-full border border-border px-2.5 py-0.5 text-[12px] hover:bg-accent"><Users className="h-3 w-3" /> {t.name} ({t.people.length})</button>)}
-          {aud.companies?.map((c) => <button key={c.key} type="button" onClick={() => setPeople([...new Set([...people, ...c.people])])} className="rounded-full border border-border px-2.5 py-0.5 text-[12px] hover:bg-accent">Everyone · {c.name}</button>)}
-        </div>
-      )}
+      {showGroups && !lockTeammates && aud && (() => {
+        const boardsCos = (aud.companies ?? []).filter((c) => c.source === "boards");
+        const workCos = (aud.companies ?? []).filter((c) => c.source === "work");
+        const grp = "rounded-full border border-border px-2.5 py-0.5 text-[12px] hover:bg-accent";
+        const addAll = (ids: number[]) => setPeople([...new Set([...people, ...ids])]);
+        const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+          <div><p className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p><div className="flex flex-wrap gap-1.5">{children}</div></div>
+        );
+        return (
+          <div className="mt-2 space-y-2.5">
+            {aud.management.length > 0 && <button type="button" onClick={() => addAll(aud.management)} className={cn(grp, "flex items-center gap-1")}><Crown className="h-3 w-3 text-[#b08d57]" /> Owners & admins ({aud.management.length})</button>}
+            {boardsCos.length > 0 && <Section title="Accounts & Invoices">{boardsCos.map((c) => <button key={c.key} type="button" onClick={() => addAll(c.people)} className={grp}>Everyone · {c.name}</button>)}</Section>}
+            {(workCos.length > 0 || (aud.teams?.length ?? 0) > 0) && (
+              <Section title="Company Work">
+                {aud.teams?.map((t) => <button key={t.id} type="button" onClick={() => addAll(t.people)} className={cn(grp, "flex items-center gap-1")}><Users className="h-3 w-3" /> {t.name} ({t.people.length})</button>)}
+                {workCos.map((c) => <button key={c.key} type="button" onClick={() => addAll(c.people)} className={grp}>Everyone · {c.name}</button>)}
+              </Section>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
