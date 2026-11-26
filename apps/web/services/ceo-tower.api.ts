@@ -116,8 +116,10 @@ export interface CeoAudiences {
 }
 export interface CeoMeeting {
   id: number; title: string; description: string | null; meetingLink: string | null; scheduledAt: string; cancelledAt: string | null;
-  attendees: { userId: number; user: CeoPerson & { email: string } }[];
+  // an attendee is either an app user (user set) or an external invitee by email (user null, email/name set)
+  attendees: { userId: number | null; email: string | null; name: string | null; user: (CeoPerson & { email: string }) | null }[];
 }
+export type ExternalInvitee = { email: string; name?: string };
 export interface CeoEmailRow { id: number; subject: string; body: string; deliveryStatus: string; sentAt: string; recipient: CeoPerson & { email: string } }
 export interface CeoEmailResult { sent: number; failed: number; notSent: number; results: { id: number; name: string; status: "sent" | "failed" | "not_sent"; error?: string }[] }
 
@@ -126,7 +128,8 @@ export const ceoApi = {
   channels: async () => (await api.get<CeoChannelGroup[]>(`/ceo-tower/channels`)).data,
   audiences: async () => (await api.get<CeoAudiences>("/ceo-tower/audiences")).data,
   meetings: async (when: "upcoming" | "past") => (await api.get<CeoMeeting[]>(`/ceo-tower/meetings?when=${when}`)).data,
-  createMeeting: async (b: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds: number[] }) => (await api.post<CeoMeeting>("/ceo-tower/meetings", b)).data,
+  crmMeetings: async (q: { workspaceId: number; contactId?: number; companyId?: number }) => (await api.get<CeoMeeting[]>(`/ceo-tower/meetings/crm?${new URLSearchParams(Object.entries(q).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))}`)).data,
+  createMeeting: async (b: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds?: number[]; attendeeEmails?: ExternalInvitee[]; crmWorkspaceId?: number; crmContactId?: number; crmCompanyId?: number }) => (await api.post<CeoMeeting>("/ceo-tower/meetings", b)).data,
   updateMeeting: async (id: number, b: { title?: string; description?: string | null; meetingLink?: string | null; scheduledAt?: string; attendeeIds?: number[] }) => (await api.patch<CeoMeeting>(`/ceo-tower/meetings/${id}`, b)).data,
   cancelMeeting: async (id: number) => (await api.post(`/ceo-tower/meetings/${id}/cancel`)).data,
   email: async (b: { recipientIds: number[]; subject: string; body: string }) => (await api.post<CeoEmailResult>("/ceo-tower/email", b, { timeout: 180_000 })).data,

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, Contact, Link2, Mail, Phone, Plus, Trash2, Trophy, X, XCircle } from "lucide-react";
+import { ArrowLeft, Building2, CalendarClock, CircleDollarSign, Contact, Link2, Mail, Phone, Plus, Trash2, Trophy, Video, X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,6 +17,8 @@ import { btnGhost, btnPrimary, dayInput, dayIso, fmtDate, glass, input, isPast, 
 import { Avatar, LifecyclePill, Monogram, PersonPick, Skeleton, StagePill } from "./bits";
 import { CompanyPick, CreateRecord } from "./CreateRecord";
 import { Timeline } from "./Timeline";
+import { ceoApi } from "@/services/ceo-tower.api";
+import { MeetingDialog } from "../../ceo/_components/MeetingsView";
 
 type FieldType = "text" | "email" | "number" | "date" | "select" | "url" | "bool" | "multiselect";
 
@@ -108,6 +110,32 @@ const Header = ({ mono, title, sub, pills, actions }: { mono: React.ReactNode; t
 );
 
 // ───────────── contact ─────────────
+/** Upcoming meetings for a CRM record + a "Schedule" action that invites the contact by email. */
+function RecordMeetings({ wsId, contactId, companyId, inviteEmail, inviteName, titleHint, canEdit }: { wsId: number; contactId?: number; companyId?: number; inviteEmail?: string; inviteName?: string; titleHint?: string; canEdit: boolean }) {
+  const [open, setOpen] = useState(false);
+  const { data = [] } = useQuery({
+    queryKey: ["ceo-tower", "crm-meetings", wsId, contactId ?? 0, companyId ?? 0],
+    queryFn: () => ceoApi.crmMeetings({ workspaceId: wsId, contactId, companyId }),
+    enabled: !!wsId,
+  });
+  const upcoming = data.filter((m) => !m.cancelledAt);
+  return (
+    <Side title="Meetings" icon={CalendarClock} count={upcoming.length}
+      action={canEdit ? <button type="button" onClick={() => setOpen(true)} aria-label="Schedule a meeting" className="rounded-lg p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-4 w-4" /></button> : undefined}>
+      {!upcoming.length ? <p className="text-[12.5px] text-muted-foreground">No meetings scheduled.</p> : (
+        <ul className="space-y-1.5">{upcoming.map((m) => (
+          <li key={m.id} className="rounded-xl px-1.5 py-1">
+            <p className="truncate text-[13px] font-medium">{m.title}</p>
+            <p className="mt-0.5 text-[11.5px] text-muted-foreground">{new Date(m.scheduledAt).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+            {m.meetingLink && <a href={m.meetingLink} target="_blank" rel="noreferrer noopener" className="mt-0.5 flex items-center gap-1 text-[11.5px] font-medium text-primary hover:underline"><Video className="h-3 w-3" /> Join</a>}
+          </li>
+        ))}</ul>
+      )}
+      {open && <MeetingDialog meeting={null} onClose={() => setOpen(false)} lockPeople crm={{ workspaceId: wsId, contactId, companyId }} presetTitle={titleHint} presetEmails={inviteEmail ? [{ email: inviteEmail, name: inviteName }] : []} />}
+    </Side>
+  );
+}
+
 export function ContactRecord({ id }: { id: number }) {
   const r = useRecord<CrmContact & { deals: (Pick<CrmDeal, "id" | "name" | "amount" | "closeDate"> & { stage: CrmDeal["stage"] })[] }>("contact", id);
   const router = useRouter();
@@ -152,6 +180,7 @@ export function ContactRecord({ id }: { id: number }) {
             ))}</ul>
           )}
         </Side>
+        <RecordMeetings wsId={ws.id} contactId={id} companyId={c.company?.id} inviteEmail={c.email ?? undefined} inviteName={contactName(c)} titleHint={`Meeting with ${contactName(c)}`} canEdit={can} />
         {newDeal && <CreateRecord kind="deal" onClose={() => setNewDeal(false)} defaults={{ contactId: id, ...(c.company && { companyId: c.company.id, companyName: c.company.name }) }} />}
       </>} />
   );
@@ -195,6 +224,7 @@ export function CompanyRecord({ id }: { id: number }) {
             <li key={d.id}><Link href={`/crm/${uid}/deals/${d.id}`} className="block rounded-xl px-1.5 py-1 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"><span className="block truncate text-[13px] font-medium">{d.name}</span><span className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground"><StagePill stage={d.stage} /> {fmtMoney(d.amount, ws.currency, true)}</span></Link></li>
           ))}</ul>}
         </Side>
+        <RecordMeetings wsId={ws.id} companyId={id} titleHint={`Meeting — ${c.name}`} canEdit={can} />
         {create && <CreateRecord kind={create} onClose={() => setCreate(null)} defaults={{ companyId: id, companyName: c.name }} />}
       </>} />
   );

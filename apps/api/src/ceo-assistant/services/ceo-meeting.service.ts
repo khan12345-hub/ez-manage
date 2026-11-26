@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from 'prisma/prisma.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
@@ -25,6 +25,13 @@ export class CeoMeetingService {
 
   private personName(u: { firstName?: string | null; lastName?: string | null }) {
     return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || undefined;
+  }
+
+  /** turn a stored attendee (app user OR external email) into an invite recipient */
+  private attendeePerson(a: { email: string | null; name: string | null; user: { firstName?: string | null; lastName?: string | null; email: string } | null }): IcsPerson | null {
+    const email = a.user?.email ?? a.email;
+    if (!email) return null;
+    return { email, name: a.user ? this.personName(a.user) : a.name ?? undefined };
   }
 
   /** Email every attendee (and the organizer) a branded invite with an attached .ics so the meeting
@@ -81,9 +88,21 @@ export class CeoMeetingService {
     const creatorName = creator ? `${creator.firstName} ${creator.lastName}` : 'Management';
 
     const attendees = await this.prisma.user.findMany({
-      where: { id: { in: dto.attendeeIds } },
+      where: { id: { in: dto.attendeeIds ?? [] } },
       select: { id: true, firstName: true, lastName: true, email: true },
     });
+
+    // external invitees (e.g. a CRM contact) — by email, deduped against app users and each other
+    const appEmails = new Set(attendees.map((a) => a.email.toLowerCase()));
+    const externals = (dto.attendeeEmails ?? [])
+      .map((e) => ({ email: String(e.email ?? '').trim(), name: e.name?.trim() || undefined }))
+      .filter((e) => /.+@.+\..+/.test(e.email))
+      .filter((e, i, arr) => !appEmails.has(e.email.toLowerCase()) && arr.findIndex((x) => x.email.toLowerCase() === e.email.toLowerCase()) === i);
+
+    if (!attendees.length && !externals.length) throw new BadRequestException('Invite at least one person.');
+
+    // only link to CRM if the creator is a member of that CRM workspace
+    const crm = await this.resolveCrmLink(createdById, dto);
 
     const meeting = await this.prisma.ceoMeeting.create({
       data: {
@@ -93,7 +112,8 @@ export class CeoMeetingService {
         scheduledAt: new Date(dto.scheduledAt),
         createdById,
         notifInitialSent: true,
-        attendees: { create: attendees.map((a) => ({ userId: a.id })) },
+        ...(crm ? { crmWorkspaceId: crm.workspaceId, crmContactId: crm.contactId ?? null, crmCompanyId: crm.companyId ?? null } : {}),
+        attendees: { create: [...attendees.map((a) => ({ userId: a.id })), ...externals.map((e) => ({ email: e.email, name: e.name ?? null }))] },
       },
       include: {
         attendees: {
@@ -101,6 +121,9 @@ export class CeoMeetingService {
         },
       },
     });
+
+    // surface it on the CRM record's timeline
+    if (crm) await this.logCrmActivity(createdById, crm, meeting.id, dto.title, dto.description, new Date(dto.scheduledAt));
 
     const dateStr = this.formatDate(new Date(dto.scheduledAt));
 
@@ -116,17 +139,48 @@ export class CeoMeetingService {
       ),
     );
 
-    // calendar invite (.ics) so it lands on everyone's Google / Outlook / Apple calendar
+    // calendar invite (.ics) so it lands on everyone's Google / Outlook / Apple calendar (app users + external)
     if (creator?.email) {
       await this.emailInvite(
         meeting,
         { email: creator.email, name: creatorName },
-        attendees.map((a) => ({ email: a.email, name: this.personName(a) })),
+        [...attendees.map((a) => ({ email: a.email, name: this.personName(a) })), ...externals],
         'REQUEST',
       );
     }
 
     return meeting;
+  }
+
+  /** verify the creator can link to this CRM workspace; returns the link to store, or null */
+  private async resolveCrmLink(userId: number, dto: { crmWorkspaceId?: number; crmContactId?: number; crmCompanyId?: number }) {
+    if (!dto.crmWorkspaceId || (!dto.crmContactId && !dto.crmCompanyId)) return null;
+    const member = await this.prisma.crmMember.findFirst({ where: { workspaceId: dto.crmWorkspaceId, userId }, select: { role: true } });
+    if (!member) return null;
+    // make sure the contact / company really belongs to that workspace
+    if (dto.crmContactId) {
+      const c = await this.prisma.crmContact.findFirst({ where: { id: dto.crmContactId, workspaceId: dto.crmWorkspaceId }, select: { id: true, companyId: true } });
+      if (!c) return null;
+      return { workspaceId: dto.crmWorkspaceId, contactId: c.id, companyId: dto.crmCompanyId ?? c.companyId ?? undefined };
+    }
+    const co = await this.prisma.crmCompany.findFirst({ where: { id: dto.crmCompanyId, workspaceId: dto.crmWorkspaceId }, select: { id: true } });
+    if (!co) return null;
+    return { workspaceId: dto.crmWorkspaceId, contactId: undefined, companyId: co.id };
+  }
+
+  /** drop a meeting onto the CRM record's activity timeline */
+  private async logCrmActivity(ownerId: number, crm: { workspaceId: number; contactId?: number; companyId?: number }, meetingId: number, title: string, description: string | undefined, scheduledAt: Date) {
+    try {
+      await this.prisma.crmActivity.create({
+        data: {
+          workspaceId: crm.workspaceId, kind: 'meeting', subject: title, body: description || null,
+          dueAt: scheduledAt, ownerId, contactId: crm.contactId ?? null, companyId: crm.companyId ?? null,
+          meta: { event: 'meeting', meetingId },
+        },
+      });
+    } catch (e: any) {
+      this.logger.warn(`CRM activity for meeting ${meetingId} failed: ${e?.message ?? 'error'}`);
+    }
   }
 
   async getMeetings(userId: number, upcoming = true) {
@@ -178,7 +232,8 @@ export class CeoMeetingService {
     let removedUsers: { id: number; email: string }[] = [];
 
     if (dto.attendeeIds !== undefined) {
-      const existingIds = meeting.attendees.map((a) => a.userId);
+      // only app-user attendees are managed by id; external (email-only) invitees are left untouched
+      const existingIds = meeting.attendees.map((a) => a.userId).filter((id): id is number => id != null);
       const toAddIds    = dto.attendeeIds.filter((id) => !existingIds.includes(id));
       const toRemoveIds = existingIds.filter((id) => !dto.attendeeIds!.includes(id));
 
@@ -193,8 +248,8 @@ export class CeoMeetingService {
 
       // Capture removed users before deleting
       removedUsers = meeting.attendees
-        .filter((a) => toRemoveIds.includes(a.userId))
-        .map((a) => ({ id: a.userId, email: a.user.email }));
+        .filter((a) => a.userId != null && toRemoveIds.includes(a.userId))
+        .map((a) => ({ id: a.userId!, email: a.user?.email ?? '' }));
 
       if (toRemoveIds.length) {
         await this.prisma.ceoMeetingAttendee.deleteMany({ where: { meetingId, userId: { in: toRemoveIds } } });
@@ -221,11 +276,11 @@ export class CeoMeetingService {
 
     const dateStr = this.formatDate(updated.scheduledAt);
 
-    // in-app notices (email handled by the .ics calendar invite below)
+    // in-app notices (email handled by the .ics calendar invite below) — app users only
     if (timeChanged) {
       await Promise.allSettled(
-        updated.attendees.map(({ user }) =>
-          this.tell({ recipientId: user.id, meetingId,
+        updated.attendees.filter((a) => a.user).map(({ user }) =>
+          this.tell({ recipientId: user!.id, meetingId,
                         title: `Meeting Rescheduled: ${updated.title}`,
             message: `The meeting has been moved to ${dateStr}.`,
             sendEmail: false,
@@ -266,7 +321,8 @@ export class CeoMeetingService {
     if (organizer?.email) {
       const org: IcsPerson = { email: organizer.email, name: this.personName(organizer) };
       if (timeChanged || addedUsers.length || metaChanged) {
-        await this.emailInvite(updated, org, updated.attendees.map((a) => ({ email: a.user.email, name: this.personName(a.user) })), 'REQUEST');
+        const people = updated.attendees.map((a) => this.attendeePerson(a)).filter((p): p is IcsPerson => p != null);
+        await this.emailInvite(updated, org, people, 'REQUEST');
       }
       if (removedUsers.length) {
         await this.emailInvite(updated, org, removedUsers.map((u) => ({ email: u.email })), 'CANCEL');
@@ -293,24 +349,20 @@ export class CeoMeetingService {
 
     const dateStr = this.formatDate(meeting.scheduledAt);
     await Promise.allSettled(
-      meeting.attendees.map(({ user }) =>
-        this.tell({ recipientId: user.id, meetingId,
+      meeting.attendees.filter((a) => a.user).map(({ user }) =>
+        this.tell({ recipientId: user!.id, meetingId,
                         title: `Meeting Cancelled: ${meeting.title}`,
             message: `The meeting scheduled for ${dateStr} has been cancelled.`,
             sendEmail: false,
           })
-          .catch((err: Error) => this.logger.warn(`Cancel notify failed for ${user.email}: ${err.message}`)),
+          .catch((err: Error) => this.logger.warn(`Cancel notify failed for ${user!.email}: ${err.message}`)),
       ),
     );
 
-    // remove it from everyone's calendar
+    // remove it from everyone's calendar (app users + external)
     if (meeting.createdBy?.email) {
-      await this.emailInvite(
-        cancelled,
-        { email: meeting.createdBy.email, name: this.personName(meeting.createdBy) },
-        meeting.attendees.map((a) => ({ email: a.user.email, name: this.personName(a.user) })),
-        'CANCEL',
-      );
+      const people = meeting.attendees.map((a) => this.attendeePerson(a)).filter((p): p is IcsPerson => p != null);
+      await this.emailInvite(cancelled, { email: meeting.createdBy.email, name: this.personName(meeting.createdBy) }, people, 'CANCEL');
     }
 
     return { success: true };
@@ -344,9 +396,10 @@ export class CeoMeetingService {
       for (const meeting of meetings) {
         const dateStr = this.formatDate(meeting.scheduledAt);
 
-        // Notify attendees + creator, deduped so creator isn't notified twice if they added themselves
-        const attendeeIds = new Set(meeting.attendees.map((a) => a.user.id));
-        const recipients = [...meeting.attendees.map((a) => a.user)];
+        // Notify app-user attendees + creator (external email-only invitees get calendar reminders via their own client)
+        const appUsers = meeting.attendees.map((a) => a.user).filter((u): u is { id: number; email: string } => u != null);
+        const attendeeIds = new Set(appUsers.map((u) => u.id));
+        const recipients = [...appUsers];
         if (!attendeeIds.has(meeting.createdBy.id)) recipients.push(meeting.createdBy);
 
         await Promise.allSettled(
