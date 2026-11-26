@@ -74,8 +74,11 @@ export class WorkspaceService {
   }
 
   async findAll(userId: number) {
-    // an Accounts & Invoices product Administrator opens every company (full admin), even without a membership
-    if (this.productAdmin && (await this.productAdmin.is(userId, 'accounts'))) {
+    // The global Administrator (SUPER_ADMIN) and an Accounts & Invoices product Administrator open
+    // EVERY company (full admin), even without a membership.
+    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { systemRole: true } });
+    const seesAllAccounts = me?.systemRole === 'SUPER_ADMIN' || (this.productAdmin ? await this.productAdmin.is(userId, 'accounts') : false);
+    if (seesAllAccounts) {
       const all = await this.prisma.workspace.findMany({ orderBy: { createdAt: 'desc' } });
       return all.map((workspace) => ({ ...workspace, role: WorkspaceMemberRole.ADMIN }));
     }
