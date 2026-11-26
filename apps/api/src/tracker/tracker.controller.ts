@@ -84,6 +84,14 @@ export class TrackerDesktopController {
     return new StreamableFile(createReadStream(p), { type: 'application/octet-stream', disposition: `attachment; filename="${basename(p)}"`, length: statSync(p).size });
   }
 
+  /** The silent (unattended) installer for org-owned computers. Drop the .exe at TRACKER_SILENT_INSTALLER_PATH;
+   *  falls back to the normal installer so the link never 404s if only one file is hosted. */
+  @Get('download-silent') downloadSilent(): StreamableFile {
+    const p = process.env.TRACKER_SILENT_INSTALLER_PATH || process.env.TRACKER_INSTALLER_PATH;
+    if (!p || !existsSync(p)) throw new NotFoundException('The silent installer is not available yet. Ask your Tracker admin.');
+    return new StreamableFile(createReadStream(p), { type: 'application/octet-stream', disposition: `attachment; filename="${basename(p)}"`, length: statSync(p).size });
+  }
+
   /** Auto-connect: the desktop polls with its secret nonce until the signed-in web user confirms. */
   @Throttle({ default: { ttl: 60_000, limit: 120 } })
   @Post('connect/exchange') connectExchange(@Body() b: any) { return this.t.connectExchange(b); }
