@@ -32,13 +32,19 @@ export class CeoTowerController {
     return this.comms.listMeetings(u.id, when === 'past' ? 'past' : 'upcoming');
   }
 
+  /** meetings linked to a CRM contact / company (for the CRM record page) */
+  @Get('meetings/crm')
+  crmMeetings(@Query('workspaceId') ws: string, @Query('contactId') contactId: string, @Query('companyId') companyId: string, @CurrentUser() u: SessionUser) {
+    return this.comms.crmMeetings(u.id, { workspaceId: Number(ws), contactId: contactId ? Number(contactId) : undefined, companyId: companyId ? Number(companyId) : undefined });
+  }
+
   @Post('meetings')
-  createMeeting(@Body() b: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds: number[] }, @CurrentUser() u: SessionUser) {
+  createMeeting(@Body() b: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds?: number[]; attendeeEmails?: { email: string; name?: string }[]; crmWorkspaceId?: number; crmContactId?: number; crmCompanyId?: number }, @CurrentUser() u: SessionUser) {
     return this.comms.createMeeting(u.id, b);
   }
 
   @Patch('meetings/:id')
-  updateMeeting(@Param('id', ParseIntPipe) id: number, @Body() b: { title?: string; description?: string | null; meetingLink?: string | null; scheduledAt?: string; attendeeIds?: number[] }, @CurrentUser() u: SessionUser) {
+  updateMeeting(@Param('id', ParseIntPipe) id: number, @Body() b: { title?: string; description?: string | null; meetingLink?: string | null; scheduledAt?: string; attendeeIds?: number[]; attendeeEmails?: { email: string; name?: string }[] }, @CurrentUser() u: SessionUser) {
     return this.comms.updateMeeting(u.id, id, b);
   }
 

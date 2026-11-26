@@ -1434,6 +1434,15 @@ model CeoMeeting {
   meetingLink String?  @map("meeting_link") @db.VarChar(2048)
   scheduledAt DateTime @map("scheduled_at") @db.Timestamptz(6)
 
+  // iCalendar (.ics) invite identity — a stable UID so updates/cancels reference the same event
+  icalUid  String @default(cuid()) @map("ical_uid") @db.VarChar(255)
+  sequence Int    @default(0)
+
+  // optional CRM link — a meeting scheduled with a CRM contact/company surfaces on that record
+  crmWorkspaceId Int? @map("crm_workspace_id")
+  crmContactId   Int? @map("crm_contact_id")
+  crmCompanyId   Int? @map("crm_company_id")
+
   createdById Int  @map("created_by_id")
   createdBy   User @relation("CeoMeetingCreator", fields: [createdById], references: [id])
 
@@ -1451,16 +1460,20 @@ model CeoMeeting {
 
   @@index([createdById])
   @@index([scheduledAt])
+  @@index([crmContactId])
+  @@index([crmCompanyId])
   @@map("ceo_meetings")
 }
 
 model CeoMeetingAttendee {
-  id        Int @id @default(autoincrement())
-  meetingId Int @map("meeting_id")
-  userId    Int @map("user_id")
+  id        Int     @id @default(autoincrement())
+  meetingId Int     @map("meeting_id")
+  userId    Int?    @map("user_id") // null for external (email-only) invitees, e.g. a CRM contact
+  email     String? @db.VarChar(320)
+  name      String? @db.VarChar(255)
 
   meeting CeoMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  user    User       @relation("CeoMeetingAttendeeUser", fields: [userId], references: [id])
+  user    User?      @relation("CeoMeetingAttendeeUser", fields: [userId], references: [id])
 
   @@unique([meetingId, userId])
   @@index([userId])

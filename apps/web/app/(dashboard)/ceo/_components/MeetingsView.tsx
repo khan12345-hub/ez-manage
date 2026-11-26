@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { BellRing, CalendarClock, CalendarPlus, ExternalLink, Pencil, Video, XCircle } from "lucide-react";
+import { BellRing, CalendarClock, CalendarPlus, Check, Copy, ExternalLink, Pencil, Share2, Video, XCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { ceoApi, type CeoMeeting } from "@/services/ceo-tower.api";
@@ -13,6 +13,40 @@ import { PeoplePicker } from "./PeoplePicker";
 const when = (iso: string) => new Date(iso).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 const err = (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Something went wrong.");
+
+type Attendee = CeoMeeting["attendees"][number];
+const attendeeLabel = (a: Attendee) => a.user ? `${a.user.firstName} ${a.user.lastName}`.trim() : (a.name || a.email || "Guest");
+const attendeeInitials = (a: Attendee) => { const s = attendeeLabel(a); const parts = s.split(/[\s@.]+/).filter(Boolean); return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?"; };
+
+/** a plain-text invite anyone can paste into chat/email/WhatsApp */
+function inviteText(m: CeoMeeting) {
+  const lines = [
+    `📅 ${m.title}`,
+    `🕑 ${when(m.scheduledAt)}`,
+    ...(m.description ? [``, m.description] : []),
+    ...(m.meetingLink ? [``, `Join: ${m.meetingLink}`] : []),
+  ];
+  return lines.join("\n");
+}
+
+/** copy a shareable invite (uses the native share sheet on mobile, clipboard elsewhere) */
+function ShareInvite({ m }: { m: CeoMeeting }) {
+  const [done, setDone] = useState(false);
+  const share = async () => {
+    const text = inviteText(m);
+    try {
+      if (typeof navigator !== "undefined" && (navigator as any).share) { await (navigator as any).share({ title: m.title, text }); return; }
+      await navigator.clipboard.writeText(text);
+      setDone(true); toast.success("Invite copied — paste it anywhere"); setTimeout(() => setDone(false), 1500);
+    } catch { /* user dismissed the share sheet */ }
+  };
+  const canShare = typeof navigator !== "undefined" && (navigator as any).share;
+  return (
+    <button type="button" onClick={share} aria-label={`Share ${m.title}`} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-[12.5px] hover:bg-accent">
+      {done ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : canShare ? <Share2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} Share
+    </button>
+  );
+}
 
 /** Executive Hub → Meetings: schedule, invite, edit, cancel; everyone is reminded before it starts */
 export function MeetingsView() {
@@ -45,18 +79,21 @@ export function MeetingsView() {
                 <p className={cn("text-[15px] font-semibold", m.cancelledAt && "text-muted-foreground line-through")}>{m.title}</p>
                 {m.description && <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-[12.5px] text-muted-foreground">{m.description}</p>}
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-[12px]">
-                  <span className="flex -space-x-1.5" title={m.attendees.map((a) => `${a.user.firstName} ${a.user.lastName}`).join(", ")}>{m.attendees.slice(0, 6).map((a) => <Avatar key={a.userId} user={a.user as any} size={22} />)}</span>
+                  <span className="flex -space-x-1.5" title={m.attendees.map(attendeeLabel).join(", ")}>{m.attendees.slice(0, 6).map((a, i) => a.user ? <Avatar key={i} user={a.user as any} size={22} /> : <span key={i} title={attendeeLabel(a)} className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground ring-2 ring-background">{attendeeInitials(a)}</span>)}</span>
                   <span className="text-muted-foreground">{m.attendees.length} invited</span>
                   {m.meetingLink && <a href={m.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 font-medium text-primary hover:underline"><Video className="h-3.5 w-3.5" /> Join link <ExternalLink className="h-3 w-3" /></a>}
                   {m.cancelledAt ? <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Cancelled</span> : tab === "upcoming" && <span className="flex items-center gap-1 text-muted-foreground"><BellRing className="h-3.5 w-3.5" /> reminders on</span>}
                 </div>
               </div>
-              {tab === "upcoming" && !m.cancelledAt && (
-                <div className="flex gap-1.5">
-                  <button type="button" onClick={() => setEditing(m)} aria-label={`Edit ${m.title}`} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-[12.5px] hover:bg-accent"><Pencil className="h-3.5 w-3.5" /> Edit</button>
-                  <button type="button" onClick={() => window.confirm(`Cancel "${m.title}"? Everyone invited is told.`) && cancel.mutate(m.id)} aria-label={`Cancel ${m.title}`} className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-[12.5px] text-destructive hover:bg-destructive/10"><XCircle className="h-3.5 w-3.5" /> Cancel</button>
-                </div>
-              )}
+              <div className="flex gap-1.5">
+                {!m.cancelledAt && <ShareInvite m={m} />}
+                {tab === "upcoming" && !m.cancelledAt && (
+                  <>
+                    <button type="button" onClick={() => setEditing(m)} aria-label={`Edit ${m.title}`} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-[12.5px] hover:bg-accent"><Pencil className="h-3.5 w-3.5" /> Edit</button>
+                    <button type="button" onClick={() => window.confirm(`Cancel "${m.title}"? Everyone invited is told.`) && cancel.mutate(m.id)} aria-label={`Cancel ${m.title}`} className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-[12.5px] text-destructive hover:bg-destructive/10"><XCircle className="h-3.5 w-3.5" /> Cancel</button>
+                  </>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -66,40 +103,72 @@ export function MeetingsView() {
   );
 }
 
-export function MeetingDialog({ meeting, onClose }: { meeting: CeoMeeting | null; onClose: () => void }) {
+export function MeetingDialog({ meeting, onClose, presetTitle, presetEmails, crm, lockPeople }: {
+  meeting: CeoMeeting | null; onClose: () => void;
+  presetTitle?: string;
+  presetEmails?: { email: string; name?: string }[];
+  crm?: { workspaceId: number; contactId?: number; companyId?: number };
+  lockPeople?: boolean; // CRM mode — hide the internal people picker, invite by email
+}) {
   const qc = useQueryClient();
-  const [title, setTitle] = useState(meeting?.title ?? "");
+  const [title, setTitle] = useState(meeting?.title ?? presetTitle ?? "");
   const [at, setAt] = useState(() => toLocalInput(meeting ? new Date(meeting.scheduledAt) : (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(11, 0, 0, 0); return d; })()));
   const [link, setLink] = useState(meeting?.meetingLink ?? "");
   const [desc, setDesc] = useState(meeting?.description ?? "");
-  const [people, setPeople] = useState<number[]>(meeting?.attendees.map((a) => a.userId) ?? []);
+  const [people, setPeople] = useState<number[]>(meeting?.attendees.filter((a) => a.userId != null).map((a) => a.userId!) ?? []);
+  const [emails, setEmails] = useState<{ email: string; name?: string }[]>(
+    meeting ? meeting.attendees.filter((a) => !a.user && a.email).map((a) => ({ email: a.email!, name: a.name || undefined })) : (presetEmails ?? []),
+  );
+  const [emailDraft, setEmailDraft] = useState("");
+  const addEmail = () => { const e = emailDraft.trim(); if (/.+@.+\..+/.test(e) && !emails.some((x) => x.email.toLowerCase() === e.toLowerCase())) { setEmails([...emails, { email: e }]); setEmailDraft(""); } };
   const date = new Date(at);
-  const ready = title.trim() && !isNaN(+date) && +date > Date.now() && people.length > 0;
+  const ready = !!title.trim() && !isNaN(+date) && +date > Date.now() && (people.length > 0 || emails.length > 0);
   const save = useMutation({
     mutationFn: () => {
-      const body = { title: title.trim(), scheduledAt: date.toISOString(), attendeeIds: people, description: desc.trim() || undefined, meetingLink: link.trim() || undefined };
-      return meeting ? ceoApi.updateMeeting(meeting.id, { ...body, description: desc.trim() || null, meetingLink: link.trim() || null }) : ceoApi.createMeeting(body);
+      const body = { title: title.trim(), scheduledAt: date.toISOString(), attendeeIds: people, attendeeEmails: emails, description: desc.trim() || undefined, meetingLink: link.trim() || undefined, ...(crm ? { crmWorkspaceId: crm.workspaceId, crmContactId: crm.contactId, crmCompanyId: crm.companyId } : {}) };
+      return meeting ? ceoApi.updateMeeting(meeting.id, { title: body.title, scheduledAt: body.scheduledAt, attendeeIds: people, description: desc.trim() || null, meetingLink: link.trim() || null }) : ceoApi.createMeeting(body);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["ceo-tower", "meetings"] }); toast.success(meeting ? "Meeting updated — attendees were told" : `Meeting scheduled for ${when(date.toISOString())} — invitations sent`); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["ceo-tower"] }); toast.success(meeting ? "Meeting updated — everyone was told" : `Meeting scheduled for ${when(date.toISOString())} — invitations sent`); onClose(); },
     onError: err,
   });
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[600px]">
         <DialogTitle className="font-serif text-[22px] font-normal">{meeting ? "Edit meeting" : "New meeting"}</DialogTitle>
-        <DialogDescription>Everyone invited is notified now and reminded 24 hours, 1 hour and 15 minutes before it starts.</DialogDescription>
+        <DialogDescription>Everyone invited gets a calendar invite now and is reminded 24 hours, 1 hour and 15 minutes before it starts.</DialogDescription>
         <div className="grid gap-3">
           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Weekly management review" aria-label="Meeting title" maxLength={255} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-[14px] font-medium outline-none focus:border-primary/50" />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-[12px] font-medium text-muted-foreground">Date & time
               <input type="datetime-local" aria-label="Date and time" value={at} min={toLocalInput(new Date())} onChange={(e) => setAt(e.target.value)} className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
             </label>
-            <label className="text-[12px] font-medium text-muted-foreground">Video call link (optional)
-              <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://meet.google.com/…" aria-label="Meeting link" className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
-            </label>
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[12px] font-medium text-muted-foreground">Video call link</span>
+                <button type="button" onClick={() => { window.open("https://meet.google.com/new", "ezmeet", "width=1100,height=760,noopener"); toast.message("Google Meet opened in a new window — copy its link and paste it here."); }} className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-accent"><Video className="h-3 w-3" /> Create Google Meet</button>
+              </div>
+              <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste a Meet/Zoom/Teams link…" aria-label="Meeting link" className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
+              <button type="button" onClick={() => setLink(`https://meet.jit.si/EZManage-${Math.random().toString(36).slice(2, 9)}`)} className="mt-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">or create an instant room — no account needed</button>
+            </div>
           </div>
           <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Agenda (optional)" aria-label="Agenda" rows={3} className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary/50" />
-          <PeoplePicker value={people} onChange={setPeople} label="Invite" />
+          {!lockPeople && <PeoplePicker value={people} onChange={setPeople} label="Invite teammates" />}
+          <div>
+            <label className="text-[12px] font-medium text-muted-foreground">{lockPeople ? "Invite by email" : "Or invite anyone by email"}</label>
+            {emails.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {emails.map((e) => (
+                  <span key={e.email} className="flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[12px]">{e.name || e.email}
+                    <button type="button" onClick={() => setEmails(emails.filter((x) => x.email !== e.email))} aria-label={`Remove ${e.email}`} className="leading-none text-muted-foreground hover:text-destructive">×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="mt-1.5 flex gap-2">
+              <input value={emailDraft} onChange={(e) => setEmailDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEmail(); } }} type="email" placeholder="name@company.com" aria-label="Invite by email" className="h-9 flex-1 rounded-lg border border-border bg-background px-2 text-[13px]" />
+              <button type="button" onClick={addEmail} disabled={!/.+@.+\..+/.test(emailDraft.trim())} className="h-9 rounded-lg border border-border px-3 text-[13px] font-medium hover:bg-accent disabled:opacity-40">Add</button>
+            </div>
+          </div>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[11.5px] text-muted-foreground">{ready ? "" : "Add a title, a future time and at least one person."}</span>

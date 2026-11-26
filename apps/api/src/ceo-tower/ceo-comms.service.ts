@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { MailService } from 'src/mail/mail.service';
 import { CeoMeetingService } from 'src/ceo-assistant/services/ceo-meeting.service';
@@ -135,6 +135,18 @@ export class CeoCommsService {
     });
   }
 
+  /** meetings linked to a CRM contact / company — any member of that CRM can see them on the record */
+  async crmMeetings(userId: number, opts: { workspaceId: number; contactId?: number; companyId?: number }) {
+    if (!opts.workspaceId || (!opts.contactId && !opts.companyId)) return [];
+    const member = await this.prisma.crmMember.findFirst({ where: { workspaceId: opts.workspaceId, userId }, select: { role: true } });
+    if (!member) return [];
+    return this.prisma.ceoMeeting.findMany({
+      where: { cancelledAt: null, crmWorkspaceId: opts.workspaceId, ...(opts.contactId ? { crmContactId: opts.contactId } : {}), ...(opts.companyId ? { crmCompanyId: opts.companyId } : {}) },
+      orderBy: { scheduledAt: 'asc' }, take: 50,
+      include: { attendees: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } } } } },
+    });
+  }
+
   private checkMeeting(dto: { title?: string; scheduledAt?: string; meetingLink?: string | null; description?: string | null }, partial = false) {
     if (!partial || dto.title !== undefined) { const t = (dto.title ?? '').trim(); if (!t || t.length > 255) throw new BadRequestException('Name the meeting (up to 255 characters).'); }
     if (!partial || dto.scheduledAt !== undefined) {
@@ -149,10 +161,24 @@ export class CeoCommsService {
     }
   }
 
-  async createMeeting(userId: number, dto: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds: number[] }) {
+  async createMeeting(userId: number, dto: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds?: number[]; attendeeEmails?: { email: string; name?: string }[]; crmWorkspaceId?: number; crmContactId?: number; crmCompanyId?: number }) {
     this.checkMeeting(dto);
-    const attendeeIds = await this.checkPeople(userId, dto.attendeeIds ?? []);
-    return this.meetings.createMeeting(userId, { title: dto.title.trim(), description: dto.description?.trim() || undefined, meetingLink: dto.meetingLink?.trim() || undefined, scheduledAt: new Date(dto.scheduledAt).toISOString(), attendeeIds } as any);
+    const external = (dto.attendeeEmails ?? []).map((e) => ({ email: String(e?.email ?? '').trim(), name: e?.name?.trim() || undefined })).filter((e) => /.+@.+\..+/.test(e.email));
+    const base = { title: dto.title.trim(), description: dto.description?.trim() || undefined, meetingLink: dto.meetingLink?.trim() || undefined, scheduledAt: new Date(dto.scheduledAt).toISOString() };
+
+    // CRM-scheduled meeting: permission is CRM membership (not Executive Hub admin); invites the contact by email
+    if (dto.crmWorkspaceId) {
+      const member = await this.prisma.crmMember.findFirst({ where: { workspaceId: dto.crmWorkspaceId, userId }, select: { role: true } });
+      if (!member) throw new ForbiddenException('You are not a member of that CRM.');
+      if (!external.length) throw new BadRequestException('Add at least one person to invite (e.g. the contact’s email).');
+      return this.meetings.createMeeting(userId, { ...base, attendeeIds: [], attendeeEmails: external, crmWorkspaceId: dto.crmWorkspaceId, crmContactId: dto.crmContactId, crmCompanyId: dto.crmCompanyId } as any);
+    }
+
+    // Executive Hub meeting: admin-gated; app-user attendees validated, external emails also allowed
+    await this.reachable(userId);
+    const attendeeIds = dto.attendeeIds?.length ? await this.checkPeople(userId, dto.attendeeIds) : [];
+    if (!attendeeIds.length && !external.length) throw new BadRequestException('Pick at least one person.');
+    return this.meetings.createMeeting(userId, { ...base, attendeeIds, attendeeEmails: external } as any);
   }
 
   async updateMeeting(userId: number, id: number, dto: { title?: string; description?: string | null; meetingLink?: string | null; scheduledAt?: string; attendeeIds?: number[] }) {
