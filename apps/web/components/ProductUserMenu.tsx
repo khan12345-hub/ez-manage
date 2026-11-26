@@ -6,6 +6,7 @@ import { ChevronUp, LayoutGrid, LogOut, Settings, ShieldCheck, User } from "luci
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLogout } from "@/services/auth/auth.hooks";
+import { useProductAccess } from "@/hooks/useProductAccess";
 
 /**
  * The account menu for the product shells (EZ Tracker, EZ Sales, EZ Vault …): tapping the avatar
@@ -16,6 +17,10 @@ export function ProductUserMenu({ subtitle, canManageAccess, compact, placement 
   const { user } = useAuth();
   const logout = useLogout();
   const router = useRouter();
+  // Access Center is global — show it wherever the person can manage access, in every product shell
+  // (not only Accounts & Invoices), so admins never have to route through Accounts to reach it.
+  const globalCanManage = useProductAccess().canManageAccess;
+  const showAccess = !!canManageAccess || globalCanManage;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -59,7 +64,7 @@ export function ProductUserMenu({ subtitle, canManageAccess, compact, placement 
           {compact && <div className="truncate border-b border-border px-2.5 pb-2 pt-1 text-[12px]"><span className="block truncate font-semibold">{name}</span>{subtitle && <span className="block truncate text-[11px] text-muted-foreground">{subtitle}</span>}</div>}
           <Item icon={User} label="My profile" onClick={() => go("/settings")} />
           <Item icon={LayoutGrid} label="All products" onClick={() => go("/home")} />
-          {canManageAccess && <Item icon={ShieldCheck} label="Access Center" onClick={() => go("/access")} />}
+          {showAccess && <Item icon={ShieldCheck} label="Access Center" onClick={() => go("/access")} />}
           {isSuper && <Item icon={Settings} label="System settings" onClick={() => go("/system-settings")} />}
           <div className="my-1 border-t border-border" />
           <Item icon={LogOut} label="Log out" danger onClick={() => { setOpen(false); logout.mutate(); }} />
