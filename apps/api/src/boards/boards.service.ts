@@ -350,27 +350,30 @@ export class BoardsService {
   }
 
   async findAll(workspaceId: number, userId: number) {
-    // Verify the user is a workspace member (throws if not)
-    await this.prisma.workspaceMember.findUniqueOrThrow({
-      where: { workspaceId_userId: { workspaceId, userId } },
-      select: { role: true },
-    });
+    // The global Administrator (SUPER_ADMIN) oversees every company — they see every board in the
+    // workspace even without a membership. Everyone else must be a workspace member and only sees
+    // the specific boards they joined (workspace role never bypasses board membership).
+    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { systemRole: true } });
+    const isGlobalAdmin = me?.systemRole === 'SUPER_ADMIN';
 
-    // Always filter by direct board membership — workspace role never bypasses
-    // this so invited board-admins only see the specific boards they joined.
+    if (!isGlobalAdmin) {
+      await this.prisma.workspaceMember.findUniqueOrThrow({
+        where: { workspaceId_userId: { workspaceId, userId } },
+        select: { role: true },
+      });
+    }
+
     const boards = await this.prisma.board.findMany({
       where: {
         workspaceId,
-        members: { some: { userId } },
+        ...(isGlobalAdmin ? {} : { members: { some: { userId } } }),
       },
-
       include: {
         members: {
           where: { userId },
           select: { role: true },
         },
       },
-
       orderBy: { createdAt: 'asc' },
     });
 
@@ -381,7 +384,7 @@ export class BoardsService {
       visibility: board.visibility,
       createdAt: board.createdAt,
       updatedAt: board.updatedAt,
-      role: board.members[0]?.role ?? null,
+      role: board.members[0]?.role ?? (isGlobalAdmin ? BoardMemberRole.ADMIN : null),
     }));
   }
 
