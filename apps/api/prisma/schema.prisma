@@ -1434,6 +1434,10 @@ model CeoMeeting {
   meetingLink String?  @map("meeting_link") @db.VarChar(2048)
   scheduledAt DateTime @map("scheduled_at") @db.Timestamptz(6)
 
+  // iCalendar (.ics) invite identity — a stable UID so updates/cancels reference the same event
+  icalUid  String @default(cuid()) @map("ical_uid") @db.VarChar(255)
+  sequence Int    @default(0)
+
   createdById Int  @map("created_by_id")
   createdBy   User @relation("CeoMeetingCreator", fields: [createdById], references: [id])
 

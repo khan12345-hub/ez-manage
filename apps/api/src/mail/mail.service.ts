@@ -31,6 +31,8 @@ export class MailService {
     html: string;
     text?: string;
     attachments?: { filename?: string; content?: Buffer | string; cid?: string; contentType?: string }[];
+    /** a calendar invite — nodemailer adds the right text/calendar part so Gmail/Outlook show RSVP + "add to calendar" */
+    icalEvent?: { method?: string; filename?: string; content: string };
   }) {
     if (!this.isConfigured || !this.transporter) {
       this.logger.warn('Mail not configured — skipping email send');
@@ -62,6 +64,7 @@ export class MailService {
         text: options.text,
         html: options.html,
         attachments: options.attachments,
+        ...(options.icalEvent ? { icalEvent: options.icalEvent } : {}),
       });
 
       this.logger.log(`Email sent: ${info.messageId}`);

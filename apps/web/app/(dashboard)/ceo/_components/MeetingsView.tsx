@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { BellRing, CalendarClock, CalendarPlus, ExternalLink, Pencil, Video, XCircle } from "lucide-react";
+import { BellRing, CalendarClock, CalendarPlus, Check, Copy, ExternalLink, Pencil, Share2, Video, XCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { ceoApi, type CeoMeeting } from "@/services/ceo-tower.api";
@@ -13,6 +13,36 @@ import { PeoplePicker } from "./PeoplePicker";
 const when = (iso: string) => new Date(iso).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 const err = (e: any) => toast.error(e?.response?.data?.message?.toString?.() ?? "Something went wrong.");
+
+/** a plain-text invite anyone can paste into chat/email/WhatsApp */
+function inviteText(m: CeoMeeting) {
+  const lines = [
+    `📅 ${m.title}`,
+    `🕑 ${when(m.scheduledAt)}`,
+    ...(m.description ? [``, m.description] : []),
+    ...(m.meetingLink ? [``, `Join: ${m.meetingLink}`] : []),
+  ];
+  return lines.join("\n");
+}
+
+/** copy a shareable invite (uses the native share sheet on mobile, clipboard elsewhere) */
+function ShareInvite({ m }: { m: CeoMeeting }) {
+  const [done, setDone] = useState(false);
+  const share = async () => {
+    const text = inviteText(m);
+    try {
+      if (typeof navigator !== "undefined" && (navigator as any).share) { await (navigator as any).share({ title: m.title, text }); return; }
+      await navigator.clipboard.writeText(text);
+      setDone(true); toast.success("Invite copied — paste it anywhere"); setTimeout(() => setDone(false), 1500);
+    } catch { /* user dismissed the share sheet */ }
+  };
+  const canShare = typeof navigator !== "undefined" && (navigator as any).share;
+  return (
+    <button type="button" onClick={share} aria-label={`Share ${m.title}`} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-[12.5px] hover:bg-accent">
+      {done ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : canShare ? <Share2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} Share
+    </button>
+  );
+}
 
 /** Executive Hub → Meetings: schedule, invite, edit, cancel; everyone is reminded before it starts */
 export function MeetingsView() {
@@ -51,12 +81,15 @@ export function MeetingsView() {
                   {m.cancelledAt ? <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Cancelled</span> : tab === "upcoming" && <span className="flex items-center gap-1 text-muted-foreground"><BellRing className="h-3.5 w-3.5" /> reminders on</span>}
                 </div>
               </div>
-              {tab === "upcoming" && !m.cancelledAt && (
-                <div className="flex gap-1.5">
-                  <button type="button" onClick={() => setEditing(m)} aria-label={`Edit ${m.title}`} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-[12.5px] hover:bg-accent"><Pencil className="h-3.5 w-3.5" /> Edit</button>
-                  <button type="button" onClick={() => window.confirm(`Cancel "${m.title}"? Everyone invited is told.`) && cancel.mutate(m.id)} aria-label={`Cancel ${m.title}`} className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-[12.5px] text-destructive hover:bg-destructive/10"><XCircle className="h-3.5 w-3.5" /> Cancel</button>
-                </div>
-              )}
+              <div className="flex gap-1.5">
+                {!m.cancelledAt && <ShareInvite m={m} />}
+                {tab === "upcoming" && !m.cancelledAt && (
+                  <>
+                    <button type="button" onClick={() => setEditing(m)} aria-label={`Edit ${m.title}`} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-[12.5px] hover:bg-accent"><Pencil className="h-3.5 w-3.5" /> Edit</button>
+                    <button type="button" onClick={() => window.confirm(`Cancel "${m.title}"? Everyone invited is told.`) && cancel.mutate(m.id)} aria-label={`Cancel ${m.title}`} className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-[12.5px] text-destructive hover:bg-destructive/10"><XCircle className="h-3.5 w-3.5" /> Cancel</button>
+                  </>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -90,13 +123,18 @@ export function MeetingDialog({ meeting, onClose }: { meeting: CeoMeeting | null
         <DialogDescription>Everyone invited is notified now and reminded 24 hours, 1 hour and 15 minutes before it starts.</DialogDescription>
         <div className="grid gap-3">
           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Weekly management review" aria-label="Meeting title" maxLength={255} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-[14px] font-medium outline-none focus:border-primary/50" />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-[12px] font-medium text-muted-foreground">Date & time
               <input type="datetime-local" aria-label="Date and time" value={at} min={toLocalInput(new Date())} onChange={(e) => setAt(e.target.value)} className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
             </label>
-            <label className="text-[12px] font-medium text-muted-foreground">Video call link (optional)
-              <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://meet.google.com/…" aria-label="Meeting link" className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
-            </label>
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[12px] font-medium text-muted-foreground">Video call link</span>
+                <button type="button" onClick={() => { window.open("https://meet.google.com/new", "ezmeet", "width=1100,height=760,noopener"); toast.message("Google Meet opened in a new window — copy its link and paste it here."); }} className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-accent"><Video className="h-3 w-3" /> Create Google Meet</button>
+              </div>
+              <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste a Meet/Zoom/Teams link…" aria-label="Meeting link" className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
+              <button type="button" onClick={() => setLink(`https://meet.jit.si/EZManage-${Math.random().toString(36).slice(2, 9)}`)} className="mt-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">or create an instant room — no account needed</button>
+            </div>
           </div>
           <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Agenda (optional)" aria-label="Agenda" rows={3} className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary/50" />
           <PeoplePicker value={people} onChange={setPeople} label="Invite" />
