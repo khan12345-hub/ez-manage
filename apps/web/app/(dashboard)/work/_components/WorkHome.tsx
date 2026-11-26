@@ -5,10 +5,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { AlarmClock, ArrowRight, CalendarCheck2, CheckCircle2, ChevronLeft, ChevronRight, CircleDot, Inbox, ListTodo, Plus } from "lucide-react";
+import { AlarmClock, ArrowRight, CalendarCheck2, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, CircleDot, Inbox, ListTodo, Plus, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { dayOf, workApi, workKeys, type MyWorkTask } from "@/services/work.api";
+import { getMyMeetings } from "@/services/ceo-assistant.api";
 import { useWorkCreate } from "@/store/work-create";
 import { DueLabel, PriorityFlag, StatusGlyph } from "./primitives";
 
@@ -104,6 +105,8 @@ export function WorkHome({ ws, onOpenTask, canCreate = true }: { ws: string; onO
   const openCreate = useWorkCreate((s) => s.openCreate);
   const { data: tasks = [], isLoading } = useQuery({ queryKey: workKeys.my(ws), queryFn: () => workApi.myTasks(ws) });
   const { data: inbox } = useQuery({ queryKey: ["work-inbox", "active"], queryFn: () => workApi.workInbox("active"), staleTime: 20_000 });
+  const { data: allMeetings = [] } = useQuery({ queryKey: ["work-home", "my-meetings"], queryFn: getMyMeetings, staleTime: 60_000 });
+  const meetings = useMemo(() => allMeetings.filter((m) => !m.cancelledAt && new Date(m.scheduledAt).getTime() > Date.now() - 60 * 60_000).sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt)).slice(0, 5), [allMeetings]);
 
   const s = useMemo(() => {
     const t0 = dayOf(new Date().toISOString()).getTime();
@@ -201,6 +204,28 @@ export function WorkHome({ ws, onOpenTask, canCreate = true }: { ws: string; onO
         </Card>
         <Card title="Calendar"><MiniCalendar tasks={tasks} onOpen={onOpenTask} /></Card>
       </div>
+
+      <Card title="Upcoming meetings" action={<span className="flex items-center gap-1 text-[12.5px] font-semibold text-muted-foreground"><CalendarClock className="h-3.5 w-3.5" /> {meetings.length}</span>}>
+        {!meetings.length ? (
+          <p className="py-6 text-center text-[13px] text-muted-foreground">No meetings scheduled. Meetings you create or are invited to show up here.</p>
+        ) : (
+          <ul className="divide-y divide-border/70">
+            {meetings.map((m) => (
+              <li key={m.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                <div className="w-24 shrink-0 rounded-xl border border-border bg-muted/30 px-2 py-1.5 text-center">
+                  <p className="text-[10.5px] font-medium uppercase text-muted-foreground">{new Date(m.scheduledAt).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</p>
+                  <p className="text-[16px] font-semibold leading-tight">{new Date(m.scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-semibold">{m.title}</p>
+                  <p className="text-[12px] text-muted-foreground">{m.attendees?.length ?? 0} invited</p>
+                </div>
+                {m.meetingLink && <a href={m.meetingLink} target="_blank" rel="noreferrer noopener" className="flex items-center gap-1 rounded-lg bg-forest px-3 py-1.5 text-[12.5px] font-semibold text-forest-foreground hover:bg-forest/90 dark:bg-primary dark:text-primary-foreground"><Video className="h-3.5 w-3.5" /> Join</a>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <div className="grid gap-5 lg:grid-cols-3">
         <Card title="Progress by space" className="lg:col-span-1">
