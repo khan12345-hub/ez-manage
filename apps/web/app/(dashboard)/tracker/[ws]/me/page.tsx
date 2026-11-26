@@ -14,8 +14,12 @@ import { BarLegend, HoursBars, Ring, StatTile, fade, stagger } from "../../_comp
 import { ConsentText } from "../../_components/ConsentText";
 
 const err = (e: any, m: string) => toast.error(e?.response?.data?.message?.toString?.() ?? m);
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://staging-apimanage.ezify.pk/api";
 // A hosted URL if set, otherwise the API serves the installer from TRACKER_INSTALLER_PATH on the server.
-const DOWNLOAD = process.env.NEXT_PUBLIC_TRACKER_DOWNLOAD_URL || (process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/tracker/desktop/download` : undefined);
+// Falls back to the live API (never a local URL) so the download link works on the deployed site.
+const DOWNLOAD = process.env.NEXT_PUBLIC_TRACKER_DOWNLOAD_URL || `${API_BASE}/tracker/desktop/download`;
+// The silent (unattended) installer for org-owned computers — served from TRACKER_SILENT_INSTALLER_PATH.
+const DOWNLOAD_SILENT = process.env.NEXT_PUBLIC_TRACKER_SILENT_DOWNLOAD_URL || `${API_BASE}/tracker/desktop/download-silent`;
 
 function Countdown({ until }: { until: string }) {
   const [now, setNow] = useState(Date.now());
@@ -23,8 +27,6 @@ function Countdown({ until }: { until: string }) {
   const s = Math.max(0, Math.round((new Date(until).getTime() - now) / 1000));
   return <>{s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "expired"}</>;
 }
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://staging-apimanage.ezify.pk/api";
 
 /** Managers: make a zero-touch deploy code for one person — bake it into their silent installer so it
  *  connects to them on first run, with no pair screen. The code is long-lived and revocable. */
@@ -261,17 +263,16 @@ export default function TrackerMe() {
               <h2 className="text-[16px] font-semibold">Silent (unattended) setup <span className="ml-1 rounded bg-black/[0.06] px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground dark:bg-white/10">managers</span></h2>
               <p className="text-[12.5px] text-muted-foreground">For organisation-owned computers where staff have been told monitoring is on — runs with no window and tracks automatically on login, like Hubstaff's Silent App.</p>
             </span>
+            <a href={DOWNLOAD_SILENT} className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[#334155] px-3.5 text-[13px] font-semibold text-white hover:bg-[#1e293b]"><Download className="h-4 w-4" /> Download silent installer</a>
           </header>
-          <p className="text-[13px] text-muted-foreground">There is no separate “silent” download — it's the <b>same EZ Tracker installer</b>, launched once with a flag:</p>
+          <p className="text-[13px] text-muted-foreground">Install this <b>silent installer</b> on the org-owned computer. It behaves like the normal app but, once connected, runs with no window and tracks automatically on login.</p>
           <ol className="mt-3 space-y-2.5 text-[13px]">
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">1</span>
-              <span className="min-w-0 flex-1">Install EZ Tracker on the computer{DOWNLOAD ? <> — <a href={DOWNLOAD} className="font-semibold text-[#0369a1] underline dark:text-[#7dd3fc]">download</a></> : ""}, and make sure tracking is turned on for that person (People → add them).</span></li>
+              <span className="min-w-0 flex-1"><a href={DOWNLOAD_SILENT} className="font-semibold text-[#334155] underline dark:text-[#cbd5e1]">Download the silent installer</a> and install it on the computer. Make sure tracking is turned on for that person (People → add them).</span></li>
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">2</span>
-              <span className="min-w-0 flex-1">Launch it <b>once</b> with <code className="rounded bg-black/[0.06] px-1.5 py-0.5 font-mono text-[12px] dark:bg-white/10">--silent</code>, e.g. a shortcut to:
-                <code className="mt-1.5 block overflow-x-auto rounded-lg bg-black/[0.05] px-3 py-2 font-mono text-[12px] dark:bg-white/[0.06]">"C:\Program Files\EZ Tracker\EZ Tracker.exe" --silent</code>
-              </span></li>
+              <span className="min-w-0 flex-1"><b>Best (zero-touch):</b> make an <b>Organization token</b> or a per-person deploy code below and bake it in — then it connects on first run with <b>nothing to type</b>.</span></li>
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[12px] font-bold dark:bg-white/10">3</span>
-              <span className="min-w-0 flex-1">The Pair screen shows <b>this one time</b> — press “Connect with my account” or paste a pairing code. The moment it's paired the window closes for good; after that it auto-starts on login, auto-accepts the monitoring policy and tracks on its own.</span></li>
+              <span className="min-w-0 flex-1"><b>Or</b> launch the normal app once with <code className="rounded bg-black/[0.06] px-1.5 py-0.5 font-mono text-[12px] dark:bg-white/10">--silent</code> (e.g. <code className="rounded bg-black/[0.06] px-1.5 py-0.5 font-mono text-[11px] dark:bg-white/10">"…\EZ Tracker.exe" --silent</code>). The Pair screen shows <b>once</b> — connect it, the window closes for good, and after that it auto-starts on login and tracks on its own.</span></li>
           </ol>
           <DeployCodes ws={ws} />
           <p className="mt-3 rounded-xl bg-[#b45309]/[0.07] px-3.5 py-2.5 text-[12px] text-[#92400e] dark:text-[#fbbf24]">It is <b>not covert</b> — it keeps the “EZ Tracker” name in the process list, Installed Programs and the Windows start-up list. Only use it for people who have been told their work activity is monitored.</p>
