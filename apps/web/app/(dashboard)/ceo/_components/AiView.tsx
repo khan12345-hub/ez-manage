@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bot, Check, CheckCircle2, ListPlus, Loader2, MessageSquarePlus, Plus, SendHorizontal, ShieldCheck, Sparkles, X, XCircle } from "lucide-react";
+import { Bot, Check, CheckCircle2, ListPlus, Loader2, MessageSquarePlus, Mic, MicOff, Plus, SendHorizontal, ShieldCheck, Sparkles, Volume2, X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ceoApi, type CeoAiAction, type CeoOverview } from "@/services/ceo-tower.api";
 import { useAuth } from "@/providers/AuthProvider";
@@ -40,6 +40,55 @@ const CONV_KEY = "ez:ceo:ai:conversation";
 type Line = { role: "user" | "assistant"; text: string; used?: string[] };
 
 /** Executive Hub → Executive AI: ask anything; actions the AI prepares wait for your Confirm */
+/** Hold-to-talk mic using the browser's built-in speech recognition (free, on-device). Supports
+ *  English (en-US) and Urdu (ur-PK). Renders nothing where the browser has no SpeechRecognition. */
+function MicButton({ lang, disabled, getBase, onText }: { lang: string; disabled?: boolean; getBase: () => string; onText: (full: string) => void }) {
+  const [listening, setListening] = useState(false);
+  const recRef = useRef<any>(null);
+  const baseRef = useRef("");
+  const supported = typeof window !== "undefined" && (("SpeechRecognition" in window) || ("webkitSpeechRecognition" in window));
+  useEffect(() => () => { try { recRef.current?.stop(); } catch { /* ignore */ } }, []);
+  if (!supported) return null;
+  const stop = () => { try { recRef.current?.stop(); } catch { /* ignore */ } setListening(false); };
+  const start = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = lang; rec.interimResults = true; rec.continuous = true;
+    baseRef.current = getBase();
+    rec.onresult = (e: any) => { let t = ""; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; onText((baseRef.current ? baseRef.current + " " : "") + t.trim()); };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    recRef.current = rec;
+    try { rec.start(); setListening(true); } catch { setListening(false); }
+  };
+  return (
+    <button type="button" aria-label={listening ? "Stop recording" : "Speak"} disabled={disabled} onClick={() => (listening ? stop() : start())}
+      className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border disabled:opacity-40", listening ? "animate-pulse border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400" : "text-muted-foreground hover:bg-accent")}>
+      {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+    </button>
+  );
+}
+
+/** Read an AI reply aloud using the browser's speech synthesis; picks an Urdu voice for Urdu text. */
+function SpeakButton({ text }: { text: string }) {
+  const [speaking, setSpeaking] = useState(false);
+  const supported = typeof window !== "undefined" && "speechSynthesis" in window;
+  if (!supported) return null;
+  const speak = () => {
+    const synth = window.speechSynthesis;
+    if (speaking) { synth.cancel(); setSpeaking(false); return; }
+    const clean = text.replace(/[*#_`>]/g, "").replace(/\n{2,}/g, ". ").trim();
+    const isUrdu = /[؀-ۿ]/.test(clean);
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = isUrdu ? "ur-PK" : "en-US";
+    const v = synth.getVoices().find((x) => x.lang?.toLowerCase().startsWith(isUrdu ? "ur" : "en"));
+    if (v) u.voice = v;
+    u.onend = () => setSpeaking(false); u.onerror = () => setSpeaking(false);
+    synth.cancel(); synth.speak(u); setSpeaking(true);
+  };
+  return <button type="button" onClick={speak} className="flex items-center gap-1 text-[12px] font-medium text-muted-foreground hover:text-foreground"><Volume2 className="h-3.5 w-3.5" /> {speaking ? "Stop" : "Read aloud"}</button>;
+}
+
 export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; onAsked?: () => void }) {
   // "Turn this into a CEO task": the question becomes the task, the answer its description
   const [toTask, setToTask] = useState<{ name: string; description: string } | null>(null);
@@ -52,6 +101,7 @@ export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; on
   const [lines, setLines] = useState<Line[]>([]);
   const [actions, setActions] = useState<CeoAiAction[]>([]);
   const [text, setText] = useState("");
+  const [voiceLang, setVoiceLang] = useState<"en-US" | "ur-PK">("en-US");
   const bottom = useRef<HTMLDivElement>(null);
 
   // reopen the last conversation
@@ -143,8 +193,11 @@ export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; on
                 {l.role === "assistant" ? <RichText text={l.text} /> : l.text}
                 {l.used?.length ? <p className="mt-1.5 font-mono text-[10px] text-muted-foreground">Looked at: {l.used.map((u) => u.replace(/_/g, " ")).join(" · ")}</p> : null}
                 {l.role === "assistant" && l.text.length > 20 && (
-                  <button type="button" onClick={() => { const q = [...lines.slice(0, i)].reverse().find((x) => x.role === "user")?.text ?? ""; setToTask({ name: (q || l.text.split("\n")[0] || "").replace(/[*#_`]/g, "").slice(0, 120), description: l.text.replace(/\*\*/g, "").slice(0, 4000) }); }}
-                    className="mt-2 flex items-center gap-1 text-[12px] font-semibold text-[#8a6a35] hover:underline dark:text-[#d9bd8c]"><ListPlus className="h-3.5 w-3.5" /> Turn this into a CEO task →</button>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <SpeakButton text={l.text} />
+                    <button type="button" onClick={() => { const q = [...lines.slice(0, i)].reverse().find((x) => x.role === "user")?.text ?? ""; setToTask({ name: (q || l.text.split("\n")[0] || "").replace(/[*#_`]/g, "").slice(0, 120), description: l.text.replace(/\*\*/g, "").slice(0, 4000) }); }}
+                      className="flex items-center gap-1 text-[12px] font-semibold text-[#8a6a35] hover:underline dark:text-[#d9bd8c]"><ListPlus className="h-3.5 w-3.5" /> Turn this into a CEO task →</button>
+                  </div>
                 )}
               </div>
             </div>
@@ -160,10 +213,18 @@ export function AiView({ initialAsk, onAsked }: { initialAsk?: string | null; on
             {aiPrompts(overview, user?.id, true).slice(0, 7).map((p) => <button key={p} type="button" disabled={!status?.configured || ask.isPending} onClick={() => ask.mutate(p)} className="rounded-lg border border-border px-2.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50">{p}</button>)}
           </div>
           <div className="flex items-end gap-2">
+            <MicButton lang={voiceLang} disabled={ask.isPending || !status?.configured} getBase={() => text} onText={setText} />
             <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} rows={2} maxLength={4000} disabled={!status?.configured}
-              placeholder={status?.configured ? "Ask anything… e.g. How is Khan's team doing this week?" : "Executive AI is not switched on yet"} aria-label="Ask Executive AI"
+              placeholder={status?.configured ? "Ask anything, or tap the mic to speak…" : "Executive AI is not switched on yet"} aria-label="Ask Executive AI"
               className="min-h-[44px] flex-1 resize-none rounded-xl border border-border bg-background px-3.5 py-2.5 text-[13.5px] outline-none focus:border-primary/50 disabled:opacity-60" />
             <button type="button" aria-label="Ask" disabled={!text.trim() || ask.isPending || !status?.configured} onClick={send} className="flex h-11 w-11 items-center justify-center rounded-xl bg-forest text-forest-foreground disabled:opacity-40 dark:bg-primary dark:text-primary-foreground"><SendHorizontal className="h-4 w-4" /></button>
+          </div>
+          <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span>Voice language:</span>
+            <span className="inline-flex overflow-hidden rounded-md border border-border">
+              {(["en-US", "ur-PK"] as const).map((l) => <button key={l} type="button" onClick={() => setVoiceLang(l)} className={cn("px-2 py-0.5 font-medium", voiceLang === l ? "bg-forest text-forest-foreground dark:bg-primary dark:text-primary-foreground" : "hover:bg-accent")}>{l === "ur-PK" ? "اردو" : "English"}</button>)}
+            </span>
+            <span className="hidden sm:inline">· I reply in whatever language you write in.</span>
           </div>
         </div>
       </div>
