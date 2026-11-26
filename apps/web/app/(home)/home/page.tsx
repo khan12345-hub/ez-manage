@@ -591,6 +591,8 @@ export default function HomePage() {
               </p>
             </div>
 
+            {/* stat strip hidden for now */}
+            {false && (
             <dl className="ez-glass flex items-stretch divide-x divide-foreground/10 rounded-2xl px-2 py-3">
               {[
                 { v: wsList.length, l: wsList.length === 1 ? "workspace" : "workspaces" },
@@ -605,6 +607,7 @@ export default function HomePage() {
                 </div>
               ))}
             </dl>
+            )}
           </motion.div>
 
           {/* ── Product cards ─────────────────────────────────────────── */}
@@ -778,7 +781,8 @@ export default function HomePage() {
             )}
           </motion.div>
 
-          {/* ── Attention + brief ─────────────────────────────────────── */}
+          {/* ── Attention + brief ── hidden for now ── */}
+          {false && (
           <motion.div
             className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[1.45fr_1fr]"
             variants={fadeUp}
@@ -919,6 +923,7 @@ export default function HomePage() {
               </form>
             </section>
           </motion.div>
+          )}
         </div>
       </main>
     </div>
