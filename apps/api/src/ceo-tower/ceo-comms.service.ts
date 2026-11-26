@@ -161,10 +161,15 @@ export class CeoCommsService {
     }
   }
 
-  async createMeeting(userId: number, dto: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds?: number[]; attendeeEmails?: { email: string; name?: string }[]; crmWorkspaceId?: number; crmContactId?: number; crmCompanyId?: number }) {
+  /** does the person have Google connected (to auto-create a Meet link)? */
+  async googleStatus(userId: number) {
+    return this.meetings.googleStatus(userId);
+  }
+
+  async createMeeting(userId: number, dto: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds?: number[]; attendeeEmails?: { email: string; name?: string }[]; crmWorkspaceId?: number; crmContactId?: number; crmCompanyId?: number; addGoogleMeet?: boolean }) {
     this.checkMeeting(dto);
     const external = (dto.attendeeEmails ?? []).map((e) => ({ email: String(e?.email ?? '').trim(), name: e?.name?.trim() || undefined })).filter((e) => /.+@.+\..+/.test(e.email));
-    const base = { title: dto.title.trim(), description: dto.description?.trim() || undefined, meetingLink: dto.meetingLink?.trim() || undefined, scheduledAt: new Date(dto.scheduledAt).toISOString() };
+    const base = { title: dto.title.trim(), description: dto.description?.trim() || undefined, meetingLink: dto.meetingLink?.trim() || undefined, scheduledAt: new Date(dto.scheduledAt).toISOString(), addGoogleMeet: !!dto.addGoogleMeet };
 
     // CRM-scheduled meeting: permission is CRM membership (not Executive Hub admin); invites the contact by email
     if (dto.crmWorkspaceId) {

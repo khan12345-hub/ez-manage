@@ -38,8 +38,13 @@ export class CeoTowerController {
     return this.comms.crmMeetings(u.id, { workspaceId: Number(ws), contactId: contactId ? Number(contactId) : undefined, companyId: companyId ? Number(companyId) : undefined });
   }
 
+  @Get('meetings/google-status')
+  meetingsGoogle(@CurrentUser() u: SessionUser) {
+    return this.comms.googleStatus(u.id);
+  }
+
   @Post('meetings')
-  createMeeting(@Body() b: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds?: number[]; attendeeEmails?: { email: string; name?: string }[]; crmWorkspaceId?: number; crmContactId?: number; crmCompanyId?: number }, @CurrentUser() u: SessionUser) {
+  createMeeting(@Body() b: { title: string; description?: string; meetingLink?: string; scheduledAt: string; attendeeIds?: number[]; attendeeEmails?: { email: string; name?: string }[]; crmWorkspaceId?: number; crmContactId?: number; crmCompanyId?: number; addGoogleMeet?: boolean }, @CurrentUser() u: SessionUser) {
     return this.comms.createMeeting(u.id, b);
   }
 

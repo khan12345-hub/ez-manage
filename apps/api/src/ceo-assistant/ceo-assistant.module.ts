@@ -14,6 +14,7 @@ import { CeoEmailProcessor, CEO_EMAIL_QUEUE } from './ceo-email.processor';
 
 import { MailModule } from 'src/mail/mail.module';
 import { NotificationsModule } from 'src/notifications/notifications.module';
+import { CalendarModule } from 'src/calendar/calendar.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
     MailModule,
     NotificationsModule,
     WorkModule,
+    CalendarModule,
   ],
   controllers: [CeoAssistantController],
   providers: [

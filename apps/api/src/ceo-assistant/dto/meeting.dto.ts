@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString, IsArray, IsInt, IsUrl, MinLength } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsArray, IsBoolean, IsInt, IsUrl, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export type ExternalAttendee = { email: string; name?: string };
@@ -34,6 +34,9 @@ export class CreateMeetingDto {
   @IsOptional() @IsInt() @Type(() => Number) crmWorkspaceId?: number;
   @IsOptional() @IsInt() @Type(() => Number) crmContactId?: number;
   @IsOptional() @IsInt() @Type(() => Number) crmCompanyId?: number;
+
+  /** create a Google Calendar event with a Meet link (needs the organizer's Google connected) */
+  @IsOptional() @IsBoolean() addGoogleMeet?: boolean;
 }
 
 export class UpdateMeetingDto {

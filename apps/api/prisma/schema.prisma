@@ -1443,6 +1443,11 @@ model CeoMeeting {
   crmContactId   Int? @map("crm_contact_id")
   crmCompanyId   Int? @map("crm_company_id")
 
+  // when the organizer has Google connected, we create a real Google Calendar event (with a Meet link)
+  // and keep its id so reschedule/cancel stay in sync; googleAccountId is the CalendarAccount used.
+  googleEventId   String? @map("google_event_id") @db.VarChar(255)
+  googleAccountId Int?    @map("google_account_id")
+
   createdById Int  @map("created_by_id")
   createdBy   User @relation("CeoMeetingCreator", fields: [createdById], references: [id])
 
