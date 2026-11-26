@@ -233,4 +233,28 @@ export class CeoCommsService {
     }
     throw new BadRequestException(`${info.user.firstName} isn't in a company you are both in, so a message can't reach them.`);
   }
+
+  /**
+   * Open (or create) a direct-message chat with one person and return where it lives, so the
+   * Channels view can jump straight to it — no company picker needed (ClickUp-style DM).
+   */
+  async openDm(userId: number, personId: number, via?: string) {
+    if (personId === userId) throw new BadRequestException('That is you.');
+    const info = await this.tower.person(userId, personId);
+    const work = via?.startsWith('work:') ? info.reach.find((r) => r.key === via) : info.reach[0];
+    const boards = via?.startsWith('boards:') ? info.boardsReach.find((r) => r.key === via) : !work ? info.boardsReach[0] : undefined;
+    if (work) {
+      const ws = await this.prisma.workWorkspace.findUniqueOrThrow({ where: { uid: work.uid }, select: { id: true } });
+      const dm = await this.workChat.dm(ws.id, userId, [personId]);
+      return { source: 'work' as const, companyUid: work.uid, wsId: ws.id, uid: dm.uid, name: info.user.firstName };
+    }
+    if (boards) {
+      const dm = await this.boardsChat.getOrCreateDM(userId, personId, boards.id);
+      this.boardsGateway.addSocketToChannel(userId, dm.id);
+      this.boardsGateway.addSocketToChannel(personId, dm.id);
+      this.boardsGateway.notifyNewDM(personId, dm);
+      return { source: 'boards' as const, companyUid: boards.uid, wsId: boards.id, uid: String(dm.id), name: info.user.firstName };
+    }
+    throw new BadRequestException(`${info.user.firstName} isn't in a company you are both in, so a direct message can't reach them.`);
+  }
 }
