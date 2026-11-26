@@ -60,12 +60,14 @@ export class CeoTowerService {
    */
   async owned(userId: number) {
     if (!(await this.isAdmin(userId))) return { boards: [], work: [] };
-    const own = await this.ownOnly(userId);
-    const grants = await this.prisma.ceoAccessGrant.findMany({ where: { userId }, select: { ownerId: true } });
-    if (!grants.length) return own;
-    const shared = await Promise.all(grants.filter((g) => g.ownerId !== userId).map((g) => this.ownOnly(g.ownerId)));
-    const merge = <T extends { id: number }>(lists: T[][]) => [...new Map(lists.flat().map((x) => [x.id, x] as [number, T])).values()];
-    return { boards: merge([own.boards, ...shared.map((x) => x.boards)]), work: merge([own.work, ...shared.map((x) => x.work)]) };
+    // A global Administrator (SUPER_ADMIN) oversees EVERY company in every product — this is what
+    // "Co-Administrator: control of everything" means. So they get all companies, even ones they
+    // didn't create (and even if they own none, Executive Hub still opens for them).
+    const [boards, work] = await Promise.all([
+      this.prisma.workspace.findMany({ orderBy: { name: 'asc' }, select: { id: true, uid: true, name: true, timezone: true } }),
+      this.prisma.workWorkspace.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' }, select: { id: true, uid: true, name: true } }),
+    ]);
+    return { boards, work };
   }
 
   /** only the companies this person really owns (decides who may share access) */
