@@ -215,14 +215,24 @@ export function MeetingDialog({ meeting, onClose, presetTitle, presetEmails, crm
   const [emails, setEmails] = useState<{ email: string; name?: string }[]>(
     meeting ? meeting.attendees.filter((a) => !a.user && a.email).map((a) => ({ email: a.email!, name: a.name || undefined })) : (presetEmails ?? []),
   );
+  const [addMeet, setAddMeet] = useState(false); // auto-create a Google Meet + Google Calendar event
+  const { data: gstatus } = useQuery({ queryKey: ["ceo-tower", "meet-google"], queryFn: ceoApi.meetingGoogleStatus, enabled: !meeting });
   const date = new Date(at);
   const ready = !!title.trim() && !isNaN(+date) && +date > Date.now() && (people.length > 0 || emails.length > 0);
   const save = useMutation({
     mutationFn: () => {
-      const body = { title: title.trim(), scheduledAt: date.toISOString(), attendeeIds: people, attendeeEmails: emails, description: desc.trim() || undefined, meetingLink: link.trim() || undefined, ...(crm ? { crmWorkspaceId: crm.workspaceId, crmContactId: crm.contactId, crmCompanyId: crm.companyId } : {}) };
+      const body = { title: title.trim(), scheduledAt: date.toISOString(), attendeeIds: people, attendeeEmails: emails, description: desc.trim() || undefined, meetingLink: link.trim() || undefined, addGoogleMeet: addMeet, ...(crm ? { crmWorkspaceId: crm.workspaceId, crmContactId: crm.contactId, crmCompanyId: crm.companyId } : {}) };
       return meeting ? ceoApi.updateMeeting(meeting.id, { title: body.title, scheduledAt: body.scheduledAt, attendeeIds: people, description: desc.trim() || null, meetingLink: link.trim() || null }) : ceoApi.createMeeting(body);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["ceo-tower"] }); toast.success(meeting ? "Meeting updated — everyone was told" : `Meeting scheduled for ${when(date.toISOString())} — invitations sent`); onClose(); },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["ceo-tower"] });
+      const gm = (res as any)?.googleMeet as string | undefined;
+      if (!meeting && addMeet && gm === "ok") toast.success(`Google Meet created & added to Google Calendar — scheduled for ${when(date.toISOString())}`);
+      else if (!meeting && addMeet && gm === "reconnect") toast.warning("Scheduled, but reconnect Google (we now need calendar access) to auto-create Meet links.");
+      else if (!meeting && addMeet && gm === "not_connected") toast.warning("Scheduled with email invites. Connect Google to auto-create Meet links.");
+      else toast.success(meeting ? "Meeting updated — everyone was told" : `Meeting scheduled for ${when(date.toISOString())} — invitations sent`);
+      onClose();
+    },
     onError: err,
   });
   return (
@@ -241,12 +251,24 @@ export function MeetingDialog({ meeting, onClose, presetTitle, presetEmails, crm
               </div>
             </div>
             <div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[12px] font-medium text-muted-foreground">Video call link</span>
-                <button type="button" onClick={() => { window.open("https://meet.google.com/new", "ezmeet", "width=1100,height=760,noopener"); toast.message("Google Meet opened in a new window — copy its link and paste it here."); }} className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-accent"><Video className="h-3 w-3" /> Create Google Meet</button>
-              </div>
-              <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste a Meet/Zoom/Teams link…" aria-label="Meeting link" className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
-              <p className="mt-1 text-[11px] text-muted-foreground">Click <b>Create Google Meet</b>, then copy the link here. Optional.</p>
+              <span className="text-[12px] font-medium text-muted-foreground">Video call</span>
+              {!meeting ? (
+                <div className="mt-1 rounded-lg border border-border p-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-[13px] font-medium">
+                    <input type="checkbox" checked={addMeet} onChange={(e) => setAddMeet(e.target.checked)} className="h-4 w-4 accent-[#1f6f4f]" />
+                    <Video className="h-4 w-4 text-primary" /> Add a Google Meet
+                  </label>
+                  {addMeet ? (
+                    gstatus?.connected
+                      ? <p className="mt-1 pl-6 text-[11px] text-emerald-700 dark:text-emerald-400">✓ A Meet link is created and the event added to your Google Calendar on schedule.</p>
+                      : <p className="mt-1 pl-6 text-[11px] text-muted-foreground">Needs your Google connected. <a href="/ceo?view=calendar" className="font-semibold text-primary hover:underline">Connect Google</a>{gstatus && !gstatus.configured ? " — not set up on the server yet." : "."}</p>
+                  ) : (
+                    <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="…or paste a Meet / Zoom / Teams link" aria-label="Meeting link" className="mt-1.5 h-8 w-full rounded-md border border-border bg-background px-2 text-[12.5px]" />
+                  )}
+                </div>
+              ) : (
+                <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste a Meet/Zoom/Teams link…" aria-label="Meeting link" className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-[13px] text-foreground" />
+              )}
             </div>
           </div>
           <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Agenda (optional)" aria-label="Agenda" rows={2} className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary/50" />

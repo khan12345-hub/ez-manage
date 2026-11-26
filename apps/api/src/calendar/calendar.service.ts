@@ -2,7 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 
-const SCOPES = ['openid', 'email', 'https://www.googleapis.com/auth/calendar.readonly'];
+// calendar.events lets us create the meeting (with a Google Meet link) on the person's Google Calendar;
+// readonly is kept so the merged calendar view keeps working.
+const SCOPES = ['openid', 'email', 'https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar.events'];
 const COLORS = ['#047857', '#2563eb', '#b45309', '#7c3aed', '#db2777', '#0891b2', '#dc2626', '#4d7c0f'];
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -200,5 +202,71 @@ export class CalendarService {
     }));
     const events = [...lists.flat(), ...ez].sort((a, b) => a.start.localeCompare(b.start));
     return { configured: !!this.cfg, events, errors };
+  }
+
+  // ---------- writing events (meetings) ----------
+
+  /** Is a Google account connected that we can write to? (configured app + at least one enabled account) */
+  async hasGoogle(userId: number) {
+    if (!this.cfg) return { configured: false, connected: false };
+    const connected = await this.prisma.calendarAccount.count({ where: { userId, provider: 'google', enabled: true } });
+    return { configured: true, connected: connected > 0 };
+  }
+
+  /**
+   * Create an event on the person's primary Google Calendar, optionally with a Google Meet link.
+   * Returns null if they have no connected Google account; throws Error('reconnect') if the stored
+   * token lacks write access (the person connected before we asked for calendar.events).
+   */
+  async createMeetingEvent(userId: number, o: { title: string; description?: string | null; start: Date; end: Date; attendeeEmails: string[]; addMeet: boolean }): Promise<{ accountId: number; eventId: string; meetLink: string | null; htmlLink: string | null } | null> {
+    if (!this.cfg) return null;
+    const account = await this.prisma.calendarAccount.findFirst({ where: { userId, provider: 'google', enabled: true }, orderBy: { createdAt: 'asc' } });
+    if (!account) return null;
+    const tok = await this.token(account);
+    const body: any = {
+      summary: o.title,
+      description: o.description || undefined,
+      start: { dateTime: o.start.toISOString() },
+      end: { dateTime: o.end.toISOString() },
+      attendees: [...new Set(o.attendeeEmails.map((e) => e.trim().toLowerCase()).filter(Boolean))].map((email) => ({ email })),
+    };
+    if (o.addMeet) body.conferenceData = { createRequest: { requestId: `ezm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } };
+    const r = await fetch(`${API}/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all`, { method: 'POST', headers: { authorization: `Bearer ${tok}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    if (r.status === 401 || r.status === 403) throw new Error('reconnect');
+    if (!r.ok) { this.log.warn(`Google event create failed (${r.status})`); return null; }
+    const ev: any = await r.json().catch(() => ({}));
+    const meetLink = ev.hangoutLink ?? (ev.conferenceData?.entryPoints ?? []).find((p: any) => p.entryPointType === 'video')?.uri ?? null;
+    this.dropCache();
+    return { accountId: account.id, eventId: ev.id, meetLink, htmlLink: ev.htmlLink ?? null };
+  }
+
+  /** Update a previously-created meeting event (reschedule / attendee change). */
+  async patchMeetingEvent(accountId: number, eventId: string, o: { title?: string; description?: string | null; start?: Date; end?: Date; attendeeEmails?: string[] }): Promise<boolean> {
+    if (!this.cfg) return false;
+    const account = await this.prisma.calendarAccount.findFirst({ where: { id: accountId, provider: 'google' } });
+    if (!account) return false;
+    const tok = await this.token(account).catch(() => null);
+    if (!tok) return false;
+    const body: any = {};
+    if (o.title !== undefined) body.summary = o.title;
+    if (o.description !== undefined) body.description = o.description || '';
+    if (o.start) body.start = { dateTime: o.start.toISOString() };
+    if (o.end) body.end = { dateTime: o.end.toISOString() };
+    if (o.attendeeEmails) body.attendees = [...new Set(o.attendeeEmails.map((e) => e.trim().toLowerCase()).filter(Boolean))].map((email) => ({ email }));
+    const r = await fetch(`${API}/calendars/primary/events/${encodeURIComponent(eventId)}?conferenceDataVersion=1&sendUpdates=all`, { method: 'PATCH', headers: { authorization: `Bearer ${tok}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    this.dropCache();
+    return r.ok;
+  }
+
+  /** Remove a meeting event from Google (on cancel). 410 = already gone, treat as success. */
+  async deleteMeetingEvent(accountId: number, eventId: string): Promise<boolean> {
+    if (!this.cfg) return false;
+    const account = await this.prisma.calendarAccount.findFirst({ where: { id: accountId, provider: 'google' } });
+    if (!account) return false;
+    const tok = await this.token(account).catch(() => null);
+    if (!tok) return false;
+    const r = await fetch(`${API}/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`, { method: 'DELETE', headers: { authorization: `Bearer ${tok}` } });
+    this.dropCache();
+    return r.ok || r.status === 410;
   }
 }

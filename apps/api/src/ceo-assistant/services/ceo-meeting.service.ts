@@ -6,6 +6,7 @@ import { NotificationType } from 'generated/prisma/enums';
 import { CreateMeetingDto, UpdateMeetingDto } from '../dto/meeting.dto';
 import { WorkNotifyService } from 'src/work/work-notify.service';
 import { MailService } from 'src/mail/mail.service';
+import { CalendarService } from 'src/calendar/calendar.service';
 import { buildIcs, type IcsPerson } from './ics.util';
 
 type InviteMeeting = { icalUid: string; sequence: number; title: string; description: string | null; meetingLink: string | null; scheduledAt: Date };
@@ -21,6 +22,7 @@ export class CeoMeetingService {
     private readonly notifications: NotificationsService,
     @Optional() private readonly workNotify?: WorkNotifyService,
     @Optional() private readonly mail?: MailService,
+    @Optional() private readonly calendar?: CalendarService,
   ) {}
 
   private personName(u: { firstName?: string | null; lastName?: string | null }) {
@@ -78,6 +80,11 @@ export class CeoMeetingService {
     if (!this.workNotify) return;
     const inWork = await this.prisma.workMember.findFirst({ where: { userId: n.recipientId, workspace: { deletedAt: null } }, select: { workspaceId: true } });
     if (inWork) await this.workNotify.send({ recipientId: n.recipientId, type: 'MEETING', title: n.title, message: n.message, metadata: { event: 'meeting', meetingId: n.meetingId ?? null } }).catch(() => {});
+  }
+
+  /** does the person have a Google account connected (so we can auto-create Meet links)? */
+  async googleStatus(userId: number) {
+    return this.calendar ? this.calendar.hasGoogle(userId) : { configured: false, connected: false };
   }
 
   async createMeeting(createdById: number, dto: CreateMeetingDto) {
@@ -139,8 +146,33 @@ export class CeoMeetingService {
       ),
     );
 
-    // calendar invite (.ics) so it lands on everyone's Google / Outlook / Apple calendar (app users + external)
-    if (creator?.email) {
+    // If the organizer has Google connected, create a REAL Google Calendar event (with a Meet link) —
+    // Google then invites everyone natively and the Meet link comes back to us.
+    const allEmails = [...attendees.map((a) => a.email), ...externals.map((e) => e.email)];
+    let googleMeet: 'ok' | 'off' | 'not_connected' | 'reconnect' = dto.addGoogleMeet ? 'not_connected' : 'off';
+    let googleSynced = false;
+    if (dto.addGoogleMeet && this.calendar) {
+      try {
+        const start = new Date(dto.scheduledAt);
+        const res = await this.calendar.createMeetingEvent(createdById, { title: dto.title, description: dto.description, start, end: new Date(start.getTime() + 60 * 60_000), attendeeEmails: allEmails, addMeet: true });
+        if (res) {
+          googleSynced = true;
+          googleMeet = 'ok';
+          const updated = await this.prisma.ceoMeeting.update({
+            where: { id: meeting.id },
+            data: { googleEventId: res.eventId, googleAccountId: res.accountId, ...(res.meetLink ? { meetingLink: res.meetLink } : {}) },
+            include: { attendees: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } } } } },
+          });
+          Object.assign(meeting, updated);
+        }
+      } catch (e: any) {
+        googleMeet = e?.message === 'reconnect' ? 'reconnect' : 'not_connected';
+        this.logger.warn(`Google Meet create failed: ${e?.message ?? 'error'}`);
+      }
+    }
+
+    // calendar invite (.ics) — only when Google didn't already invite everyone (avoids a duplicate invite)
+    if (!googleSynced && creator?.email) {
       await this.emailInvite(
         meeting,
         { email: creator.email, name: creatorName },
@@ -149,6 +181,7 @@ export class CeoMeetingService {
       );
     }
 
+    (meeting as any).googleMeet = googleMeet;
     return meeting;
   }
 
@@ -317,15 +350,20 @@ export class CeoMeetingService {
 
     // Re-send the calendar invite so everyone's calendar reflects the change; removed people get a cancel.
     const metaChanged = dto.title !== undefined || dto.description !== undefined || dto.meetingLink !== undefined;
-    const organizer = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true, email: true } });
-    if (organizer?.email) {
-      const org: IcsPerson = { email: organizer.email, name: this.personName(organizer) };
-      if (timeChanged || addedUsers.length || metaChanged) {
-        const people = updated.attendees.map((a) => this.attendeePerson(a)).filter((p): p is IcsPerson => p != null);
-        await this.emailInvite(updated, org, people, 'REQUEST');
-      }
-      if (removedUsers.length) {
-        await this.emailInvite(updated, org, removedUsers.map((u) => ({ email: u.email })), 'CANCEL');
+    const people = updated.attendees.map((a) => this.attendeePerson(a)).filter((p): p is IcsPerson => p != null);
+
+    // Google-managed meeting: patch the Google event (Google re-notifies everyone) instead of sending our own .ics
+    if (updated.googleEventId && updated.googleAccountId && this.calendar && (timeChanged || addedUsers.length || removedUsers.length || metaChanged)) {
+      const start = updated.scheduledAt;
+      await this.calendar.patchMeetingEvent(updated.googleAccountId, updated.googleEventId, {
+        title: updated.title, description: updated.description, start, end: new Date(start.getTime() + 60 * 60_000), attendeeEmails: people.map((p) => p.email),
+      }).catch((e: Error) => this.logger.warn(`Google event patch failed: ${e.message}`));
+    } else {
+      const organizer = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true, email: true } });
+      if (organizer?.email) {
+        const org: IcsPerson = { email: organizer.email, name: this.personName(organizer) };
+        if (timeChanged || addedUsers.length || metaChanged) await this.emailInvite(updated, org, people, 'REQUEST');
+        if (removedUsers.length) await this.emailInvite(updated, org, removedUsers.map((u) => ({ email: u.email })), 'CANCEL');
       }
     }
 
@@ -359,8 +397,10 @@ export class CeoMeetingService {
       ),
     );
 
-    // remove it from everyone's calendar (app users + external)
-    if (meeting.createdBy?.email) {
+    // remove it from everyone's calendar — delete the Google event if we made one, else send a cancel .ics
+    if (meeting.googleEventId && meeting.googleAccountId && this.calendar) {
+      await this.calendar.deleteMeetingEvent(meeting.googleAccountId, meeting.googleEventId).catch((e: Error) => this.logger.warn(`Google event delete failed: ${e.message}`));
+    } else if (meeting.createdBy?.email) {
       const people = meeting.attendees.map((a) => this.attendeePerson(a)).filter((p): p is IcsPerson => p != null);
       await this.emailInvite(cancelled, { email: meeting.createdBy.email, name: this.personName(meeting.createdBy) }, people, 'CANCEL');
     }
