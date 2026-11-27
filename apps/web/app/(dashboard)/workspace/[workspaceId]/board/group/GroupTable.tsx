@@ -39,6 +39,10 @@ interface Props {
   isFetchingNextPage?: boolean;
   allTasksLoaded?: boolean;
   totalTaskCount?: number;
+  /** True while another page of tasks can still be fetched (infinite scroll). */
+  canFetchMore?: boolean;
+  /** Called when the user scrolls near the end of the loaded rows. */
+  onNearEnd?: () => void;
   members?: Array<{
     id: number;
     role: string;
@@ -67,6 +71,8 @@ export function GroupTable({
   isFetchingNextPage,
   allTasksLoaded = false,
   totalTaskCount,
+  canFetchMore = false,
+  onNearEnd,
 }: Props) {
   const { setNodeRef } = useDroppable({
     id: `group-drop-${group.id}`,
@@ -154,6 +160,23 @@ export function GroupTable({
   }, [expandedIds, isDraggingTask, shouldVirtualize]);
 
   const virtualItems = rowVirtualizer.getVirtualItems();
+
+  // Infinite scroll: fetch the next page only when the user has scrolled within
+  // PREFETCH_ROWS of the end of the loaded rows (or, for an un-virtualized group,
+  // whenever more is available). This replaces the old eager "load every page on
+  // mount", which blanked large boards.
+  const PREFETCH_ROWS = 25;
+  // 0 (not near-end) when nothing is measured yet, so we never prefetch before
+  // the virtualizer knows what's actually on screen — otherwise a large group
+  // would cascade-load every page again.
+  const lastRenderedIndex = virtualItems.length
+    ? (virtualItems[virtualItems.length - 1]?.index ?? 0)
+    : 0;
+  useEffect(() => {
+    if (!canFetchMore || isFetchingNextPage || !onNearEnd) return;
+    const nearEnd = !shouldVirtualize || lastRenderedIndex >= rootTasks.length - PREFETCH_ROWS;
+    if (nearEnd) onNearEnd();
+  }, [canFetchMore, isFetchingNextPage, onNearEnd, shouldVirtualize, lastRenderedIndex, rootTasks.length]);
 
   const paddingTop =
     shouldVirtualize && virtualItems.length > 0

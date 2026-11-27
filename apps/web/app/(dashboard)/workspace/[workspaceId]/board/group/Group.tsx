@@ -146,15 +146,12 @@ export function Group({
     [data],
   );
 
-  // Auto-fetch all pages — don't rely on scroll sentinel.
-  // isGroupTasksError guard prevents an infinite retry loop: if a page fails
-  // after React Query exhausts its retry budget, hasNextPage stays true but we
-  // must stop firing fetchNextPage() or we hammer the API forever.
-  useEffect(() => {
-    if (!hasNextPage || isFetchingNextPage || isGroupTasksError) return;
-    // next page right away (the old 200ms pause only added latency)
-    fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, isGroupTasksError, fetchNextPage, loadedTasks.length]);
+  // Lazy pagination: we no longer eagerly fetch every page on mount (that loaded
+  // all ~N tasks up front and blanked the board on large groups). Instead the
+  // next page is fetched only when the virtualizer scrolls near the end of the
+  // loaded rows — see GroupTable's onNearEnd / canFetchMore below.
+  // isGroupTasksError gates it so a failed page doesn't hammer the API forever.
+  const canFetchMore = !!hasNextPage && !isGroupTasksError;
 
   // Report tasks up to Board (drag & drop positions, bulk selection).
   // Every report re-renders the whole board, so while a big group is still
@@ -259,6 +256,8 @@ export function Group({
                 allTasksLoaded={allGroupTasksLoaded}
                 totalTaskCount={rootTaskCount}
                 isDraggingTask={props.isDraggingTask}
+                canFetchMore={canFetchMore}
+                onNearEnd={fetchNextPage}
               />
         )}
 
