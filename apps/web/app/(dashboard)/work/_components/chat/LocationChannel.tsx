@@ -127,6 +127,15 @@ export function LocationList({ src }: { src: LocSrc }) {
 
 const CATEGORY_ORDER = ["not_started", "open", "active", "in_progress", "done", "closed"];
 const catRank = (c?: string) => (CATEGORY_ORDER.indexOf((c ?? "").toLowerCase()) + 1 || 3);
+// Collapse a status category into one of three board buckets, so a card can move
+// into a column even when the target list names its status differently
+// (e.g. "Open" vs "To do") — we match on bucket when the exact name isn't found.
+const catBucket = (c?: string) => {
+  const x = (c ?? "").toLowerCase();
+  if (x === "done" || x === "closed") return "done";
+  if (x === "active" || x === "in_progress") return "active";
+  return "todo"; // not_started, open, anything else
+};
 type St = { id: number; name: string; color: string; category: string };
 
 /** tasks grouped by their status, in the list's own order when it has one, else by category */
@@ -168,7 +177,7 @@ export function LocationBoard({ src, view, canEdit = false }: { src: LocSrc; vie
       try { await workApi.updateView(view.uid, { settings: { ...(view.settings ?? {}), boardGroup: g } }); await qc.invalidateQueries({ queryKey: ["work", "views"] }); } catch { /* stays local */ }
     }
   };
-  type Col = { key: string; name: string; color: string; rank: number; items: LocationTask[] };
+  type Col = { key: string; name: string; color: string; rank: number; cat?: string; items: LocationTask[] };
   const columns = useMemo<Col[]>(() => {
     if (!data) return [];
     const m = new Map<string, Col>();
@@ -196,7 +205,7 @@ export function LocationBoard({ src, view, canEdit = false }: { src: LocSrc; vie
       }
       return [...m.values()].sort((a, b) => a.rank - b.rank);
     }
-    const add = (st: St) => { const k = st.name.toLowerCase(); if (!m.has(k)) m.set(k, { key: k, name: st.name, color: st.color, rank: catRank(st.category) * 100 + m.size, items: [] }); };
+    const add = (st: St) => { const k = st.name.toLowerCase(); if (!m.has(k)) m.set(k, { key: k, name: st.name, color: st.color, rank: catRank(st.category) * 100 + m.size, cat: catBucket(st.category), items: [] }); };
     for (const l of data.lists) l.statuses.forEach(add);
     for (const t of top) if (t.status) add(t.status);
     for (const t of top) m.get((t.status?.name ?? "").toLowerCase())?.items.push(t);
@@ -210,7 +219,13 @@ export function LocationBoard({ src, view, canEdit = false }: { src: LocSrc; vie
     if (!t || !canEdit) return;
     try {
       if (group === "status") {
-        const st = data!.lists.find((l) => l.id === t.listId)?.statuses.find((x) => x.name.toLowerCase() === col.key);
+        const listStatuses = data!.lists.find((l) => l.id === t.listId)?.statuses ?? [];
+        // Prefer an exact name match; otherwise fall back to the same board
+        // bucket (To do / Active / Done) so the card still moves even when this
+        // list names its statuses differently from the column.
+        const st =
+          listStatuses.find((x) => x.name.toLowerCase() === col.key) ??
+          (col.cat ? listStatuses.find((x) => catBucket(x.category) === col.cat) : undefined);
         if (!st) { toast.error(`"${t.list.name}" has no "${col.name}" status.`); return; }
         if (st.id === t.status?.id) return;
         await workApi.updateTask(t.id, { statusId: st.id });
