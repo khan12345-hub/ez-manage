@@ -312,7 +312,7 @@ export function ChannelsView({ companies, tab, onTab, source = "all", scope = nu
               if (!list.length && term) return null;
               return (
                 <div key={g.company.key} className="mb-3">
-                  <p className="mb-1 flex items-center gap-1.5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"><span className="truncate">{g.company.name}</span>{g.company.source === "boards" ? <span className="rounded bg-product-boards/12 px-1 py-px text-[9px] text-product-boards dark:text-[#a5b4fc]">accounts</span> : <span className="rounded bg-product-work/12 px-1 py-px text-[9px] text-product-work">work</span>}</p>
+                  <p className="mb-1 flex items-center gap-1.5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"><span className="truncate">{g.company.name}</span>{g.company.key === "dms" ? null : g.company.source === "boards" ? <span className="rounded bg-product-boards/12 px-1 py-px text-[9px] text-product-boards dark:text-[#a5b4fc]">accounts</span> : <span className="rounded bg-product-work/12 px-1 py-px text-[9px] text-product-work">work</span>}</p>
                   <ul className="space-y-0.5">
                     {list.map((c) => {
                       const on = sel?.uid === c.uid && sel.source === (g.company.source ?? "work");
