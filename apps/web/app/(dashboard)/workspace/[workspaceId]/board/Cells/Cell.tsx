@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { MessageCircleMore, FileInput } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,7 +34,7 @@ interface CellProps {
   isSubTask?: boolean;
 }
 
-export function Cell({
+function CellComponent({
   column,
   task,
   cell,
@@ -299,3 +299,13 @@ export function Cell({
     </td>
   );
 }
+
+/**
+ * Memoized: a board group can render thousands of rows, each with ~10 cells.
+ * The virtualizer re-renders the group on every scroll frame, so without this
+ * every visible Cell (~300) re-ran its whole render body on each frame. Props
+ * (column, task, cell, isDragging) are referentially stable during scroll, so
+ * the default shallow compare lets React skip all of them — scroll only updates
+ * the virtual spacers. Store/query subscriptions still re-render as needed.
+ */
+export const Cell = memo(CellComponent);
