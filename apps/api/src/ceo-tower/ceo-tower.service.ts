@@ -657,37 +657,43 @@ export class CeoTowerService {
     })), ...boardsGroups];
   }
 
-  /** Accounts & Invoices team chats (channels and direct messages) the Administrator is in */
+  /** Accounts & Invoices team chats: per-company channels, plus one GLOBAL "Direct messages" group
+   *  (DMs are the same everywhere, not tied to a workspace). */
   private async execBoardsChannels(userId: number, ws: { id: number; uid: string; name: string; timezone: string | null }[]) {
     if (!ws.length) return [];
-    const rows = await this.prisma.chatChannel.findMany({
-      where: { workspaceId: { in: ws.map((w) => w.id) }, members: { some: { userId } } },
-      orderBy: { updatedAt: 'desc' },
-      take: 300,
-      select: {
-        id: true, name: true, type: true, workspaceId: true, updatedAt: true,
-        members: { select: { userId: true, lastReadAt: true, user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
-        messages: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } },
-      },
-    });
-    // open items made from each chat (done = the board's status says so)
+    const sel = {
+      id: true, name: true, type: true, workspaceId: true, updatedAt: true,
+      members: { select: { userId: true, lastReadAt: true, user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
+      messages: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { createdAt: true } },
+    };
+    const [rows, dmRows] = await Promise.all([
+      // channels live inside a company
+      this.prisma.chatChannel.findMany({ where: { workspaceId: { in: ws.map((w) => w.id) }, type: 'CHANNEL', members: { some: { userId } } }, orderBy: { updatedAt: 'desc' }, take: 300, select: sel }),
+      // direct messages are global (workspaceId null)
+      this.prisma.chatChannel.findMany({ where: { type: 'DIRECT', workspaceId: null, members: { some: { userId } } }, orderBy: { updatedAt: 'desc' }, take: 200, select: sel }),
+    ]);
     const made = await this.prisma.task.findMany({ where: { sourceChatChannelId: { in: rows.map((r) => r.id) } }, select: { id: true, sourceChatChannelId: true } });
     const doneIds = new Set((await this.boardsFacts(ws)).filter((f) => f.done).map((f) => f.id));
     const openBy = new Map<number, number>();
     for (const t of made) if (!doneIds.has(t.id)) openBy.set(t.sourceChatChannelId!, (openBy.get(t.sourceChatChannelId!) ?? 0) + 1);
-    return ws.map((w) => ({
+    const toChannel = (c: (typeof rows)[number], dm: boolean) => {
+      const me = c.members.find((m) => m.userId === userId);
+      const last = c.messages[0]?.createdAt ?? null;
+      return {
+        uid: String(c.id), id: c.id, name: c.name, kind: dm ? 'dm' : 'channel', isPrivate: true, lastMessageAt: last, memberCount: c.members.length,
+        people: dm ? c.members.filter((m) => m.userId !== userId).map((m) => m.user) : [],
+        unread: !!last && (!me?.lastReadAt || last > me.lastReadAt), openTasks: openBy.get(c.id) ?? 0,
+      };
+    };
+    const companyGroups = ws.map((w) => ({
       company: { key: `boards:${w.id}`, uid: w.uid, name: w.name, id: w.id, source: 'boards' as const },
-      channels: rows.filter((c) => c.workspaceId === w.id).map((c) => {
-        const me = c.members.find((m) => m.userId === userId);
-        const last = c.messages[0]?.createdAt ?? null;
-        const dm = c.type === 'DIRECT';
-        return {
-          uid: String(c.id), id: c.id, name: c.name, kind: dm ? 'dm' : 'channel', isPrivate: true, lastMessageAt: last, memberCount: c.members.length,
-          people: dm ? c.members.filter((m) => m.userId !== userId).map((m) => m.user) : [],
-          unread: !!last && (!me?.lastReadAt || last > me.lastReadAt), openTasks: openBy.get(c.id) ?? 0,
-        };
-      }),
+      channels: rows.filter((c) => c.workspaceId === w.id).map((c) => toChannel(c, false)),
     }));
+    // one DM per other person, most recent wins
+    const seen = new Set<number>();
+    const dms = dmRows.filter((c) => { const o = c.members.find((m) => m.userId !== userId); if (!o || seen.has(o.userId)) return false; seen.add(o.userId); return true; }).map((c) => toChannel(c, true));
+    const dmGroup = dms.length ? [{ company: { key: 'dms', uid: 'dms', name: 'Direct messages', id: ws[0]!.id, source: 'boards' as const }, channels: dms }] : [];
+    return [...dmGroup, ...companyGroups];
   }
 
   /** opening an item marks it read in the CEO's own inbox (the only write CEO Tower makes) */

@@ -160,14 +160,6 @@ export default function CeoTowerPage() {
               <button key={s} type="button" aria-pressed={source === s} onClick={() => { setSource(s); setCompany(null); }} className={cn("rounded-xl py-1.5 text-[12px] font-semibold transition", source === s ? "bg-white text-foreground shadow-sm dark:bg-white/15" : "text-muted-foreground hover:text-foreground")}>{s === "all" ? "All" : s === "boards" ? "Accounts" : "Work"}</button>
             ))}
           </div>
-          <label className="mt-2 flex h-10 items-center gap-2 rounded-2xl bg-white/60 px-3 ring-1 ring-black/[0.04] dark:bg-white/5">
-            <Building2 className="h-4 w-4 shrink-0 text-[#b08d57]" />
-            <select aria-label="Focus on one company" value={company?.key ?? ""} onChange={(e) => setCompany(companies.find((c) => c.key === e.target.value) ?? null)} className="min-w-0 flex-1 cursor-pointer truncate bg-transparent text-[13px] font-medium outline-none">
-              <option value="">All companies ({companies.length})</option>
-              {companies.map((c) => <option key={c.key} value={c.key}>{c.name} · {c.source === "work" ? "Work" : "Accounts"}</option>)}
-            </select>
-          </label>
-
           <button type="button" onClick={() => setAttention(true)} disabled={!attentionCount} className={cn("mt-4 flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left text-[13px] font-semibold transition", attentionCount ? "bg-gradient-to-br from-[#fee2e2] to-[#fecaca]/70 text-[#b91c1c] shadow-[0_8px_20px_-12px_rgba(185,28,28,0.6)] hover:brightness-[1.02] dark:from-destructive/20 dark:to-destructive/10 dark:text-[#fca5a5]" : "bg-white/50 text-muted-foreground dark:bg-white/5")}>
             <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl", attentionCount ? "bg-white/70 dark:bg-white/10" : "bg-white/60")}><AlertTriangle className="h-4 w-4" /></span>
             <span className="min-w-0 flex-1"><span className="block">Attention needed</span>{(forYouCount > 0 || (forYou?.approvals ?? 0) > 0) && <span className="block text-[11px] font-medium opacity-80">{forYouCount > 0 && `${forYouCount} for you`}{forYouCount > 0 && (forYou?.approvals ?? 0) > 0 && " · "}{(forYou?.approvals ?? 0) > 0 && `${forYou!.approvals} to approve`}</span>}</span>

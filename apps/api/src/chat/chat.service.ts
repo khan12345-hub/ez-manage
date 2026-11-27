@@ -266,10 +266,11 @@ export class ChatService {
 
   // ── Direct Messages ───────────────────────────────────────────────────────
 
-  async getDMs(userId: number, workspaceId: number) {
+  // Direct messages are GLOBAL in Accounts & Invoices: one thread per person, the same in every
+  // workspace/board (workspaceId stays null). The workspaceId arg is ignored, kept for call-site compat.
+  async getDMs(userId: number, _workspaceId?: number) {
     const dms = await this.prisma.chatChannel.findMany({
       where: {
-        workspaceId,
         type: ChatChannelType.DIRECT,
         members: { some: { userId } },
       },
@@ -299,7 +300,8 @@ export class ChatService {
     });
   }
 
-  async getOrCreateDM(userAId: number, userBId: number, workspaceId?: number) {
+  // A DM is GLOBAL (not tied to a workspace): one thread per pair of people, reused everywhere.
+  async getOrCreateDM(userAId: number, userBId: number, _workspaceId?: number) {
     const dmInclude = {
       members: {
         include: {
@@ -308,10 +310,9 @@ export class ChatService {
       },
     };
 
-    // Find existing DM scoped to this workspace
+    // Reuse the existing DM between these two people, whatever workspace it was first made in.
     const existing = await this.prisma.chatChannel.findFirst({
       where: {
-        ...(workspaceId ? { workspaceId } : {}),
         type: ChatChannelType.DIRECT,
         members: { some: { userId: userAId } },
         AND: [{ members: { some: { userId: userBId } } }],
@@ -322,12 +323,9 @@ export class ChatService {
 
     if (existing) return existing;
 
-    // workspaceId is passed as a fallback when DB still has NOT NULL constraint
-    // (before `prisma db push` makes it nullable). Remove once migration runs.
     return this.prisma.chatChannel.create({
       data: {
-        ...(workspaceId ? { workspaceId } : {}),
-        type: ChatChannelType.DIRECT,
+        type: ChatChannelType.DIRECT, // workspaceId stays null → global
         createdById: userAId,
         members: {
           create: [{ userId: userAId }, { userId: userBId }],
