@@ -450,6 +450,10 @@ export class CeoTowerService {
     ]);
     const inWork = new Set(myWork.map((m) => m.workspaceId));
     const inBoards = new Set(myBoards.map((m) => m.workspaceId));
+    // A global Administrator oversees every company, so they can message anyone
+    // even in a company they aren't personally a member of — don't require a
+    // shared membership for them (otherwise AI reminders/DMs fail to send).
+    const isSuper = await this.isAdmin(userId);
     return {
       user,
       title: work.find((m) => m.title)?.title ?? null,
@@ -458,9 +462,9 @@ export class CeoTowerService {
         ...work.map((m) => ({ key: `work:${m.workspaceId}`, source: 'work' as const, name: wName.get(m.workspaceId)!.name, uid: wName.get(m.workspaceId)!.uid, role: m.role })),
       ],
       // Work companies where a DM / assignment can reach them
-      reach: work.filter((m) => inWork.has(m.workspaceId)).map((m) => ({ key: `work:${m.workspaceId}`, uid: wName.get(m.workspaceId)!.uid, name: wName.get(m.workspaceId)!.name })),
+      reach: work.filter((m) => isSuper || inWork.has(m.workspaceId)).map((m) => ({ key: `work:${m.workspaceId}`, uid: wName.get(m.workspaceId)!.uid, name: wName.get(m.workspaceId)!.name })),
       // Boards companies where a Boards chat DM can reach them (people who are only in Boards)
-      boardsReach: boards.filter((m) => inBoards.has(m.workspaceId)).map((m) => ({ key: `boards:${m.workspaceId}`, id: m.workspaceId, uid: bName.get(m.workspaceId)!.uid, name: bName.get(m.workspaceId)!.name })),
+      boardsReach: boards.filter((m) => isSuper || inBoards.has(m.workspaceId)).map((m) => ({ key: `boards:${m.workspaceId}`, id: m.workspaceId, uid: bName.get(m.workspaceId)!.uid, name: bName.get(m.workspaceId)!.name })),
       isMe: personId === userId,
     };
   }
