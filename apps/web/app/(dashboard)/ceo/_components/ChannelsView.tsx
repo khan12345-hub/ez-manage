@@ -309,7 +309,9 @@ export function ChannelsView({ companies, tab, onTab, source = "all", scope = nu
             {isLoading && [0, 1, 2].map((i) => <div key={i} className="mb-1.5 h-9 animate-pulse rounded-xl bg-muted" />)}
             {groups.map((g) => {
               const list = g.channels.filter((c) => !term || title({ ...c, company: g.company }).toLowerCase().includes(term));
-              if (!list.length && term) return null;
+              // Hide companies that have no channels at all (and ones filtered
+              // empty by search) — don't clutter the sidebar with "No chats yet".
+              if (!list.length) return null;
               return (
                 <div key={g.company.key} className="mb-3">
                   <p className="mb-1 flex items-center gap-1.5 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"><span className="truncate">{g.company.name}</span>{g.company.key === "dms" ? null : g.company.source === "boards" ? <span className="rounded bg-product-boards/12 px-1 py-px text-[9px] text-product-boards dark:text-[#a5b4fc]">accounts</span> : <span className="rounded bg-product-work/12 px-1 py-px text-[9px] text-product-work">work</span>}</p>
@@ -328,12 +330,11 @@ export function ChannelsView({ companies, tab, onTab, source = "all", scope = nu
                         </li>
                       );
                     })}
-                    {!list.length && <li className="px-2.5 py-1 text-[12px] text-muted-foreground">No chats yet.</li>}
                   </ul>
                 </div>
               );
             })}
-            {!isLoading && !groups.length && <p className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">You don&apos;t own a company workspace yet.</p>}
+            {!isLoading && !groups.some((g) => g.channels.length) && <p className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">No chats yet — hit <span className="font-semibold text-foreground">New</span> to start a channel or direct message.</p>}
           </div>
         </section>
       </aside>
