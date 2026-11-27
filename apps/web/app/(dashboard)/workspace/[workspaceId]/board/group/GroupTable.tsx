@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   SortableContext,
   horizontalListSortingStrategy,
@@ -76,8 +76,21 @@ export function GroupTable({
     },
   });
 
-  const rootTasks = (group.tasks ?? []).filter(
-    (task: any) => !task.parentId,
+  // Memoized so scroll-driven re-renders (the virtualizer updates state on
+  // every scroll frame) don't re-filter all N tasks each time.
+  const rootTasks = useMemo(
+    () => (group.tasks ?? []).filter((task: any) => !task.parentId),
+    [group.tasks],
+  );
+
+  // dnd-kit's SortableContext re-renders every useSortable consumer whenever the
+  // `items` array identity changes. Building `rootTasks.map(...)` inline rebuilt
+  // a fresh 5746-element array on EVERY render (incl. every scroll frame), which
+  // was the main scroll-jank cause. Memoize so identity is stable until the
+  // actual task id list changes.
+  const sortableTaskIds = useMemo(
+    () => rootTasks.map((task: any) => `task-${task.id}`),
+    [rootTasks],
   );
 
   const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
@@ -232,9 +245,7 @@ export function GroupTable({
 
         {/* SortableContext always receives ALL task ids so DND logic is unaffected */}
         <SortableContext
-          items={rootTasks.map(
-            (task: any) => `task-${task.id}`,
-          )}
+          items={sortableTaskIds}
           strategy={verticalListSortingStrategy}
         >
           <tbody ref={setCombinedRef}>
@@ -299,7 +310,7 @@ export function GroupTable({
         </SortableContext>
 
         <GroupFooterRow
-          tasks={(group.tasks ?? []).filter((t: any) => !t.parentId)}
+          tasks={rootTasks}
           columns={columns}
           color={group.color}
           allTasksLoaded={allTasksLoaded}
